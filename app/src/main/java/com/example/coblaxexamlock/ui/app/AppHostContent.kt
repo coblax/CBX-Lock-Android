@@ -144,6 +144,7 @@ import androidx.compose.runtime.saveable.Saver
 import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.runtime.setValue
 import androidx.compose.runtime.staticCompositionLocalOf
+import androidx.compose.runtime.withFrameNanos
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
@@ -192,9 +193,12 @@ import com.example.coblaxexamlock.ExamScheduleValidationResult
 import com.example.coblaxexamlock.ExamScheduleValidator
 import com.example.coblaxexamlock.BuildConfig
 import com.example.coblaxexamlock.LocalLowRamProfile
+import com.example.coblaxexamlock.LowRamProfile
 import com.example.coblaxexamlock.LocationPolicySource
+import com.example.coblaxexamlock.MemoryPressureCoordinator
 import com.example.coblaxexamlock.QrPortraitCaptureActivity
 import com.example.coblaxexamlock.SecureStrings
+import com.example.coblaxexamlock.StartupTrace
 import com.example.coblaxexamlock.TrustedNetworkTimeCoordinator
 import com.example.coblaxexamlock.captureDeviceTimeBaseline
 import com.example.coblaxexamlock.inspectDeviceTimeSecurity
@@ -223,6 +227,7 @@ import com.example.coblaxexamlock.runtime.decodeQrPayloadFromImageUri
 import com.example.coblaxexamlock.save.ExamQrPayloadSaver
 import com.example.coblaxexamlock.ui.admin.AdminPasswordDialog
 import com.example.coblaxexamlock.ui.admin.CustomQrAdminScreen
+import com.example.coblaxexamlock.ui.admin.ExamLockLowRamHomeScreen
 import com.example.coblaxexamlock.ui.admin.ExamLockHomeScreen
 import com.example.coblaxexamlock.ui.admin.InfoDialog
 import com.example.coblaxexamlock.ui.admin.ScanSourceDialog
@@ -308,6 +313,13 @@ private enum class AppRecoveryRoute {
     ExamFlowRuntime,
     CustomQrAdmin,
     SecretAdmin
+}
+
+internal enum class PendingHomeAction {
+    RuntimeHome,
+    ScanExam,
+    CustomQrAdmin,
+    DirectLink
 }
 
 private fun parseAppRecoveryRoute(rawValue: String?): AppRecoveryRoute =
@@ -397,22 +409,39 @@ private fun deviceTimeEventDetails(status: DeviceTimeSecurityStatus, trigger: St
 }
 
 @Composable
-internal fun AppContent() {
+internal fun AppHostRuntimeContent(
+    initialUiLanguageOverride: UiLanguage? = null,
+    initialHomeAdminSettings: HomeAdminSettings? = null,
+    initialLowRamProfile: LowRamProfile? = null,
+    initialHomeAction: PendingHomeAction? = null,
+    onInitialHomeActionConsumed: () -> Unit = {}
+) {
+    remember {
+        StartupTrace.mark("app_runtime_content_start")
+        true
+    }
     val context = LocalContext.current
     val activity = context as ComponentActivity
     val coroutineScope = rememberCoroutineScope()
-    val lowRamProfile = remember(context) { resolveLowRamProfile(context) }
+    val lowRamProfile = remember(context, initialLowRamProfile) {
+        initialLowRamProfile ?: resolveLowRamProfile(context)
+    }
     val adminFlowViewModel = remember(activity) {
         ViewModelProvider(activity)[AdminFlowViewModel::class.java]
     }
     val adminFlowUiState by adminFlowViewModel.uiState.collectAsState()
-    val initialUiLanguage = remember { context.readSavedUiLanguage() }
+    val initialUiLanguage = remember(initialUiLanguageOverride) {
+        initialUiLanguageOverride ?: context.readSavedUiLanguage()
+    }
     var persistedUiLanguage by remember { mutableStateOf(initialUiLanguage) }
     var uiLanguage by rememberSaveable { mutableStateOf(initialUiLanguage) }
-    var homeAdminSettings by remember { mutableStateOf(context.readHomeAdminSettings()) }
+    var homeAdminSettings by remember(initialHomeAdminSettings) {
+        mutableStateOf(initialHomeAdminSettings ?: HomeAdminSettings())
+    }
     var adminSettings by remember {
         mutableStateOf(if (lowRamProfile.deferHeavyUi) null else context.readAdminSettings())
     }
+    var showDeferredHomeChrome by rememberSaveable { mutableStateOf(!lowRamProfile.severe) }
     val adminSettingsSaveRequests = remember { Channel<AdminSettings>(capacity = Channel.CONFLATED) }
     var activeExamPayload by rememberSaveable(stateSaver = ExamQrPayloadSaver) {
         mutableStateOf(null as ExamQrPayload?)
@@ -428,8 +457,10 @@ internal fun AppContent() {
     var savedViewModelInstanceId by rememberSaveable { mutableStateOf(adminFlowViewModel.instanceId) }
     var secretTapCount by rememberSaveable { mutableIntStateOf(0) }
     var lastSecretTapAt by rememberSaveable { mutableLongStateOf(0L) }
+    var homeDeferredChromeMarked by remember { mutableStateOf(false) }
     val deviceTimeBaseline = remember { captureDeviceTimeBaseline() }
     val savedRouteSnapshot = parseAppRecoveryRoute(savedRouteSnapshotRaw)
+    val latestCurrentScreen by rememberUpdatedState(adminFlowUiState.currentScreen)
     val processDeathRecoveryPending = detectProcessDeathRecovery(
         shellStateRestored = savedShellInstanceId != shellInstanceId,
         currentViewModelInstanceId = adminFlowViewModel.instanceId,
@@ -442,18 +473,34 @@ internal fun AppContent() {
     val directLinkLabel = homeAdminSettings.fastExamLabel.trim().ifBlank { FastExamName }
     val directLinkUrl = homeAdminSettings.fastExamUrl.trim().ifBlank { SecureStrings.fastExamUrl }
 
-    fun currentAdminSettings(): AdminSettings {
-        return adminSettings ?: context.readAdminSettings().also { loaded ->
-            adminSettings = loaded
-            homeAdminSettings = HomeAdminSettings(
-                fastExamUrl = loaded.fastExamUrl,
-                fastExamLabel = loaded.fastExamLabel
-            )
+    fun cacheAdminSettings(loaded: AdminSettings): AdminSettings {
+        adminSettings = loaded
+        homeAdminSettings = HomeAdminSettings(
+            fastExamUrl = loaded.fastExamUrl,
+            fastExamLabel = loaded.fastExamLabel
+        )
+        return loaded
+    }
+
+    suspend fun loadCurrentAdminSettings(): AdminSettings {
+        adminSettings?.let { cached -> return cached }
+        val startedAt = SystemClock.elapsedRealtime()
+        StartupTrace.mark("admin_settings_load_start", "thread=io")
+        val loaded = withContext(Dispatchers.IO) {
+            context.readAdminSettings()
         }
+        StartupTrace.mark(
+            "admin_settings_loaded",
+            "duration_ms=${SystemClock.elapsedRealtime() - startedAt}"
+        )
+        return cacheAdminSettings(loaded)
     }
 
     fun activeAdminSettingsSnapshot(): AdminSettings {
-        return adminSettings ?: context.readAdminSettings()
+        return adminSettings ?: run {
+            StartupTrace.mark("admin_settings_sync_fallback", "screen=${adminFlowUiState.currentScreen.name}")
+            cacheAdminSettings(context.readAdminSettings())
+        }
     }
 
     fun updateAdminSettings(updated: AdminSettings) {
@@ -466,6 +513,54 @@ internal fun AppContent() {
         val sendResult = adminSettingsSaveRequests.trySend(normalized)
         if (BuildConfig.DEBUG && sendResult.isFailure) {
             Log.d(AdminSettingsPerfTag, "Admin settings save request was dropped before enqueue.")
+        }
+    }
+
+    LaunchedEffect(context) {
+        withFrameNanos { }
+        homeAdminSettings = withContext(Dispatchers.IO) {
+            context.readHomeAdminSettings()
+        }
+        StartupTrace.mark(
+            "home_settings_loaded",
+            "direct_link_label=${homeAdminSettings.fastExamLabel.trim().ifBlank { FastExamName }}"
+        )
+    }
+
+    LaunchedEffect(lowRamProfile.severe, adminFlowUiState.currentScreen, showDeferredHomeChrome) {
+        if (!lowRamProfile.severe) {
+            showDeferredHomeChrome = true
+            if (adminFlowUiState.currentScreen == AppScreen.Home && !homeDeferredChromeMarked) {
+                homeDeferredChromeMarked = true
+                StartupTrace.mark("home_deferred_chrome_shown", "mode=normal")
+            }
+            return@LaunchedEffect
+        }
+        if (adminFlowUiState.currentScreen == AppScreen.Home && !showDeferredHomeChrome) {
+            withFrameNanos { }
+            delay(750)
+            showDeferredHomeChrome = true
+            if (!homeDeferredChromeMarked) {
+                homeDeferredChromeMarked = true
+                StartupTrace.mark("home_deferred_chrome_shown", "mode=severe")
+            }
+        }
+    }
+
+    DisposableEffect(lowRamProfile) {
+        val listener: (Int) -> Unit = { level ->
+            if (
+                lowRamProfile.enabled &&
+                latestCurrentScreen == AppScreen.Home &&
+                MemoryPressureCoordinator.shouldReleaseUiBitmaps(level)
+            ) {
+                showDeferredHomeChrome = false
+                Log.i("HomeMemory", "trim=$level action=hide_deferred_home_chrome")
+            }
+        }
+        MemoryPressureCoordinator.addListener(listener)
+        onDispose {
+            MemoryPressureCoordinator.removeListener(listener)
         }
     }
 
@@ -546,12 +641,17 @@ internal fun AppContent() {
                 AppRecoveryRoute.ExamFlowPreparation,
                 AppRecoveryRoute.ExamFlowRuntime -> {
                     val payload = activeExamPayload
-                    val recoveryDeviceTimeStatus = payload?.let {
+                    val recoveryAdminSettings = payload?.let {
+                        loadCurrentAdminSettings()
+                    }
+                    val recoveryDeviceTimeStatus = if (payload != null && recoveryAdminSettings != null) {
                         inspectDeviceTimeSecurity(
                             context = context,
                             baseline = deviceTimeBaseline,
-                            bypassState = currentDeviceTimeBypassState(currentAdminSettings())
+                            bypassState = currentDeviceTimeBypassState(recoveryAdminSettings)
                         )
+                    } else {
+                        null
                     }
                     val validationResult = if (payload != null && recoveryDeviceTimeStatus != null) {
                         val recoveryNetworkNowMillis = TrustedNetworkTimeCoordinator.currentNetworkNowMillis(context)
@@ -635,9 +735,25 @@ internal fun AppContent() {
 
     fun handleExamQrRawPayload(rawPayload: String) {
         coroutineScope.launch {
-            runCatching { ExamQrCodec.decrypt(rawPayload) }
-            .onSuccess { payload ->
-                val activeSettings = currentAdminSettings()
+            val payload = runCatching {
+                withContext(Dispatchers.Default) {
+                    ExamQrCodec.decrypt(rawPayload)
+                }
+            }.getOrElse {
+                adminFlowViewModel.dispatch(
+                    AdminFlowUiAction.SetScanErrorMessage(
+                        it.message ?: localized(
+                            uiLanguage,
+                            "The QR code could not be read.",
+                            "QR tidak dapat dibaca."
+                        )
+                    )
+                )
+                return@launch
+            }
+
+            try {
+                val activeSettings = loadCurrentAdminSettings()
                 val deviceTimeStatus = inspectDeviceTimeSecurity(
                     context = context,
                     baseline = deviceTimeBaseline,
@@ -653,7 +769,7 @@ internal fun AppContent() {
                             deviceTimeQrBlockMessage(deviceTimeStatus, uiLanguage)
                         )
                     )
-                    return@onSuccess
+                    return@launch
                 }
                 val networkNowMillis = TrustedNetworkTimeCoordinator.currentNetworkNowMillis(context)
                 when (
@@ -739,11 +855,10 @@ internal fun AppContent() {
                         )
                     }
                 }
-            }
-            .onFailure {
+            } catch (throwable: Throwable) {
                 adminFlowViewModel.dispatch(
                     AdminFlowUiAction.SetScanErrorMessage(
-                        it.message ?: localized(
+                        throwable.message ?: localized(
                             uiLanguage,
                             "The QR code could not be read.",
                             "QR tidak dapat dibaca."
@@ -754,68 +869,91 @@ internal fun AppContent() {
         }
     }
 
-    val scanLauncher = rememberLauncherForActivityResult(contract = ScanContract()) { result: ScanIntentResult ->
-        val rawPayload = result.contents ?: return@rememberLauncherForActivityResult
-        handleExamQrRawPayload(rawPayload)
-    }
-
-    val launchCameraScan = {
-        scanLauncher.launch(
-            ScanOptions().apply {
-                setDesiredBarcodeFormats(ScanOptions.QR_CODE)
-                setPrompt(localized(uiLanguage, "Scan the encrypted exam QR", "Arahkan kamera ke QR ujian terenkripsi"))
-                setBeepEnabled(false)
-                setCaptureActivity(QrPortraitCaptureActivity::class.java)
-                setOrientationLocked(true)
-            }
-        )
-    }
-
-    val fileScanLauncher = rememberLauncherForActivityResult(
-        contract = ActivityResultContracts.GetContent()
-    ) { uri: Uri? ->
-        if (uri == null) return@rememberLauncherForActivityResult
-        val imageOpenFailedMessage = localized(
-            uiLanguage,
-            "The selected image could not be opened.",
-            "Gambar yang dipilih tidak dapat dibuka."
-        )
-        val imageDecodeFailedMessage = localized(
-            uiLanguage,
-            "The selected image could not be processed.",
-            "Gambar yang dipilih tidak dapat diproses."
-        )
-        val imageNoQrMessage = localized(
-            uiLanguage,
-            "No valid QR code was found in the selected image.",
-            "QR yang valid tidak ditemukan di gambar yang dipilih."
-        )
+    fun launchDirectLink() {
         coroutineScope.launch {
-            val rawPayload = runCatching {
-                decodeQrPayloadFromImageUri(
-                    context = context,
-                    uri = uri,
-                    lowRamProfile = lowRamProfile
+            try {
+                val activeSettings = loadCurrentAdminSettings()
+                val activeDirectLinkLabel = activeSettings.fastExamLabel.trim().ifBlank { FastExamName }
+                val normalizedDirectLinkUrl = activeSettings.fastExamUrl.trim().ifBlank {
+                    SecureStrings.fastExamUrl
+                }
+                val parsedDirectLinkUri = normalizedDirectLinkUrl.toUri()
+                val directLinkScheme = parsedDirectLinkUri.scheme.orEmpty().lowercase(Locale.US)
+                val directLinkHost = parsedDirectLinkUri.host.orEmpty()
+                if (directLinkScheme !in setOf("http", "https") || directLinkHost.isBlank()) {
+                    error(
+                        localized(
+                            uiLanguage,
+                            "Direct Link URL is invalid. Update it from Secret Admin.",
+                            "URL Direct Link tidak valid. Perbarui dari Secret Admin."
+                        )
+                    )
+                }
+                val nowMillis = System.currentTimeMillis()
+                val scheduleWindow = ExamScheduleDefaults.defaultDirectLinkWindow(nowMillis = nowMillis)
+                val directLinkLocationPolicy = runCatching {
+                    activeSettings.directLinkLocationPolicy()
+                }.getOrNull()
+                val directLinkLocationPolicySource = when {
+                    directLinkLocationPolicy != null && activeSettings.directLinkLocationPolicySaved ->
+                        LocationPolicySource.DirectLinkSaved
+                    else -> LocationPolicySource.DisabledNoPolicy
+                }
+                val directLinkPayload = ExamQrPayload(
+                    examUrl = normalizedDirectLinkUrl,
+                    examName = activeDirectLinkLabel,
+                    startDateTime = scheduleWindow.startDateTime,
+                    endDateTime = scheduleWindow.endDateTime,
+                    issuedAt = nowMillis,
+                    locationPolicy = directLinkLocationPolicy,
+                    locationPolicySource = directLinkLocationPolicySource
                 )
-            }.getOrElse { throwable ->
+                activeExamPayload = directLinkPayload
+                savedRouteSnapshotRaw = AppRecoveryRoute.ExamFlowPreparation.name
+                adminFlowViewModel.dispatch(AdminFlowUiAction.SetCurrentScreen(AppScreen.ExamWebView))
+            } catch (throwable: Throwable) {
+                activeExamPayload = null
+                savedRouteSnapshotRaw = AppRecoveryRoute.Home.name
                 adminFlowViewModel.dispatch(
                     AdminFlowUiAction.SetScanErrorMessage(
-                        when (throwable.message) {
-                            QrImageReadErrorOpen -> imageOpenFailedMessage
-                            QrImageReadErrorDecode -> imageDecodeFailedMessage
-                            else -> imageDecodeFailedMessage
-                        }
+                        throwable.message ?: localized(
+                            uiLanguage,
+                            "Direct Link could not be opened.",
+                            "Direct Link tidak dapat dibuka."
+                        )
                     )
                 )
-                return@launch
+            }
+        }
+    }
+
+    LaunchedEffect(initialHomeAction) {
+        when (initialHomeAction) {
+            PendingHomeAction.RuntimeHome -> {
+                StartupTrace.mark("pending_home_action_consumed", "action=${PendingHomeAction.RuntimeHome.name}")
+                onInitialHomeActionConsumed()
             }
 
-            if (rawPayload.isNullOrBlank()) {
-                adminFlowViewModel.dispatch(AdminFlowUiAction.SetScanErrorMessage(imageNoQrMessage))
-                return@launch
+            PendingHomeAction.ScanExam -> {
+                StartupTrace.mark("pending_home_action_consumed", "action=${PendingHomeAction.ScanExam.name}")
+                adminFlowViewModel.dispatch(AdminFlowUiAction.ShowScanSourceDialog)
+                onInitialHomeActionConsumed()
             }
 
-            handleExamQrRawPayload(rawPayload)
+            PendingHomeAction.CustomQrAdmin -> {
+                StartupTrace.mark("pending_home_action_consumed", "action=${PendingHomeAction.CustomQrAdmin.name}")
+                loadCurrentAdminSettings()
+                adminFlowViewModel.dispatch(AdminFlowUiAction.OpenCustomQrAdmin)
+                onInitialHomeActionConsumed()
+            }
+
+            PendingHomeAction.DirectLink -> {
+                StartupTrace.mark("pending_home_action_consumed", "action=${PendingHomeAction.DirectLink.name}")
+                launchDirectLink()
+                onInitialHomeActionConsumed()
+            }
+
+            null -> Unit
         }
     }
 
@@ -849,169 +987,75 @@ internal fun AppContent() {
             adminFlowViewModel.dispatch(AdminFlowUiAction.CloseSecretAdmin)
         }
 
-        when (adminFlowUiState.currentScreen) {
-            AppScreen.Home -> ExamLockHomeScreen(
-                uiLanguage = uiLanguage,
-                onUiLanguageChange = { uiLanguage = it },
-                onScanExam = { adminFlowViewModel.dispatch(AdminFlowUiAction.ShowScanSourceDialog) },
-                onOpenAdmin = {
-                    currentAdminSettings()
-                    adminFlowViewModel.dispatch(AdminFlowUiAction.OpenCustomQrAdmin)
-                },
-                onOpenFastExam = {
-                    runCatching {
-                        val activeSettings = currentAdminSettings()
-                        val normalizedDirectLinkUrl = directLinkUrl.trim()
-                        val parsedDirectLinkUri = normalizedDirectLinkUrl.toUri()
-                        val directLinkScheme = parsedDirectLinkUri.scheme.orEmpty().lowercase(Locale.US)
-                        val directLinkHost = parsedDirectLinkUri.host.orEmpty()
-                        if (directLinkScheme !in setOf("http", "https") || directLinkHost.isBlank()) {
-                            error(
-                                localized(
-                                    uiLanguage,
-                                    "Direct Link URL is invalid. Update it from Secret Admin.",
-                                    "URL Direct Link tidak valid. Perbarui dari Secret Admin."
-                                )
-                            )
+        if (adminFlowUiState.currentScreen == AppScreen.Home) {
+            remember {
+                StartupTrace.mark("home_compose_start")
+                true
+            }
+            if (lowRamProfile.severe) {
+                ExamLockLowRamHomeScreen(
+                    uiLanguage = uiLanguage,
+                    onUiLanguageChange = { uiLanguage = it },
+                    onScanExam = { adminFlowViewModel.dispatch(AdminFlowUiAction.ShowScanSourceDialog) },
+                    onOpenAdmin = {
+                        coroutineScope.launch {
+                            loadCurrentAdminSettings()
+                            adminFlowViewModel.dispatch(AdminFlowUiAction.OpenCustomQrAdmin)
                         }
-                        val nowMillis = System.currentTimeMillis()
-                        val scheduleWindow = ExamScheduleDefaults.defaultDirectLinkWindow(nowMillis = nowMillis)
-                        val directLinkLocationPolicy = runCatching {
-                            activeSettings.directLinkLocationPolicy()
-                        }.getOrNull()
-                        val directLinkLocationPolicySource = when {
-                            directLinkLocationPolicy != null && activeSettings.directLinkLocationPolicySaved ->
-                                LocationPolicySource.DirectLinkSaved
-                            else -> LocationPolicySource.DisabledNoPolicy
+                    },
+                    onOpenFastExam = ::launchDirectLink,
+                    directLinkLabel = directLinkLabel,
+                    onSecretTap = ::registerSecretTap,
+                    showDeferredChrome = showDeferredHomeChrome
+                )
+            } else {
+                ExamLockHomeScreen(
+                    uiLanguage = uiLanguage,
+                    onUiLanguageChange = { uiLanguage = it },
+                    onScanExam = { adminFlowViewModel.dispatch(AdminFlowUiAction.ShowScanSourceDialog) },
+                    onOpenAdmin = {
+                        coroutineScope.launch {
+                            loadCurrentAdminSettings()
+                            adminFlowViewModel.dispatch(AdminFlowUiAction.OpenCustomQrAdmin)
                         }
-                        val directLinkPayload = ExamQrPayload(
-                            examUrl = normalizedDirectLinkUrl,
-                            examName = directLinkLabel,
-                            startDateTime = scheduleWindow.startDateTime,
-                            endDateTime = scheduleWindow.endDateTime,
-                            issuedAt = nowMillis,
-                            locationPolicy = directLinkLocationPolicy,
-                            locationPolicySource = directLinkLocationPolicySource
-                        )
-                        activeExamPayload = directLinkPayload
-                        savedRouteSnapshotRaw = AppRecoveryRoute.ExamFlowPreparation.name
-                        adminFlowViewModel.dispatch(AdminFlowUiAction.SetCurrentScreen(AppScreen.ExamWebView))
-                    }.onFailure { throwable ->
-                        activeExamPayload = null
-                        savedRouteSnapshotRaw = AppRecoveryRoute.Home.name
-                        adminFlowViewModel.dispatch(
-                            AdminFlowUiAction.SetScanErrorMessage(
-                                throwable.message ?: localized(
-                                    uiLanguage,
-                                    "Direct Link could not be opened.",
-                                    "Direct Link tidak dapat dibuka."
-                                )
-                            )
-                        )
-                    }
-                },
-                directLinkLabel = directLinkLabel,
-                onSecretTap = ::registerSecretTap
-            )
-
-            AppScreen.CustomQrAdmin -> {
-                val activeSettings = activeAdminSettingsSnapshot()
-                CustomQrAdminScreen(
-                    showSaveToDirectLinkOption = activeSettings.customQrSaveToDirectLinkEnabled,
-                    onBack = { adminFlowViewModel.dispatch(AdminFlowUiAction.CloseCustomQrAdmin) },
-                    selectedTabName = adminFlowUiState.selectedCustomQrTab,
-                    onSelectedTabNameChange = {
-                        adminFlowViewModel.dispatch(AdminFlowUiAction.SelectCustomQrTab(it))
                     },
-                    draft = adminFlowUiState.customQrDraft,
-                    onDraftChange = {
-                        adminFlowViewModel.dispatch(AdminFlowUiAction.SetCustomQrDraft(it))
-                    },
-                    showCircleMapEditor = adminFlowUiState.showCircleMapEditor,
-                    onShowCircleMapEditorChange = {
-                        adminFlowViewModel.dispatch(AdminFlowUiAction.SetShowCircleMapEditor(it))
-                    },
-                    showPolygonMapEditor = adminFlowUiState.showPolygonMapEditor,
-                    onShowPolygonMapEditorChange = {
-                        adminFlowViewModel.dispatch(AdminFlowUiAction.SetShowPolygonMapEditor(it))
-                    },
-                    generatedQrPayload = adminFlowUiState.generatedQrPayload,
-                    onGeneratedQrPayloadChange = {
-                        adminFlowViewModel.dispatch(AdminFlowUiAction.SetGeneratedQrPayload(it))
-                    },
-                    generationStatus = adminFlowUiState.generationStatus,
-                    onGenerationStatusChange = {
-                        adminFlowViewModel.dispatch(AdminFlowUiAction.SetGenerationStatus(it))
-                    },
-                    generationIsError = adminFlowUiState.generationIsError,
-                    onGenerationIsErrorChange = {
-                        adminFlowViewModel.dispatch(AdminFlowUiAction.SetGenerationIsError(it))
-                    }
+                    onOpenFastExam = ::launchDirectLink,
+                    directLinkLabel = directLinkLabel,
+                    onSecretTap = ::registerSecretTap,
+                    showDeferredChrome = showDeferredHomeChrome
                 )
             }
-
-            AppScreen.SecretAdmin -> {
-                val activeSettings = activeAdminSettingsSnapshot()
-                SecretAdminScreen(
-                    settings = activeSettings,
-                    examName = activeExamPayload?.examName?.trim().orEmpty().ifBlank {
-                        activeSettings.fastExamLabel
-                    },
-                    onSettingsChange = { updateAdminSettings(it) },
-                    onResetDirectLink = {
-                        updateAdminSettings(
-                            activeSettings.copy(
-                                fastExamUrl = SecureStrings.fastExamUrl,
-                                fastExamLabel = FastExamName
-                            ).withoutDirectLinkLocationPolicy()
-                        )
-                    },
-                    onBack = {
-                        AdminAuthSession.clear()
-                        adminFlowViewModel.dispatch(AdminFlowUiAction.CloseSecretAdmin)
-                    },
-                    selectedTabName = adminFlowUiState.selectedSecretTab,
-                    onSelectedTabNameChange = {
-                        adminFlowViewModel.dispatch(AdminFlowUiAction.SelectSecretTab(it))
-                    },
-                    deviceTimeBaselineWallClockMillis = deviceTimeBaseline.wallClockMillis,
-                    deviceTimeBaselineElapsedRealtimeMillis = deviceTimeBaseline.elapsedRealtimeMillis
-                )
-            }
-
-            AppScreen.ExamWebView -> {
-                val payload = activeExamPayload
-                if (payload != null) {
-                    val activeSettings = activeAdminSettingsSnapshot()
-                    ExamWebViewScreen(
-                        payload = payload,
-                        adminSettings = activeSettings,
-                        pendingDirectLinkSaveLog = pendingDirectLinkSaveLog,
-                        pendingRecoveryEventDetails = pendingRecoveryEventDetails,
-                        onDirectLinkSaveLogConsumed = { pendingDirectLinkSaveLog = null },
-                        onRecoveryEventConsumed = { pendingRecoveryEventDetails = null },
-                        examSessionRecoveryNonce = examSessionRecoveryNonce,
-                        deviceTimeBaselineWallClockMillis = deviceTimeBaseline.wallClockMillis,
-                        deviceTimeBaselineElapsedRealtimeMillis = deviceTimeBaseline.elapsedRealtimeMillis,
-                        onExamSessionStartedStateChange = { started ->
-                            savedRouteSnapshotRaw = if (started) {
-                                AppRecoveryRoute.ExamFlowRuntime.name
-                            } else {
-                                AppRecoveryRoute.ExamFlowPreparation.name
-                            }
-                        },
-                        onExit = {
-                            activeExamPayload = null
-                            adminFlowViewModel.dispatch(AdminFlowUiAction.SetCurrentScreen(AppScreen.Home))
-                        }
-                    )
-                } else {
-                    LaunchedEffect(Unit) {
+        } else {
+            AppNonHomeRouteHost(
+                screen = adminFlowUiState.currentScreen,
+                uiState = adminFlowUiState,
+                activeExamPayload = activeExamPayload,
+                adminSettingsSnapshot = ::activeAdminSettingsSnapshot,
+                updateAdminSettings = ::updateAdminSettings,
+                dispatch = adminFlowViewModel::dispatch,
+                pendingDirectLinkSaveLog = pendingDirectLinkSaveLog,
+                pendingRecoveryEventDetails = pendingRecoveryEventDetails,
+                onDirectLinkSaveLogConsumed = { pendingDirectLinkSaveLog = null },
+                onRecoveryEventConsumed = { pendingRecoveryEventDetails = null },
+                examSessionRecoveryNonce = examSessionRecoveryNonce,
+                deviceTimeBaselineWallClockMillis = deviceTimeBaseline.wallClockMillis,
+                deviceTimeBaselineElapsedRealtimeMillis = deviceTimeBaseline.elapsedRealtimeMillis,
+                onExamSessionStartedStateChange = { started ->
+                    savedRouteSnapshotRaw = if (started) {
+                        AppRecoveryRoute.ExamFlowRuntime.name
+                    } else {
+                        AppRecoveryRoute.ExamFlowPreparation.name
+                    }
+                },
+                onExamExit = {
+                    activeExamPayload = null
+                    adminFlowViewModel.dispatch(AdminFlowUiAction.SetCurrentScreen(AppScreen.Home))
+                },
+                onMissingExamPayload = {
                         savedRouteSnapshotRaw = AppRecoveryRoute.Home.name
                         adminFlowViewModel.dispatch(AdminFlowUiAction.SetCurrentScreen(AppScreen.Home))
-                    }
                 }
-            }
+            )
         }
 
         if (adminFlowUiState.showAdminPasswordDialog) {
@@ -1025,18 +1069,24 @@ internal fun AppContent() {
                     }
                 },
                 onConfirm = {
-                    if (AdminAuth.verify(context, adminFlowUiState.adminPasswordInput)) {
-                        currentAdminSettings()
-                        adminFlowViewModel.dispatch(AdminFlowUiAction.HideAdminPasswordDialog)
-                        adminFlowViewModel.dispatch(AdminFlowUiAction.SetAdminPasswordInput(""))
-                        adminFlowViewModel.dispatch(AdminFlowUiAction.SetAdminPasswordError(null))
-                        adminFlowViewModel.dispatch(AdminFlowUiAction.OpenSecretAdmin)
-                    } else {
-                        adminFlowViewModel.dispatch(
-                            AdminFlowUiAction.SetAdminPasswordError(
-                                localized(uiLanguage, "Incorrect password.", "Password salah.")
+                    val passwordInput = adminFlowUiState.adminPasswordInput
+                    coroutineScope.launch {
+                        val verified = withContext(Dispatchers.Default) {
+                            AdminAuth.verify(context, passwordInput)
+                        }
+                        if (verified) {
+                            loadCurrentAdminSettings()
+                            adminFlowViewModel.dispatch(AdminFlowUiAction.HideAdminPasswordDialog)
+                            adminFlowViewModel.dispatch(AdminFlowUiAction.SetAdminPasswordInput(""))
+                            adminFlowViewModel.dispatch(AdminFlowUiAction.SetAdminPasswordError(null))
+                            adminFlowViewModel.dispatch(AdminFlowUiAction.OpenSecretAdmin)
+                        } else {
+                            adminFlowViewModel.dispatch(
+                                AdminFlowUiAction.SetAdminPasswordError(
+                                    localized(uiLanguage, "Incorrect password.", "Password salah.")
+                                )
                             )
-                        )
+                        }
                     }
                 },
                 onDismiss = {
@@ -1067,16 +1117,15 @@ internal fun AppContent() {
         }
 
         if (adminFlowUiState.showScanSourceDialog) {
-            ScanSourceDialog(
-                onCameraClick = {
-                    adminFlowViewModel.dispatch(AdminFlowUiAction.HideScanSourceDialog)
-                    launchCameraScan()
+            ExamScanSourceDialogHost(
+                uiLanguage = uiLanguage,
+                onRawPayload = ::handleExamQrRawPayload,
+                onScanError = { message ->
+                    adminFlowViewModel.dispatch(AdminFlowUiAction.SetScanErrorMessage(message))
                 },
-                onFileClick = {
+                onDismiss = {
                     adminFlowViewModel.dispatch(AdminFlowUiAction.HideScanSourceDialog)
-                    fileScanLauncher.launch("image/*")
-                },
-                onDismiss = { adminFlowViewModel.dispatch(AdminFlowUiAction.HideScanSourceDialog) }
+                }
             )
         }
     }

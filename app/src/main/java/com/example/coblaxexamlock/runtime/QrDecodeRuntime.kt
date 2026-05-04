@@ -51,30 +51,37 @@ internal fun calculateBitmapSampleSize(
 internal fun qrDecodePreferredBitmapConfig(lowRamProfile: LowRamProfile): Bitmap.Config =
     if (lowRamProfile.enabled) Bitmap.Config.RGB_565 else Bitmap.Config.ARGB_8888
 
-private fun decodeQrPayloadFromPixels(
-    width: Int,
-    height: Int,
-    pixels: IntArray
-): String? {
+private fun newQrDecodeReader(): MultiFormatReader {
     val hints = mapOf<DecodeHintType, Any>(
         DecodeHintType.POSSIBLE_FORMATS to listOf(BarcodeFormat.QR_CODE),
         DecodeHintType.TRY_HARDER to true,
         DecodeHintType.CHARACTER_SET to StandardCharsets.UTF_8.name()
     )
+    return MultiFormatReader().apply { setHints(hints) }
+}
 
+private fun decodeQrPayloadFromPixels(
+    width: Int,
+    height: Int,
+    pixels: IntArray,
+    reader: MultiFormatReader
+): String? {
     val source = RGBLuminanceSource(width, height, pixels)
-    val reader = MultiFormatReader().apply { setHints(hints) }
+    reader.reset()
     val normalResult = runCatching {
         reader.decode(BinaryBitmap(HybridBinarizer(source))).text
     }.getOrNull()
     if (normalResult != null) {
+        reader.reset()
         return normalResult
     }
 
     reader.reset()
-    return runCatching {
+    val invertedResult = runCatching {
         reader.decode(BinaryBitmap(HybridBinarizer(source.invert()))).text
     }.getOrNull()
+    reader.reset()
+    return invertedResult
 }
 
 private fun buildQrDecodeFallbackRects(width: Int, height: Int): List<Rect> {
@@ -108,42 +115,56 @@ private fun buildQrDecodeFallbackRects(width: Int, height: Int): List<Rect> {
 }
 
 internal fun decodeQrPayloadFromBitmap(bitmap: Bitmap): String? {
+    return decodeQrPayloadFromBitmap(bitmap, preferFallbackRegionsFirst = false)
+}
+
+private fun decodeQrPayloadFromBitmap(
+    bitmap: Bitmap,
+    preferFallbackRegionsFirst: Boolean
+): String? {
     val width = bitmap.width
     val height = bitmap.height
+    val reader = newQrDecodeReader()
+
+    if (preferFallbackRegionsFirst) {
+        decodeQrPayloadFromFallbackRegions(bitmap, reader)?.let { return it }
+    }
+
     val pixels = IntArray(width * height)
     bitmap.getPixels(pixels, 0, width, 0, 0, width, height)
 
-    decodeQrPayloadFromPixels(width, height, pixels)?.let { return it }
+    decodeQrPayloadFromPixels(width, height, pixels, reader)?.let { return it }
 
-    buildQrDecodeFallbackRects(width, height).forEach { cropRect ->
-        val cropBitmap = runCatching {
-            Bitmap.createBitmap(
-                bitmap,
-                cropRect.left,
-                cropRect.top,
-                cropRect.width(),
-                cropRect.height()
-            )
+    if (!preferFallbackRegionsFirst) {
+        decodeQrPayloadFromFallbackRegions(bitmap, reader)?.let { return it }
+    }
+
+    return null
+}
+
+private fun decodeQrPayloadFromFallbackRegions(
+    bitmap: Bitmap,
+    reader: MultiFormatReader
+): String? {
+    buildQrDecodeFallbackRects(bitmap.width, bitmap.height).forEach { cropRect ->
+        val cropWidth = cropRect.width()
+        val cropHeight = cropRect.height()
+        val cropPixels = runCatching {
+            IntArray(cropWidth * cropHeight).also { regionPixels ->
+                bitmap.getPixels(
+                    regionPixels,
+                    0,
+                    cropWidth,
+                    cropRect.left,
+                    cropRect.top,
+                    cropWidth,
+                    cropHeight
+                )
+            }
         }.getOrNull() ?: return@forEach
 
-        try {
-            val cropPixels = IntArray(cropBitmap.width * cropBitmap.height)
-            cropBitmap.getPixels(
-                cropPixels,
-                0,
-                cropBitmap.width,
-                0,
-                0,
-                cropBitmap.width,
-                cropBitmap.height
-            )
-            decodeQrPayloadFromPixels(cropBitmap.width, cropBitmap.height, cropPixels)?.let {
-                return it
-            }
-        } finally {
-            if (!cropBitmap.isRecycled && cropBitmap !== bitmap) {
-                cropBitmap.recycle()
-            }
+        decodeQrPayloadFromPixels(cropWidth, cropHeight, cropPixels, reader)?.let {
+            return it
         }
     }
 
@@ -180,7 +201,10 @@ internal suspend fun decodeQrPayloadFromImageUri(
     } ?: throw IllegalStateException(QrImageReadErrorOpen)
 
     try {
-        decodeQrPayloadFromBitmap(bitmap)
+        decodeQrPayloadFromBitmap(
+            bitmap = bitmap,
+            preferFallbackRegionsFirst = lowRamProfile.severe
+        )
     } finally {
         bitmap.recycle()
     }

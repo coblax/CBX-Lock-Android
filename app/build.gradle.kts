@@ -12,6 +12,7 @@ import org.gradle.api.tasks.TaskAction
 
 plugins {
     alias(libs.plugins.android.application)
+    alias(libs.plugins.androidx.baselineprofile)
     alias(libs.plugins.kotlin.compose)
 }
 
@@ -185,6 +186,20 @@ android {
                 "proguard-rules.pro"
             )
         }
+        create("lowRamQa") {
+            initWith(getByName("release"))
+            isMinifyEnabled = true
+            isShrinkResources = true
+            isDebuggable = false
+            isProfileable = true
+            signingConfig = signingConfigs.getByName("debug")
+            matchingFallbacks += listOf("release")
+            externalNativeBuild {
+                cmake {
+                    cppFlags += listOf("-O3", "-fvisibility=hidden")
+                }
+            }
+        }
     }
     compileOptions {
         sourceCompatibility = JavaVersion.VERSION_11
@@ -221,6 +236,7 @@ dependencies {
     implementation(libs.play.services.maps)
     implementation(libs.google.places)
     implementation(libs.google.material)
+    implementation(libs.androidx.profileinstaller)
     testImplementation(libs.junit)
     androidTestImplementation(libs.androidx.junit)
     androidTestImplementation(libs.androidx.espresso.core)
@@ -228,11 +244,17 @@ dependencies {
     androidTestImplementation(libs.androidx.compose.ui.test.junit4)
     debugImplementation(libs.androidx.compose.ui.tooling)
     debugImplementation(libs.androidx.compose.ui.test.manifest)
+    baselineProfile(project(":baselineprofile"))
+}
+
+baselineProfile {
+    mergeIntoMain = true
+    automaticGenerationDuringBuild = false
 }
 
 androidComponents {
     onVariants { variant ->
-        if (variant.buildType != "release") {
+        if (variant.buildType !in setOf("release", "lowRamQa")) {
             return@onVariants
         }
         val variantName = variant.name

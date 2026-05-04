@@ -450,6 +450,7 @@ import java.util.concurrent.TimeUnit
 import kotlin.coroutines.resume
 import kotlin.coroutines.resumeWithException
 import kotlin.math.roundToInt
+import kotlinx.coroutines.CompletableDeferred
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.delay
@@ -4552,6 +4553,12 @@ private fun ExamRuntimeSessionScreenImpl(
     var useBuiltInExamKeyboard by flowUiState.useBuiltInExamKeyboard
     var exitSessionClearInFlight by flowUiState.exitSessionClearInFlight
     var exitSessionClearRequested by rememberSaveable { mutableStateOf(false) }
+    var exitSessionClearDeferred by remember {
+        mutableStateOf<CompletableDeferred<Result<Unit>>?>(null)
+    }
+    var examRuntimeRecoveryState by rememberSaveable {
+        mutableStateOf(ExamRuntimeRecoveryState.Idle)
+    }
     var showBuiltInExamKeyboard by flowUiState.showBuiltInExamKeyboard
     var sideArrowControlsVisible by flowUiState.sideArrowControlsVisible
     var hasEditableFocus by flowUiState.hasEditableFocus
@@ -5008,6 +5015,12 @@ private fun ExamRuntimeSessionScreenImpl(
             details: String = "-",
             level: DiagnosticEventLevel = DiagnosticEventLevel.INFO
         ) {
+            if (ExamRuntimeHardeningDiagnostics.shouldLogForQa(code)) {
+                Log.i(
+                    ExamRuntimeHardeningLogTag,
+                    "code=$code level=${level.name} details=${details.ifBlank { "-" }}"
+                )
+            }
             diagnosticEvents = prependDiagnosticEvent(
                 existingEvents = diagnosticEvents,
                 code = code,
@@ -6108,25 +6121,54 @@ private fun ExamRuntimeSessionScreenImpl(
             reason: String,
             waitForResult: Boolean
         ): Result<Unit> {
-            if (exitSessionClearRequested) {
-                return Result.success(Unit)
+            val requestDetails = "reason=$reason | wait=${if (waitForResult) "yes" else "no"}"
+            when (
+                resolveExamRuntimeExitCleanupDecision(
+                    ExamRuntimeExitCleanupSnapshot(
+                        requested = exitSessionClearRequested,
+                        inFlight = exitSessionClearInFlight
+                    )
+                )
+            ) {
+                ExamRuntimeExitCleanupDecision.JoinInFlight -> {
+                    recordAction(
+                        code = ExamRuntimeHardeningDiagnostics.WebViewExitCleanupJoined,
+                        details = requestDetails
+                    )
+                    return if (waitForResult) {
+                        exitSessionClearDeferred?.await() ?: Result.success(Unit)
+                    } else {
+                        Result.success(Unit)
+                    }
+                }
+
+                ExamRuntimeExitCleanupDecision.AlreadyCompleted -> {
+                    recordAction(
+                        code = ExamRuntimeHardeningDiagnostics.WebViewExitCleanupSkipped,
+                        details = requestDetails
+                    )
+                    return Result.success(Unit)
+                }
+
+                ExamRuntimeExitCleanupDecision.StartCleanup -> Unit
             }
 
+            val cleanupCompletion = CompletableDeferred<Result<Unit>>()
+            exitSessionClearDeferred = cleanupCompletion
             exitSessionClearRequested = true
-            if (waitForResult) {
-                exitSessionClearInFlight = true
-            }
+            exitSessionClearInFlight = true
+            examRuntimeRecoveryState = ExamRuntimeRecoveryState.CleanupInFlight
 
             val existingWebView = if (waitForResult) webViewInstance else null
             val details = buildString {
-                append("reason=")
-                append(reason)
-                append(" | wait=")
-                append(if (waitForResult) "yes" else "no")
+                append(requestDetails)
                 append(" | webview=")
                 append(if (existingWebView != null) "present" else "none")
             }
-            recordAction(code = "WEBVIEW_EXIT_SESSION_CLEAR_STARTED", details = details)
+            recordAction(
+                code = ExamRuntimeHardeningDiagnostics.WebViewExitCleanupStarted,
+                details = details
+            )
 
             val clearResult = try {
                 clearExamWebViewSessionData(
@@ -6139,22 +6181,34 @@ private fun ExamRuntimeSessionScreenImpl(
 
             if (waitForResult) {
                 cleanupActiveExamWebViewInstance()
-                exitSessionClearInFlight = false
             }
+            exitSessionClearInFlight = false
+            exitSessionClearDeferred = null
+            examRuntimeRecoveryState = ExamRuntimeRecoveryState.Idle
 
             if (clearResult.isSuccess) {
-                recordAction(code = "WEBVIEW_EXIT_SESSION_CLEAR_SUCCEEDED", details = details)
+                recordAction(
+                    code = ExamRuntimeHardeningDiagnostics.WebViewExitCleanupSucceeded,
+                    details = details
+                )
             } else {
                 val error = clearResult.exceptionOrNull()
                 val errorSummary = error?.message?.take(160)
                     ?: error?.javaClass?.simpleName?.take(160)
                     ?: "unknown"
+                val failureCode =
+                    if (errorSummary.contains("Timed out", ignoreCase = true)) {
+                        ExamRuntimeHardeningDiagnostics.WebViewExitCleanupTimeout
+                    } else {
+                        ExamRuntimeHardeningDiagnostics.WebViewExitCleanupFailed
+                    }
                 recordAction(
-                    code = "WEBVIEW_EXIT_SESSION_CLEAR_FAILED",
+                    code = failureCode,
                     details = "$details | error=$errorSummary",
                     level = DiagnosticEventLevel.ERROR
                 )
             }
+            cleanupCompletion.complete(clearResult)
 
             return clearResult
         }
@@ -6173,6 +6227,7 @@ private fun ExamRuntimeSessionScreenImpl(
             didCrash: Boolean,
             rendererPriorityAtExit: Int?
         ): Boolean {
+            examRuntimeRecoveryState = ExamRuntimeRecoveryState.RendererGone
             val details = buildString {
                 append("did_crash=")
                 append(if (didCrash) "yes" else "no")
@@ -6180,12 +6235,16 @@ private fun ExamRuntimeSessionScreenImpl(
                 append(rendererPriorityAtExit ?: "-")
                 append(" | low_ram=")
                 append(if (lowRamProfile.enabled) "yes" else "no")
+                append(" | severe=")
+                append(if (lowRamProfile.severe) "yes" else "no")
+                append(" | recovery=manual_safe")
             }
             recordAction(
-                code = "WEBVIEW_RENDERER_GONE",
+                code = ExamRuntimeHardeningDiagnostics.WebViewRendererGone,
                 details = details,
                 level = DiagnosticEventLevel.ERROR
             )
+            examRuntimeRecoveryState = ExamRuntimeRecoveryState.CleanupInFlight
             if (view != null && view !== webViewInstance) {
                 runCatching {
                     view.stopLoading()
@@ -6198,9 +6257,11 @@ private fun ExamRuntimeSessionScreenImpl(
             } else {
                 cleanupActiveExamWebViewInstance()
             }
+            mainActivity?.setExamLockMode(enabled = false, allowLockTask = false)
             lockTaskBridge.disengage()
             disarmExamRuntimeMonitoring()
             clearAppSwitchSuppression()
+            examAlarmController.stop()
             lockTaskRequestPending = false
             examSessionStarted = false
             examSessionStartedAtElapsedMs = null
@@ -6211,39 +6272,52 @@ private fun ExamRuntimeSessionScreenImpl(
             webViewSessionResetInFlight = false
             webViewSessionResetError = localized(
                 uiLanguage,
-                "The exam page ran out of memory and was closed safely. Retry Start Exam Mode to reopen a clean session.",
-                "Halaman ujian kehabisan memori dan ditutup dengan aman. Coba lagi Mulai Ujian untuk membuka sesi bersih."
+                "The exam page stopped and was closed safely. Press Start Exam Mode again to reopen a clean session.",
+                "Halaman ujian berhenti dan sudah ditutup dengan aman. Tekan Mulai Ujian lagi untuk membuka sesi bersih."
+            )
+            examRuntimeRecoveryState = ExamRuntimeRecoveryState.ReadyToRetry
+            recordAction(
+                code = ExamRuntimeHardeningDiagnostics.WebViewRecoveryReady,
+                details = details,
+                level = DiagnosticEventLevel.WARNING
             )
             return true
         }
 
         fun handleRuntimeTrimMemory(level: Int) {
-            if (!MemoryPressureCoordinator.shouldRespondToPressure(level)) {
+            val memoryAction = resolveExamRuntimeMemoryAction(
+                shouldRespondToPressure = MemoryPressureCoordinator.shouldRespondToPressure(level),
+                examSessionStarted = examSessionStarted,
+                hasFullscreenCustomView = fullScreenCustomView != null
+            )
+            if (!memoryAction.respond) {
                 return
             }
-            val actions = mutableListOf(
-                "clear_warm_location",
-                "clear_reverse_engineering_cache",
-                "clear_integrity_cache"
-            )
-            reusableWarmLocationValidation = null
-            reverseEngineeringRefreshCache = null
-            integrityRefreshCache = null
-            if (fullScreenCustomView == null) {
+            if (memoryAction.clearWarmLocation) {
+                reusableWarmLocationValidation = null
+            }
+            if (memoryAction.clearReverseEngineeringCache) {
+                reverseEngineeringRefreshCache = null
+            }
+            if (memoryAction.clearIntegrityCache) {
+                integrityRefreshCache = null
+            }
+            if (memoryAction.clearUnusedFullscreenContainer) {
                 runCatching { fullScreenContainer.removeAllViews() }
-                actions += "clear_unused_fullscreen_container"
             }
-            if (!examSessionStarted) {
-                actions += "cleanup_inactive_webview"
+            if (memoryAction.cleanupInactiveWebView) {
                 cleanupActiveExamWebViewInstance()
-            } else {
-                actions += "keep_active_webview"
             }
+            val actions = memoryAction.diagnosticActions().joinToString(",")
+            val details = "trim_level=$level | exam_started=$examSessionStarted | " +
+                "low_ram=${lowRamProfile.enabled} | severe=${lowRamProfile.severe} | actions=$actions"
+            recordAction(
+                code = ExamRuntimeHardeningDiagnostics.MemoryTrimHandled,
+                details = details
+            )
             Log.i(
                 RuntimeMemoryPerfTag,
-                "trim_level=$level exam_started=$examSessionStarted " +
-                    "low_ram=${lowRamProfile.enabled} severe=${lowRamProfile.severe} " +
-                    "actions=${actions.joinToString(",")}"
+                details
             )
         }
     }
@@ -6787,6 +6861,7 @@ private fun ExamRuntimeSessionScreenImpl(
             webViewSessionResetInFlight = false
             if (resetResult.isSuccess) {
                 recordAction(code = "WEBVIEW_SESSION_RESET_SUCCEEDED", details = "strict_all")
+                examRuntimeRecoveryState = ExamRuntimeRecoveryState.Idle
                 return true
             }
 
@@ -6915,6 +6990,7 @@ private fun ExamRuntimeSessionScreenImpl(
                 return
             }
             val startExamPressedAt = SystemClock.elapsedRealtime()
+            examRuntimeRecoveryState = ExamRuntimeRecoveryState.Idle
             webViewSessionResetError = null
             recordAction(code = "START_EXAM_PRESSED")
             debugMeasureExamStartWork("startExamSession:tampers") {

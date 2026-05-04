@@ -821,7 +821,8 @@ internal fun ActionButton(
     text: String,
     subtitle: String? = null,
     badgeText: String? = null,
-    icon: androidx.compose.ui.graphics.vector.ImageVector,
+    icon: androidx.compose.ui.graphics.vector.ImageVector? = null,
+    iconContent: (@Composable () -> Unit)? = null,
     containerColor: Color,
     contentColor: Color,
     borderColor: Color,
@@ -902,14 +903,17 @@ internal fun ActionButton(
                 shape = CircleShape,
                 color = iconContainerColor
             ) {
-                Icon(
-                    imageVector = icon,
-                    contentDescription = null,
-                    tint = contentColor,
-                    modifier = Modifier
-                        .padding(12.dp)
-                        .size(24.dp)
-                )
+                when {
+                    iconContent != null -> iconContent()
+                    icon != null -> Icon(
+                        imageVector = icon,
+                        contentDescription = null,
+                        tint = contentColor,
+                        modifier = Modifier
+                            .padding(12.dp)
+                            .size(24.dp)
+                    )
+                }
             }
         }
     }

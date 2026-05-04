@@ -145,6 +145,7 @@ import androidx.compose.runtime.staticCompositionLocalOf
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
+import androidx.compose.ui.draw.drawWithContent
 import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.asImageBitmap
@@ -202,6 +203,7 @@ import com.example.coblaxexamlock.QrCodeGenerator
 import com.example.coblaxexamlock.ReverseEngineeringGuard
 import com.example.coblaxexamlock.ReverseEngineeringResult
 import com.example.coblaxexamlock.RootBypassResolver
+import com.example.coblaxexamlock.StartupTrace
 import com.example.coblaxexamlock.buildRootSecurityStatus
 import com.example.coblaxexamlock.formatCoordinates
 import com.example.coblaxexamlock.config.DefaultExamUserAgent
@@ -301,6 +303,7 @@ import java.util.Locale
 import java.util.TimeZone
 import java.util.concurrent.CountDownLatch
 import java.util.concurrent.TimeUnit
+import java.util.concurrent.atomic.AtomicBoolean
 import kotlin.coroutines.resume
 import kotlin.coroutines.resumeWithException
 import kotlin.math.roundToInt
@@ -320,15 +323,23 @@ internal fun ExamLockHomeScreen(
     onOpenFastExam: () -> Unit,
     directLinkLabel: String,
     onSecretTap: () -> Unit,
+    showDeferredChrome: Boolean = true,
     modifier: Modifier = Modifier
 ) {
     val versionLabel = "${BuildConfig.VERSION_NAME} (${BuildConfig.VERSION_CODE})"
     val lowRamProfile = LocalLowRamProfile.current
     val compactHome = lowRamProfile.deferHeavyUi
+    val firstDrawMarked = remember { AtomicBoolean(false) }
 
     Box(
         modifier = modifier
             .fillMaxSize()
+            .drawWithContent {
+                drawContent()
+                if (firstDrawMarked.compareAndSet(false, true)) {
+                    StartupTrace.mark("home_first_frame", "severe=${lowRamProfile.severe}")
+                }
+            }
             .background(LockBackground)
     ) {
         if (!compactHome) {
@@ -366,14 +377,15 @@ internal fun ExamLockHomeScreen(
 
             Spacer(modifier = Modifier.height(if (compactHome) 12.dp else 18.dp))
 
-            ActionButton(
+            HomeActionButton(
                 text = tr("SCAN EXAM QR", "SCAN QR UJIAN"),
                 subtitle = tr(
                     "Scan the exam QR to start. Your settings are already verified.",
                     "Pindai QR ujian untuk mulai. Pengaturan sudah diverifikasi."
                 ),
                 badgeText = tr("RECOMMENDED", "REKOMENDASI"),
-                icon = Icons.Rounded.QrCodeScanner,
+                icon = { Icons.Rounded.QrCodeScanner },
+                severeGlyph = "QR",
                 containerColor = LockBlue,
                 contentColor = LockOnDark,
                 borderColor = LockBlue,
@@ -383,14 +395,15 @@ internal fun ExamLockHomeScreen(
 
             Spacer(modifier = Modifier.height(if (compactHome) 10.dp else 14.dp))
 
-            ActionButton(
+            HomeActionButton(
                 text = tr("CUSTOM QR (ADMIN)", "CUSTOM QR (ADMIN)"),
                 subtitle = tr(
                     "Create a new exam QR for admin tasks like scheduling or trial checks.",
                     "Buat QR ujian baru untuk kebutuhan admin seperti jadwal atau uji coba."
                 ),
                 badgeText = "ADMIN",
-                icon = Icons.Rounded.AdminPanelSettings,
+                icon = { Icons.Rounded.AdminPanelSettings },
+                severeGlyph = "AD",
                 containerColor = Color.White,
                 contentColor = LockBlue,
                 borderColor = LockOutline,
@@ -400,14 +413,15 @@ internal fun ExamLockHomeScreen(
 
             Spacer(modifier = Modifier.height(if (compactHome) 10.dp else 14.dp))
 
-            ActionButton(
+            HomeActionButton(
                 text = directLinkLabel,
                 subtitle = tr(
                     "Open the exam quickly when you already have the link.",
                     "Buka ujian cepat saat sudah punya link."
                 ),
                 badgeText = tr("DIRECT LINK", "LINK LANGSUNG"),
-                icon = Icons.Rounded.Language,
+                icon = { Icons.Rounded.Language },
+                severeGlyph = "GO",
                 containerColor = LockGold.copy(alpha = 0.22f),
                 contentColor = LockBlueDeep,
                 borderColor = LockGold.copy(alpha = 0.55f),
@@ -415,24 +429,92 @@ internal fun ExamLockHomeScreen(
                 onClick = onOpenFastExam
             )
 
-            Spacer(modifier = Modifier.height(if (compactHome) 12.dp else 18.dp))
+            if (showDeferredChrome) {
+                Spacer(modifier = Modifier.height(if (compactHome) 12.dp else 18.dp))
 
-            DeveloperInfo()
+                DeveloperInfo()
 
-            Spacer(modifier = Modifier.height(12.dp))
+                Spacer(modifier = Modifier.height(12.dp))
 
-            Text(
-                text = tr(
-                    "Production build - Version $versionLabel",
-                    "Build produksi - Versi $versionLabel"
-                ),
-                color = LockTextMuted,
-                fontSize = 13.sp,
-                textAlign = TextAlign.Center
-            )
+                Text(
+                    text = tr(
+                        "Production build - Version $versionLabel",
+                        "Build produksi - Versi $versionLabel"
+                    ),
+                    color = LockTextMuted,
+                    fontSize = 13.sp,
+                    textAlign = TextAlign.Center
+                )
+            }
 
             Spacer(modifier = Modifier.height(8.dp))
         }
+    }
+}
+
+@Composable
+private fun HomeActionButton(
+    text: String,
+    subtitle: String,
+    badgeText: String,
+    icon: () -> androidx.compose.ui.graphics.vector.ImageVector,
+    severeGlyph: String,
+    containerColor: Color,
+    contentColor: Color,
+    borderColor: Color,
+    iconContainerColor: Color,
+    onClick: () -> Unit
+) {
+    if (LocalLowRamProfile.current.severe) {
+        ActionButton(
+            text = text,
+            subtitle = subtitle,
+            badgeText = badgeText,
+            iconContent = {
+                LightweightHomeGlyph(
+                    text = severeGlyph,
+                    color = contentColor
+                )
+            },
+            containerColor = containerColor,
+            contentColor = contentColor,
+            borderColor = borderColor,
+            iconContainerColor = iconContainerColor,
+            onClick = onClick
+        )
+    } else {
+        ActionButton(
+            text = text,
+            subtitle = subtitle,
+            badgeText = badgeText,
+            icon = icon(),
+            containerColor = containerColor,
+            contentColor = contentColor,
+            borderColor = borderColor,
+            iconContainerColor = iconContainerColor,
+            onClick = onClick
+        )
+    }
+}
+
+@Composable
+private fun LightweightHomeGlyph(
+    text: String,
+    color: Color
+) {
+    Box(
+        modifier = Modifier
+            .padding(12.dp)
+            .size(24.dp),
+        contentAlignment = Alignment.Center
+    ) {
+        Text(
+            text = text,
+            color = color,
+            fontSize = 11.sp,
+            fontWeight = FontWeight.Black,
+            textAlign = TextAlign.Center
+        )
     }
 }
 
@@ -565,12 +647,14 @@ internal fun LanguageTogglePill(
                     verticalAlignment = Alignment.CenterVertically,
                     horizontalArrangement = Arrangement.spacedBy(5.dp)
                 ) {
-                    Icon(
-                        imageVector = Icons.Rounded.Language,
-                        contentDescription = tr("Change language", "Ubah bahasa"),
-                        tint = LockBlueDeep,
-                        modifier = Modifier.size(14.dp)
-                    )
+                    if (!compactHome) {
+                        Icon(
+                            imageVector = Icons.Rounded.Language,
+                            contentDescription = tr("Change language", "Ubah bahasa"),
+                            tint = LockBlueDeep,
+                            modifier = Modifier.size(14.dp)
+                        )
+                    }
                     Text(
                         text = "LANG",
                         color = LockBlueDeep,
@@ -689,11 +773,28 @@ internal fun CoblaxFrontBrand(uiLanguage: UiLanguage) {
 
 @Composable
 internal fun CoblaxLogoMark(modifier: Modifier = Modifier) {
-    Image(
-        painter = painterResource(id = R.mipmap.ic_launcher_foreground),
-        contentDescription = null,
-        modifier = modifier
-    )
+    if (LocalLowRamProfile.current.severe) {
+        Box(
+            modifier = modifier
+                .clip(RoundedCornerShape(26.dp))
+                .background(LockBlueDeep),
+            contentAlignment = Alignment.Center
+        ) {
+            Text(
+                text = "CBX",
+                color = Color.White,
+                fontSize = 28.sp,
+                fontWeight = FontWeight.Black,
+                letterSpacing = 0.sp
+            )
+        }
+    } else {
+        Image(
+            painter = painterResource(id = R.mipmap.ic_launcher_foreground),
+            contentDescription = null,
+            modifier = modifier
+        )
+    }
 }
 
 @Composable
