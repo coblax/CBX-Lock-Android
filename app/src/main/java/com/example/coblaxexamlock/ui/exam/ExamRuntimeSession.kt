@@ -459,6 +459,7 @@ import kotlinx.coroutines.withContext
 import kotlinx.coroutines.withTimeoutOrNull
 
 private const val ExamStartPerfTag = "ExamStartPerf"
+private const val RuntimeMemoryPerfTag = "RuntimeMemory"
 private const val PreparationLocationWarmupIntervalMillis = 10_000L
 private const val StartExamWarmLocationReuseWindowMillis = 12_000L
 private const val NetworkReadinessPollingStableIntervalMillis = 10_000L
@@ -3910,6 +3911,8 @@ private fun ExamRuntimeSessionMainContent(
     onHideCustomView: () -> Unit,
     modifier: Modifier = Modifier
 ) {
+    val lowRamProfile = LocalLowRamProfile.current
+
     if (!examSessionStarted) {
         ExamPreparationScene(
             showGeofenceMapViewer = showGeofenceMapViewer,
@@ -3957,6 +3960,14 @@ private fun ExamRuntimeSessionMainContent(
                         attachExamParticipantCaptureBridge(participantCaptureBridge)
                         attachExamNativeFullscreenBridge(nativeFullscreenBridge)
                         installExamNativeFullscreenDocumentStartScriptIfSupported()
+                        if (lowRamProfile.enabled && Build.VERSION.SDK_INT >= Build.VERSION_CODES.O) {
+                            runCatching {
+                                setRendererPriorityPolicy(
+                                    WebView.RENDERER_PRIORITY_IMPORTANT,
+                                    true
+                                )
+                            }
+                        }
                         attachExamKeyboardBridge(
                             bridge = keyboardBridge,
                             onHideSystemKeyboard = if (useBuiltInExamKeyboard) onHideSystemKeyboard else null
@@ -6210,15 +6221,30 @@ private fun ExamRuntimeSessionScreenImpl(
             if (!MemoryPressureCoordinator.shouldRespondToPressure(level)) {
                 return
             }
+            val actions = mutableListOf(
+                "clear_warm_location",
+                "clear_reverse_engineering_cache",
+                "clear_integrity_cache"
+            )
             reusableWarmLocationValidation = null
             reverseEngineeringRefreshCache = null
             integrityRefreshCache = null
-            if (!examSessionStarted) {
-                cleanupActiveExamWebViewInstance()
-                if (fullScreenCustomView == null) {
-                    runCatching { fullScreenContainer.removeAllViews() }
-                }
+            if (fullScreenCustomView == null) {
+                runCatching { fullScreenContainer.removeAllViews() }
+                actions += "clear_unused_fullscreen_container"
             }
+            if (!examSessionStarted) {
+                actions += "cleanup_inactive_webview"
+                cleanupActiveExamWebViewInstance()
+            } else {
+                actions += "keep_active_webview"
+            }
+            Log.i(
+                RuntimeMemoryPerfTag,
+                "trim_level=$level exam_started=$examSessionStarted " +
+                    "low_ram=${lowRamProfile.enabled} severe=${lowRamProfile.severe} " +
+                    "actions=${actions.joinToString(",")}"
+            )
         }
     }
     val runtimeMonitoringOps = RuntimeMonitoringOps()

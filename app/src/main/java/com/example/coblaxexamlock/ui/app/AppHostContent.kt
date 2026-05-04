@@ -300,6 +300,7 @@ import kotlinx.coroutines.withContext
 import kotlinx.coroutines.withTimeoutOrNull
 
 private const val AdminSettingsPerfTag = "AdminSettingsPerf"
+private const val LowRamProfilePerfTag = "LowRamProfile"
 
 private enum class AppRecoveryRoute {
     Home,
@@ -521,6 +522,15 @@ internal fun AppContent() {
             context.saveUiLanguage(uiLanguage)
             persistedUiLanguage = uiLanguage
         }
+    }
+
+    LaunchedEffect(lowRamProfile) {
+        Log.i(
+            LowRamProfilePerfTag,
+            "enabled=${lowRamProfile.enabled} severe=${lowRamProfile.severe} " +
+                "qrMaxEdgePx=${lowRamProfile.qrMaxEdgePx} " +
+                "slowPollingMultiplier=${lowRamProfile.slowPollingMultiplier}"
+        )
     }
 
     LaunchedEffect(

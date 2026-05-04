@@ -286,7 +286,9 @@ internal fun PolygonGeofenceEditor(
             null
         }
     }
-    val searchSessionToken = remember { AutocompleteSessionToken.newInstance() }
+    val searchSessionToken = remember(mapVisible) {
+        if (mapVisible) AutocompleteSessionToken.newInstance() else null
+    }
     val latestVertices by rememberUpdatedState(draftVertices)
     val maxPointsMessage = tr("Maximum 50 polygon points.", "Maksimal 50 titik polygon.")
     val searchFailedMessage = tr("Location search failed.", "Pencarian lokasi gagal.")
@@ -342,13 +344,17 @@ internal fun PolygonGeofenceEditor(
             searchError = searchConfigMessage
             return
         }
+        val activeSearchSessionToken = searchSessionToken ?: run {
+            searchError = searchConfigMessage
+            return
+        }
         searchLoading = true
         runCatching {
             searchMapLocations(
                 context = context,
                 placesClient = placesClient,
                 query = query,
-                sessionToken = searchSessionToken
+                sessionToken = activeSearchSessionToken
             )
         }.onSuccess { lookup ->
             searchResults = lookup.results
@@ -375,6 +381,10 @@ internal fun PolygonGeofenceEditor(
 
     suspend fun applySearchResult(result: MapSearchResult) {
         val resolvedPlacesClient = placesClient
+        val activeSearchSessionToken = searchSessionToken ?: run {
+            searchError = searchConfigMessage
+            return
+        }
         searchLoading = true
         runCatching {
             if (result.latLng != null || resolvedPlacesClient == null) {
@@ -383,7 +393,7 @@ internal fun PolygonGeofenceEditor(
                 resolvePlaceSearchResult(
                     placesClient = resolvedPlacesClient,
                     result = result,
-                    sessionToken = searchSessionToken
+                    sessionToken = activeSearchSessionToken
                 )
             }
         }.onSuccess { resolvedResult ->

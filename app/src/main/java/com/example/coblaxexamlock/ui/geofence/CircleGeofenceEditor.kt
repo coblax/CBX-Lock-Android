@@ -292,7 +292,9 @@ internal fun CircleGeofenceEditorScreen(
             null
         }
     }
-    val searchSessionToken = remember { AutocompleteSessionToken.newInstance() }
+    val searchSessionToken = remember(mapVisible) {
+        if (mapVisible) AutocompleteSessionToken.newInstance() else null
+    }
     val latestCenters by rememberUpdatedState(draftCenters)
     val latestSelectedIndex by rememberUpdatedState(selectedIndex)
     val maxPointsMessage = tr("Maximum 5 circle centers.", "Maksimal 5 titik center circle.")
@@ -467,13 +469,17 @@ internal fun CircleGeofenceEditorScreen(
             searchError = searchConfigMessage
             return
         }
+        val activeSearchSessionToken = searchSessionToken ?: run {
+            searchError = searchConfigMessage
+            return
+        }
         searchLoading = true
         runCatching {
             searchMapLocations(
                 context = context,
                 placesClient = placesClient,
                 query = query,
-                sessionToken = searchSessionToken
+                sessionToken = activeSearchSessionToken
             )
         }.onSuccess { lookup ->
             searchResults = lookup.results
@@ -500,6 +506,10 @@ internal fun CircleGeofenceEditorScreen(
 
     suspend fun applySearchResult(result: MapSearchResult) {
         val resolvedPlacesClient = placesClient
+        val activeSearchSessionToken = searchSessionToken ?: run {
+            searchError = searchConfigMessage
+            return
+        }
         searchLoading = true
         runCatching {
             if (result.latLng != null || resolvedPlacesClient == null) {
@@ -508,7 +518,7 @@ internal fun CircleGeofenceEditorScreen(
                 resolvePlaceSearchResult(
                     placesClient = resolvedPlacesClient,
                     result = result,
-                    sessionToken = searchSessionToken
+                    sessionToken = activeSearchSessionToken
                 )
             }
         }.onSuccess { resolvedResult ->
