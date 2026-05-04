@@ -1,0 +1,4 @@
+<resources>
+    <string name="app_name">CBX Lock</string>
+    <string name="exam_guard_accessibility_service_description">CBX Lock Exam Guard watches app changes during exam fallback mode and returns the user to the exam. It does not read screen text.</string>
+</resources>

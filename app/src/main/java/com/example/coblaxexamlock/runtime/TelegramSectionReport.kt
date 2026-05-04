@@ -1,0 +1,286 @@
+﻿package com.example.coblaxexamlock.runtime
+
+import android.content.Context
+import android.os.Build
+import com.example.coblaxexamlock.AdbBypassState
+import com.example.coblaxexamlock.AdbInspection
+import com.example.coblaxexamlock.AlarmAcknowledgePayload
+import com.example.coblaxexamlock.AlarmAcknowledgeType
+import com.example.coblaxexamlock.AppSwitchStatus
+import com.example.coblaxexamlock.BuildConfig
+import com.example.coblaxexamlock.ClipboardRuntimeStatus
+import com.example.coblaxexamlock.DeviceTimeSecurityStatus
+import com.example.coblaxexamlock.ExamParticipantContext
+import com.example.coblaxexamlock.FakeLocationRuntimeStatus
+import com.example.coblaxexamlock.GeofenceRuntimeStatus
+import com.example.coblaxexamlock.IntegrityCheckResult
+import com.example.coblaxexamlock.IntegrityGuard
+import com.example.coblaxexamlock.OverlayRiskResult
+import com.example.coblaxexamlock.ReverseEngineeringGuard
+import com.example.coblaxexamlock.ReverseEngineeringResult
+import com.example.coblaxexamlock.RootBypassState
+import com.example.coblaxexamlock.RootSecurityStatus
+import com.example.coblaxexamlock.SecureStrings
+import com.example.coblaxexamlock.SignatureIntegrity
+import com.example.coblaxexamlock.diagnosticLabel
+import com.example.coblaxexamlock.formatCoordinates
+import com.example.coblaxexamlock.config.TelegramMessageChunkLimit
+import com.example.coblaxexamlock.format.diagnosticSectionEventCodes
+import com.example.coblaxexamlock.format.diagnosticTimestamp
+import com.example.coblaxexamlock.format.formatElapsedDuration
+import com.example.coblaxexamlock.format.formatGeofenceDistance
+import com.example.coblaxexamlock.format.formatLocationFixAge
+import com.example.coblaxexamlock.i18n.diagnosticSectionLabel
+import com.example.coblaxexamlock.inspectAccessibility
+import com.example.coblaxexamlock.model.DiagnosticEvent
+import com.example.coblaxexamlock.model.DiagnosticSection
+import com.example.coblaxexamlock.model.ExamNetworkStatus
+import com.example.coblaxexamlock.model.ExamOfflineRuntimeStatus
+import com.example.coblaxexamlock.model.NetworkReadinessStatus
+import com.example.coblaxexamlock.model.NetworkTimelineEntry
+import com.example.coblaxexamlock.model.NetworkUnstableRuntimeStatus
+import com.example.coblaxexamlock.model.UiLanguage
+import com.example.coblaxexamlock.resolveExpectedSigningFingerprints
+import com.example.coblaxexamlock.ui.geofence.effectiveCircleCenters
+import com.example.coblaxexamlock.ui.geofence.summarizeCircleCenters
+import com.example.coblaxexamlock.ui.geofence.summarizePolygonVertices
+import java.net.HttpURLConnection
+import java.net.URL
+import java.net.URLEncoder
+import java.nio.charset.StandardCharsets
+import java.text.SimpleDateFormat
+import java.util.Date
+import java.util.Locale
+import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.withContext
+
+internal suspend fun sendTelegramSectionReport(
+    context: Context,
+    section: DiagnosticSection,
+    examName: String,
+    examUserAgent: String,
+    examUserAgentSource: String,
+    participantContext: ExamParticipantContext?,
+    examSessionStarted: Boolean,
+    examRuntimeGuardsArmed: Boolean,
+    adminOverridesSummary: String,
+    keyboardPackage: String,
+    keyboardAllowed: Boolean,
+    usingBuiltInExamKeyboard: Boolean,
+    bluetoothPermissionGranted: Boolean,
+    bluetoothEnabled: Boolean,
+    accessibilityServiceEnabled: Boolean,
+    bypassAccessibility: Boolean,
+    accessibilityBypassTampered: Boolean,
+    adbInspection: AdbInspection,
+    adbBypassState: AdbBypassState,
+    rootSecurityStatus: RootSecurityStatus,
+    rootBypassState: RootBypassState,
+    clipboardSignature: String,
+    clipboardViolationCount: Int,
+    lastClipboardChangeEvent: String,
+    networkStatus: ExamNetworkStatus,
+    clipboardRuntimeStatus: ClipboardRuntimeStatus,
+    offlineRuntimeStatus: ExamOfflineRuntimeStatus,
+    geofenceRuntimeStatus: GeofenceRuntimeStatus,
+    fakeLocationRuntimeStatus: FakeLocationRuntimeStatus,
+    overlayViolationCount: Int,
+    overlayRiskResult: OverlayRiskResult,
+    overlayBypassTampered: Boolean,
+    appSwitchStatus: AppSwitchStatus,
+    appSwitchBypassTampered: Boolean,
+    screenPinningAvailable: Boolean,
+    screenPinningEnabledInSystem: String,
+    lockTaskStateBeforePinningRequest: String,
+    lockTaskStateAfterPinningRequest: String,
+    screenPinningRequestOutcome: String,
+    screenPinningDialogLikelyShown: Boolean,
+    screenPinningUserActionInference: String,
+    screenPinningActivationDurationMs: Long?,
+    examSessionCancelledByPinningFailure: Boolean,
+    isScreenPinningActive: Boolean,
+    bypassScreenPinning: Boolean,
+    bypassOverlay: Boolean,
+    bypassAppSwitch: Boolean,
+    deviceTimeSecurityStatus: DeviceTimeSecurityStatus,
+    bypassDeviceTime: Boolean,
+    integritySummary: String,
+    diagnosticEvents: List<DiagnosticEvent>,
+    uiLanguage: UiLanguage,
+    healthIntegrityResult: IntegrityCheckResult? = null,
+    healthReverseResult: ReverseEngineeringResult? = null,
+    healthLastCheckedAt: String? = null,
+    networkReadinessStatus: NetworkReadinessStatus? = null,
+    networkUnstableRuntimeStatus: NetworkUnstableRuntimeStatus? = null,
+    networkTimelinePreview: List<NetworkTimelineEntry> = emptyList(),
+    lastNetworkChangeAt: String? = null,
+    lastNetworkChangeSource: String? = null,
+    lastConnectedNetworkLabel: String? = null
+): Result<Unit> = withContext(Dispatchers.IO) {
+    runCatching {
+        val token = SecureStrings.telegramBotToken.trim()
+        val chatId = SecureStrings.telegramBugChatId.trim()
+
+        require(token.isNotBlank()) { "Token Telegram belum dikonfigurasi." }
+        require(chatId.isNotBlank()) { "Chat ID Telegram belum dikonfigurasi." }
+
+        val packageInfo = context.packageManager.getPackageInfo(context.packageName, 0)
+        val versionName = packageInfo.versionName ?: BuildConfig.VERSION_NAME
+        val timestamp = diagnosticTimestamp()
+        val sectionLabel = diagnosticSectionLabel(section, uiLanguage)
+        val deviceLabel = "${Build.BRAND} ${Build.MODEL}".trim()
+        val osLabel = "Android ${Build.VERSION.RELEASE} (SDK ${Build.VERSION.SDK_INT})"
+        val keyboardRawInputMethod = getCurrentInputMethodRawValue(context)
+        val keyboardVersion = getAppVersionName(context, keyboardPackage)
+        val enabledKeyboardPackages = getEnabledInputMethodPackages(context)
+        val keyboardSystemApp = isSystemAppPackage(context, keyboardPackage)
+        val bluetoothAdapterState = getBluetoothAdapterStateLabel(context)
+        val bluetoothConnectedDevicesCount = getBluetoothConnectedDevicesCount(context)
+        val bluetoothHeadsetConnected = isBluetoothA2dpOrHeadsetConnected(context)
+        val accessibilityInspection = inspectAccessibility(context)
+        val accessibilityPackages = accessibilityInspection.activePackages
+        val allowedAccessibilityPackages = accessibilityInspection.allowedPackages
+        val allowedAccessibilityServices = accessibilityInspection.allowedServiceComponents
+        val effectiveAccessibilityPackages = accessibilityInspection.effectivePackages
+        val accessibilityManagerEnabled = isAccessibilityManagerEnabled(context)
+        val touchExplorationEnabled = isTouchExplorationEnabled(context)
+        val accessibilityRawValue = accessibilityInspection.rawEnabledServices
+        val riskyAccessibilityPackages = accessibilityInspection.riskyPackages
+        val usbConnected = isUsbConnected(context)
+        val installSource = getInstallSourceSummary(context)
+        val appDebuggable = isAppDebuggable(context)
+        val virtualEnvironmentDiagnostics =
+            if (section == DiagnosticSection.VirtualEnvironment) {
+                getVirtualEnvironmentDiagnostics(context)
+            } else {
+                null
+            }
+        val clipboardDiagnostics = getClipboardDiagnostics(context)
+        val signatureIntegrityResult =
+            if (section == DiagnosticSection.Signature) {
+                val expectedFingerprints = resolveExpectedSigningFingerprints(
+                    isDebugBuild = BuildConfig.DEBUG,
+                    releaseFingerprint = SecureStrings.signingFingerprintRelease,
+                    debugFingerprint = SecureStrings.signingFingerprintDebug
+                )
+                SignatureIntegrity.check(context, expectedFingerprints)
+            } else {
+                null
+            }
+        val relevantEventCodes = diagnosticSectionEventCodes(section)
+        val relevantEvents = diagnosticEvents.filter { it.code in relevantEventCodes }.take(12)
+        val message = buildString {
+            appendLine("DIAGNOSTIK CBX LOCK - $sectionLabel")
+            appendLine("Waktu: $timestamp")
+            appendLine("Ujian: ${examName.ifBlank { "-" }}")
+            appendLine("Sesi ujian dimulai: ${if (examSessionStarted) "Ya" else "Belum"}")
+            appendLine("Runtime guards armed: ${if (examRuntimeGuardsArmed) "Ya" else "Tidak"}")
+            appendLine("App version: $versionName")
+            appendLine("Perangkat: ${deviceLabel.ifBlank { "-" }}")
+            appendLine("OS: $osLabel")
+            appendLine("Admin overrides: $adminOverridesSummary")
+            appendLine("IntegrityGuard: ${integritySummary.ifBlank { "-" }}")
+            participantContext?.appendTelegramLines(this)
+            appendLine()
+
+            appendTelegramSectionDetails(
+                details = TelegramSectionDetailsContext(
+                    context = context,
+                    section = section,
+                    examUserAgent = examUserAgent,
+                    examUserAgentSource = examUserAgentSource,
+                    keyboardPackage = keyboardPackage,
+                    keyboardAllowed = keyboardAllowed,
+                    usingBuiltInExamKeyboard = usingBuiltInExamKeyboard,
+                    keyboardRawInputMethod = keyboardRawInputMethod,
+                    keyboardVersion = keyboardVersion,
+                    enabledKeyboardPackages = enabledKeyboardPackages,
+                    keyboardSystemApp = keyboardSystemApp,
+                    bluetoothPermissionGranted = bluetoothPermissionGranted,
+                    bluetoothEnabled = bluetoothEnabled,
+                    bluetoothAdapterState = bluetoothAdapterState,
+                    bluetoothConnectedDevicesCount = bluetoothConnectedDevicesCount,
+                    bluetoothHeadsetConnected = bluetoothHeadsetConnected,
+                    accessibilityServiceEnabled = accessibilityServiceEnabled,
+                    bypassAccessibility = bypassAccessibility,
+                    accessibilityBypassTampered = accessibilityBypassTampered,
+                    accessibilityInspection = accessibilityInspection,
+                    accessibilityManagerEnabled = accessibilityManagerEnabled,
+                    touchExplorationEnabled = touchExplorationEnabled,
+                    accessibilityPackages = accessibilityPackages,
+                    accessibilityRawValue = accessibilityRawValue,
+                    allowedAccessibilityServices = allowedAccessibilityServices,
+                    allowedAccessibilityPackages = allowedAccessibilityPackages,
+                    effectiveAccessibilityPackages = effectiveAccessibilityPackages,
+                    riskyAccessibilityPackages = riskyAccessibilityPackages,
+                    bypassOverlay = bypassOverlay,
+                    overlayBypassTampered = overlayBypassTampered,
+                    overlayRiskResult = overlayRiskResult,
+                    overlayViolationCount = overlayViolationCount,
+                    geofenceRuntimeStatus = geofenceRuntimeStatus,
+                    fakeLocationRuntimeStatus = fakeLocationRuntimeStatus,
+                    bypassAppSwitch = bypassAppSwitch,
+                    appSwitchBypassTampered = appSwitchBypassTampered,
+                    appSwitchStatus = appSwitchStatus,
+                    adbBypassState = adbBypassState,
+                    adbInspection = adbInspection,
+                    usbConnected = usbConnected,
+                    installSource = installSource,
+                    appDebuggable = appDebuggable,
+                    rootBypassState = rootBypassState,
+                    rootSecurityStatus = rootSecurityStatus,
+                    signatureIntegrityResult = signatureIntegrityResult,
+                    virtualEnvironmentDiagnostics = virtualEnvironmentDiagnostics,
+                    clipboardDiagnostics = clipboardDiagnostics,
+                    clipboardSignature = clipboardSignature,
+                    clipboardViolationCount = clipboardViolationCount,
+                    lastClipboardChangeEvent = lastClipboardChangeEvent,
+                    clipboardRuntimeStatus = clipboardRuntimeStatus,
+                    screenPinningAvailable = screenPinningAvailable,
+                    screenPinningEnabledInSystem = screenPinningEnabledInSystem,
+                    lockTaskStateBeforePinningRequest = lockTaskStateBeforePinningRequest,
+                    lockTaskStateAfterPinningRequest = lockTaskStateAfterPinningRequest,
+                    screenPinningRequestOutcome = screenPinningRequestOutcome,
+                    screenPinningDialogLikelyShown = screenPinningDialogLikelyShown,
+                    screenPinningUserActionInference = screenPinningUserActionInference,
+                    screenPinningActivationDurationMs = screenPinningActivationDurationMs,
+                    examSessionCancelledByPinningFailure = examSessionCancelledByPinningFailure,
+                    isScreenPinningActive = isScreenPinningActive,
+                    bypassScreenPinning = bypassScreenPinning,
+                    integritySummary = integritySummary,
+                    networkStatus = networkStatus,
+                    offlineRuntimeStatus = offlineRuntimeStatus,
+                    deviceTimeSecurityStatus = deviceTimeSecurityStatus,
+                    bypassDeviceTime = bypassDeviceTime,
+                    uiLanguage = uiLanguage,
+                    healthIntegrityResult = healthIntegrityResult,
+                    healthReverseResult = healthReverseResult,
+                    healthLastCheckedAt = healthLastCheckedAt,
+                    networkReadinessStatus = networkReadinessStatus,
+                    networkUnstableRuntimeStatus = networkUnstableRuntimeStatus,
+                    networkTimelinePreview = networkTimelinePreview,
+                    lastNetworkChangeAt = lastNetworkChangeAt,
+                    lastNetworkChangeSource = lastNetworkChangeSource,
+                    lastConnectedNetworkLabel = lastConnectedNetworkLabel
+                )
+            )
+
+            appendLine()
+            appendLine("[LAST ACTION LOG]")
+            if (relevantEvents.isEmpty()) {
+                appendLine("-")
+            } else {
+                relevantEvents.forEach { appendLine(formatDiagnosticEvent(it)) }
+            }
+        }
+
+        buildTelegramMessageChunks(message).forEach { chunk ->
+            sendTelegramTextMessage(
+                token = token,
+                chatId = chatId,
+                message = chunk
+            )
+        }
+    }
+}
+
