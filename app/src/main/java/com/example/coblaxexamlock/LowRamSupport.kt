@@ -5,11 +5,64 @@ import android.content.ComponentCallbacks2
 import android.content.Context
 import java.util.concurrent.CopyOnWriteArraySet
 
-internal data class LowRamProfile(val enabled: Boolean)
+private const val OneMegabyteBytes = 1024L * 1024L
+private const val LowRamTotalMemoryMb = 1024L
+private const val SevereLowRamTotalMemoryMb = 768L
+private const val LowRamMemoryClassMb = 128
+private const val SevereLowRamMemoryClassMb = 96
+
+internal data class LowRamProfile(
+    val enabled: Boolean = false,
+    val severe: Boolean = false,
+    val qrMaxEdgePx: Int = 2560,
+    val deferHeavyUi: Boolean = false,
+    val slowPollingMultiplier: Int = 1
+)
+
+internal fun calculateLowRamProfile(
+    isLowRamDevice: Boolean,
+    totalMemoryBytes: Long?,
+    memoryClassMb: Int?
+): LowRamProfile {
+    val totalMemoryMb = totalMemoryBytes
+        ?.takeIf { it > 0L }
+        ?.let { it / OneMegabyteBytes }
+    val normalizedMemoryClassMb = memoryClassMb?.takeIf { it > 0 }
+
+    val totalMemoryLow = totalMemoryMb?.let { it <= LowRamTotalMemoryMb } == true
+    val memoryClassLow = normalizedMemoryClassMb?.let { it <= LowRamMemoryClassMb } == true
+    val totalMemorySevere = totalMemoryMb?.let { it <= SevereLowRamTotalMemoryMb } == true
+    val memoryClassSevere =
+        normalizedMemoryClassMb?.let { it <= SevereLowRamMemoryClassMb } == true
+
+    val severe = totalMemorySevere || memoryClassSevere
+    val enabled = isLowRamDevice || totalMemoryLow || memoryClassLow || severe
+
+    return LowRamProfile(
+        enabled = enabled,
+        severe = severe,
+        qrMaxEdgePx = when {
+            severe -> 960
+            enabled -> 1280
+            else -> 2560
+        },
+        deferHeavyUi = enabled,
+        slowPollingMultiplier = if (enabled) 2 else 1
+    )
+}
 
 internal fun resolveLowRamProfile(context: Context): LowRamProfile {
     val activityManager = context.applicationContext.getSystemService(ActivityManager::class.java)
-    return LowRamProfile(enabled = activityManager?.isLowRamDevice == true)
+    val memoryInfo = activityManager?.let {
+        ActivityManager.MemoryInfo().also { info ->
+            runCatching { activityManager.getMemoryInfo(info) }
+        }
+    }
+    return calculateLowRamProfile(
+        isLowRamDevice = activityManager?.isLowRamDevice == true,
+        totalMemoryBytes = memoryInfo?.totalMem,
+        memoryClassMb = activityManager?.memoryClass
+    )
 }
 
 internal object MemoryPressureCoordinator {

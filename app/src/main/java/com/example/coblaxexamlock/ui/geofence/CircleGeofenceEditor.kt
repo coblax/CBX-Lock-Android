@@ -179,6 +179,7 @@ import com.example.coblaxexamlock.GeofencePoint
 import com.example.coblaxexamlock.GeofenceRuntimeStatus
 import com.example.coblaxexamlock.GeofenceShapeType
 import com.example.coblaxexamlock.GeofenceVertex
+import com.example.coblaxexamlock.LocalLowRamProfile
 import com.example.coblaxexamlock.SecureStrings
 import com.example.coblaxexamlock.diagnosticLabel
 import com.example.coblaxexamlock.format.formatGeofenceDistance
@@ -263,10 +264,12 @@ internal fun CircleGeofenceEditorScreen(
     onSave: (List<GeofenceVertex>, String) -> Unit
 ) {
     val context = LocalContext.current
+    val lowRamProfile = LocalLowRamProfile.current
     val mapsApiKey = remember { SecureStrings.mapsApiKey }
     val mapsReady = mapsApiKey.isNotBlank()
     val coroutineScope = rememberCoroutineScope()
     var googleMap by remember { mutableStateOf<GoogleMap?>(null) }
+    var mapVisible by remember { mutableStateOf(!lowRamProfile.deferHeavyUi) }
     var draftCenters by remember(initialCenters) { mutableStateOf(initialCenters.take(5)) }
     var draftRadiusMeters by remember(initialRadiusMeters) { mutableStateOf(initialRadiusMeters) }
     var selectedIndex by remember(initialCenters) {
@@ -282,7 +285,13 @@ internal fun CircleGeofenceEditorScreen(
     var infoMessage by remember { mutableStateOf<String?>(null) }
     var precisePermissionGranted by remember { mutableStateOf(hasFineLocationPermission(context)) }
     var requestingLocation by remember { mutableStateOf(false) }
-    val placesClient = remember(mapsApiKey) { ensurePlacesSdkReady(context, mapsApiKey) }
+    val placesClient = remember(mapsApiKey, mapsReady, mapVisible) {
+        if (mapsReady && mapVisible) {
+            ensurePlacesSdkReady(context, mapsApiKey)
+        } else {
+            null
+        }
+    }
     val searchSessionToken = remember { AutocompleteSessionToken.newInstance() }
     val latestCenters by rememberUpdatedState(draftCenters)
     val latestSelectedIndex by rememberUpdatedState(selectedIndex)
@@ -355,6 +364,30 @@ internal fun CircleGeofenceEditorScreen(
         updatedCenters[targetIndex] = latLng.toGeofenceVertex()
         draftCenters = updatedCenters
         selectedIndex = targetIndex
+    }
+
+    fun updateSelectedCoordinate(
+        latitude: String? = null,
+        longitude: String? = null
+    ) {
+        val currentCenters = latestCenters.toMutableList()
+        val targetIndex = selectedIndex.takeIf { it in currentCenters.indices }
+            ?: currentCenters.indices.firstOrNull()
+            ?: 0
+        if (currentCenters.isEmpty()) {
+            currentCenters += GeofenceVertex(
+                latitude = latitude.orEmpty(),
+                longitude = longitude.orEmpty()
+            )
+        } else {
+            val current = currentCenters[targetIndex]
+            currentCenters[targetIndex] = current.copy(
+                latitude = latitude ?: current.latitude,
+                longitude = longitude ?: current.longitude
+            )
+        }
+        draftCenters = currentCenters.take(5)
+        selectedIndex = targetIndex.coerceAtMost(draftCenters.lastIndex)
     }
 
     fun addPoint(latLng: LatLng) {
@@ -515,8 +548,8 @@ internal fun CircleGeofenceEditorScreen(
 
     BackHandler(onBack = onDismiss)
 
-    LaunchedEffect(mapsReady) {
-        if (mapsReady) {
+    LaunchedEffect(mapsReady, mapVisible) {
+        if (mapsReady && mapVisible) {
             runCatching { initializePlacesLegacy(context, mapsApiKey) }
         }
     }
@@ -530,7 +563,7 @@ internal fun CircleGeofenceEditorScreen(
     }
 
     LaunchedEffect(Unit) {
-        if (draftCenters.isEmpty()) {
+        if (!lowRamProfile.deferHeavyUi && draftCenters.isEmpty()) {
             if (precisePermissionGranted) {
                 placeCurrentLocation(resetPointsFirst = false)
             } else {
@@ -556,58 +589,157 @@ internal fun CircleGeofenceEditorScreen(
                     .padding(horizontal = 10.dp, vertical = 8.dp),
                 verticalArrangement = Arrangement.spacedBy(6.dp)
             ) {
-                Row(
-                    modifier = Modifier.fillMaxWidth(),
-                    verticalAlignment = Alignment.CenterVertically,
-                    horizontalArrangement = Arrangement.spacedBy(8.dp)
-                ) {
-                    CompactBackIconButton(onClick = onDismiss)
-                    InlineMapSearchBar(
-                        query = searchQuery,
-                        onQueryChange = {
-                            searchQuery = it
-                            if (it.isBlank()) {
-                                searchResults = emptyList()
-                                searchError = null
-                                selectedSearchResult = null
-                                searchedLatLng = null
-                            }
-                        },
-                        onSearch = {
-                            coroutineScope.launch { runSearch() }
-                        },
-                        loading = searchLoading,
-                        modifier = Modifier.weight(1f)
-                    )
-                }
-                InlineMapSearchResults(
-                    results = searchResults,
-                    error = searchError,
-                    onSelect = { result ->
-                        coroutineScope.launch { applySearchResult(result) }
+                if (mapVisible) {
+                    Row(
+                        modifier = Modifier.fillMaxWidth(),
+                        verticalAlignment = Alignment.CenterVertically,
+                        horizontalArrangement = Arrangement.spacedBy(8.dp)
+                    ) {
+                        CompactBackIconButton(onClick = onDismiss)
+                        InlineMapSearchBar(
+                            query = searchQuery,
+                            onQueryChange = {
+                                searchQuery = it
+                                if (it.isBlank()) {
+                                    searchResults = emptyList()
+                                    searchError = null
+                                    selectedSearchResult = null
+                                    searchedLatLng = null
+                                }
+                            },
+                            onSearch = {
+                                coroutineScope.launch { runSearch() }
+                            },
+                            loading = searchLoading,
+                            modifier = Modifier.weight(1f)
+                        )
                     }
-                )
-                selectedSearchResult?.let { result ->
-                    val targetText = buildString {
-                        append("Target: ")
-                        append(result.title)
-                        result.subtitle.takeIf { it.isNotBlank() }?.let { subtitle ->
-                            append(" | ")
-                            append(subtitle)
+                    InlineMapSearchResults(
+                        results = searchResults,
+                        error = searchError,
+                        onSelect = { result ->
+                            coroutineScope.launch { applySearchResult(result) }
+                        }
+                    )
+                    selectedSearchResult?.let { result ->
+                        val targetText = buildString {
+                            append("Target: ")
+                            append(result.title)
+                            result.subtitle.takeIf { it.isNotBlank() }?.let { subtitle ->
+                                append(" | ")
+                                append(subtitle)
+                            }
+                        }
+                        Text(
+                            text = tr(targetText, targetText),
+                            color = LockTextSecondary,
+                            fontSize = 10.sp,
+                            lineHeight = 12.sp,
+                            maxLines = 2
+                        )
+                    }
+                } else {
+                    Row(
+                        modifier = Modifier.fillMaxWidth(),
+                        verticalAlignment = Alignment.CenterVertically,
+                        horizontalArrangement = Arrangement.spacedBy(8.dp)
+                    ) {
+                        CompactBackIconButton(onClick = onDismiss)
+                        Column(modifier = Modifier.weight(1f)) {
+                            Text(
+                                text = tr("Manual circle geofence", "Input manual geofence lingkaran"),
+                                color = LockTextPrimary,
+                                fontSize = 14.sp,
+                                fontWeight = FontWeight.Bold
+                            )
+                            Text(
+                                text = tr(
+                                    "Edit coordinates and radius first; open the map only when needed.",
+                                    "Edit koordinat dan radius dulu; buka map hanya saat dibutuhkan."
+                                ),
+                                color = LockTextSecondary,
+                                fontSize = 10.sp,
+                                lineHeight = 12.sp
+                            )
                         }
                     }
-                    Text(
-                        text = tr(targetText, targetText),
-                        color = LockTextSecondary,
-                        fontSize = 10.sp,
-                        lineHeight = 12.sp,
-                        maxLines = 2
-                    )
                 }
             }
         }
 
-        if (!mapsReady) {
+        if (!mapVisible) {
+            Box(
+                modifier = Modifier
+                    .weight(1f)
+                    .fillMaxWidth()
+                    .padding(16.dp),
+                contentAlignment = Alignment.Center
+            ) {
+                Surface(
+                    shape = RoundedCornerShape(18.dp),
+                    color = Color.White,
+                    border = BorderStroke(1.dp, LockOutline.copy(alpha = 0.8f))
+                ) {
+                    Column(
+                        modifier = Modifier.padding(16.dp),
+                        horizontalAlignment = Alignment.CenterHorizontally,
+                        verticalArrangement = Arrangement.spacedBy(10.dp)
+                    ) {
+                        Text(
+                            text = tr("Map is paused", "Map dijeda"),
+                            color = LockTextPrimary,
+                            fontSize = 16.sp,
+                            fontWeight = FontWeight.Bold
+                        )
+                        Text(
+                            text = tr(
+                                "This saves memory on low-RAM devices. Manual coordinates below save the same policy.",
+                                "Ini menghemat memori di perangkat low-RAM. Koordinat manual di bawah tetap menyimpan policy yang sama."
+                            ),
+                            color = LockTextSecondary,
+                            fontSize = 12.sp,
+                            lineHeight = 16.sp,
+                            textAlign = TextAlign.Center
+                        )
+                        Row(
+                            modifier = Modifier.fillMaxWidth(),
+                            horizontalArrangement = Arrangement.spacedBy(8.dp)
+                        ) {
+                            Button(
+                                onClick = { mapVisible = true },
+                                modifier = Modifier.weight(1f),
+                                enabled = mapsReady,
+                                colors = ButtonDefaults.buttonColors(
+                                    containerColor = LockBlue,
+                                    contentColor = LockOnDark
+                                )
+                            ) {
+                                Text(tr("Open Map", "Buka Map"), fontWeight = FontWeight.Bold)
+                            }
+                            Button(
+                                onClick = {
+                                    if (precisePermissionGranted) {
+                                        coroutineScope.launch {
+                                            placeCurrentLocation(resetPointsFirst = latestCenters.isEmpty())
+                                        }
+                                    } else {
+                                        permissionLauncher.launch(Manifest.permission.ACCESS_FINE_LOCATION)
+                                    }
+                                },
+                                modifier = Modifier.weight(1f),
+                                colors = ButtonDefaults.buttonColors(
+                                    containerColor = LockSurfaceSoft,
+                                    contentColor = LockTextPrimary
+                                ),
+                                border = BorderStroke(1.dp, LockOutline.copy(alpha = 0.8f))
+                            ) {
+                                Text(tr("Use Current", "Pakai Lokasi"), fontWeight = FontWeight.Bold)
+                            }
+                        }
+                    }
+                }
+            }
+        } else if (!mapsReady) {
             StatusBanner(
                 message = tr(
                     "Google Maps API key is not configured. Add maps.api.key in local.properties to enable the full map editor.",
@@ -626,6 +758,11 @@ internal fun CircleGeofenceEditorScreen(
                 onDispose {
                     val activeMap = googleMap
                     googleMap = null
+                    searchResults = emptyList()
+                    searchLoading = false
+                    searchError = null
+                    searchedLatLng = null
+                    selectedSearchResult = null
                     mapView.disposeGeofenceMapLifecycle(activeMap)
                 }
             }
@@ -783,8 +920,8 @@ internal fun CircleGeofenceEditorScreen(
                 }
 
                 val selectedPoint = draftCenters.getOrNull(selectedIndex)
-                val latitudeText = selectedPoint?.latitude ?: "-"
-                val longitudeText = selectedPoint?.longitude ?: "-"
+                val latitudeText = selectedPoint?.latitude.orEmpty()
+                val longitudeText = selectedPoint?.longitude.orEmpty()
 
                 Row(
                     modifier = Modifier.fillMaxWidth(),
@@ -795,15 +932,17 @@ internal fun CircleGeofenceEditorScreen(
                         label = tr("Point", "Titik"),
                         value = if (draftCenters.isEmpty()) "0/5" else "${selectedIndex + 1}/${draftCenters.size}"
                     )
-                    CompactInfoMetricCard(
+                    CompactCoordinateMetricCard(
                         modifier = Modifier.weight(1.1f),
                         label = tr("Latitude", "Latitude"),
-                        value = latitudeText
+                        value = latitudeText,
+                        onValueChange = { updateSelectedCoordinate(latitude = it) }
                     )
-                    CompactInfoMetricCard(
+                    CompactCoordinateMetricCard(
                         modifier = Modifier.weight(1.1f),
                         label = tr("Longitude", "Longitude"),
-                        value = longitudeText
+                        value = longitudeText,
+                        onValueChange = { updateSelectedCoordinate(longitude = it) }
                     )
                     CompactRadiusMetricCard(
                         modifier = Modifier.weight(0.9f),

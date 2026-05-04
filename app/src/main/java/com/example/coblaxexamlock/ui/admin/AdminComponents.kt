@@ -194,6 +194,7 @@ import com.example.coblaxexamlock.GeofenceShapeType
 import com.example.coblaxexamlock.IntegrityCheckResult
 import com.example.coblaxexamlock.IntegrityGuard
 import com.example.coblaxexamlock.LocationPolicySource
+import com.example.coblaxexamlock.LocalLowRamProfile
 import com.example.coblaxexamlock.OverlayRiskAnalyzer
 import com.example.coblaxexamlock.OverlayShieldStatus
 import com.example.coblaxexamlock.R
@@ -516,11 +517,22 @@ internal fun GeneratedQrCard(
     locationPolicy: ExamQrLocationPolicy
 ) {
     val context = LocalContext.current
+    val lowRamProfile = LocalLowRamProfile.current
+    val previewBitmapSize = when {
+        lowRamProfile.severe -> 384
+        lowRamProfile.enabled -> 512
+        else -> 640
+    }
+    val previewDisplaySize = when {
+        lowRamProfile.severe -> 180.dp
+        lowRamProfile.enabled -> 200.dp
+        else -> 220.dp
+    }
     val shareFailedMessage = tr("Failed to open the share menu.", "Gagal membuka menu bagikan.")
     val saveSuccessPrefix = tr("Saved:", "Tersimpan:")
     val saveFailedMessage = tr("Failed to save the QR.", "Gagal menyimpan QR.")
-    val qrBitmap = remember(encryptedPayload) {
-        QrCodeGenerator.generateBitmap(encryptedPayload, size = 640)
+    val qrBitmap = remember(encryptedPayload, previewBitmapSize) {
+        QrCodeGenerator.generateBitmap(encryptedPayload, size = previewBitmapSize)
     }
     DisposableEffect(qrBitmap) {
         onDispose {
@@ -570,7 +582,7 @@ internal fun GeneratedQrCard(
             Image(
                 bitmap = qrBitmap.asImageBitmap(),
                 contentDescription = tr("Encrypted exam QR", "QR ujian terenkripsi"),
-                modifier = Modifier.size(220.dp)
+                modifier = Modifier.size(previewDisplaySize)
             )
         }
 

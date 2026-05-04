@@ -179,6 +179,7 @@ import com.example.coblaxexamlock.GeofencePoint
 import com.example.coblaxexamlock.GeofenceRuntimeStatus
 import com.example.coblaxexamlock.GeofenceShapeType
 import com.example.coblaxexamlock.GeofenceVertex
+import com.example.coblaxexamlock.LocalLowRamProfile
 import com.example.coblaxexamlock.SecureStrings
 import com.example.coblaxexamlock.diagnosticLabel
 import com.example.coblaxexamlock.format.formatGeofenceDistance
@@ -261,10 +262,12 @@ internal fun PolygonGeofenceEditor(
     onSave: (List<GeofenceVertex>) -> Unit
 ) {
     val context = LocalContext.current
+    val lowRamProfile = LocalLowRamProfile.current
     val mapsApiKey = remember { SecureStrings.mapsApiKey }
     val mapsReady = mapsApiKey.isNotBlank()
     val coroutineScope = rememberCoroutineScope()
     var googleMap by remember { mutableStateOf<GoogleMap?>(null) }
+    var mapVisible by remember { mutableStateOf(!lowRamProfile.deferHeavyUi) }
     var draftVertices by remember(initialVertices) { mutableStateOf(initialVertices.take(50)) }
     var searchedLatLng by remember { mutableStateOf<LatLng?>(null) }
     var searchQuery by remember { mutableStateOf("") }
@@ -276,7 +279,13 @@ internal fun PolygonGeofenceEditor(
     var initialCameraLatLng by remember { mutableStateOf<LatLng?>(null) }
     var initialCameraResolved by remember { mutableStateOf(false) }
     var initialCameraApplied by remember { mutableStateOf(false) }
-    val placesClient = remember(mapsApiKey) { ensurePlacesSdkReady(context, mapsApiKey) }
+    val placesClient = remember(mapsApiKey, mapsReady, mapVisible) {
+        if (mapsReady && mapVisible) {
+            ensurePlacesSdkReady(context, mapsApiKey)
+        } else {
+            null
+        }
+    }
     val searchSessionToken = remember { AutocompleteSessionToken.newInstance() }
     val latestVertices by rememberUpdatedState(draftVertices)
     val maxPointsMessage = tr("Maximum 50 polygon points.", "Maksimal 50 titik polygon.")
@@ -298,6 +307,27 @@ internal fun PolygonGeofenceEditor(
         val latitude = latitude.trim().toDoubleOrNull() ?: return null
         val longitude = longitude.trim().toDoubleOrNull() ?: return null
         return LatLng(latitude, longitude)
+    }
+
+    fun updateLastCoordinate(
+        latitude: String? = null,
+        longitude: String? = null
+    ) {
+        val currentVertices = latestVertices.toMutableList()
+        if (currentVertices.isEmpty()) {
+            currentVertices += GeofenceVertex(
+                latitude = latitude.orEmpty(),
+                longitude = longitude.orEmpty()
+            )
+        } else {
+            val targetIndex = currentVertices.lastIndex
+            val current = currentVertices[targetIndex]
+            currentVertices[targetIndex] = current.copy(
+                latitude = latitude ?: current.latitude,
+                longitude = longitude ?: current.longitude
+            )
+        }
+        draftVertices = currentVertices.take(50)
     }
 
     suspend fun runSearch() {
@@ -380,14 +410,20 @@ internal fun PolygonGeofenceEditor(
 
     BackHandler(onBack = onDismiss)
 
-    LaunchedEffect(mapsReady) {
-        if (mapsReady) {
+    LaunchedEffect(mapsReady, mapVisible) {
+        if (mapsReady && mapVisible) {
             runCatching { initializePlacesLegacy(context, mapsApiKey) }
         }
     }
 
-    LaunchedEffect(mapsReady, initialVertices) {
-        if (!mapsReady || initialVertices.isNotEmpty() || initialCameraResolved) {
+    LaunchedEffect(mapsReady, mapVisible, initialVertices) {
+        if (
+            lowRamProfile.deferHeavyUi ||
+            !mapVisible ||
+            !mapsReady ||
+            initialVertices.isNotEmpty() ||
+            initialCameraResolved
+        ) {
             return@LaunchedEffect
         }
         initialCameraResolved = true
@@ -419,58 +455,132 @@ internal fun PolygonGeofenceEditor(
                     .padding(horizontal = 10.dp, vertical = 8.dp),
                 verticalArrangement = Arrangement.spacedBy(6.dp)
             ) {
-                Row(
-                    modifier = Modifier.fillMaxWidth(),
-                    verticalAlignment = Alignment.CenterVertically,
-                    horizontalArrangement = Arrangement.spacedBy(8.dp)
-                ) {
-                    CompactBackIconButton(onClick = onDismiss)
-                    InlineMapSearchBar(
-                        query = searchQuery,
-                        onQueryChange = {
-                            searchQuery = it
-                            if (it.isBlank()) {
-                                searchResults = emptyList()
-                                searchError = null
-                                selectedSearchResult = null
-                                searchedLatLng = null
-                            }
-                        },
-                        onSearch = {
-                            coroutineScope.launch { runSearch() }
-                        },
-                        loading = searchLoading,
-                        modifier = Modifier.weight(1f)
-                    )
-                }
-                InlineMapSearchResults(
-                    results = searchResults,
-                    error = searchError,
-                    onSelect = { result ->
-                        coroutineScope.launch { applySearchResult(result) }
+                if (mapVisible) {
+                    Row(
+                        modifier = Modifier.fillMaxWidth(),
+                        verticalAlignment = Alignment.CenterVertically,
+                        horizontalArrangement = Arrangement.spacedBy(8.dp)
+                    ) {
+                        CompactBackIconButton(onClick = onDismiss)
+                        InlineMapSearchBar(
+                            query = searchQuery,
+                            onQueryChange = {
+                                searchQuery = it
+                                if (it.isBlank()) {
+                                    searchResults = emptyList()
+                                    searchError = null
+                                    selectedSearchResult = null
+                                    searchedLatLng = null
+                                }
+                            },
+                            onSearch = {
+                                coroutineScope.launch { runSearch() }
+                            },
+                            loading = searchLoading,
+                            modifier = Modifier.weight(1f)
+                        )
                     }
-                )
-                selectedSearchResult?.let { result ->
-                    val targetText = buildString {
-                        append("Target: ")
-                        append(result.title)
-                        result.subtitle.takeIf { it.isNotBlank() }?.let { subtitle ->
-                            append(" | ")
-                            append(subtitle)
+                    InlineMapSearchResults(
+                        results = searchResults,
+                        error = searchError,
+                        onSelect = { result ->
+                            coroutineScope.launch { applySearchResult(result) }
+                        }
+                    )
+                    selectedSearchResult?.let { result ->
+                        val targetText = buildString {
+                            append("Target: ")
+                            append(result.title)
+                            result.subtitle.takeIf { it.isNotBlank() }?.let { subtitle ->
+                                append(" | ")
+                                append(subtitle)
+                            }
+                        }
+                        Text(
+                            text = tr(targetText, targetText),
+                            color = LockTextSecondary,
+                            fontSize = 10.sp,
+                            lineHeight = 12.sp,
+                            maxLines = 2
+                        )
+                    }
+                } else {
+                    Row(
+                        modifier = Modifier.fillMaxWidth(),
+                        verticalAlignment = Alignment.CenterVertically,
+                        horizontalArrangement = Arrangement.spacedBy(8.dp)
+                    ) {
+                        CompactBackIconButton(onClick = onDismiss)
+                        Column(modifier = Modifier.weight(1f)) {
+                            Text(
+                                text = tr("Manual polygon geofence", "Input manual geofence polygon"),
+                                color = LockTextPrimary,
+                                fontSize = 14.sp,
+                                fontWeight = FontWeight.Bold
+                            )
+                            Text(
+                                text = tr(
+                                    "Add and edit boundary points first; open the map only when needed.",
+                                    "Tambah dan edit titik batas dulu; buka map hanya saat dibutuhkan."
+                                ),
+                                color = LockTextSecondary,
+                                fontSize = 10.sp,
+                                lineHeight = 12.sp
+                            )
                         }
                     }
-                    Text(
-                        text = tr(targetText, targetText),
-                        color = LockTextSecondary,
-                        fontSize = 10.sp,
-                        lineHeight = 12.sp,
-                        maxLines = 2
-                    )
                 }
             }
         }
 
-        if (!mapsReady) {
+        if (!mapVisible) {
+            Box(
+                modifier = Modifier
+                    .weight(1f)
+                    .fillMaxWidth()
+                    .padding(16.dp),
+                contentAlignment = Alignment.Center
+            ) {
+                Surface(
+                    shape = RoundedCornerShape(18.dp),
+                    color = Color.White,
+                    border = BorderStroke(1.dp, LockOutline.copy(alpha = 0.8f))
+                ) {
+                    Column(
+                        modifier = Modifier.padding(16.dp),
+                        horizontalAlignment = Alignment.CenterHorizontally,
+                        verticalArrangement = Arrangement.spacedBy(10.dp)
+                    ) {
+                        Text(
+                            text = tr("Map is paused", "Map dijeda"),
+                            color = LockTextPrimary,
+                            fontSize = 16.sp,
+                            fontWeight = FontWeight.Bold
+                        )
+                        Text(
+                            text = tr(
+                                "This saves memory on low-RAM devices. Manual points below save the same policy.",
+                                "Ini menghemat memori di perangkat low-RAM. Titik manual di bawah tetap menyimpan policy yang sama."
+                            ),
+                            color = LockTextSecondary,
+                            fontSize = 12.sp,
+                            lineHeight = 16.sp,
+                            textAlign = TextAlign.Center
+                        )
+                        Button(
+                            onClick = { mapVisible = true },
+                            enabled = mapsReady,
+                            colors = ButtonDefaults.buttonColors(
+                                containerColor = LockBlue,
+                                contentColor = LockOnDark
+                            )
+                        ) {
+                            Text(tr("Open Map", "Buka Map"), fontWeight = FontWeight.Bold)
+                        }
+                    }
+                }
+            }
+        } else if (!mapsReady) {
             StatusBanner(
                 message = tr(
                     "Google Maps API key is not configured. Add maps.api.key in local.properties to enable the polygon map editor.",
@@ -489,6 +599,11 @@ internal fun PolygonGeofenceEditor(
                 onDispose {
                     val activeMap = googleMap
                     googleMap = null
+                    searchResults = emptyList()
+                    searchLoading = false
+                    searchError = null
+                    searchedLatLng = null
+                    selectedSearchResult = null
                     mapView.disposeGeofenceMapLifecycle(activeMap)
                 }
             }
@@ -633,8 +748,8 @@ internal fun PolygonGeofenceEditor(
                 )
 
                 val lastPoint = draftVertices.lastOrNull()
-                val latitudeText = lastPoint?.latitude ?: "-"
-                val longitudeText = lastPoint?.longitude ?: "-"
+                val latitudeText = lastPoint?.latitude.orEmpty()
+                val longitudeText = lastPoint?.longitude.orEmpty()
 
                 Row(
                     modifier = Modifier.fillMaxWidth(),
@@ -645,15 +760,17 @@ internal fun PolygonGeofenceEditor(
                         label = tr("Points", "Titik"),
                         value = "${draftVertices.size}/50"
                     )
-                    CompactInfoMetricCard(
+                    CompactCoordinateMetricCard(
                         modifier = Modifier.weight(1.2f),
                         label = tr("Latitude", "Latitude"),
-                        value = latitudeText
+                        value = latitudeText,
+                        onValueChange = { updateLastCoordinate(latitude = it) }
                     )
-                    CompactInfoMetricCard(
+                    CompactCoordinateMetricCard(
                         modifier = Modifier.weight(1.2f),
                         label = tr("Longitude", "Longitude"),
-                        value = longitudeText
+                        value = longitudeText,
+                        onValueChange = { updateLastCoordinate(longitude = it) }
                     )
                 }
 
@@ -661,6 +778,29 @@ internal fun PolygonGeofenceEditor(
                     modifier = Modifier.fillMaxWidth(),
                     horizontalArrangement = Arrangement.spacedBy(4.dp)
                 ) {
+                    Button(
+                        onClick = {
+                            if (draftVertices.size < 50) {
+                                draftVertices = draftVertices + GeofenceVertex("", "")
+                            }
+                        },
+                        modifier = Modifier
+                            .weight(1f)
+                            .height(34.dp),
+                        enabled = draftVertices.size < 50,
+                        colors = ButtonDefaults.buttonColors(
+                            containerColor = LockBlue,
+                            contentColor = LockOnDark
+                        ),
+                        contentPadding = ButtonDefaults.ContentPadding
+                    ) {
+                        Text(
+                            tr("Add", "Tambah"),
+                            fontWeight = FontWeight.Bold,
+                            fontSize = 9.sp,
+                            maxLines = 1
+                        )
+                    }
                     Button(
                         onClick = { draftVertices = draftVertices.dropLast(1) },
                         modifier = Modifier

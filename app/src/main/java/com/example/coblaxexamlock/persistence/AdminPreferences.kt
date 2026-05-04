@@ -42,6 +42,20 @@ internal fun Context.saveUiLanguage(language: UiLanguage) {
     }
 }
 
+internal data class HomeAdminSettings(
+    val fastExamUrl: String = SecureStrings.fastExamUrl,
+    val fastExamLabel: String = FastExamName
+)
+
+internal fun Context.readHomeAdminSettings(): HomeAdminSettings {
+    val preferences = getSharedPreferences(AdminPreferencesName, Context.MODE_PRIVATE)
+    return HomeAdminSettings(
+        fastExamUrl = preferences.getString(AdminKeyFastExamUrl, SecureStrings.fastExamUrl)
+            ?: SecureStrings.fastExamUrl,
+        fastExamLabel = preferences.getString(AdminKeyFastExamLabel, FastExamName)
+            ?: FastExamName
+    )
+}
 
 internal fun Context.readAdminSettings(): AdminSettings {
     val preferences = getSharedPreferences(AdminPreferencesName, Context.MODE_PRIVATE)

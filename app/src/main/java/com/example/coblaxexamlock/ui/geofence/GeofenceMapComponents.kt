@@ -309,6 +309,59 @@ internal fun CompactInfoMetricCard(
 }
 
 @Composable
+internal fun CompactCoordinateMetricCard(
+    modifier: Modifier = Modifier,
+    label: String,
+    value: String,
+    onValueChange: (String) -> Unit
+) {
+    Surface(
+        modifier = modifier,
+        shape = RoundedCornerShape(12.dp),
+        color = LockSurfaceSoft,
+        border = BorderStroke(1.dp, LockOutline.copy(alpha = 0.7f))
+    ) {
+        Column(
+            modifier = Modifier.padding(horizontal = 7.dp, vertical = 6.dp),
+            verticalArrangement = Arrangement.spacedBy(0.dp)
+        ) {
+            Text(
+                text = label,
+                color = LockTextSecondary,
+                fontSize = 9.sp,
+                maxLines = 1
+            )
+            BasicTextField(
+                value = value,
+                onValueChange = onValueChange,
+                singleLine = true,
+                keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Decimal),
+                textStyle = TextStyle(
+                    color = LockTextPrimary,
+                    fontSize = 10.sp,
+                    fontWeight = FontWeight.Bold
+                ),
+                modifier = Modifier.fillMaxWidth(),
+                decorationBox = { innerTextField ->
+                    Box(modifier = Modifier.fillMaxWidth()) {
+                        if (value.isBlank()) {
+                            Text(
+                                text = "-",
+                                color = LockTextMuted,
+                                fontSize = 10.sp,
+                                fontWeight = FontWeight.Medium,
+                                lineHeight = 11.sp
+                            )
+                        }
+                        innerTextField()
+                    }
+                }
+            )
+        }
+    }
+}
+
+@Composable
 internal fun CompactRadiusMetricCard(
     modifier: Modifier = Modifier,
     value: String,

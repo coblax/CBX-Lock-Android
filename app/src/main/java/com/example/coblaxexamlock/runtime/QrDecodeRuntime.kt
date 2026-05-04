@@ -5,6 +5,7 @@ import android.graphics.Bitmap
 import android.graphics.BitmapFactory
 import android.graphics.Rect
 import android.net.Uri
+import com.example.coblaxexamlock.LowRamProfile
 import com.example.coblaxexamlock.resolveLowRamProfile
 import com.example.coblaxexamlock.config.QrImageReadErrorOpen
 import com.google.zxing.BarcodeFormat
@@ -46,6 +47,9 @@ internal fun calculateBitmapSampleSize(
     }
     return sampleSize.coerceAtLeast(1)
 }
+
+internal fun qrDecodePreferredBitmapConfig(lowRamProfile: LowRamProfile): Bitmap.Config =
+    if (lowRamProfile.enabled) Bitmap.Config.RGB_565 else Bitmap.Config.ARGB_8888
 
 private fun decodeQrPayloadFromPixels(
     width: Int,
@@ -148,9 +152,9 @@ internal fun decodeQrPayloadFromBitmap(bitmap: Bitmap): String? {
 
 internal suspend fun decodeQrPayloadFromImageUri(
     context: Context,
-    uri: Uri
+    uri: Uri,
+    lowRamProfile: LowRamProfile = resolveLowRamProfile(context)
 ): String? = withContext(Dispatchers.IO) {
-    val lowRamProfile = resolveLowRamProfile(context)
     val boundsOptions = BitmapFactory.Options().apply { inJustDecodeBounds = true }
     val boundsDecoded = context.contentResolver.openInputStream(uri)?.use { stream ->
         BitmapFactory.decodeStream(stream, null, boundsOptions)
@@ -165,11 +169,10 @@ internal suspend fun decodeQrPayloadFromImageUri(
         inSampleSize = calculateBitmapSampleSize(
             width = boundsOptions.outWidth,
             height = boundsOptions.outHeight,
-            maxWidth = if (lowRamProfile.enabled) 1280 else 2560,
-            maxHeight = if (lowRamProfile.enabled) 1280 else 2560
+            maxWidth = lowRamProfile.qrMaxEdgePx,
+            maxHeight = lowRamProfile.qrMaxEdgePx
         )
-        inPreferredConfig =
-            if (lowRamProfile.enabled) Bitmap.Config.RGB_565 else Bitmap.Config.ARGB_8888
+        inPreferredConfig = qrDecodePreferredBitmapConfig(lowRamProfile)
     }
 
     val bitmap = context.contentResolver.openInputStream(uri)?.use { stream ->

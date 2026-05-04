@@ -240,6 +240,7 @@ import com.example.coblaxexamlock.LocationPolicySource
 import com.example.coblaxexamlock.LocationSpoofConfidenceTier
 import com.example.coblaxexamlock.LocationSpoofSecurityStatus
 import com.example.coblaxexamlock.LocationSpoofSecurityVerdict
+import com.example.coblaxexamlock.LocalLowRamProfile
 import com.example.coblaxexamlock.MainActivity
 import com.example.coblaxexamlock.MemoryPressureCoordinator
 import com.example.coblaxexamlock.OverlayBypassResolver
@@ -253,7 +254,6 @@ import com.example.coblaxexamlock.ReverseEngineeringResult
 import com.example.coblaxexamlock.RootSecurityStatus
 import com.example.coblaxexamlock.RootBypassResolver
 import com.example.coblaxexamlock.RootBypassState
-import com.example.coblaxexamlock.resolveLowRamProfile
 import com.example.coblaxexamlock.ScreenPinningBypassResolver
 import com.example.coblaxexamlock.ScreenPinningEnforcer
 import com.example.coblaxexamlock.ScreenPinningMode
@@ -3078,6 +3078,7 @@ private fun PreparationLocationWarmupEffect(
     geofenceManualRefreshInFlight: Boolean,
     webViewSessionResetInFlight: Boolean,
     locationWarmupInFlight: Boolean,
+    warmupIntervalMillis: Long,
     updateLocationWarmupInFlight: (Boolean) -> Unit,
     updateReusableWarmLocationValidation: (WarmLocationValidationCache?) -> Unit,
     updateLastGeofenceRefreshAt: (String?) -> Unit,
@@ -3092,7 +3093,8 @@ private fun PreparationLocationWarmupEffect(
         geofencePermissionRequestInFlight,
         geofenceStartValidationInFlight,
         geofenceManualRefreshInFlight,
-        webViewSessionResetInFlight
+        webViewSessionResetInFlight,
+        warmupIntervalMillis
     ) {
         val geofenceMonitoringActive =
             geofenceEnabled && geofenceBypassState != GeofenceBypassState.Active
@@ -3151,7 +3153,7 @@ private fun PreparationLocationWarmupEffect(
                 updateReusableWarmLocationValidation(null)
             }
 
-            delay(PreparationLocationWarmupIntervalMillis)
+            delay(warmupIntervalMillis)
         }
     }
 }
@@ -4316,7 +4318,7 @@ private fun ExamRuntimeSessionScreenImpl(
         ?: error("ExamWebViewScreen requires a ComponentActivity host")
     val mainActivity = activity as? MainActivity
     val lockTaskBridge = remember(mainActivity) { ActivityLockTaskBridge { mainActivity } }
-    val lowRamProfile = remember(context) { resolveLowRamProfile(context) }
+    val lowRamProfile = LocalLowRamProfile.current
     val uiLanguage = LocalUiLanguage.current
     val isIndonesian = uiLanguage == UiLanguage.Indonesian
     val deviceTimeBaseline = remember(
@@ -4776,7 +4778,7 @@ private fun ExamRuntimeSessionScreenImpl(
     val networkStatus = networkReadinessStatus.examStatus
     class RuntimeDiagnosticsOps {
         fun currentNetworkPollingIntervalMillis(): Long {
-            return if (
+            val baseInterval = if (
                 !networkStatus.isConnected ||
                 networkUnstableEpisodeStartedElapsedMs != null
             ) {
@@ -4784,6 +4786,7 @@ private fun ExamRuntimeSessionScreenImpl(
             } else {
                 NetworkReadinessPollingStableIntervalMillis
             }
+            return baseInterval * lowRamProfile.slowPollingMultiplier
         }
 
         fun currentScreenPinningMonitorIntervalMillis(nowElapsedMs: Long = SystemClock.elapsedRealtime()): Long {
@@ -7676,6 +7679,8 @@ private fun ExamRuntimeSessionScreenImpl(
         geofenceManualRefreshInFlight = geofenceManualRefreshInFlight,
         webViewSessionResetInFlight = webViewSessionResetInFlight,
         locationWarmupInFlight = locationWarmupInFlight,
+        warmupIntervalMillis = PreparationLocationWarmupIntervalMillis *
+            lowRamProfile.slowPollingMultiplier,
         updateLocationWarmupInFlight = { locationWarmupInFlight = it },
         updateReusableWarmLocationValidation = { reusableWarmLocationValidation = it },
         updateLastGeofenceRefreshAt = { lastGeofenceRefreshAt = it },

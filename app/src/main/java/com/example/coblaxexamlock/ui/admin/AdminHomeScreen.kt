@@ -194,6 +194,7 @@ import com.example.coblaxexamlock.GeofenceShapeType
 import com.example.coblaxexamlock.IntegrityCheckResult
 import com.example.coblaxexamlock.IntegrityGuard
 import com.example.coblaxexamlock.LocationPolicySource
+import com.example.coblaxexamlock.LocalLowRamProfile
 import com.example.coblaxexamlock.OverlayRiskAnalyzer
 import com.example.coblaxexamlock.OverlayShieldStatus
 import com.example.coblaxexamlock.R
@@ -322,24 +323,28 @@ internal fun ExamLockHomeScreen(
     modifier: Modifier = Modifier
 ) {
     val versionLabel = "${BuildConfig.VERSION_NAME} (${BuildConfig.VERSION_CODE})"
+    val lowRamProfile = LocalLowRamProfile.current
+    val compactHome = lowRamProfile.deferHeavyUi
 
     Box(
         modifier = modifier
             .fillMaxSize()
             .background(LockBackground)
     ) {
-        Box(
-            modifier = Modifier
-                .fillMaxWidth()
-                .height(280.dp)
-                .background(
-                    brush = Brush.verticalGradient(
-                        0f to LockBlue.copy(alpha = 0.18f),
-                        0.45f to LockBlueSoft.copy(alpha = 0.10f),
-                        1f to Color.Transparent
+        if (!compactHome) {
+            Box(
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .height(280.dp)
+                    .background(
+                        brush = Brush.verticalGradient(
+                            0f to LockBlue.copy(alpha = 0.18f),
+                            0.45f to LockBlueSoft.copy(alpha = 0.10f),
+                            1f to Color.Transparent
+                        )
                     )
-                )
-        )
+            )
+        }
 
         Column(
             modifier = Modifier
@@ -347,7 +352,10 @@ internal fun ExamLockHomeScreen(
                 .statusBarsPadding()
                 .navigationBarsPadding()
                 .verticalScroll(rememberScrollState())
-                .padding(horizontal = 20.dp, vertical = 18.dp),
+                .padding(
+                    horizontal = if (compactHome) 16.dp else 20.dp,
+                    vertical = if (compactHome) 12.dp else 18.dp
+                ),
             horizontalAlignment = Alignment.CenterHorizontally
         ) {
             HomeHeroCard(
@@ -356,7 +364,7 @@ internal fun ExamLockHomeScreen(
                 onSecretTap = onSecretTap
             )
 
-            Spacer(modifier = Modifier.height(18.dp))
+            Spacer(modifier = Modifier.height(if (compactHome) 12.dp else 18.dp))
 
             ActionButton(
                 text = tr("SCAN EXAM QR", "SCAN QR UJIAN"),
@@ -373,7 +381,7 @@ internal fun ExamLockHomeScreen(
                 onClick = onScanExam
             )
 
-            Spacer(modifier = Modifier.height(14.dp))
+            Spacer(modifier = Modifier.height(if (compactHome) 10.dp else 14.dp))
 
             ActionButton(
                 text = tr("CUSTOM QR (ADMIN)", "CUSTOM QR (ADMIN)"),
@@ -390,7 +398,7 @@ internal fun ExamLockHomeScreen(
                 onClick = onOpenAdmin
             )
 
-            Spacer(modifier = Modifier.height(14.dp))
+            Spacer(modifier = Modifier.height(if (compactHome) 10.dp else 14.dp))
 
             ActionButton(
                 text = directLinkLabel,
@@ -407,7 +415,7 @@ internal fun ExamLockHomeScreen(
                 onClick = onOpenFastExam
             )
 
-            Spacer(modifier = Modifier.height(18.dp))
+            Spacer(modifier = Modifier.height(if (compactHome) 12.dp else 18.dp))
 
             DeveloperInfo()
 
@@ -434,16 +442,22 @@ internal fun HomeHeroCard(
     onUiLanguageChange: (UiLanguage) -> Unit,
     onSecretTap: () -> Unit
 ) {
+    val lowRamProfile = LocalLowRamProfile.current
+    val compactHome = lowRamProfile.deferHeavyUi
+
     Surface(
         modifier = Modifier.fillMaxWidth(),
-        shape = RoundedCornerShape(30.dp),
+        shape = RoundedCornerShape(if (compactHome) 22.dp else 30.dp),
         color = Color.White.copy(alpha = 0.96f),
-        shadowElevation = 10.dp,
-        tonalElevation = 4.dp,
+        shadowElevation = if (compactHome) 0.dp else 10.dp,
+        tonalElevation = if (compactHome) 0.dp else 4.dp,
         border = BorderStroke(1.dp, LockOutline.copy(alpha = 0.92f))
     ) {
         Column(
-            modifier = Modifier.padding(horizontal = 20.dp, vertical = 18.dp),
+            modifier = Modifier.padding(
+                horizontal = if (compactHome) 16.dp else 20.dp,
+                vertical = if (compactHome) 14.dp else 18.dp
+            ),
             horizontalAlignment = Alignment.CenterHorizontally
         ) {
             Row(
@@ -462,7 +476,7 @@ internal fun HomeHeroCard(
                 )
             }
 
-            Spacer(modifier = Modifier.height(18.dp))
+            Spacer(modifier = Modifier.height(if (compactHome) 12.dp else 18.dp))
 
             CoblaxFrontBrand(uiLanguage = uiLanguage)
         }
@@ -474,6 +488,19 @@ internal fun ProductionBuildBadge(
     uiLanguage: UiLanguage,
     onSecretTap: () -> Unit
 ) {
+    val lowRamProfile = LocalLowRamProfile.current
+    val compactHome = lowRamProfile.deferHeavyUi
+    val backgroundModifier = if (compactHome) {
+        Modifier.background(LockBlueDeep)
+    } else {
+        Modifier.background(
+            brush = Brush.horizontalGradient(
+                0f to LockBlueDeep,
+                1f to LockBlue
+            )
+        )
+    }
+
     Surface(
         shape = RoundedCornerShape(999.dp),
         color = Color.Transparent,
@@ -481,12 +508,7 @@ internal fun ProductionBuildBadge(
     ) {
         Row(
             modifier = Modifier
-                .background(
-                    brush = Brush.horizontalGradient(
-                        0f to LockBlueDeep,
-                        1f to LockBlue
-                    )
-                )
+                .then(backgroundModifier)
                 .clickable(
                     interactionSource = remember { MutableInteractionSource() },
                     indication = null,
@@ -519,12 +541,15 @@ internal fun LanguageTogglePill(
     currentLanguage: UiLanguage,
     onLanguageChange: (UiLanguage) -> Unit
 ) {
+    val lowRamProfile = LocalLowRamProfile.current
+    val compactHome = lowRamProfile.deferHeavyUi
+
     Surface(
         shape = RoundedCornerShape(999.dp),
         color = Color.White.copy(alpha = 0.98f),
         border = BorderStroke(1.dp, LockOutline.copy(alpha = 0.92f)),
-        tonalElevation = 2.dp,
-        shadowElevation = 3.dp
+        tonalElevation = if (compactHome) 0.dp else 2.dp,
+        shadowElevation = if (compactHome) 0.dp else 3.dp
     ) {
         Row(
             modifier = Modifier.padding(horizontal = 6.dp, vertical = 5.dp),
@@ -609,22 +634,30 @@ internal fun LanguageOptionChip(
 
 @Composable
 internal fun CoblaxFrontBrand(uiLanguage: UiLanguage) {
+    val lowRamProfile = LocalLowRamProfile.current
+    val compactHome = lowRamProfile.deferHeavyUi
+    val logoSize = if (compactHome) 112.dp else 188.dp
+    val titleSize = if (compactHome) 28.sp else 34.sp
+    val subtitleSize = if (compactHome) 12.sp else 14.sp
+    val bodySize = if (compactHome) 12.sp else 13.sp
+    val bodyLineHeight = if (compactHome) 16.sp else 18.sp
+
     Column(
         modifier = Modifier.fillMaxWidth(),
         horizontalAlignment = Alignment.CenterHorizontally
     ) {
         CoblaxLogoMark(
-            modifier = Modifier.size(188.dp)
+            modifier = Modifier.size(logoSize)
         )
 
-        Spacer(modifier = Modifier.height(8.dp))
+        Spacer(modifier = Modifier.height(if (compactHome) 4.dp else 8.dp))
 
         Text(
             text = "CBX Lock",
             color = LockBlueDeep,
-            fontSize = 34.sp,
+            fontSize = titleSize,
             fontWeight = FontWeight.Black,
-            letterSpacing = 0.8.sp
+            letterSpacing = 0.sp
         )
 
         Spacer(modifier = Modifier.height(4.dp))
@@ -632,12 +665,12 @@ internal fun CoblaxFrontBrand(uiLanguage: UiLanguage) {
         Text(
             text = "COBLAX EXAM LOCK",
             color = LockBlueMid,
-            fontSize = 14.sp,
+            fontSize = subtitleSize,
             fontWeight = FontWeight.ExtraBold,
-            letterSpacing = 2.sp
+            letterSpacing = 0.sp
         )
 
-        Spacer(modifier = Modifier.height(12.dp))
+        Spacer(modifier = Modifier.height(if (compactHome) 8.dp else 12.dp))
 
         Text(
             text = localized(
@@ -646,8 +679,8 @@ internal fun CoblaxFrontBrand(uiLanguage: UiLanguage) {
                 "Menjaga ujian online tetap fokus dan lebih aman dari kecurangan dengan mengunci perangkat serta mengarahkan siswa ke halaman ujian resmi."
             ),
             color = LockTextSecondary,
-            fontSize = 13.sp,
-            lineHeight = 18.sp,
+            fontSize = bodySize,
+            lineHeight = bodyLineHeight,
             textAlign = TextAlign.Justify,
             modifier = Modifier.fillMaxWidth()
         )
