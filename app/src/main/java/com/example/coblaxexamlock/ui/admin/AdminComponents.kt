@@ -202,6 +202,7 @@ import com.example.coblaxexamlock.QrCodeGenerator
 import com.example.coblaxexamlock.ReverseEngineeringGuard
 import com.example.coblaxexamlock.ReverseEngineeringResult
 import com.example.coblaxexamlock.RootBypassResolver
+import com.example.coblaxexamlock.calculateQrExportBitmapSpec
 import com.example.coblaxexamlock.buildRootSecurityStatus
 import com.example.coblaxexamlock.formatCoordinates
 import com.example.coblaxexamlock.formatExamScheduleDateTime
@@ -528,6 +529,9 @@ internal fun GeneratedQrCard(
         lowRamProfile.enabled -> 200.dp
         else -> 220.dp
     }
+    val exportBitmapSpec = remember(lowRamProfile) {
+        calculateQrExportBitmapSpec(lowRamProfile)
+    }
     val shareFailedMessage = tr("Failed to open the share menu.", "Gagal membuka menu bagikan.")
     val saveSuccessPrefix = tr("Saved:", "Tersimpan:")
     val saveFailedMessage = tr("Failed to save the QR.", "Gagal menyimpan QR.")
@@ -620,7 +624,8 @@ internal fun GeneratedQrCard(
                             examName = examName,
                             startTime = startTime,
                             endTime = endTime,
-                            locationPolicy = locationPolicy
+                            locationPolicy = locationPolicy,
+                            exportSpec = exportBitmapSpec
                         )
                         try {
                             ExamQrExportHelper.shareBitmap(
@@ -659,7 +664,8 @@ internal fun GeneratedQrCard(
                             examName = examName,
                             startTime = startTime,
                             endTime = endTime,
-                            locationPolicy = locationPolicy
+                            locationPolicy = locationPolicy,
+                            exportSpec = exportBitmapSpec
                         )
                         try {
                             ExamQrExportHelper.saveToGallery(

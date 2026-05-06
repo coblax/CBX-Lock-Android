@@ -125,9 +125,7 @@ class ExamGuardAccessibilityService : AccessibilityService() {
             eventType = eventType
         )
 
-        runCatching {
-            startActivity(buildAccessibilityExamReturnIntent(this))
-        }
+        launchPlatformIntentSafely(this, buildAccessibilityExamReturnIntent(this))
 
         emitAccessibilityGuardViolationBroadcast(this, updated)
     }

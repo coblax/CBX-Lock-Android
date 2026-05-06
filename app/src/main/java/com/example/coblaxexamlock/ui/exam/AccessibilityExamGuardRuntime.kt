@@ -32,6 +32,7 @@ import com.example.coblaxexamlock.alarmSeverityForAppSwitchViolationCount
 import com.example.coblaxexamlock.buildAccessibilityExamReturnIntent
 import com.example.coblaxexamlock.emitAccessibilityGuardViolationBroadcast
 import com.example.coblaxexamlock.isExamGuardAccessibilityEnabled
+import com.example.coblaxexamlock.launchPlatformIntentSafely
 import com.example.coblaxexamlock.model.DiagnosticEventLevel
 import com.example.coblaxexamlock.parseExamAlarmSeverity
 import kotlinx.coroutines.CoroutineScope
@@ -115,9 +116,7 @@ internal fun AccessibilityExamGuardLivenessEffect(
             foreignPackage = "accessibility_service_disabled",
             eventType = source
         )
-        runCatching {
-            appContext.startActivity(buildAccessibilityExamReturnIntent(appContext))
-        }
+        launchPlatformIntentSafely(appContext, buildAccessibilityExamReturnIntent(appContext))
         emitAccessibilityGuardViolationBroadcast(appContext, updated)
     }
 

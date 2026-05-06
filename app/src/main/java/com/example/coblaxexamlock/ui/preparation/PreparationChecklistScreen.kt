@@ -191,9 +191,14 @@ import com.example.coblaxexamlock.GeofenceRuntimeStatus
 import com.example.coblaxexamlock.GeofenceSecurityVerdict
 import com.example.coblaxexamlock.LocationSpoofConfidenceTier
 import com.example.coblaxexamlock.LocationSpoofSecurityVerdict
+import com.example.coblaxexamlock.LocalLowRamProfile
 import com.example.coblaxexamlock.OverlayQuickFixTarget
 import com.example.coblaxexamlock.OverlayRiskResult
 import com.example.coblaxexamlock.OverlaySignal
+import com.example.coblaxexamlock.CompatibilityScore
+import com.example.coblaxexamlock.DeviceSurvivalPolicy
+import com.example.coblaxexamlock.PinningActivationState
+import com.example.coblaxexamlock.PreviousExamSessionBreadcrumb
 import com.example.coblaxexamlock.RootBypassState
 import com.example.coblaxexamlock.RootSecurityStatus
 import com.example.coblaxexamlock.diagnosticLabel
@@ -224,6 +229,7 @@ import com.example.coblaxexamlock.isExamGuardAccessibilityAvailable
 import com.example.coblaxexamlock.isExamGuardAccessibilityEnabled
 import com.example.coblaxexamlock.model.DiagnosticSection
 import com.example.coblaxexamlock.model.NetworkReadinessStatus
+import com.example.coblaxexamlock.model.NetworkReadinessUserVerdict
 import com.example.coblaxexamlock.model.NetworkReadinessVerdict
 import com.example.coblaxexamlock.model.NetworkTimelineEntry
 import com.example.coblaxexamlock.model.NetworkUnstableRuntimeStatus
@@ -324,10 +330,13 @@ private enum class QuickFixTarget {
     Network,
     Location,
     DeviceTime,
-    ScreenPinning
+    ScreenPinning,
+    WebView,
+    Battery
 }
 
 private data class PreparationQuickFixAction(
+    val code: String,
     val text: String,
     val severity: QuickFixSeverity,
     val target: QuickFixTarget?,
@@ -337,6 +346,365 @@ private data class PreparationQuickFixAction(
     val enabled: Boolean = true,
     val onClick: () -> Unit
 )
+
+@Composable
+private fun PreExamHealthCheckCard(
+    snapshot: PreExamHealthSnapshot,
+    refreshing: Boolean,
+    onRefresh: () -> Unit,
+    onFixWebViewProvider: () -> Unit
+) {
+    val accentColor = when {
+        snapshot.blockingCount > 0 -> Color(0xFFB34A4A)
+        snapshot.warningCount > 0 -> LockGoldDark
+        else -> Color(0xFF1F7A4D)
+    }
+    Surface(
+        modifier = Modifier.fillMaxWidth(),
+        shape = RoundedCornerShape(22.dp),
+        color = Color.White,
+        border = BorderStroke(1.dp, LockOutline),
+        tonalElevation = 1.dp,
+        shadowElevation = 0.dp
+    ) {
+        Column(
+            modifier = Modifier.padding(horizontal = 14.dp, vertical = 14.dp),
+            verticalArrangement = Arrangement.spacedBy(10.dp)
+        ) {
+            Row(
+                modifier = Modifier.fillMaxWidth(),
+                horizontalArrangement = Arrangement.spacedBy(10.dp),
+                verticalAlignment = Alignment.CenterVertically
+            ) {
+                Column(modifier = Modifier.weight(1f)) {
+                    Text(
+                        text = tr("Pre-Exam Health Check", "Health Check Sebelum Ujian"),
+                        color = LockTextPrimary,
+                        fontSize = 16.sp,
+                        fontWeight = FontWeight.Bold
+                    )
+                    Text(
+                        text = tr(
+                            "Device profile: ${snapshot.compatibilityLabel}",
+                            "Profil perangkat: ${snapshot.compatibilityLabel}"
+                        ),
+                        color = LockTextSecondary,
+                        fontSize = 11.sp,
+                        lineHeight = 15.sp
+                    )
+                }
+                Button(
+                    onClick = onRefresh,
+                    enabled = !refreshing,
+                    shape = RoundedCornerShape(14.dp),
+                    colors = ButtonDefaults.buttonColors(
+                        containerColor = accentColor,
+                        contentColor = Color.White
+                    ),
+                    contentPadding = androidx.compose.foundation.layout.PaddingValues(
+                        horizontal = 12.dp,
+                        vertical = 8.dp
+                    )
+                ) {
+                    Text(
+                        text = if (refreshing) {
+                            tr("Checking", "Cek")
+                        } else {
+                            tr("Refresh", "Refresh")
+                        },
+                        fontSize = 12.sp,
+                        fontWeight = FontWeight.Bold
+                    )
+                }
+            }
+
+            Row(
+                modifier = Modifier.fillMaxWidth(),
+                horizontalArrangement = Arrangement.spacedBy(8.dp)
+            ) {
+                PreExamHealthCountChip(
+                    label = tr("Block", "Blok"),
+                    count = snapshot.blockingCount,
+                    color = Color(0xFFB34A4A),
+                    modifier = Modifier.weight(1f)
+                )
+                PreExamHealthCountChip(
+                    label = tr("Warn", "Warn"),
+                    count = snapshot.warningCount,
+                    color = LockGoldDark,
+                    modifier = Modifier.weight(1f)
+                )
+                PreExamHealthCountChip(
+                    label = tr("Ready", "Siap"),
+                    count = snapshot.stableCount,
+                    color = Color(0xFF1F7A4D),
+                    modifier = Modifier.weight(1f)
+                )
+            }
+
+            snapshot.items.forEach { item ->
+                PreExamHealthRow(
+                    item = item,
+                    onFix = if (
+                        item.category == PreExamHealthCategory.WebView &&
+                        item.verdict != PreExamHealthVerdict.Stable
+                    ) {
+                        onFixWebViewProvider
+                    } else {
+                        null
+                    }
+                )
+            }
+        }
+    }
+}
+
+@Composable
+private fun DeviceSurvivalPolicyCard(
+    policy: DeviceSurvivalPolicy,
+    previousSessionBreadcrumb: PreviousExamSessionBreadcrumb,
+    onExportDiagnostics: () -> Unit
+) {
+    val accentColor = when (policy.score) {
+        CompatibilityScore.Excellent -> Color(0xFF1F7A4D)
+        CompatibilityScore.Good -> Color(0xFF2F8F63)
+        CompatibilityScore.NeedsSetup -> LockGoldDark
+        CompatibilityScore.NotRecommended -> Color(0xFFB34A4A)
+    }
+    Surface(
+        modifier = Modifier.fillMaxWidth(),
+        shape = RoundedCornerShape(20.dp),
+        color = Color.White,
+        border = BorderStroke(1.dp, accentColor.copy(alpha = 0.22f)),
+        tonalElevation = 1.dp,
+        shadowElevation = 0.dp
+    ) {
+        Column(
+            modifier = Modifier.padding(horizontal = 14.dp, vertical = 12.dp),
+            verticalArrangement = Arrangement.spacedBy(8.dp)
+        ) {
+            Row(
+                modifier = Modifier.fillMaxWidth(),
+                horizontalArrangement = Arrangement.SpaceBetween,
+                verticalAlignment = Alignment.CenterVertically
+            ) {
+                Column(modifier = Modifier.weight(1f)) {
+                    Text(
+                        text = tr("Device Readiness", "Kesiapan Perangkat"),
+                        color = LockTextPrimary,
+                        fontSize = 15.sp,
+                        fontWeight = FontWeight.Bold
+                    )
+                    Text(
+                        text = "${policy.vendorRiskLabel} • ${policy.webViewRiskLabel}",
+                        color = LockTextSecondary,
+                        fontSize = 11.sp,
+                        lineHeight = 15.sp
+                    )
+                }
+                Surface(
+                    shape = RoundedCornerShape(999.dp),
+                    color = accentColor.copy(alpha = 0.13f),
+                    border = BorderStroke(1.dp, accentColor.copy(alpha = 0.20f))
+                ) {
+                    Text(
+                        text = policy.score.name,
+                        color = accentColor,
+                        fontSize = 10.sp,
+                        fontWeight = FontWeight.ExtraBold,
+                        modifier = Modifier.padding(horizontal = 9.dp, vertical = 5.dp)
+                    )
+                }
+            }
+            Row(
+                modifier = Modifier.fillMaxWidth(),
+                horizontalArrangement = Arrangement.spacedBy(8.dp)
+            ) {
+                PreExamHealthCountChip(
+                    label = tr("Block", "Blok"),
+                    count = policy.healthBlockingCount,
+                    color = Color(0xFFB34A4A),
+                    modifier = Modifier.weight(1f)
+                )
+                PreExamHealthCountChip(
+                    label = tr("Warn", "Warn"),
+                    count = policy.healthWarningCount,
+                    color = LockGoldDark,
+                    modifier = Modifier.weight(1f)
+                )
+                Surface(
+                    modifier = Modifier.weight(1f),
+                    shape = RoundedCornerShape(14.dp),
+                    color = accentColor.copy(alpha = 0.10f),
+                    border = BorderStroke(1.dp, accentColor.copy(alpha = 0.18f))
+                ) {
+                    Column(
+                        modifier = Modifier.padding(horizontal = 8.dp, vertical = 7.dp),
+                        horizontalAlignment = Alignment.CenterHorizontally
+                    ) {
+                        Text(
+                            text = policy.runtimeTier.name,
+                            color = accentColor,
+                            fontSize = 10.sp,
+                            fontWeight = FontWeight.ExtraBold,
+                            textAlign = TextAlign.Center
+                        )
+                        Text(
+                            text = tr("Runtime", "Runtime"),
+                            color = LockTextSecondary,
+                            fontSize = 9.sp,
+                            fontWeight = FontWeight.Bold
+                        )
+                    }
+                }
+            }
+            previousSessionBreadcrumb.latestRecoveryHint?.let { hint ->
+                Surface(
+                    modifier = Modifier.fillMaxWidth(),
+                    shape = RoundedCornerShape(14.dp),
+                    color = Color(0xFFFFF8E8),
+                    border = BorderStroke(1.dp, LockGoldDark.copy(alpha = 0.18f))
+                ) {
+                    Column(
+                        modifier = Modifier.padding(10.dp),
+                        verticalArrangement = Arrangement.spacedBy(7.dp)
+                    ) {
+                        Text(
+                            text = tr("Previous Session Recovery", "Recovery Sesi Sebelumnya"),
+                            color = LockGoldDark,
+                            fontSize = 12.sp,
+                            fontWeight = FontWeight.Bold
+                        )
+                        Text(
+                            text = hint,
+                            color = LockTextSecondary,
+                            fontSize = 11.sp,
+                            lineHeight = 15.sp
+                        )
+                        TextButton(onClick = onExportDiagnostics) {
+                            Text(
+                                text = tr("Export Diagnostics", "Export Diagnostik"),
+                                fontWeight = FontWeight.Bold
+                            )
+                        }
+                    }
+                }
+            }
+        }
+    }
+}
+
+@Composable
+private fun PreExamHealthCountChip(
+    label: String,
+    count: Int,
+    color: Color,
+    modifier: Modifier = Modifier
+) {
+    Surface(
+        modifier = modifier,
+        shape = RoundedCornerShape(14.dp),
+        color = color.copy(alpha = 0.10f),
+        border = BorderStroke(1.dp, color.copy(alpha = 0.18f))
+    ) {
+        Column(
+            modifier = Modifier.padding(horizontal = 8.dp, vertical = 7.dp),
+            horizontalAlignment = Alignment.CenterHorizontally
+        ) {
+            Text(
+                text = "$count",
+                color = color,
+                fontSize = 15.sp,
+                fontWeight = FontWeight.ExtraBold
+            )
+            Text(
+                text = label,
+                color = LockTextSecondary,
+                fontSize = 9.sp,
+                fontWeight = FontWeight.Bold
+            )
+        }
+    }
+}
+
+@Composable
+private fun PreExamHealthRow(
+    item: PreExamHealthItem,
+    onFix: (() -> Unit)? = null
+) {
+    val color = when (item.verdict) {
+        PreExamHealthVerdict.Blocking -> Color(0xFFB34A4A)
+        PreExamHealthVerdict.Warning -> LockGoldDark
+        PreExamHealthVerdict.Stable -> Color(0xFF1F7A4D)
+    }
+    Row(
+        modifier = Modifier.fillMaxWidth(),
+        horizontalArrangement = Arrangement.spacedBy(9.dp),
+        verticalAlignment = Alignment.Top
+    ) {
+        Box(
+            modifier = Modifier
+                .padding(top = 5.dp)
+                .size(8.dp)
+                .clip(CircleShape)
+                .background(color)
+        )
+        Column(
+            modifier = Modifier.weight(1f),
+            verticalArrangement = Arrangement.spacedBy(2.dp)
+        ) {
+            Row(
+                modifier = Modifier.fillMaxWidth(),
+                horizontalArrangement = Arrangement.SpaceBetween,
+                verticalAlignment = Alignment.CenterVertically
+            ) {
+                Text(
+                    text = item.title,
+                    color = LockTextPrimary,
+                    fontSize = 12.sp,
+                    fontWeight = FontWeight.Bold,
+                    modifier = Modifier.weight(1f)
+                )
+                Text(
+                    text = item.verdict.name,
+                    color = color,
+                    fontSize = 9.sp,
+                    fontWeight = FontWeight.ExtraBold
+                )
+            }
+            Text(
+                text = item.detail,
+                color = LockTextSecondary,
+                fontSize = 11.sp,
+                lineHeight = 15.sp
+            )
+            item.quickFix?.takeIf { it.isNotBlank() }?.let { quickFix ->
+                Text(
+                    text = quickFix,
+                    color = LockTextMuted,
+                    fontSize = 10.sp,
+                    lineHeight = 14.sp
+                )
+            }
+            if (onFix != null) {
+                TextButton(
+                    onClick = onFix,
+                    contentPadding = androidx.compose.foundation.layout.PaddingValues(
+                        horizontal = 0.dp,
+                        vertical = 0.dp
+                    )
+                ) {
+                    Text(
+                        text = tr("Fix WebView Provider", "Perbaiki WebView Provider"),
+                        color = LockBlue,
+                        fontSize = 11.sp,
+                        fontWeight = FontWeight.Bold
+                    )
+                }
+            }
+        }
+    }
+}
 
 @Composable
 internal fun ExamSecurityPreparationScreen(
@@ -356,6 +724,8 @@ internal fun ExamSecurityPreparationScreen(
     tamperDetected: Boolean,
     sendingSection: DiagnosticSection?,
     isStartingExam: Boolean,
+    pinningActivationState: PinningActivationState,
+    screenPinningMessage: String?,
     webViewSessionResetInFlight: Boolean,
     webViewSessionResetError: String?,
     isRefreshingGeofence: Boolean,
@@ -396,6 +766,9 @@ internal fun ExamSecurityPreparationScreen(
     fakeLocationBypassState: FakeLocationBypassState,
     bypassDeviceTime: Boolean,
     bypassAppSwitch: Boolean,
+    preExamHealthCheckSnapshot: PreExamHealthSnapshot,
+    deviceSurvivalPolicy: DeviceSurvivalPolicy,
+    previousExamSessionBreadcrumb: PreviousExamSessionBreadcrumb,
     showChecklistDetails: Boolean,
     onChooseKeyboard: () -> Unit,
     onOpenKeyboardSettings: () -> Unit,
@@ -417,16 +790,23 @@ internal fun ExamSecurityPreparationScreen(
     onOpenFakeLocationDeveloperOptionsSettings: () -> Unit,
     onOpenScreenPinningSettings: () -> Unit,
     onOpenOverlaySettings: () -> Unit,
+    onOpenWebViewProviderSettings: () -> Unit,
     onReinstallOfficialApk: () -> Unit,
     onRefreshStatus: () -> Unit,
     onRefreshAllSecurityChecks: () -> Unit,
+    onRefreshHealthCheck: () -> Unit,
     onRequestSectionReport: (DiagnosticSection) -> Unit,
+    onExportDiagnostics: () -> Unit,
+    onAutoFixShown: (String) -> Unit,
+    onPreviousSessionRecoveryHintShown: (String) -> Unit,
+    onAutoFixActionOpened: (String) -> Unit,
     onStartExam: () -> Unit,
     onBackHome: () -> Unit,
     modifier: Modifier = Modifier
 ) {
     val uiLanguage = LocalUiLanguage.current
     val context = LocalContext.current
+    val severeLowRamPreparation = LocalLowRamProfile.current.severe
     val accessibilityInspection = remember(
         context,
         accessibilityServiceEnabled,
@@ -456,7 +836,9 @@ internal fun ExamSecurityPreparationScreen(
                 QuickFixTarget.Network -> refreshNetworkStatus()
                 QuickFixTarget.Location -> refreshLocationStatus()
                 QuickFixTarget.DeviceTime,
-                QuickFixTarget.ScreenPinning -> refreshPreparationStatus()
+                QuickFixTarget.ScreenPinning,
+                QuickFixTarget.WebView,
+                QuickFixTarget.Battery -> refreshPreparationStatus()
                 QuickFixTarget.All -> refreshAllSecurityChecks()
             }
         }
@@ -465,11 +847,34 @@ internal fun ExamSecurityPreparationScreen(
             lifecycleOwner.lifecycle.removeObserver(observer)
         }
     }
-    fun runQuickFix(target: QuickFixTarget?, action: () -> Unit) {
+    fun runQuickFix(target: QuickFixTarget?, actionCode: String, action: () -> Unit) {
+        onAutoFixActionOpened(actionCode)
         if (target != null) {
             pendingQuickFixTarget = target
         }
         action()
+    }
+    val autoFixSuggestions = remember(preExamHealthCheckSnapshot, deviceSurvivalPolicy) {
+        buildPreparationAutoFixSuggestions(
+            snapshot = preExamHealthCheckSnapshot,
+            survivalPolicy = deviceSurvivalPolicy
+        )
+    }
+    LaunchedEffect(autoFixSuggestions.size, deviceSurvivalPolicy.score) {
+        if (autoFixSuggestions.isNotEmpty()) {
+            onAutoFixShown(
+                "score=${deviceSurvivalPolicy.score.name} | suggestions=${autoFixSuggestions.size} | " +
+                    "blocking=${autoFixSuggestions.count { it.severity == PreparationAutoFixSeverity.Blocking }}"
+            )
+        }
+    }
+    val previousSessionRecoveryHint = previousExamSessionBreadcrumb.latestRecoveryHint
+    LaunchedEffect(previousSessionRecoveryHint) {
+        if (!previousSessionRecoveryHint.isNullOrBlank()) {
+            onPreviousSessionRecoveryHintShown(
+                "hint=${previousSessionRecoveryHint.take(120)} | trail=${previousExamSessionBreadcrumb.diagnosticSummary()}"
+            )
+        }
     }
     val checklistTitle = tr("Automatic Checklist", "Checklist Otomatis")
     val checklistSubtitle = tr("Quick checks before the exam starts.", "Pemeriksaan singkat sebelum mulai.")
@@ -571,42 +976,52 @@ internal fun ExamSecurityPreparationScreen(
         deviceTimeSecurityStatus.finalVerdict == DeviceTimeSecurityVerdict.ClockDriftDetected -> tr("Clock Change", "Perubahan Jam")
         else -> tr("Action needed", "Perlu aksi")
     }
-    val networkStatusLabel = when (networkReadinessStatus.verdict) {
-        NetworkReadinessVerdict.ConnectedStable -> tr("Stable", "Stabil")
-        NetworkReadinessVerdict.Offline -> tr("Offline", "Offline")
-        NetworkReadinessVerdict.Unvalidated -> tr("Unvalidated", "Belum Tervalidasi")
-        NetworkReadinessVerdict.CaptivePortal -> tr("Captive Portal", "Captive Portal")
-        NetworkReadinessVerdict.AirplaneMode -> tr("Airplane Mode", "Mode Pesawat")
-        NetworkReadinessVerdict.Unstable -> tr("Unstable", "Tidak Stabil")
+    val networkStatusLabel = when (networkReadinessStatus.userFacingVerdict) {
+        NetworkReadinessUserVerdict.Stable -> tr("Stable", "Stabil")
+        NetworkReadinessUserVerdict.Offline -> tr("Offline", "Offline")
+        NetworkReadinessUserVerdict.Unvalidated -> tr("Unvalidated", "Belum Tervalidasi")
+        NetworkReadinessUserVerdict.CaptivePortal -> tr("Captive Portal", "Captive Portal")
+        NetworkReadinessUserVerdict.DnsFailed -> tr("DNS Failed", "DNS Gagal")
+        NetworkReadinessUserVerdict.Slow -> tr("Slow", "Lambat")
+        NetworkReadinessUserVerdict.AirplaneMode -> tr("Airplane Mode", "Mode Pesawat")
+        NetworkReadinessUserVerdict.Unstable -> tr("Unstable", "Tidak Stabil")
     }
-    val networkValue = when (networkReadinessStatus.verdict) {
-        NetworkReadinessVerdict.ConnectedStable -> tr(
+    val networkValue = when (networkReadinessStatus.userFacingVerdict) {
+        NetworkReadinessUserVerdict.Stable -> tr(
             "Connected and ready on ${networkReadinessStatus.transportLabel}.",
             "Terhubung dan siap di ${networkReadinessStatus.transportLabel}."
         )
-        NetworkReadinessVerdict.Offline -> tr(
+        NetworkReadinessUserVerdict.Offline -> tr(
             "No active internet connection is available right now.",
             "Saat ini belum ada koneksi internet aktif."
         )
-        NetworkReadinessVerdict.Unvalidated -> tr(
+        NetworkReadinessUserVerdict.Unvalidated -> tr(
             "A network is connected, but Android has not validated internet access yet.",
             "Jaringan sudah terhubung, tetapi Android belum memvalidasi akses internet."
         )
-        NetworkReadinessVerdict.CaptivePortal -> tr(
+        NetworkReadinessUserVerdict.CaptivePortal -> tr(
             "This network may still require a portal or login step before internet works.",
             "Jaringan ini mungkin masih membutuhkan portal atau langkah login sebelum internet bisa dipakai."
         )
-        NetworkReadinessVerdict.AirplaneMode -> tr(
+        NetworkReadinessUserVerdict.DnsFailed -> tr(
+            "Internet is connected, but DNS did not answer the quick probe.",
+            "Internet terhubung, tetapi DNS tidak menjawab probe cepat."
+        )
+        NetworkReadinessUserVerdict.Slow -> tr(
+            "Internet works, but the quick probe is slow. A steadier network is recommended.",
+            "Internet bisa dipakai, tetapi probe cepat lambat. Jaringan yang lebih stabil disarankan."
+        )
+        NetworkReadinessUserVerdict.AirplaneMode -> tr(
             "Airplane mode is on and no active connection is available.",
             "Mode pesawat aktif dan belum ada koneksi aktif."
         )
-        NetworkReadinessVerdict.Unstable -> tr(
+        NetworkReadinessUserVerdict.Unstable -> tr(
             "The connection has changed several times recently. A stable network is recommended before and during the exam.",
             "Koneksi berubah beberapa kali belakangan ini. Jaringan yang stabil disarankan sebelum dan selama ujian."
         )
     }
     val networkLastChangeSummary = lastNetworkChangeAt?.ifBlank { "-" } ?: "-"
-    val networkMeta = when {
+    val networkFlapMeta = when {
         networkReadinessStatus.verdict == NetworkReadinessVerdict.Unstable ||
             networkUnstableRuntimeStatus.flapCount > 0 ->
             tr(
@@ -615,29 +1030,62 @@ internal fun ExamSecurityPreparationScreen(
             )
         else -> null
     }
-    val networkDetail = when (networkReadinessStatus.verdict) {
-        NetworkReadinessVerdict.ConnectedStable -> null
-        NetworkReadinessVerdict.Offline -> tr(
+    val networkProbeMeta = networkReadinessStatus.dnsProbeStatus
+        .takeIf { it.verdict.name !in setOf("NotRun", "Skipped") }
+        ?.let { probe ->
+            tr(
+                "DNS probe: ${probe.verdict.name} | ${probe.latencyBucket.name.lowercase(Locale.US)}",
+                "Probe DNS: ${probe.verdict.name} | ${probe.latencyBucket.name.lowercase(Locale.US)}"
+            )
+        }
+    val networkMeta = listOfNotNull(networkFlapMeta, networkProbeMeta)
+        .joinToString("\n")
+        .ifBlank { null }
+    val networkDetail = networkReadinessStatus.userFacingQuickFixText ?: when (networkReadinessStatus.userFacingVerdict) {
+        NetworkReadinessUserVerdict.Stable -> null
+        NetworkReadinessUserVerdict.Offline -> tr(
             "Check Wi-Fi or mobile data, then tap Refresh.",
             "Periksa Wi-Fi atau data seluler, lalu tekan Refresh."
         )
-        NetworkReadinessVerdict.Unvalidated -> tr(
+        NetworkReadinessUserVerdict.Unvalidated -> tr(
             "Wait a moment or switch to a network with working internet, then tap Refresh.",
             "Tunggu sebentar atau pindah ke jaringan yang internetnya aktif, lalu tekan Refresh."
         )
-        NetworkReadinessVerdict.CaptivePortal -> tr(
+        NetworkReadinessUserVerdict.CaptivePortal -> tr(
             "Complete the network login page first, then return here and tap Refresh.",
             "Selesaikan halaman login jaringan dahulu, lalu kembali dan tekan Refresh."
         )
-        NetworkReadinessVerdict.AirplaneMode -> tr(
+        NetworkReadinessUserVerdict.DnsFailed -> tr(
+            "Try another network or DNS, disable VPN if needed, then tap Refresh.",
+            "Coba jaringan atau DNS lain, matikan VPN bila perlu, lalu tekan Refresh."
+        )
+        NetworkReadinessUserVerdict.Slow -> tr(
+            "Move closer to Wi-Fi or switch network before starting.",
+            "Dekatkan ke Wi-Fi atau pindah jaringan sebelum mulai."
+        )
+        NetworkReadinessUserVerdict.AirplaneMode -> tr(
             "Turn off airplane mode or enable Wi-Fi/mobile data, then tap Refresh.",
             "Matikan mode pesawat atau aktifkan Wi-Fi/data seluler, lalu tekan Refresh."
         )
-        NetworkReadinessVerdict.Unstable -> tr(
+        NetworkReadinessUserVerdict.Unstable -> tr(
             "Use the most stable available network before starting the exam.",
             "Gunakan jaringan yang paling stabil sebelum mulai ujian."
         )
     }
+    val webViewHealthItem = preExamHealthCheckSnapshot.items.firstOrNull {
+        it.category == PreExamHealthCategory.WebView
+    }
+    val webViewProviderStatusLabel = when (webViewHealthItem?.verdict) {
+        PreExamHealthVerdict.Blocking -> tr("Unavailable", "Tidak Tersedia")
+        PreExamHealthVerdict.Warning -> tr("Needs Update", "Perlu Update")
+        PreExamHealthVerdict.Stable -> tr("Ready", "Siap")
+        null -> tr("Unknown", "Tidak Diketahui")
+    }
+    val webViewProviderValue = webViewHealthItem?.detail ?: tr(
+        "WebView provider status is not available yet.",
+        "Status WebView provider belum tersedia."
+    )
+    val webViewProviderDetail = webViewHealthItem?.quickFix
     val deviceTimeDetail = when {
         deviceTimeBypassState == DeviceTimeBypassState.Tampered -> tr(
             "Open Admin Secret to review the bypass integrity.",
@@ -1236,30 +1684,6 @@ internal fun ExamSecurityPreparationScreen(
     }
     val startButtonContentColor =
         if (hasBypassIndicators && canStartExam) LockBlueDeep else Color.White
-    val readinessSignals = listOf(
-        keyboardReady,
-        bluetoothReady,
-        accessibilityReady,
-        adbReady,
-        rootReady,
-        virtualEnvironmentReady,
-        clipboardReady,
-        deviceTimeReady,
-        geofenceReady,
-        fakeLocationReady,
-        overlayReady,
-        screenPinningReady,
-        accessibilityGuardReady,
-        appSwitchReady,
-        signatureReady
-    )
-    val readyCount = readinessSignals.count { it }
-    val attentionCount = readinessSignals.size - readyCount
-    val readinessAccentColor = when {
-        isStartingExam && !bypassScreenPinning -> LockGoldDark
-        attentionCount == 0 -> Color(0xFF2F8F63)
-        else -> Color(0xFFCC7A00)
-    }
 
     Box(
         modifier = modifier
@@ -1276,21 +1700,25 @@ internal fun ExamSecurityPreparationScreen(
         ) {
         Surface(
             modifier = Modifier.fillMaxWidth(),
-            shape = RoundedCornerShape(28.dp),
+            shape = RoundedCornerShape(if (severeLowRamPreparation) 22.dp else 28.dp),
             color = Color.White,
             border = BorderStroke(1.dp, LockOutline),
-            tonalElevation = 4.dp,
-            shadowElevation = 10.dp
+            tonalElevation = if (severeLowRamPreparation) 0.dp else 4.dp,
+            shadowElevation = if (severeLowRamPreparation) 0.dp else 10.dp
         ) {
             Box(
                 modifier = Modifier
                     .background(
                         brush = Brush.linearGradient(
-                            colors = listOf(
-                                LockBlue.copy(alpha = 0.14f),
-                                LockBlueSoft.copy(alpha = 0.10f),
-                                Color.White
-                            )
+                            colors = if (severeLowRamPreparation) {
+                                listOf(Color.White, Color.White)
+                            } else {
+                                listOf(
+                                    LockBlue.copy(alpha = 0.14f),
+                                    LockBlueSoft.copy(alpha = 0.10f),
+                                    Color.White
+                                )
+                            }
                         )
                     )
                     .padding(horizontal = 18.dp, vertical = 18.dp)
@@ -1298,64 +1726,45 @@ internal fun ExamSecurityPreparationScreen(
                 Column {
                     Row(
                         modifier = Modifier.fillMaxWidth(),
-                        horizontalArrangement = Arrangement.SpaceBetween,
+                        horizontalArrangement = Arrangement.spacedBy(8.dp),
                         verticalAlignment = Alignment.CenterVertically
                     ) {
-                        Row(
-                            horizontalArrangement = Arrangement.spacedBy(8.dp),
-                            verticalAlignment = Alignment.CenterVertically
+                        Surface(
+                            shape = RoundedCornerShape(999.dp),
+                            color = LockSurfaceSoft,
+                            border = BorderStroke(1.dp, LockOutline)
                         ) {
-                            Surface(
-                                shape = RoundedCornerShape(999.dp),
-                                color = LockSurfaceSoft,
-                                border = BorderStroke(1.dp, LockOutline)
+                            Box(
+                                modifier = Modifier
+                                    .clickable(onClick = onBackHome)
+                                    .padding(horizontal = 12.dp, vertical = 5.dp),
+                                contentAlignment = Alignment.Center
                             ) {
-                                Box(
-                                    modifier = Modifier
-                                        .clickable(onClick = onBackHome)
-                                        .padding(horizontal = 12.dp, vertical = 5.dp),
-                                    contentAlignment = Alignment.Center
-                                ) {
-                                    Icon(
-                                        imageVector = Icons.Rounded.Home,
-                                        contentDescription = tr("Back to home", "Kembali ke menu utama"),
-                                        tint = LockBlueDeep,
-                                        modifier = Modifier.size(18.dp)
-                                    )
-                                }
-                            }
-
-                            Surface(
-                                shape = RoundedCornerShape(999.dp),
-                                color = LockBlueDeep
-                            ) {
-                                Text(
-                                    text = tr("PREPARATION MODE", "MODE PERSIAPAN"),
-                                    color = LockOnDark,
-                                    fontSize = 10.sp,
-                                    fontWeight = FontWeight.ExtraBold,
-                                    letterSpacing = 0.9.sp,
-                                    modifier = Modifier.padding(horizontal = 12.dp, vertical = 7.dp)
+                                Icon(
+                                    imageVector = Icons.Rounded.Home,
+                                    contentDescription = tr("Back to home", "Kembali ke menu utama"),
+                                    tint = LockBlueDeep,
+                                    modifier = Modifier.size(18.dp)
                                 )
                             }
                         }
 
                         Surface(
                             shape = RoundedCornerShape(999.dp),
-                            color = readinessAccentColor.copy(alpha = 0.14f),
-                            border = BorderStroke(1.dp, readinessAccentColor.copy(alpha = 0.18f))
+                            color = LockBlueDeep
                         ) {
                             Text(
-                                text = if (attentionCount == 0) tr("SECURE", "AMAN") else tr("CHECK", "CEK"),
-                                color = readinessAccentColor,
+                                text = tr("PREPARATION MODE", "MODE PERSIAPAN"),
+                                color = LockOnDark,
                                 fontSize = 10.sp,
-                                fontWeight = FontWeight.Bold,
-                                modifier = Modifier.padding(horizontal = 10.dp, vertical = 6.dp)
+                                fontWeight = FontWeight.ExtraBold,
+                                letterSpacing = 0.9.sp,
+                                modifier = Modifier.padding(horizontal = 12.dp, vertical = 7.dp)
                             )
                         }
                     }
 
-                    Spacer(modifier = Modifier.height(14.dp))
+                    Spacer(modifier = Modifier.height(12.dp))
 
                     Text(
                         text = examTitle,
@@ -1378,29 +1787,6 @@ internal fun ExamSecurityPreparationScreen(
                         textAlign = TextAlign.Justify,
                         modifier = Modifier.fillMaxWidth()
                     )
-
-                    Spacer(modifier = Modifier.height(14.dp))
-
-                    Row(
-                        modifier = Modifier.fillMaxWidth(),
-                        horizontalArrangement = Arrangement.spacedBy(10.dp)
-                    ) {
-                        PreparationSummaryChip(
-                            label = tr("Status", "Status"),
-                            value = tr(
-                                "$readyCount/${readinessSignals.size} ready",
-                                "$readyCount/${readinessSignals.size} siap"
-                            ),
-                            accentColor = readinessAccentColor,
-                            modifier = Modifier.weight(1f)
-                        )
-                        PreparationSummaryChip(
-                            label = tr("Exam", "Ujian"),
-                            value = examTitle,
-                            accentColor = LockBlueDeep,
-                            modifier = Modifier.weight(1f)
-                        )
-                    }
 
                     Spacer(modifier = Modifier.height(6.dp))
                 }
@@ -1494,6 +1880,15 @@ internal fun ExamSecurityPreparationScreen(
                     status = networkStatusLabel,
                     onSendTelegram = { onRequestSectionReport(DiagnosticSection.Network) },
                     isSending = sendingSection == DiagnosticSection.Network,
+                    sendEnabled = sendingSection == null
+                )
+                SecurityChecklistItem(
+                    title = tr("WebView Provider", "WebView Provider"),
+                    value = webViewProviderValue,
+                    detail = webViewProviderDetail,
+                    status = webViewProviderStatusLabel,
+                    onSendTelegram = { onRequestSectionReport(DiagnosticSection.SecurityHealth) },
+                    isSending = sendingSection == DiagnosticSection.SecurityHealth,
                     sendEnabled = sendingSection == null
                 )
                 SecurityChecklistItem(
@@ -1908,24 +2303,97 @@ internal fun ExamSecurityPreparationScreen(
         }
 
         webViewSessionResetError?.let { resetError ->
+            val webViewHealthItem = preExamHealthCheckSnapshot.items.firstOrNull {
+                it.category == PreExamHealthCategory.WebView
+            }
             PreparationNoticeCard(
-                title = tr("Clean Session Retry Needed", "Perlu Ulangi Sesi Bersih"),
-                message = resetError,
+                title = tr("Exam Browser Recovered Safely", "Browser Ujian Dipulihkan Aman"),
+                message = resetError + "\n\n" + tr(
+                    "Export diagnostics if an admin needs evidence, then press Start Exam Mode again.",
+                    "Export diagnostik bila admin membutuhkan bukti, lalu tekan Mulai Ujian lagi."
+                ) + "\n\n" + (webViewHealthItem?.detail ?: ""),
                 accentColor = Color(0xFFB34A4A),
                 backgroundColor = Color(0xFFFFEFEF)
             )
+            Row(
+                modifier = Modifier.fillMaxWidth(),
+                horizontalArrangement = Arrangement.spacedBy(10.dp)
+            ) {
+                Button(
+                    onClick = onExportDiagnostics,
+                    modifier = Modifier.weight(1f),
+                    shape = RoundedCornerShape(16.dp),
+                    colors = ButtonDefaults.buttonColors(
+                        containerColor = Color.White,
+                        contentColor = LockBlueDeep
+                    ),
+                    border = BorderStroke(1.dp, LockOutline)
+                ) {
+                    Text(
+                        text = tr("Export Diagnostics", "Export Diagnostik"),
+                        fontWeight = FontWeight.Bold,
+                        textAlign = TextAlign.Center
+                    )
+                }
+                Button(
+                    onClick = onStartExam,
+                    modifier = Modifier.weight(1f),
+                    shape = RoundedCornerShape(16.dp),
+                    enabled = !(isStartingExam || webViewSessionResetInFlight),
+                    colors = ButtonDefaults.buttonColors(
+                        containerColor = LockBlue,
+                        contentColor = LockOnDark
+                    )
+                ) {
+                    Text(
+                        text = tr("Start Again", "Mulai Lagi"),
+                        fontWeight = FontWeight.Bold,
+                        textAlign = TextAlign.Center
+                    )
+                }
+            }
+            TextButton(
+                onClick = {
+                    runQuickFix(
+                        target = QuickFixTarget.WebView,
+                        actionCode = "webview_provider_recovery_fix",
+                        action = onOpenWebViewProviderSettings
+                    )
+                },
+                modifier = Modifier.fillMaxWidth()
+            ) {
+                Text(
+                    text = tr("Open WebView Settings", "Buka Setelan WebView"),
+                    color = LockBlue,
+                    fontWeight = FontWeight.Bold,
+                    textAlign = TextAlign.Center
+                )
+            }
             Spacer(modifier = Modifier.height(10.dp))
         }
 
-        if (isStartingExam && !bypassScreenPinning) {
+        val pinningPending = pinningActivationState.isPending()
+        val pinningRetryReady = pinningActivationState == PinningActivationState.TimeoutRetryReady
+        if ((pinningPending || pinningRetryReady) && !bypassScreenPinning) {
             PreparationNoticeCard(
-                title = tr("Waiting for Screen Pinning", "Menunggu Screen Pinning"),
-                message = tr(
-                    "Confirm the Android dialog with \"Got it\" or \"Pin\" so the exam is fully locked to this app.",
-                    "Konfirmasi dialog Android dengan tombol \"Got it\" atau \"Pin\" agar ujian benar-benar terkunci di aplikasi ini."
-                ),
-                accentColor = LockGoldDark,
-                backgroundColor = Color(0xFFFFF8E8)
+                title = if (pinningRetryReady) {
+                    tr("Screen Pinning Not Active Yet", "Screen Pinning belum aktif")
+                } else {
+                    tr("Activating Exam Mode...", "Mengaktifkan mode ujian...")
+                },
+                message = screenPinningMessage ?: if (pinningRetryReady) {
+                    tr(
+                        "Press Start Exam Mode again, choose Got it/Pin, then do not open Recents until exam mode is active.",
+                        "Tekan Start Exam Mode lagi, pilih Got it/Pin, lalu jangan buka Recent sampai mode ujian aktif."
+                    )
+                } else {
+                    tr(
+                        "If Android shows the app pinning dialog, choose Got it or Pin. Stay on this screen until exam mode opens.",
+                        "Jika Android menampilkan dialog pin aplikasi, pilih Got it atau Pin. Tetap di layar ini sampai mode ujian terbuka."
+                    )
+                },
+                accentColor = if (pinningRetryReady) Color(0xFFB34A4A) else LockGoldDark,
+                backgroundColor = if (pinningRetryReady) Color(0xFFFFF1F0) else Color(0xFFFFF8E8)
             )
             Spacer(modifier = Modifier.height(10.dp))
         }
@@ -2100,6 +2568,7 @@ internal fun ExamSecurityPreparationScreen(
                     )
         val quickFixIssueActions = buildList<PreparationQuickFixAction> {
             fun addQuickFix(
+                code: String = "",
                 text: String,
                 severity: QuickFixSeverity,
                 target: QuickFixTarget?,
@@ -2109,8 +2578,10 @@ internal fun ExamSecurityPreparationScreen(
                 enabled: Boolean = true,
                 onClick: () -> Unit
             ) {
+                val actionCode = code.ifBlank { "quick_fix_$priority" }
                 add(
                     PreparationQuickFixAction(
+                        code = actionCode,
                         text = text,
                         severity = severity,
                         target = target,
@@ -2118,7 +2589,7 @@ internal fun ExamSecurityPreparationScreen(
                         filled = filled,
                         loading = loading,
                         enabled = enabled,
-                        onClick = { runQuickFix(target, onClick) }
+                        onClick = { runQuickFix(target, actionCode, onClick) }
                     )
                 )
             }
@@ -2313,6 +2784,30 @@ internal fun ExamSecurityPreparationScreen(
                 )
             }
 
+            val webViewHealthItem = preExamHealthCheckSnapshot.items.firstOrNull {
+                it.category == PreExamHealthCategory.WebView &&
+                    it.verdict != PreExamHealthVerdict.Stable
+            }
+            if (webViewHealthItem != null) {
+                addQuickFix(
+                    code = "webview_provider_settings",
+                    text = if (webViewHealthItem.verdict == PreExamHealthVerdict.Blocking) {
+                        tr("Enable Android WebView", "Aktifkan Android WebView")
+                    } else {
+                        tr("Check WebView / Chrome", "Cek WebView / Chrome")
+                    },
+                    severity = if (webViewHealthItem.verdict == PreExamHealthVerdict.Blocking) {
+                        QuickFixSeverity.Blocking
+                    } else {
+                        QuickFixSeverity.Warning
+                    },
+                    target = QuickFixTarget.WebView,
+                    priority = 90,
+                    filled = webViewHealthItem.verdict == PreExamHealthVerdict.Blocking,
+                    onClick = onOpenWebViewProviderSettings
+                )
+            }
+
             if (showKeyboardFix) {
                 addQuickFix(
                     text = tr("Choose System Keyboard", "Pilih Keyboard Sistem"),
@@ -2362,6 +2857,7 @@ internal fun ExamSecurityPreparationScreen(
             emptyList()
         } else {
             quickFixIssueActions + PreparationQuickFixAction(
+                code = "refresh_all_security_checks",
                 text = if (isRefreshingGeofence || isRefreshingNetwork) {
                     tr("Refreshing Checks...", "Sedang Refresh Pemeriksaan...")
                 } else {
@@ -2373,7 +2869,10 @@ internal fun ExamSecurityPreparationScreen(
                 filled = false,
                 loading = isRefreshingGeofence || isRefreshingNetwork,
                 enabled = !(isRefreshingGeofence || isRefreshingNetwork),
-                onClick = onRefreshAllSecurityChecks
+                onClick = {
+                    onAutoFixActionOpened("refresh_all_security_checks")
+                    onRefreshAllSecurityChecks()
+                }
             )
         }.sortedWith(
             compareBy<PreparationQuickFixAction> { action ->
@@ -2403,9 +2902,9 @@ internal fun ExamSecurityPreparationScreen(
                 ) {
                     Text(
                         text = if (blockingQuickFixCount > 0) {
-                            tr("Fix Start Exam Blockers", "Beresi Penghambat Start Exam")
+                            tr("Auto-Fix Assistant", "Asisten Auto-Fix")
                         } else {
-                            tr("Review Warnings", "Tinjau Peringatan")
+                            tr("Auto-Fix Assistant", "Asisten Auto-Fix")
                         },
                         color = LockTextPrimary,
                         fontSize = 16.sp,
@@ -2423,8 +2922,8 @@ internal fun ExamSecurityPreparationScreen(
                                 "$warningQuickFixCount peringatan perlu ditinjau sebelum mulai ujian."
                             )
                         } + " " + tr(
-                            "Complete the first action, then return here; checks refresh automatically after Settings.",
-                            "Selesaikan tindakan pertama, lalu kembali ke sini; pemeriksaan otomatis refresh setelah dari Settings."
+                            "Fix the first item, then return here.",
+                            "Perbaiki item pertama, lalu kembali ke sini."
                         ),
                         color = LockTextSecondary,
                         fontSize = 12.sp,

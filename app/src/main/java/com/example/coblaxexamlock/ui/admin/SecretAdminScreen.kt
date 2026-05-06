@@ -208,8 +208,17 @@ import com.example.coblaxexamlock.QrCodeGenerator
 import com.example.coblaxexamlock.ReverseEngineeringGuard
 import com.example.coblaxexamlock.ReverseEngineeringResult
 import com.example.coblaxexamlock.RootBypassResolver
+import com.example.coblaxexamlock.ScreenPinningPlatformBridge
+import com.example.coblaxexamlock.DeviceCompatibilityProfile
+import com.example.coblaxexamlock.DeviceSurvivalPolicy
+import com.example.coblaxexamlock.WebViewCompatibilityStatus
+import com.example.coblaxexamlock.WebViewHealthSeverity
+import com.example.coblaxexamlock.buildDeviceSurvivalPolicy
 import com.example.coblaxexamlock.buildRootSecurityStatus
 import com.example.coblaxexamlock.formatCoordinates
+import com.example.coblaxexamlock.LocalDeviceCompatibilityProfile
+import com.example.coblaxexamlock.LocalLowRamProfile
+import com.example.coblaxexamlock.launchFirstPlatformIntentSafely
 import com.example.coblaxexamlock.config.DefaultExamUserAgent
 import com.example.coblaxexamlock.config.DeveloperGithubUrl
 import com.example.coblaxexamlock.config.PickerDialogColorScheme
@@ -225,7 +234,12 @@ import com.example.coblaxexamlock.i18n.LocalUiLanguage
 import com.example.coblaxexamlock.i18n.diagnosticSectionLabel
 import com.example.coblaxexamlock.i18n.localized
 import com.example.coblaxexamlock.i18n.tr
+import com.example.coblaxexamlock.inspectAccessibility
 import com.example.coblaxexamlock.inspectAdb
+import com.example.coblaxexamlock.isExamGuardAccessibilityAvailable
+import com.example.coblaxexamlock.isExamGuardAccessibilityEnabled
+import com.example.coblaxexamlock.openWebViewProviderSettings
+import com.example.coblaxexamlock.readWebViewCompatibilityStatus
 import com.example.coblaxexamlock.model.AdminSettings
 import com.example.coblaxexamlock.model.CustomQrAdminTab
 import com.example.coblaxexamlock.model.DateTimeField
@@ -244,13 +258,21 @@ import com.example.coblaxexamlock.runtime.getRootDetectionDetails
 import com.example.coblaxexamlock.runtime.hasFineLocationPermission
 import com.example.coblaxexamlock.runtime.hasLocationPermissionForWifi
 import com.example.coblaxexamlock.runtime.isLocationServicesEnabled
+import com.example.coblaxexamlock.runtime.readExamBatteryStatus
 import com.example.coblaxexamlock.runtime.readExamNetworkStatus
+import com.example.coblaxexamlock.runtime.readNetworkReadinessStatus
+import com.example.coblaxexamlock.runtime.readNetworkReadinessStatusWithProbe
 import com.example.coblaxexamlock.runtime.sendTelegramSectionReport
 import com.example.coblaxexamlock.ui.geofence.CircleGeofenceEditorScreen
 import com.example.coblaxexamlock.ui.geofence.PolygonGeofenceEditor
 import com.example.coblaxexamlock.ui.geofence.effectiveCircleCenters
 import com.example.coblaxexamlock.ui.geofence.summarizeCircleVertexList
 import com.example.coblaxexamlock.ui.geofence.summarizePolygonVertexList
+import com.example.coblaxexamlock.ui.exam.ExamDeviceFieldReportExportHelper
+import com.example.coblaxexamlock.ui.exam.ExamDiagnosticExportHelper
+import com.example.coblaxexamlock.ui.exam.ExamRuntimeHardeningDiagnostics
+import com.example.coblaxexamlock.ui.exam.buildAdminDeviceFieldReport
+import com.example.coblaxexamlock.ui.exam.buildAdminExamDiagnosticSnapshot
 import com.example.coblaxexamlock.ui.theme.COBLAXEXAMLOCKTheme
 import com.example.coblaxexamlock.ui.theme.LockBackground
 import com.example.coblaxexamlock.ui.theme.LockBlue
@@ -395,6 +417,14 @@ internal fun SecretAdminScreen(
 ) {
     val context = LocalContext.current
     val uiLanguage = LocalUiLanguage.current
+    val lowRamProfile = LocalLowRamProfile.current
+    val deviceCompatibilityProfile = LocalDeviceCompatibilityProfile.current
+    val vendorChecklist = remember(deviceCompatibilityProfile.manufacturer, deviceCompatibilityProfile.brand) {
+        resolveDeviceVendorChecklist(
+            manufacturer = deviceCompatibilityProfile.manufacturer,
+            brand = deviceCompatibilityProfile.brand
+        )
+    }
     val effectiveExamUserAgent = remember(settings.examUserAgent) {
         debugMeasureSecretAdminWork("effectiveExamUserAgent") {
             settings.effectiveExamUserAgent()
@@ -453,6 +483,217 @@ internal fun SecretAdminScreen(
     var sendingSecurityHealthReport by rememberSaveable { mutableStateOf(false) }
     var securityHealthFeedbackTitle by rememberSaveable { mutableStateOf<String?>(null) }
     var securityHealthFeedbackMessage by rememberSaveable { mutableStateOf<String?>(null) }
+    var advancedDiagnosticsExpanded by rememberSaveable { mutableStateOf(false) }
+    var fieldReadinessRunning by rememberSaveable { mutableStateOf(false) }
+    var fieldReadinessReport by remember { mutableStateOf<FieldReadinessReport?>(null) }
+    var adminWebViewRefreshKey by rememberSaveable { mutableIntStateOf(0) }
+    val adminWebViewCompatibilityStatus = remember(context, adminWebViewRefreshKey) {
+        readWebViewCompatibilityStatus(context.applicationContext)
+    }
+    val fieldSurvivalPolicy = remember(
+        lowRamProfile,
+        deviceCompatibilityProfile,
+        adminWebViewCompatibilityStatus,
+        fieldReadinessReport
+    ) {
+        buildDeviceSurvivalPolicy(
+            lowRamProfile = lowRamProfile,
+            deviceCompatibilityProfile = deviceCompatibilityProfile,
+            webViewCompatibilityStatus = adminWebViewCompatibilityStatus,
+            fieldReadinessReport = fieldReadinessReport
+        )
+    }
+    val adminReadinessSummary = remember(
+        fieldReadinessReport,
+        adminWebViewCompatibilityStatus,
+        vendorChecklist
+    ) {
+        buildAdminReadinessSummary(
+            report = fieldReadinessReport,
+            webViewCompatibilityStatus = adminWebViewCompatibilityStatus,
+            vendorChecklist = vendorChecklist
+        )
+    }
+    LaunchedEffect(adminWebViewCompatibilityStatus.diagnosticSummary()) {
+        Log.i(
+            "ExamRuntimeHardening",
+            "code=${ExamRuntimeHardeningDiagnostics.WebViewProviderHealthResolved} level=INFO details=${adminWebViewCompatibilityStatus.diagnosticSummary()}"
+        )
+        if (adminWebViewCompatibilityStatus.severity != WebViewHealthSeverity.Stable) {
+            Log.w(
+                "ExamRuntimeHardening",
+                "code=${ExamRuntimeHardeningDiagnostics.WebViewProviderHealthWarning} level=WARNING details=${adminWebViewCompatibilityStatus.adminDetail}"
+            )
+        }
+    }
+
+    fun exportSecretAdminDiagnostics() {
+        runCatching {
+            ExamDiagnosticExportHelper.share(
+                context = context,
+                snapshot = buildAdminExamDiagnosticSnapshot(
+                    context = context.applicationContext,
+                    settings = settings,
+                    lowRamProfile = lowRamProfile,
+                    deviceCompatibilityProfile = deviceCompatibilityProfile
+                )
+            )
+        }.onSuccess {
+            securityHealthFeedbackTitle = localized(
+                uiLanguage,
+                "Diagnostics ready",
+                "Diagnostik siap"
+            )
+            securityHealthFeedbackMessage = localized(
+                uiLanguage,
+                "The redacted diagnostic files were sent to the Android share sheet.",
+                "File diagnostik redacted sudah dikirim ke Android share sheet."
+            )
+        }.onFailure { throwable ->
+            securityHealthFeedbackTitle = localized(
+                uiLanguage,
+                "Diagnostics export failed",
+                "Export diagnostik gagal"
+            )
+            securityHealthFeedbackMessage =
+                throwable.message ?: throwable.javaClass.simpleName
+        }
+    }
+
+    fun exportDeviceFieldReport() {
+        runCatching {
+            ExamDeviceFieldReportExportHelper.share(
+                context = context,
+                report = buildAdminDeviceFieldReport(
+                    context = context.applicationContext,
+                    settings = settings,
+                    lowRamProfile = lowRamProfile,
+                    deviceCompatibilityProfile = deviceCompatibilityProfile,
+                    webViewCompatibilityStatus = readWebViewCompatibilityStatus(context.applicationContext),
+                    networkReadinessStatus = readNetworkReadinessStatus(context.applicationContext),
+                    batteryStatus = readExamBatteryStatus(context.applicationContext),
+                    fieldReadinessReport = fieldReadinessReport
+                )
+            )
+        }.onSuccess {
+            securityHealthFeedbackTitle = localized(
+                uiLanguage,
+                "Device report ready",
+                "Laporan perangkat siap"
+            )
+            securityHealthFeedbackMessage = localized(
+                uiLanguage,
+                "The redacted device report was sent to the Android share sheet.",
+                "Laporan perangkat redacted sudah dikirim ke Android share sheet."
+            )
+        }.onFailure { throwable ->
+            securityHealthFeedbackTitle = localized(
+                uiLanguage,
+                "Device report failed",
+                "Laporan perangkat gagal"
+            )
+            securityHealthFeedbackMessage =
+                throwable.message ?: throwable.javaClass.simpleName
+        }
+    }
+
+    fun runFieldReadinessTest() {
+        if (fieldReadinessRunning) return
+        fieldReadinessRunning = true
+        Log.i(
+            "ExamRuntimeHardening",
+            "code=${ExamRuntimeHardeningDiagnostics.FieldReadinessTestStarted} level=INFO details=family=${deviceCompatibilityProfile.family.name}"
+        )
+        coroutineScope.launch {
+            runCatching {
+                val appContext = context.applicationContext
+                val accessibilityInspection = inspectAccessibility(appContext)
+                val directLinkPolicy = settings.directLinkLocationPolicy()
+                val screenPinningAvailable = ScreenPinningPlatformBridge.isAvailable()
+                val overlayRiskResult = OverlayRiskAnalyzer.inspect(
+                    bypassed = settings.bypassOverlay,
+                    accessibilityEnabled = accessibilityInspection.blockingServiceActive,
+                    riskyAccessibilityPackages = accessibilityInspection.riskyPackages,
+                    violationCount = 0,
+                    shieldStatus = OverlayShieldStatus(
+                        supported = Build.VERSION.SDK_INT >= Build.VERSION_CODES.S,
+                        requested = false,
+                        lastApplySucceeded = null,
+                        lastApplyAt = null
+                    ),
+                    lastTrigger = null,
+                    lastDetectedAt = null,
+                    lastContext = null
+                )
+                buildFieldReadinessReport(
+                    FieldReadinessInput(
+                        generatedAt = diagnosticTimestamp(),
+                        compatibilityProfile = deviceCompatibilityProfile,
+                        screenPinningAvailable = screenPinningAvailable,
+                        screenPinningSystemSetting = ScreenPinningPlatformBridge.readSystemSetting(appContext),
+                        lockTaskState = readSecretAdminLockTaskStateLabel(appContext),
+                        accessibilityGuardAvailable = isExamGuardAccessibilityAvailable(appContext),
+                        accessibilityGuardEnabled = isExamGuardAccessibilityEnabled(appContext),
+                        overlayRiskResult = overlayRiskResult,
+                        webViewCompatibilityStatus = readWebViewCompatibilityStatus(appContext),
+                        networkReadinessStatus = withContext(Dispatchers.IO) {
+                            readNetworkReadinessStatusWithProbe(appContext)
+                        },
+                        batteryStatus = readExamBatteryStatus(appContext),
+                        locationPermissionGranted = hasLocationPermissionForWifi(appContext),
+                        preciseLocationGranted = hasFineLocationPermission(appContext),
+                        locationServicesEnabled = isLocationServicesEnabled(appContext),
+                        geofencePolicyEnabled = directLinkPolicy?.geofenceEnabled == true,
+                        fakeLocationMonitoringEnabled = !settings.bypassFakeLocation,
+                        deviceTimeSecurityStatus = inspectDeviceTimeSecurity(
+                            context = appContext,
+                            baseline = deviceTimeBaseline,
+                            bypassState = DeviceTimeBypassResolver.stateOf(
+                                enabled = settings.bypassDeviceTime,
+                                tampered = settings.deviceTimeBypassTampered
+                            )
+                        )
+                    )
+                )
+            }.onSuccess { report ->
+                fieldReadinessReport = report
+                Log.i(
+                    "ExamRuntimeHardening",
+                    "code=${ExamRuntimeHardeningDiagnostics.FieldReadinessTestCompleted} level=INFO details=${report.diagnosticSummary()}"
+                )
+            }.onFailure { throwable ->
+                securityHealthFeedbackTitle = localized(
+                    uiLanguage,
+                    "Field test failed",
+                    "Field test gagal"
+                )
+                securityHealthFeedbackMessage =
+                    throwable.message ?: throwable.javaClass.simpleName
+            }
+            fieldReadinessRunning = false
+        }
+    }
+
+    fun openSettingsIntent(action: String) {
+        launchFirstPlatformIntentSafely(
+            context,
+            listOf(
+                Intent(action),
+                Intent(Settings.ACTION_SETTINGS)
+            )
+        )
+    }
+
+    fun openAdminWebViewProviderSettings() {
+        Log.i(
+            "ExamRuntimeHardening",
+            "code=${ExamRuntimeHardeningDiagnostics.WebViewProviderHealthFixOpened} level=INFO details=${adminWebViewCompatibilityStatus.adminDetail}"
+        )
+        openWebViewProviderSettings(
+            context = context,
+            providerPackageName = adminWebViewCompatibilityStatus.packageName
+        )
+    }
     val directLinkPolicySummary = remember(
         settings.directLinkLocationPolicySaved,
         settings.directLinkLocationPolicySerialized,
@@ -756,7 +997,8 @@ internal fun SecretAdminScreen(
                 uiLanguage = uiLanguage,
                 healthIntegrityResult = latestIntegrityResult,
                 healthReverseResult = latestReverseResult,
-                healthLastCheckedAt = latestCheckedAt
+                healthLastCheckedAt = latestCheckedAt,
+                webViewCompatibilityStatus = adminWebViewCompatibilityStatus
             )
             }.onSuccess {
                 securityHealthFeedbackTitle =
@@ -991,6 +1233,61 @@ internal fun SecretAdminScreen(
             }
 
             if (selectedSecretAdminTab == SecretAdminTab.Security) {
+        AdminReadinessSummaryCard(
+            summary = adminReadinessSummary,
+            fieldReadinessRunning = fieldReadinessRunning,
+            webViewStatus = adminWebViewCompatibilityStatus,
+            onRunCheck = ::runFieldReadinessTest,
+            onOpenWebViewSettings = ::openAdminWebViewProviderSettings,
+            onOpenAdvanced = { advancedDiagnosticsExpanded = true }
+        )
+
+        Spacer(modifier = Modifier.height(18.dp))
+
+        AdminReportsCard(
+            onExportExamDiagnostics = ::exportSecretAdminDiagnostics,
+            onExportDeviceReport = ::exportDeviceFieldReport
+        )
+
+        Spacer(modifier = Modifier.height(18.dp))
+
+        AdminAdvancedDiagnosticsCard(
+            expanded = advancedDiagnosticsExpanded,
+            onToggleExpanded = {
+                advancedDiagnosticsExpanded = !advancedDiagnosticsExpanded
+                if (advancedDiagnosticsExpanded) {
+                    Log.i(
+                        "ExamRuntimeHardening",
+                        "code=${ExamRuntimeHardeningDiagnostics.VendorChecklistOpened} level=INFO details=vendor=${vendorChecklist.family.name}"
+                    )
+                }
+            },
+            report = fieldReadinessReport,
+            survivalPolicy = fieldSurvivalPolicy,
+            webViewStatus = adminWebViewCompatibilityStatus,
+            vendorChecklist = vendorChecklist,
+            deviceCompatibilityProfile = deviceCompatibilityProfile,
+            onRefreshWebView = { adminWebViewRefreshKey += 1 },
+            onOpenWebViewSettings = ::openAdminWebViewProviderSettings,
+            onOpenBatterySettings = { openSettingsIntent(Settings.ACTION_BATTERY_SAVER_SETTINGS) },
+            onOpenLocationSettings = { openSettingsIntent(Settings.ACTION_LOCATION_SOURCE_SETTINGS) },
+            onOpenOverlaySettings = { openSettingsIntent(Settings.ACTION_MANAGE_OVERLAY_PERMISSION) },
+            onOpenAppSettings = {
+                launchFirstPlatformIntentSafely(
+                    context,
+                    listOf(
+                        Intent(
+                            Settings.ACTION_APPLICATION_DETAILS_SETTINGS,
+                            Uri.parse("package:${context.packageName}")
+                        ),
+                        Intent(Settings.ACTION_SETTINGS)
+                    )
+                )
+            }
+        )
+
+        Spacer(modifier = Modifier.height(18.dp))
+
         Surface(
             modifier = Modifier.fillMaxWidth(),
             shape = RoundedCornerShape(22.dp),
@@ -1438,6 +1735,586 @@ internal fun SecretAdminScreen(
                 securityHealthFeedbackMessage = null
             }
         )
+    }
+}
+
+@Composable
+private fun AdminReadinessSummaryCard(
+    summary: AdminReadinessSummary,
+    fieldReadinessRunning: Boolean,
+    webViewStatus: WebViewCompatibilityStatus,
+    onRunCheck: () -> Unit,
+    onOpenWebViewSettings: () -> Unit,
+    onOpenAdvanced: () -> Unit
+) {
+    val statusColor = adminReadinessVerdictColor(summary.verdict)
+    val securityLabel = when (summary.verdict) {
+        AdminReadinessVerdict.NotRun -> tr("Not checked", "Belum dicek")
+        AdminReadinessVerdict.Ready -> tr("Ready", "Siap")
+        AdminReadinessVerdict.NeedsSetup -> tr("Need Check", "Perlu Dicek")
+        AdminReadinessVerdict.Blocked -> tr("Blocked", "Terblokir")
+    }
+    val primaryClick = when (summary.verdict) {
+        AdminReadinessVerdict.NotRun -> onRunCheck
+        AdminReadinessVerdict.Ready -> onOpenAdvanced
+        AdminReadinessVerdict.NeedsSetup,
+        AdminReadinessVerdict.Blocked -> {
+            if (webViewStatus.severity != WebViewHealthSeverity.Stable) {
+                onOpenWebViewSettings
+            } else {
+                onOpenAdvanced
+            }
+        }
+    }
+    Surface(
+        modifier = Modifier.fillMaxWidth(),
+        shape = RoundedCornerShape(22.dp),
+        color = Color.White,
+        border = BorderStroke(1.dp, statusColor.copy(alpha = 0.24f)),
+        tonalElevation = 1.dp,
+        shadowElevation = 2.dp
+    ) {
+        Column(
+            modifier = Modifier.padding(horizontal = 16.dp, vertical = 16.dp),
+            verticalArrangement = Arrangement.spacedBy(12.dp)
+        ) {
+            Row(
+                modifier = Modifier.fillMaxWidth(),
+                horizontalArrangement = Arrangement.spacedBy(10.dp),
+                verticalAlignment = Alignment.Top
+            ) {
+                Column(modifier = Modifier.weight(1f)) {
+                    Text(
+                        text = tr("Device Readiness", "Kesiapan Perangkat"),
+                        color = LockTextPrimary,
+                        fontSize = 18.sp,
+                        fontWeight = FontWeight.Bold
+                    )
+                    Text(
+                        text = summary.detail,
+                        color = LockTextSecondary,
+                        fontSize = 12.sp,
+                        lineHeight = 16.sp
+                    )
+                }
+                Surface(
+                    shape = RoundedCornerShape(999.dp),
+                    color = statusColor.copy(alpha = 0.12f),
+                    border = BorderStroke(1.dp, statusColor.copy(alpha = 0.25f))
+                ) {
+                    Text(
+                        text = summary.title,
+                        color = statusColor,
+                        fontSize = 10.sp,
+                        fontWeight = FontWeight.ExtraBold,
+                        modifier = Modifier.padding(horizontal = 10.dp, vertical = 6.dp)
+                    )
+                }
+            }
+
+            Column(verticalArrangement = Arrangement.spacedBy(6.dp)) {
+                AdminHealthLine(
+                    label = tr("WebView", "WebView"),
+                    value = summary.webViewLabel
+                )
+                AdminHealthLine(
+                    label = tr("Security", "Keamanan"),
+                    value = securityLabel
+                )
+                AdminHealthLine(
+                    label = tr("Vendor", "Vendor"),
+                    value = summary.vendorLabel
+                )
+            }
+
+            Row(
+                modifier = Modifier.fillMaxWidth(),
+                horizontalArrangement = Arrangement.spacedBy(8.dp),
+                verticalAlignment = Alignment.CenterVertically
+            ) {
+                Button(
+                    onClick = primaryClick,
+                    enabled = !fieldReadinessRunning,
+                    shape = RoundedCornerShape(16.dp),
+                    colors = ButtonDefaults.buttonColors(
+                        containerColor = statusColor,
+                        contentColor = LockOnDark,
+                        disabledContainerColor = statusColor.copy(alpha = 0.42f),
+                        disabledContentColor = LockOnDark.copy(alpha = 0.75f)
+                    ),
+                    modifier = Modifier.weight(1f)
+                ) {
+                    if (fieldReadinessRunning) {
+                        CircularProgressIndicator(
+                            modifier = Modifier.size(16.dp),
+                            strokeWidth = 2.dp,
+                            color = LockOnDark
+                        )
+                    } else {
+                        Text(
+                            text = summary.nextActionLabel,
+                            fontWeight = FontWeight.Bold
+                        )
+                    }
+                }
+                if (summary.verdict != AdminReadinessVerdict.NotRun) {
+                    TextButton(
+                        onClick = onRunCheck,
+                        enabled = !fieldReadinessRunning,
+                        modifier = Modifier.weight(1f)
+                    ) {
+                        Text(
+                            text = tr("Run Check", "Cek Ulang"),
+                            color = LockBlue,
+                            fontWeight = FontWeight.Bold
+                        )
+                    }
+                }
+                TextButton(
+                    onClick = onOpenAdvanced,
+                    modifier = Modifier.weight(1f)
+                ) {
+                    Text(
+                        text = tr("Details", "Detail"),
+                        color = LockBlue,
+                        fontWeight = FontWeight.Bold
+                    )
+                }
+            }
+        }
+    }
+}
+
+@Composable
+private fun AdminReportsCard(
+    onExportExamDiagnostics: () -> Unit,
+    onExportDeviceReport: () -> Unit
+) {
+    Surface(
+        modifier = Modifier.fillMaxWidth(),
+        shape = RoundedCornerShape(22.dp),
+        color = Color.White,
+        border = BorderStroke(1.dp, LockOutline),
+        tonalElevation = 1.dp,
+        shadowElevation = 2.dp
+    ) {
+        Column(
+            modifier = Modifier.padding(horizontal = 16.dp, vertical = 16.dp),
+            verticalArrangement = Arrangement.spacedBy(12.dp)
+        ) {
+            Text(
+                text = tr("Reports", "Laporan"),
+                color = LockTextPrimary,
+                fontSize = 18.sp,
+                fontWeight = FontWeight.Bold
+            )
+            Text(
+                text = tr(
+                    "Export redacted diagnostics when support needs evidence.",
+                    "Export diagnostik redacted saat butuh bukti support."
+                ),
+                color = LockTextSecondary,
+                fontSize = 12.sp,
+                lineHeight = 16.sp
+            )
+            Row(
+                modifier = Modifier.fillMaxWidth(),
+                horizontalArrangement = Arrangement.spacedBy(8.dp)
+            ) {
+                Button(
+                    onClick = onExportExamDiagnostics,
+                    shape = RoundedCornerShape(16.dp),
+                    colors = ButtonDefaults.buttonColors(
+                        containerColor = LockBlue,
+                        contentColor = LockOnDark
+                    ),
+                    modifier = Modifier.weight(1f)
+                ) {
+                    Text(
+                        text = tr("Exam Report", "Ujian"),
+                        fontWeight = FontWeight.Bold
+                    )
+                }
+                Button(
+                    onClick = onExportDeviceReport,
+                    shape = RoundedCornerShape(16.dp),
+                    colors = ButtonDefaults.buttonColors(
+                        containerColor = LockGoldDark,
+                        contentColor = LockOnDark
+                    ),
+                    modifier = Modifier.weight(1f)
+                ) {
+                    Text(
+                        text = tr("Device Report", "Perangkat"),
+                        fontWeight = FontWeight.Bold
+                    )
+                }
+            }
+        }
+    }
+}
+
+@Composable
+private fun AdminAdvancedDiagnosticsCard(
+    expanded: Boolean,
+    onToggleExpanded: () -> Unit,
+    report: FieldReadinessReport?,
+    survivalPolicy: DeviceSurvivalPolicy,
+    webViewStatus: WebViewCompatibilityStatus,
+    vendorChecklist: DeviceVendorChecklist,
+    deviceCompatibilityProfile: DeviceCompatibilityProfile,
+    onRefreshWebView: () -> Unit,
+    onOpenWebViewSettings: () -> Unit,
+    onOpenBatterySettings: () -> Unit,
+    onOpenLocationSettings: () -> Unit,
+    onOpenOverlaySettings: () -> Unit,
+    onOpenAppSettings: () -> Unit
+) {
+    Surface(
+        modifier = Modifier.fillMaxWidth(),
+        shape = RoundedCornerShape(22.dp),
+        color = LockSurfaceSoft,
+        border = BorderStroke(1.dp, LockOutline)
+    ) {
+        Column(
+            modifier = Modifier.padding(horizontal = 16.dp, vertical = 16.dp),
+            verticalArrangement = Arrangement.spacedBy(12.dp)
+        ) {
+            Row(
+                modifier = Modifier.fillMaxWidth(),
+                horizontalArrangement = Arrangement.spacedBy(10.dp),
+                verticalAlignment = Alignment.CenterVertically
+            ) {
+                Column(modifier = Modifier.weight(1f)) {
+                    Text(
+                        text = tr("Advanced Diagnostics", "Diagnostik Lanjutan"),
+                        color = LockTextPrimary,
+                        fontSize = 18.sp,
+                        fontWeight = FontWeight.Bold
+                    )
+                    Text(
+                        text = tr(
+                            "Technical details are hidden until needed.",
+                            "Detail teknis disembunyikan sampai dibutuhkan."
+                        ),
+                        color = LockTextSecondary,
+                        fontSize = 12.sp,
+                        lineHeight = 16.sp
+                    )
+                }
+                TextButton(onClick = onToggleExpanded) {
+                    Text(
+                        text = if (expanded) tr("Hide", "Tutup") else tr("Open", "Buka"),
+                        color = LockBlue,
+                        fontWeight = FontWeight.Bold
+                    )
+                }
+            }
+
+            if (!expanded) {
+                Text(
+                    text = tr(
+                        "Open only for troubleshooting.",
+                        "Buka hanya saat troubleshooting."
+                    ),
+                    color = LockTextMuted,
+                    fontSize = 11.sp,
+                    lineHeight = 15.sp
+                )
+                return@Column
+            }
+
+            AdminDiagnosticDivider()
+            AdminDiagnosticSectionTitle(tr("WebView Provider", "Provider WebView"))
+            AdminHealthLine(tr("Status", "Status"), "${webViewStatus.verdict.name} / ${webViewStatus.severity.name}")
+            AdminHealthLine(tr("Provider", "Provider"), webViewStatus.providerLabel)
+            AdminHealthLine(tr("Package", "Package"), webViewStatus.packageName)
+            AdminHealthLine(tr("Version", "Versi"), webViewStatus.versionLabel)
+            AdminHealthLine(tr("Source", "Sumber"), webViewStatus.providerSource)
+            AdminHealthLine(
+                tr("Survival score", "Skor survival"),
+                "${survivalPolicy.score.name} / ${survivalPolicy.runtimeTier.name}"
+            )
+            webViewStatus.quickFix?.takeIf { it.isNotBlank() }?.let { quickFix ->
+                Text(
+                    text = quickFix,
+                    color = LockTextSecondary,
+                    fontSize = 12.sp,
+                    lineHeight = 16.sp
+                )
+            }
+            Row(
+                modifier = Modifier.fillMaxWidth(),
+                horizontalArrangement = Arrangement.spacedBy(8.dp)
+            ) {
+                TextButton(
+                    onClick = onRefreshWebView,
+                    modifier = Modifier.weight(1f)
+                ) {
+                    Text(tr("Refresh", "Refresh"), color = LockBlue, fontWeight = FontWeight.Bold)
+                }
+                TextButton(
+                    onClick = onOpenWebViewSettings,
+                    modifier = Modifier.weight(1f)
+                ) {
+                    Text(tr("Open Settings", "Buka Setelan"), color = LockBlue, fontWeight = FontWeight.Bold)
+                }
+            }
+
+            AdminDiagnosticDivider()
+            AdminDiagnosticSectionTitle(tr("Field Readiness Details", "Detail Field Readiness"))
+            FieldReadinessReportCard(
+                report = report,
+                survivalPolicy = survivalPolicy
+            )
+
+            AdminDiagnosticDivider()
+            AdminDiagnosticSectionTitle(tr("Device Setup Checklist", "Checklist Setup Perangkat"))
+            AdminHealthLine(
+                label = tr("Vendor", "Vendor"),
+                value = vendorChecklist.displayName
+            )
+            AdminHealthLine(
+                label = tr("Compatibility", "Kompatibilitas"),
+                value = "${deviceCompatibilityProfile.family.name} | ${deviceCompatibilityProfile.model}"
+            )
+            vendorChecklist.items.forEach { item ->
+                Column(verticalArrangement = Arrangement.spacedBy(3.dp)) {
+                    Text(
+                        text = item.title,
+                        color = LockTextPrimary,
+                        fontSize = 13.sp,
+                        fontWeight = FontWeight.Bold
+                    )
+                    Text(
+                        text = item.detail,
+                        color = LockTextSecondary,
+                        fontSize = 12.sp,
+                        lineHeight = 16.sp
+                    )
+                }
+            }
+            Row(
+                modifier = Modifier.fillMaxWidth(),
+                horizontalArrangement = Arrangement.spacedBy(8.dp)
+            ) {
+                TextButton(
+                    onClick = onOpenBatterySettings,
+                    modifier = Modifier.weight(1f)
+                ) {
+                    Text(tr("Battery", "Baterai"), color = LockBlue)
+                }
+                TextButton(
+                    onClick = onOpenLocationSettings,
+                    modifier = Modifier.weight(1f)
+                ) {
+                    Text(tr("Location", "Lokasi"), color = LockBlue)
+                }
+                TextButton(
+                    onClick = onOpenOverlaySettings,
+                    modifier = Modifier.weight(1f)
+                ) {
+                    Text(tr("Overlay", "Overlay"), color = LockBlue)
+                }
+            }
+            TextButton(
+                onClick = onOpenAppSettings,
+                modifier = Modifier.fillMaxWidth()
+            ) {
+                Text(
+                    text = tr("Open App Settings", "Buka Setelan Aplikasi"),
+                    color = LockBlue,
+                    fontWeight = FontWeight.Bold
+                )
+            }
+        }
+    }
+}
+
+@Composable
+private fun AdminDiagnosticSectionTitle(text: String) {
+    Text(
+        text = text,
+        color = LockTextPrimary,
+        fontSize = 14.sp,
+        fontWeight = FontWeight.ExtraBold
+    )
+}
+
+@Composable
+private fun AdminDiagnosticDivider() {
+    Box(
+        modifier = Modifier
+            .fillMaxWidth()
+            .height(1.dp)
+            .background(LockOutline.copy(alpha = 0.8f))
+    )
+}
+
+private fun adminReadinessVerdictColor(verdict: AdminReadinessVerdict): Color {
+    return when (verdict) {
+        AdminReadinessVerdict.NotRun -> LockBlue
+        AdminReadinessVerdict.Ready -> Color(0xFF2F8F63)
+        AdminReadinessVerdict.NeedsSetup -> LockGoldDark
+        AdminReadinessVerdict.Blocked -> Color(0xFFB42318)
+    }
+}
+
+@Composable
+private fun AdminHealthLine(
+    label: String,
+    value: String
+) {
+    Row(
+        modifier = Modifier.fillMaxWidth(),
+        horizontalArrangement = Arrangement.SpaceBetween,
+        verticalAlignment = Alignment.Top
+    ) {
+        Text(
+            text = label,
+            color = LockTextMuted,
+            fontSize = 12.sp,
+            modifier = Modifier.weight(0.42f)
+        )
+        Text(
+            text = value.ifBlank { "-" },
+            color = LockTextPrimary,
+            fontSize = 12.sp,
+            fontWeight = FontWeight.SemiBold,
+            textAlign = TextAlign.End,
+            modifier = Modifier.weight(0.58f)
+        )
+    }
+}
+
+@Composable
+private fun FieldReadinessReportCard(
+    report: FieldReadinessReport?,
+    survivalPolicy: DeviceSurvivalPolicy
+) {
+    if (report == null) {
+        Text(
+            text = tr(
+                "No field test yet. Run it on the actual device before exam day.",
+                "Belum ada field test. Jalankan di perangkat asli sebelum hari ujian."
+            ),
+            color = LockTextSecondary,
+            fontSize = 12.sp,
+            lineHeight = 16.sp
+        )
+        return
+    }
+
+    val statusColor = fieldReadinessVerdictColor(report.finalVerdict)
+    Row(
+        modifier = Modifier.fillMaxWidth(),
+        horizontalArrangement = Arrangement.SpaceBetween,
+        verticalAlignment = Alignment.CenterVertically
+    ) {
+        Column(modifier = Modifier.weight(1f)) {
+            Text(
+                text = tr("Last result", "Hasil terakhir"),
+                color = LockTextMuted,
+                fontSize = 11.sp,
+                fontWeight = FontWeight.SemiBold
+            )
+            Text(
+                text = "ready=${report.readyCount} warning=${report.warningCount} blocked=${report.blockedCount}",
+                color = LockTextSecondary,
+                fontSize = 12.sp,
+                lineHeight = 16.sp
+            )
+            Text(
+                text = "score=${survivalPolicy.score.name} runtime=${survivalPolicy.runtimeTier.name}",
+                color = LockTextMuted,
+                fontSize = 11.sp,
+                lineHeight = 15.sp
+            )
+            Text(
+                text = survivalPolicy.webViewRiskLabel,
+                color = LockTextMuted,
+                fontSize = 10.sp,
+                lineHeight = 14.sp
+            )
+        }
+        Surface(
+            shape = RoundedCornerShape(999.dp),
+            color = statusColor.copy(alpha = 0.14f),
+            border = BorderStroke(1.dp, statusColor.copy(alpha = 0.36f))
+        ) {
+            Text(
+                text = report.finalVerdict.name.uppercase(),
+                color = statusColor,
+                fontSize = 11.sp,
+                fontWeight = FontWeight.Black,
+                modifier = Modifier.padding(horizontal = 10.dp, vertical = 6.dp)
+            )
+        }
+    }
+
+    Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
+        report.items.forEach { item ->
+            val itemColor = fieldReadinessVerdictColor(item.verdict)
+            Row(
+                modifier = Modifier.fillMaxWidth(),
+                horizontalArrangement = Arrangement.spacedBy(10.dp),
+                verticalAlignment = Alignment.Top
+            ) {
+                Text(
+                    text = item.verdict.name.take(1),
+                    color = itemColor,
+                    fontSize = 12.sp,
+                    fontWeight = FontWeight.Black,
+                    modifier = Modifier.width(16.dp)
+                )
+                Column(modifier = Modifier.weight(1f)) {
+                    Text(
+                        text = item.title,
+                        color = LockTextPrimary,
+                        fontSize = 12.sp,
+                        fontWeight = FontWeight.Bold
+                    )
+                    Text(
+                        text = item.detail,
+                        color = LockTextSecondary,
+                        fontSize = 11.sp,
+                        lineHeight = 15.sp
+                    )
+                    if (!item.quickFix.isNullOrBlank()) {
+                        Text(
+                            text = item.quickFix,
+                            color = itemColor,
+                            fontSize = 11.sp,
+                            lineHeight = 15.sp,
+                            fontWeight = FontWeight.SemiBold
+                        )
+                    }
+                }
+            }
+        }
+    }
+}
+
+private fun fieldReadinessVerdictColor(verdict: FieldReadinessVerdict): Color {
+    return when (verdict) {
+        FieldReadinessVerdict.Ready -> Color(0xFF2F8F63)
+        FieldReadinessVerdict.Warning -> LockGoldDark
+        FieldReadinessVerdict.Blocked -> Color(0xFFB42318)
+    }
+}
+
+private fun readSecretAdminLockTaskStateLabel(context: Context): String {
+    if (Build.VERSION.SDK_INT < Build.VERSION_CODES.M) {
+        return "Unsupported"
+    }
+    val activityManager = context.getSystemService(Context.ACTIVITY_SERVICE) as? ActivityManager
+    val state = runCatching { activityManager?.lockTaskModeState }.getOrNull()
+    return when (state) {
+        ActivityManager.LOCK_TASK_MODE_LOCKED -> "LOCKED"
+        ActivityManager.LOCK_TASK_MODE_PINNED -> "PINNED"
+        ActivityManager.LOCK_TASK_MODE_NONE -> "NONE"
+        null -> "Unknown"
+        else -> "Unknown($state)"
     }
 }
 

@@ -192,6 +192,7 @@ import com.example.coblaxexamlock.ExamQrPayload
 import com.example.coblaxexamlock.ExamScheduleValidationResult
 import com.example.coblaxexamlock.ExamScheduleValidator
 import com.example.coblaxexamlock.BuildConfig
+import com.example.coblaxexamlock.LocalDeviceCompatibilityProfile
 import com.example.coblaxexamlock.LocalLowRamProfile
 import com.example.coblaxexamlock.LowRamProfile
 import com.example.coblaxexamlock.LocationPolicySource
@@ -201,6 +202,7 @@ import com.example.coblaxexamlock.SecureStrings
 import com.example.coblaxexamlock.StartupTrace
 import com.example.coblaxexamlock.TrustedNetworkTimeCoordinator
 import com.example.coblaxexamlock.captureDeviceTimeBaseline
+import com.example.coblaxexamlock.currentDeviceCompatibilityProfile
 import com.example.coblaxexamlock.inspectDeviceTimeSecurity
 import com.example.coblaxexamlock.config.FastExamName
 import com.example.coblaxexamlock.config.QrImageReadErrorDecode
@@ -233,6 +235,8 @@ import com.example.coblaxexamlock.ui.admin.InfoDialog
 import com.example.coblaxexamlock.ui.admin.ScanSourceDialog
 import com.example.coblaxexamlock.ui.admin.SecretAdminScreen
 import com.example.coblaxexamlock.ui.exam.ExamWebViewScreen
+import com.example.coblaxexamlock.ui.exam.ExamRuntimeHardeningDiagnostics
+import com.example.coblaxexamlock.ui.exam.ExamRuntimeHardeningLogTag
 import com.example.coblaxexamlock.ui.theme.COBLAXEXAMLOCKTheme
 import com.example.coblaxexamlock.ui.theme.LockBackground
 import com.example.coblaxexamlock.ui.theme.LockBlue
@@ -425,6 +429,9 @@ internal fun AppHostRuntimeContent(
     val coroutineScope = rememberCoroutineScope()
     val lowRamProfile = remember(context, initialLowRamProfile) {
         initialLowRamProfile ?: resolveLowRamProfile(context)
+    }
+    val deviceCompatibilityProfile = remember(lowRamProfile) {
+        currentDeviceCompatibilityProfile(lowRamProfile)
     }
     val adminFlowViewModel = remember(activity) {
         ViewModelProvider(activity)[AdminFlowViewModel::class.java]
@@ -625,6 +632,14 @@ internal fun AppHostRuntimeContent(
             "enabled=${lowRamProfile.enabled} severe=${lowRamProfile.severe} " +
                 "qrMaxEdgePx=${lowRamProfile.qrMaxEdgePx} " +
                 "slowPollingMultiplier=${lowRamProfile.slowPollingMultiplier}"
+        )
+    }
+
+    LaunchedEffect(deviceCompatibilityProfile) {
+        Log.i(
+            ExamRuntimeHardeningLogTag,
+            "code=${ExamRuntimeHardeningDiagnostics.DeviceCompatProfileResolved} " +
+                "level=INFO details=${deviceCompatibilityProfile.diagnosticSummary()}"
         )
     }
 
@@ -977,7 +992,8 @@ internal fun AppHostRuntimeContent(
 
     CompositionLocalProvider(
         LocalUiLanguage provides uiLanguage,
-        LocalLowRamProfile provides lowRamProfile
+        LocalLowRamProfile provides lowRamProfile,
+        LocalDeviceCompatibilityProfile provides deviceCompatibilityProfile
     ) {
         BackHandler(enabled = adminFlowUiState.currentScreen == AppScreen.CustomQrAdmin) {
             adminFlowViewModel.dispatch(AdminFlowUiAction.CloseCustomQrAdmin)

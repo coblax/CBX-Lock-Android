@@ -113,6 +113,8 @@ internal fun diagnosticSectionEventCodes(section: DiagnosticSection): Set<String
         )
         DiagnosticSection.Overlay -> setOf(
             "OVERLAY_TOUCH_DETECTED",
+            "OVERLAY_TOUCH_SUPPRESSED",
+            "OVERLAY_TOUCH_WARNING",
             "OVERLAY_WINDOW_FOCUS_LOSS",
             "OVERLAY_MONITOR_SUPPRESSED",
             "OVERLAY_SHIELD_APPLIED",
@@ -203,6 +205,7 @@ internal fun diagnosticSectionEventCodes(section: DiagnosticSection): Set<String
             "SCREEN_PINNING_BYPASSED",
             "SCREEN_PINNING_BYPASS_USED",
             "SCREEN_PINNING_BYPASS_TAMPER_DETECTED",
+            "SCREEN_PINNING_TRANSIENT_LOSS_RECHECK",
             "SCREEN_PINNING_LOST_DURING_EXAM",
             "START_EXAM_BLOCKED_SCREEN_PINNING_UNAVAILABLE"
         )
@@ -215,6 +218,15 @@ internal fun diagnosticSectionEventCodes(section: DiagnosticSection): Set<String
             "QR_BLOCKED_DEVICE_TIME",
             "START_EXAM_BLOCKED_DEVICE_TIME"
         )
-        DiagnosticSection.SecurityHealth -> emptySet()
+        DiagnosticSection.SecurityHealth -> setOf(
+            "DEVICE_SURVIVAL_POLICY_RESOLVED",
+            "COMPATIBILITY_SCORE_UPDATED",
+            "WEBVIEW_PROVIDER_HEALTH_RESOLVED",
+            "WEBVIEW_PROVIDER_HEALTH_WARNING",
+            "WEBVIEW_PROVIDER_HEALTH_FIX_OPENED",
+            "PRE_EXAM_HEALTH_CHECK_STARTED",
+            "PRE_EXAM_HEALTH_CHECK_COMPLETED",
+            "START_EXAM_BLOCKED_HEALTH_CHECK"
+        )
     }
 }

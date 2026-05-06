@@ -419,137 +419,132 @@ internal fun showKeyboardPicker(activity: Activity?): Boolean {
     return true
 }
 
-internal fun openKeyboardSettings(context: Context) {
-    context.startActivity(
-        Intent(Settings.ACTION_INPUT_METHOD_SETTINGS).apply {
-            if (context !is Activity) {
-                addFlags(Intent.FLAG_ACTIVITY_NEW_TASK)
-            }
+internal fun launchPlatformIntentSafely(context: Context, intent: Intent): Boolean {
+    val launchIntent = Intent(intent).apply {
+        if (context !is Activity) {
+            addFlags(Intent.FLAG_ACTIVITY_NEW_TASK)
         }
+    }
+    return runCatching {
+        context.startActivity(launchIntent)
+        true
+    }.getOrDefault(false)
+}
+
+internal fun launchFirstPlatformIntentSafely(context: Context, intents: List<Intent>): Boolean {
+    return intents.any { intent -> launchPlatformIntentSafely(context, intent) }
+}
+
+internal fun openKeyboardSettings(context: Context) {
+    launchFirstPlatformIntentSafely(
+        context,
+        listOf(
+            Intent(Settings.ACTION_INPUT_METHOD_SETTINGS),
+            Intent(Settings.ACTION_SETTINGS)
+        )
     )
 }
 
 @SuppressLint("InlinedApi")
 
 internal fun openBluetoothSettings(context: Context) {
-    context.startActivity(
-        Intent(Settings.ACTION_BLUETOOTH_SETTINGS).apply {
-            if (context !is Activity) {
-                addFlags(Intent.FLAG_ACTIVITY_NEW_TASK)
-            }
-        }
+    launchFirstPlatformIntentSafely(
+        context,
+        listOf(
+            Intent(Settings.ACTION_BLUETOOTH_SETTINGS),
+            Intent(Settings.ACTION_WIRELESS_SETTINGS),
+            Intent(Settings.ACTION_SETTINGS)
+        )
     )
 }
 
 internal fun openAccessibilitySettings(context: Context) {
-    context.startActivity(
-        Intent(Settings.ACTION_ACCESSIBILITY_SETTINGS).apply {
-            if (context !is Activity) {
-                addFlags(Intent.FLAG_ACTIVITY_NEW_TASK)
-            }
-        }
+    launchFirstPlatformIntentSafely(
+        context,
+        listOf(
+            Intent(Settings.ACTION_ACCESSIBILITY_SETTINGS),
+            Intent(Settings.ACTION_SETTINGS)
+        )
     )
 }
 
 internal fun openDeveloperOptionsSettings(context: Context) {
-    val intent = Intent(Settings.ACTION_APPLICATION_DEVELOPMENT_SETTINGS).apply {
-        if (context !is Activity) {
-            addFlags(Intent.FLAG_ACTIVITY_NEW_TASK)
-        }
-    }
-    runCatching { context.startActivity(intent) }
-        .onFailure {
-            context.startActivity(
-                Intent(Settings.ACTION_SETTINGS).apply {
-                    if (context !is Activity) {
-                        addFlags(Intent.FLAG_ACTIVITY_NEW_TASK)
-                    }
-                }
-            )
-        }
+    launchFirstPlatformIntentSafely(
+        context,
+        listOf(
+            Intent(Settings.ACTION_APPLICATION_DEVELOPMENT_SETTINGS),
+            Intent(Settings.ACTION_SETTINGS)
+        )
+    )
 }
 
 internal fun openScreenPinningSettings(context: Context) {
-    runCatching {
-        context.startActivity(
-            Intent(Settings.ACTION_SECURITY_SETTINGS).apply {
-                if (context !is Activity) {
-                    addFlags(Intent.FLAG_ACTIVITY_NEW_TASK)
-                }
-            }
+    launchFirstPlatformIntentSafely(
+        context,
+        listOf(
+            Intent(Settings.ACTION_SECURITY_SETTINGS),
+            Intent(Settings.ACTION_SETTINGS)
         )
-    }.onFailure {
-        context.startActivity(
-            Intent(Settings.ACTION_SETTINGS).apply {
-                if (context !is Activity) {
-                    addFlags(Intent.FLAG_ACTIVITY_NEW_TASK)
-                }
-            }
-        )
-    }
+    )
 }
 
 internal fun openOverlaySettings(context: Context) {
-    runCatching {
-        context.startActivity(
+    launchFirstPlatformIntentSafely(
+        context,
+        listOf(
             Intent(
                 Settings.ACTION_MANAGE_OVERLAY_PERMISSION,
                 "package:${context.packageName}".toUri()
-            ).apply {
-                if (context !is Activity) {
-                    addFlags(Intent.FLAG_ACTIVITY_NEW_TASK)
-                }
-            }
+            ),
+            Intent(Settings.ACTION_APPLICATION_DETAILS_SETTINGS, "package:${context.packageName}".toUri()),
+            Intent(Settings.ACTION_SETTINGS)
         )
-    }.onFailure {
-        context.startActivity(
-            Intent(Settings.ACTION_SETTINGS).apply {
-                if (context !is Activity) {
-                    addFlags(Intent.FLAG_ACTIVITY_NEW_TASK)
-                }
-            }
-        )
-    }
+    )
+}
+
+internal fun openWebViewProviderSettings(
+    context: Context,
+    providerPackageName: String
+) {
+    val normalizedPackageName = providerPackageName
+        .trim()
+        .takeIf { it.isNotBlank() && it != "-" }
+        ?: "com.google.android.webview"
+    val fallbackIntents = listOf(
+        Intent(Settings.ACTION_APPLICATION_DETAILS_SETTINGS, "package:com.android.webview".toUri()),
+        Intent(Settings.ACTION_APPLICATION_DETAILS_SETTINGS, "package:com.google.android.webview".toUri()),
+        Intent(Settings.ACTION_APPLICATION_DETAILS_SETTINGS, "package:com.android.chrome".toUri()),
+        Intent(Settings.ACTION_SETTINGS)
+    )
+    launchFirstPlatformIntentSafely(
+        context,
+        listOf(
+            Intent(
+                Settings.ACTION_APPLICATION_DETAILS_SETTINGS,
+                "package:$normalizedPackageName".toUri()
+            )
+        ) + fallbackIntents
+    )
 }
 
 internal fun openLocationServicesSettings(context: Context) {
-    runCatching {
-        context.startActivity(
-            Intent(Settings.ACTION_LOCATION_SOURCE_SETTINGS).apply {
-                if (context !is Activity) {
-                    addFlags(Intent.FLAG_ACTIVITY_NEW_TASK)
-                }
-            }
+    launchFirstPlatformIntentSafely(
+        context,
+        listOf(
+            Intent(Settings.ACTION_LOCATION_SOURCE_SETTINGS),
+            Intent(Settings.ACTION_SETTINGS)
         )
-    }.onFailure {
-        context.startActivity(
-            Intent(Settings.ACTION_SETTINGS).apply {
-                if (context !is Activity) {
-                    addFlags(Intent.FLAG_ACTIVITY_NEW_TASK)
-                }
-            }
-        )
-    }
+    )
 }
 
 internal fun openDateTimeSettings(context: Context) {
-    runCatching {
-        context.startActivity(
-            Intent(Settings.ACTION_DATE_SETTINGS).apply {
-                if (context !is Activity) {
-                    addFlags(Intent.FLAG_ACTIVITY_NEW_TASK)
-                }
-            }
+    launchFirstPlatformIntentSafely(
+        context,
+        listOf(
+            Intent(Settings.ACTION_DATE_SETTINGS),
+            Intent(Settings.ACTION_SETTINGS)
         )
-    }.onFailure {
-        context.startActivity(
-            Intent(Settings.ACTION_SETTINGS).apply {
-                if (context !is Activity) {
-                    addFlags(Intent.FLAG_ACTIVITY_NEW_TASK)
-                }
-            }
-        )
-    }
+    )
 }
 
 internal fun openInternetConnectivitySettings(context: Context) {
@@ -558,28 +553,10 @@ internal fun openInternetConnectivitySettings(context: Context) {
         Intent(Settings.ACTION_WIRELESS_SETTINGS),
         Intent(Settings.ACTION_SETTINGS)
     )
-    runCatching {
-        context.startActivity(
-            createInternetConnectivityIntent().apply {
-                if (context !is Activity) {
-                    addFlags(Intent.FLAG_ACTIVITY_NEW_TASK)
-                }
-            }
-        )
-    }.onFailure {
-        fallbackIntents.firstNotNullOfOrNull { intent ->
-            runCatching {
-                context.startActivity(
-                    intent.apply {
-                        if (context !is Activity) {
-                            addFlags(Intent.FLAG_ACTIVITY_NEW_TASK)
-                        }
-                    }
-                )
-                true
-            }.getOrNull()
-        }
-    }
+    launchFirstPlatformIntentSafely(
+        context,
+        listOf(createInternetConnectivityIntent()) + fallbackIntents
+    )
 }
 
 private fun createInternetConnectivityIntent(): Intent {
@@ -591,49 +568,36 @@ private fun createInternetConnectivityIntent(): Intent {
 }
 
 internal fun openWifiSettings(context: Context) {
-    context.startActivity(
-        Intent(Settings.ACTION_WIFI_SETTINGS).apply {
-            if (context !is Activity) {
-                addFlags(Intent.FLAG_ACTIVITY_NEW_TASK)
-            }
-        }
+    launchFirstPlatformIntentSafely(
+        context,
+        listOf(
+            Intent(Settings.ACTION_WIFI_SETTINGS),
+            Intent(Settings.ACTION_WIRELESS_SETTINGS),
+            Intent(Settings.ACTION_SETTINGS)
+        )
     )
 }
 
 internal fun openCellularSettings(context: Context) {
-    val primaryIntent = Intent(Settings.ACTION_NETWORK_OPERATOR_SETTINGS).apply {
-        if (context !is Activity) {
-            addFlags(Intent.FLAG_ACTIVITY_NEW_TASK)
-        }
-    }
-    runCatching { context.startActivity(primaryIntent) }
-        .onFailure {
-            context.startActivity(
-                Intent(Settings.ACTION_WIRELESS_SETTINGS).apply {
-                    if (context !is Activity) {
-                        addFlags(Intent.FLAG_ACTIVITY_NEW_TASK)
-                    }
-                }
-            )
-        }
+    launchFirstPlatformIntentSafely(
+        context,
+        listOf(
+            Intent(Settings.ACTION_NETWORK_OPERATOR_SETTINGS),
+            Intent(Settings.ACTION_WIRELESS_SETTINGS),
+            Intent(Settings.ACTION_SETTINGS)
+        )
+    )
 }
 
 internal fun openAirplaneModeSettings(context: Context) {
-    val primaryIntent = Intent(Settings.ACTION_AIRPLANE_MODE_SETTINGS).apply {
-        if (context !is Activity) {
-            addFlags(Intent.FLAG_ACTIVITY_NEW_TASK)
-        }
-    }
-    runCatching { context.startActivity(primaryIntent) }
-        .onFailure {
-            context.startActivity(
-                Intent(Settings.ACTION_WIRELESS_SETTINGS).apply {
-                    if (context !is Activity) {
-                        addFlags(Intent.FLAG_ACTIVITY_NEW_TASK)
-                    }
-                }
-            )
-        }
+    launchFirstPlatformIntentSafely(
+        context,
+        listOf(
+            Intent(Settings.ACTION_AIRPLANE_MODE_SETTINGS),
+            Intent(Settings.ACTION_WIRELESS_SETTINGS),
+            Intent(Settings.ACTION_SETTINGS)
+        )
+    )
 }
 
 

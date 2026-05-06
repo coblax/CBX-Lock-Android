@@ -191,6 +191,7 @@ import com.example.coblaxexamlock.LocationSpoofSecurityVerdict
 import com.example.coblaxexamlock.OverlayQuickFixTarget
 import com.example.coblaxexamlock.OverlayRiskResult
 import com.example.coblaxexamlock.OverlaySignal
+import com.example.coblaxexamlock.PinningActivationState
 import com.example.coblaxexamlock.RootBypassState
 import com.example.coblaxexamlock.RootSecurityStatus
 import com.example.coblaxexamlock.diagnosticLabel
@@ -292,6 +293,8 @@ import kotlinx.coroutines.launch
 import kotlinx.coroutines.suspendCancellableCoroutine
 import kotlinx.coroutines.withContext
 import kotlinx.coroutines.withTimeoutOrNull
+import com.example.coblaxexamlock.DeviceSurvivalPolicy
+import com.example.coblaxexamlock.PreviousExamSessionBreadcrumb
 
 internal data class PreparationScreenState(
     val examName: String,
@@ -310,6 +313,8 @@ internal data class PreparationScreenState(
     val tamperDetected: Boolean,
     val sendingSection: DiagnosticSection?,
     val isStartingExam: Boolean,
+    val pinningActivationState: PinningActivationState,
+    val screenPinningMessage: String?,
     val webViewSessionResetInFlight: Boolean,
     val webViewSessionResetError: String?,
     val isRefreshingGeofence: Boolean,
@@ -350,6 +355,9 @@ internal data class PreparationScreenState(
     val fakeLocationBypassState: FakeLocationBypassState,
     val bypassDeviceTime: Boolean,
     val bypassAppSwitch: Boolean,
+    val preExamHealthCheckSnapshot: PreExamHealthSnapshot,
+    val deviceSurvivalPolicy: DeviceSurvivalPolicy,
+    val previousExamSessionBreadcrumb: PreviousExamSessionBreadcrumb,
     val showChecklistDetails: Boolean
 )
 
@@ -374,10 +382,16 @@ internal data class PreparationScreenActions(
     val onOpenFakeLocationDeveloperOptionsSettings: () -> Unit,
     val onOpenScreenPinningSettings: () -> Unit,
     val onOpenOverlaySettings: () -> Unit,
+    val onOpenWebViewProviderSettings: () -> Unit,
     val onReinstallOfficialApk: () -> Unit,
     val onRefreshStatus: () -> Unit,
     val onRefreshAllSecurityChecks: () -> Unit,
+    val onRefreshHealthCheck: () -> Unit,
     val onRequestSectionReport: (DiagnosticSection) -> Unit,
+    val onExportDiagnostics: () -> Unit,
+    val onAutoFixShown: (String) -> Unit,
+    val onPreviousSessionRecoveryHintShown: (String) -> Unit,
+    val onAutoFixActionOpened: (String) -> Unit,
     val onStartExam: () -> Unit,
     val onBackHome: () -> Unit
 )

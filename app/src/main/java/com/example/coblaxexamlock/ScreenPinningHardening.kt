@@ -14,6 +14,25 @@ internal enum class ScreenPinningMode {
     fun allowsLockTask(): Boolean = this == Enforced
 }
 
+internal enum class PinningActivationState {
+    Idle,
+    Requested,
+    WaitingForSystemDialog,
+    WaitingForLockTaskActive,
+    ActiveConfirmed,
+    TimeoutRetryReady;
+
+    fun isPending(): Boolean {
+        return this == Requested ||
+            this == WaitingForSystemDialog ||
+            this == WaitingForLockTaskActive
+    }
+}
+
+internal const val PinningActivationGraceWindowMillis = 8_000L
+internal const val PinningActivationTimeoutMillis = 20_000L
+internal const val PinningActivationPollIntervalMillis = 250L
+
 internal sealed interface ScreenPinningBypassState {
     data object Active : ScreenPinningBypassState
 
@@ -40,7 +59,8 @@ internal data class ScreenPinningActivationReport(
     val outcome: String,
     val userActionInference: String,
     val activationDurationMs: Long,
-    val guidanceMessage: String?
+    val guidanceMessage: String?,
+    val engageAttemptCount: Int = 0
 )
 
 internal data class FatalSecuritySignal(
@@ -58,6 +78,48 @@ internal interface LockTaskBridge {
     fun active(): Boolean
 
     fun stateLabel(): String
+}
+
+internal fun shouldStartExamLockTask(
+    enabled: Boolean,
+    allowLockTask: Boolean,
+    lockTaskAlreadyActive: Boolean
+): Boolean = enabled && allowLockTask && !lockTaskAlreadyActive
+
+internal fun shouldStopExamLockTask(
+    enabled: Boolean,
+    lockTaskAlreadyActive: Boolean
+): Boolean = !enabled && lockTaskAlreadyActive
+
+internal fun shouldIssueScreenPinningEngageAttempt(
+    lockTaskAlreadyActive: Boolean,
+    engageAttemptCount: Int,
+    maxEngageAttempts: Int = 1
+): Boolean = !lockTaskAlreadyActive && engageAttemptCount < maxEngageAttempts
+
+internal fun isWithinPinningActivationGrace(
+    startedAtElapsedMs: Long?,
+    nowElapsedMs: Long,
+    graceWindowMillis: Long = PinningActivationGraceWindowMillis
+): Boolean {
+    val startedAt = startedAtElapsedMs ?: return false
+    return (nowElapsedMs - startedAt).coerceAtLeast(0L) <= graceWindowMillis
+}
+
+internal fun shouldSuppressPinningTransitionViolation(
+    lockTaskRequestPending: Boolean,
+    examSessionStarted: Boolean,
+    startedAtElapsedMs: Long?,
+    nowElapsedMs: Long,
+    graceWindowMillis: Long = PinningActivationGraceWindowMillis
+): Boolean {
+    return lockTaskRequestPending &&
+        !examSessionStarted &&
+        isWithinPinningActivationGrace(
+            startedAtElapsedMs = startedAtElapsedMs,
+            nowElapsedMs = nowElapsedMs,
+            graceWindowMillis = graceWindowMillis
+        )
 }
 
 internal class ActivityLockTaskBridge(private val activityProvider: () -> MainActivity?) : LockTaskBridge {
@@ -140,10 +202,9 @@ internal object ScreenPinningPlatformBridge {
 internal object ScreenPinningEnforcer {
     private const val InitialEngageDelayMillis = 250L
     private const val FeedbackDelayMillis = 1000L
-    private const val ActivationTimeoutMillis = 45000L
-    private const val PollIntervalMillis = 150L
-    private const val RetryEngageIntervalMillis = 2500L
-    private const val MaxActivationRetries = 12
+    private const val ActivationTimeoutMillis = PinningActivationTimeoutMillis
+    private const val PollIntervalMillis = PinningActivationPollIntervalMillis
+    private const val MaxEngageAttempts = 1
 
     fun launchState(mode: ScreenPinningMode, bridge: LockTaskBridge?): ScreenPinningLaunchState {
         return when (mode) {
@@ -179,11 +240,25 @@ internal object ScreenPinningEnforcer {
         bridge: LockTaskBridge,
         isIndonesian: Boolean
     ): ScreenPinningActivationReport {
+        if (bridge.active()) {
+            return alreadyActiveReport(bridge)
+        }
         val startedAt = SystemClock.elapsedRealtime()
         delay(InitialEngageDelayMillis)
-        bridge.engage(allowLockTask = true)
-        var lastEngageAt = SystemClock.elapsedRealtime()
-        var retryCount = 0
+        if (bridge.active()) {
+            return alreadyActiveReport(bridge)
+        }
+        var engageAttemptCount = 0
+        if (
+            shouldIssueScreenPinningEngageAttempt(
+                lockTaskAlreadyActive = bridge.active(),
+                engageAttemptCount = engageAttemptCount,
+                maxEngageAttempts = MaxEngageAttempts
+            )
+        ) {
+            bridge.engage(allowLockTask = true)
+            engageAttemptCount += 1
+        }
         delay(FeedbackDelayMillis)
 
         var dialogLikelyShown = false
@@ -201,19 +276,11 @@ internal object ScreenPinningEnforcer {
                     outcome = ScreenPinningSignals.successOutcome(),
                     userActionInference = ScreenPinningSignals.successUserAction(),
                     activationDurationMs = SystemClock.elapsedRealtime() - startedAt,
-                    guidanceMessage = null
+                    guidanceMessage = null,
+                    engageAttemptCount = engageAttemptCount
                 )
             }
 
-            val now = SystemClock.elapsedRealtime()
-            if (
-                retryCount < MaxActivationRetries &&
-                now - lastEngageAt >= RetryEngageIntervalMillis
-            ) {
-                bridge.engage(allowLockTask = true)
-                lastEngageAt = now
-                retryCount += 1
-            }
             delay(PollIntervalMillis)
             remainingMillis -= PollIntervalMillis
         }
@@ -229,7 +296,21 @@ internal object ScreenPinningEnforcer {
                 ScreenPinningSignals.systemRejectedUserAction()
             },
             activationDurationMs = SystemClock.elapsedRealtime() - startedAt,
-            guidanceMessage = localizedScreenPinningGuidance(isIndonesian)
+            guidanceMessage = localizedScreenPinningGuidance(isIndonesian),
+            engageAttemptCount = engageAttemptCount
+        )
+    }
+
+    private fun alreadyActiveReport(bridge: LockTaskBridge): ScreenPinningActivationReport {
+        return ScreenPinningActivationReport(
+            active = true,
+            afterState = bridge.stateLabel(),
+            dialogLikelyShown = false,
+            outcome = ScreenPinningSignals.successOutcome(),
+            userActionInference = ScreenPinningSignals.successUserAction(),
+            activationDurationMs = 0L,
+            guidanceMessage = null,
+            engageAttemptCount = 0
         )
     }
 
@@ -243,11 +324,35 @@ internal object ScreenPinningEnforcer {
 
     fun pendingMessage(isIndonesian: Boolean): String = localizedScreenPinningGuidance(isIndonesian)
 
+    fun activatingMessage(isIndonesian: Boolean): String {
+        return if (isIndonesian) {
+            "Jika Android menampilkan dialog pin aplikasi, pilih Got it atau Pin. Tetap di layar ini sampai mode ujian terbuka."
+        } else {
+            "If Android shows the app pinning dialog, choose Got it or Pin. Stay on this screen until exam mode opens."
+        }
+    }
+
+    fun retryMessage(isIndonesian: Boolean): String {
+        return if (isIndonesian) {
+            "Tekan Start Exam Mode lagi, pilih Got it/Pin, lalu jangan buka Recent sampai mode ujian aktif."
+        } else {
+            "Press Start Exam Mode again, choose Got it/Pin, then do not open Recents until exam mode is active."
+        }
+    }
+
+    fun transitionInterruptedMessage(isIndonesian: Boolean): String {
+        return if (isIndonesian) {
+            "Screen pinning dibatalkan karena tombol Home/Recent dibuka saat Android masih mengaktifkan pinning. Tetap di layar ini setelah menekan \"Got it\" atau \"Pin\", tunggu sampai mode ujian terbuka, lalu jangan buka Recent Apps."
+        } else {
+            "Screen pinning was interrupted because Home/Recent was opened while Android was still activating pinning. Stay on this screen after choosing \"Got it\" or \"Pin\", wait until exam mode opens, and do not open Recent Apps."
+        }
+    }
+
     private fun localizedScreenPinningGuidance(isIndonesian: Boolean): String {
         return if (isIndonesian) {
-            "Screen pinning belum aktif. Saat Android menampilkan dialog pin aplikasi, pilih \"Got it\" atau \"Pin\", lalu tetap di aplikasi sampai mode ujian terbuka. Pada beberapa perangkat, aplikasi akan meminta pinning lagi otomatis setelah prompt pertama ditutup."
+            "Screen pinning belum aktif. Saat Android menampilkan dialog pin aplikasi, pilih \"Got it\" atau \"Pin\", lalu tetap di aplikasi sampai mode ujian terbuka. Jika dialog tidak muncul, buka Settings > Security > Screen Pinning, aktifkan, lalu tekan Start Exam Mode lagi."
         } else {
-            "Screen pinning is not active yet. When Android shows the app pinning dialog, choose \"Got it\" or \"Pin\", then stay in the app until exam mode opens. On some devices, the app will request pinning again automatically after the first prompt is dismissed."
+            "Screen pinning is not active yet. When Android shows the app pinning dialog, choose \"Got it\" or \"Pin\", then stay in the app until exam mode opens. If the dialog does not appear, open Settings > Security > Screen Pinning, enable it, then press Start Exam Mode again."
         }
     }
 }

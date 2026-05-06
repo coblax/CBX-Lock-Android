@@ -285,17 +285,25 @@ class MainActivity : ComponentActivity() {
 
         if (enabled) {
             runCatching {
-                window.addFlags(
-                    WindowManager.LayoutParams.FLAG_SECURE or
-                        WindowManager.LayoutParams.FLAG_KEEP_SCREEN_ON
-                )
+                val secureFlag = if (BuildConfig.DEBUG) {
+                    0
+                } else {
+                    WindowManager.LayoutParams.FLAG_SECURE
+                }
+                window.addFlags(secureFlag or WindowManager.LayoutParams.FLAG_KEEP_SCREEN_ON)
             }
             runCatching {
                 controller.systemBarsBehavior =
                     WindowInsetsControllerCompat.BEHAVIOR_SHOW_TRANSIENT_BARS_BY_SWIPE
                 controller.hide(WindowInsetsCompat.Type.systemBars())
             }
-            if (allowLockTask) {
+            if (
+                shouldStartExamLockTask(
+                    enabled = true,
+                    allowLockTask = allowLockTask,
+                    lockTaskAlreadyActive = isExamLockModeActive()
+                )
+            ) {
                 runCatching { startLockTask() }
             }
         } else {
@@ -308,7 +316,9 @@ class MainActivity : ComponentActivity() {
             runCatching {
                 controller.show(WindowInsetsCompat.Type.systemBars())
             }
-            runCatching { stopLockTask() }
+            if (shouldStopExamLockTask(enabled = false, lockTaskAlreadyActive = isExamLockModeActive())) {
+                runCatching { stopLockTask() }
+            }
         }
     }
 

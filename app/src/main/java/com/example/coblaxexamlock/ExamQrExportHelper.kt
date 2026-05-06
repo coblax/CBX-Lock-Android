@@ -1,6 +1,5 @@
 package com.example.coblaxexamlock
 
-import android.app.Activity
 import android.content.ContentValues
 import android.content.Context
 import android.content.Intent
@@ -24,18 +23,20 @@ import java.io.File
 import java.io.FileOutputStream
 
 
-object ExamQrExportHelper {
+internal object ExamQrExportHelper {
     fun createShareBitmap(
         encryptedPayload: String,
         examName: String,
         startTime: String,
         endTime: String,
-        locationPolicy: ExamQrLocationPolicy
+        locationPolicy: ExamQrLocationPolicy,
+        exportSpec: QrExportBitmapSpec = calculateQrExportBitmapSpec()
     ): Bitmap {
-        val width = 1440
-        val height = 2120
+        val width = exportSpec.widthPx
+        val height = exportSpec.heightPx
         val bitmap = createBitmap(width, height, Bitmap.Config.ARGB_8888)
         val canvas = Canvas(bitmap)
+        val scale = exportSpec.scale
 
         val backgroundColor = Color.WHITE
         val cardColor = "#F5F7FA".toColorInt()
@@ -45,6 +46,7 @@ object ExamQrExportHelper {
         val accentColor = "#4481F3".toColorInt()
 
         canvas.drawColor(backgroundColor)
+        canvas.scale(scale, scale)
 
         val titlePaint = Paint(Paint.ANTI_ALIAS_FLAG).apply {
             color = accentColor
@@ -108,7 +110,7 @@ object ExamQrExportHelper {
         })
         canvas.drawRoundRect(qrContainer, 30f, 30f, borderPaint)
 
-        val qrBitmap = QrCodeGenerator.generateBitmap(encryptedPayload, size = qrSize.toInt())
+        val qrBitmap = QrCodeGenerator.generateBitmap(encryptedPayload, size = exportSpec.qrSizePx)
         try {
             val qrRect = RectF(
                 qrContainer.left + qrPadding,
@@ -190,7 +192,10 @@ object ExamQrExportHelper {
     }
 
     fun shareBitmap(context: Context, bitmap: Bitmap, examName: String) {
-        val shareDir = File(context.cacheDir, "shared_qr").apply { mkdirs() }
+        val shareDir = File(context.cacheDir, "shared_qr").apply {
+            mkdirs()
+            cleanupOldExportFiles(this)
+        }
         val shareFile = File(shareDir, buildFileName(examName))
         FileOutputStream(shareFile).use { outputStream ->
             bitmap.compress(Bitmap.CompressFormat.PNG, 100, outputStream)
@@ -210,12 +215,10 @@ object ExamQrExportHelper {
             addFlags(Intent.FLAG_GRANT_READ_URI_PERMISSION)
         }
 
-        val chooserIntent = Intent.createChooser(shareIntent, "Bagikan QR Ujian").apply {
-            if (context !is Activity) {
-                addFlags(Intent.FLAG_ACTIVITY_NEW_TASK)
-            }
+        val chooserIntent = Intent.createChooser(shareIntent, "Bagikan QR Ujian")
+        if (!launchPlatformIntentSafely(context, chooserIntent)) {
+            throw IllegalStateException("Tidak ada aplikasi yang bisa membagikan QR.")
         }
-        context.startActivity(chooserIntent)
     }
 
     private fun buildFileName(examName: String): String {
@@ -226,6 +229,22 @@ object ExamQrExportHelper {
             .trim('_')
             .ifBlank { "ujian" }
         return "COBLAX_QR_${safeName}_${System.currentTimeMillis()}.png"
+    }
+
+    private fun cleanupOldExportFiles(directory: File) {
+        val now = System.currentTimeMillis()
+        directory.listFiles()?.forEach { file ->
+            val tooOld = now - file.lastModified() > 24L * 60L * 60L * 1000L
+            if (tooOld) {
+                runCatching { file.delete() }
+            }
+        }
+        val files = directory.listFiles()
+            ?.sortedByDescending { it.lastModified() }
+            .orEmpty()
+        files.drop(4).forEach { file ->
+            runCatching { file.delete() }
+        }
     }
 
     private fun drawDetailLine(

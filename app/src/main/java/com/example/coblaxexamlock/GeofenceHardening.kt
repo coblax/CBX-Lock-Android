@@ -74,6 +74,11 @@ internal data class GeofenceConfigParseResult(
     val error: String?
 )
 
+private data class ParsedGeofenceVertex(
+    val point: GeofencePoint?,
+    val error: String?
+)
+
 internal enum class GeofenceVerdict {
     Disabled,
     Inside,
@@ -109,6 +114,7 @@ internal const val LocationFixFreshThresholdMillis = 45_000L
 internal const val BaseLocationFixMaxAccuracyMeters = 100f
 internal const val MaxAdaptiveLocationFixAccuracyMeters = 250f
 private const val LocationFixInsideBoundaryGraceMeters = 20f
+private const val MinPolygonAreaDegrees = 1.0e-12
 
 internal enum class LocationFixQualityVerdict {
     Fresh,
@@ -450,19 +456,18 @@ internal fun parseGeofenceConfig(
     }
 
     val parsedCircleCenters = if (circleCenters.isNotEmpty()) {
-        circleCenters.map { vertex ->
-            val latitude = vertex.latitude.trim().toDoubleOrNull()
-                ?: return GeofenceConfigParseResult(enabled = true, config = null, error = "invalid_latitude")
-            val longitude = vertex.longitude.trim().toDoubleOrNull()
-                ?: return GeofenceConfigParseResult(enabled = true, config = null, error = "invalid_longitude")
-            if (latitude !in -90.0..90.0) {
-                return GeofenceConfigParseResult(enabled = true, config = null, error = "invalid_latitude")
-            }
-            if (longitude !in -180.0..180.0) {
-                return GeofenceConfigParseResult(enabled = true, config = null, error = "invalid_longitude")
-            }
-            GeofencePoint(latitude = latitude, longitude = longitude)
-        }.take(5)
+        circleCenters.take(5).map { vertex ->
+            val parsed = parseGeofenceVertex(
+                vertex = vertex,
+                latitudeError = "invalid_latitude",
+                longitudeError = "invalid_longitude"
+            )
+            parsed.point ?: return GeofenceConfigParseResult(
+                enabled = true,
+                config = null,
+                error = parsed.error
+            )
+        }
     } else {
         emptyList()
     }
@@ -482,13 +487,13 @@ internal fun parseGeofenceConfig(
     val radiusMeters = radiusMetersRaw.trim().toDoubleOrNull()
         ?: return GeofenceConfigParseResult(enabled = true, config = null, error = "invalid_radius")
 
-    if (centerLat !in -90.0..90.0) {
+    if (!centerLat.isValidLatitude()) {
         return GeofenceConfigParseResult(enabled = true, config = null, error = "invalid_latitude")
     }
-    if (centerLng !in -180.0..180.0) {
+    if (!centerLng.isValidLongitude()) {
         return GeofenceConfigParseResult(enabled = true, config = null, error = "invalid_longitude")
     }
-    if (radiusMeters <= 0.0) {
+    if (!radiusMeters.isFinite() || radiusMeters <= 0.0) {
         return GeofenceConfigParseResult(enabled = true, config = null, error = "invalid_radius")
     }
 
@@ -560,22 +565,62 @@ internal fun validatePolygonVertices(vertices: List<GeofenceVertex>): String? {
         return "polygon_max_50_vertices"
     }
     val parsed = vertices.map { vertex ->
-        val latitude = vertex.latitude.trim().toDoubleOrNull()
-            ?: return "invalid_polygon_latitude"
-        val longitude = vertex.longitude.trim().toDoubleOrNull()
-            ?: return "invalid_polygon_longitude"
-        if (latitude !in -90.0..90.0) {
-            return "invalid_polygon_latitude"
-        }
-        if (longitude !in -180.0..180.0) {
-            return "invalid_polygon_longitude"
-        }
-        GeofencePoint(latitude = latitude, longitude = longitude)
+        val parsedVertex = parseGeofenceVertex(
+            vertex = vertex,
+            latitudeError = "invalid_polygon_latitude",
+            longitudeError = "invalid_polygon_longitude"
+        )
+        parsedVertex.point ?: return parsedVertex.error
+    }
+    if (isDegeneratePolygon(parsed)) {
+        return "polygon_degenerate"
     }
     if (isSelfIntersectingPolygon(parsed)) {
         return "polygon_self_intersecting"
     }
     return null
+}
+
+private fun parseGeofenceVertex(
+    vertex: GeofenceVertex,
+    latitudeError: String,
+    longitudeError: String
+): ParsedGeofenceVertex {
+    val latitude = vertex.latitude.trim().toDoubleOrNull()
+        ?: return ParsedGeofenceVertex(point = null, error = latitudeError)
+    val longitude = vertex.longitude.trim().toDoubleOrNull()
+        ?: return ParsedGeofenceVertex(point = null, error = longitudeError)
+    if (!latitude.isValidLatitude()) {
+        return ParsedGeofenceVertex(point = null, error = latitudeError)
+    }
+    if (!longitude.isValidLongitude()) {
+        return ParsedGeofenceVertex(point = null, error = longitudeError)
+    }
+    return ParsedGeofenceVertex(
+        point = GeofencePoint(latitude = latitude, longitude = longitude),
+        error = null
+    )
+}
+
+private fun Double.isValidLatitude(): Boolean = isFinite() && this in -90.0..90.0
+
+private fun Double.isValidLongitude(): Boolean = isFinite() && this in -180.0..180.0
+
+private fun isDegeneratePolygon(points: List<GeofencePoint>): Boolean {
+    return kotlin.math.abs(polygonSignedArea(points)) <= MinPolygonAreaDegrees
+}
+
+private fun polygonSignedArea(points: List<GeofencePoint>): Double {
+    if (points.size < 3) {
+        return 0.0
+    }
+    var sum = 0.0
+    for (index in points.indices) {
+        val current = points[index]
+        val next = points[(index + 1) % points.size]
+        sum += current.longitude * next.latitude - next.longitude * current.latitude
+    }
+    return sum / 2.0
 }
 
 internal fun evaluateGeofenceSecurity(
@@ -900,9 +945,14 @@ private fun parsePolygonGeofenceConfig(
         return GeofenceConfigParseResult(enabled = true, config = null, error = error)
     }
     val parsedVertices = polygonVertices.map { vertex ->
-        GeofencePoint(
-            latitude = vertex.latitude.trim().toDouble(),
-            longitude = vertex.longitude.trim().toDouble()
+        parseGeofenceVertex(
+            vertex = vertex,
+            latitudeError = "invalid_polygon_latitude",
+            longitudeError = "invalid_polygon_longitude"
+        ).point ?: return GeofenceConfigParseResult(
+            enabled = true,
+            config = null,
+            error = "invalid_polygon_vertex"
         )
     }
     val centroidLat = parsedVertices.map { it.latitude }.average()
@@ -1063,15 +1113,24 @@ private fun calculateDistanceMeters(
     center: GeofencePoint,
     locationSnapshot: LocationSnapshot
 ): Double {
+    if (!center.latitude.isValidLatitude() ||
+        !center.longitude.isValidLongitude() ||
+        !locationSnapshot.latitude.isValidLatitude() ||
+        !locationSnapshot.longitude.isValidLongitude()
+    ) {
+        return Double.NaN
+    }
     val results = FloatArray(1)
-    Location.distanceBetween(
-        center.latitude,
-        center.longitude,
-        locationSnapshot.latitude,
-        locationSnapshot.longitude,
-        results
-    )
-    return results.firstOrNull()?.toDouble() ?: Double.NaN
+    return runCatching {
+        Location.distanceBetween(
+            center.latitude,
+            center.longitude,
+            locationSnapshot.latitude,
+            locationSnapshot.longitude,
+            results
+        )
+        results.firstOrNull()?.toDouble() ?: Double.NaN
+    }.getOrDefault(Double.NaN)
 }
 
 private fun calculateGeofenceBoundaryMarginMeters(

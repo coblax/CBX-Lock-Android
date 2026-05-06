@@ -22,6 +22,7 @@ import com.example.coblaxexamlock.RootBypassState
 import com.example.coblaxexamlock.RootSecurityStatus
 import com.example.coblaxexamlock.SecureStrings
 import com.example.coblaxexamlock.SignatureIntegrity
+import com.example.coblaxexamlock.WebViewCompatibilityStatus
 import com.example.coblaxexamlock.diagnosticLabel
 import com.example.coblaxexamlock.formatCoordinates
 import com.example.coblaxexamlock.config.TelegramMessageChunkLimit
@@ -110,6 +111,8 @@ internal suspend fun sendTelegramSectionReport(
     healthIntegrityResult: IntegrityCheckResult? = null,
     healthReverseResult: ReverseEngineeringResult? = null,
     healthLastCheckedAt: String? = null,
+    webViewCompatibilityStatus: WebViewCompatibilityStatus? = null,
+    lastExamRefreshDecision: String? = null,
     networkReadinessStatus: NetworkReadinessStatus? = null,
     networkUnstableRuntimeStatus: NetworkUnstableRuntimeStatus? = null,
     networkTimelinePreview: List<NetworkTimelineEntry> = emptyList(),
@@ -256,6 +259,8 @@ internal suspend fun sendTelegramSectionReport(
                     healthIntegrityResult = healthIntegrityResult,
                     healthReverseResult = healthReverseResult,
                     healthLastCheckedAt = healthLastCheckedAt,
+                    webViewCompatibilityStatus = webViewCompatibilityStatus,
+                    lastExamRefreshDecision = lastExamRefreshDecision,
                     networkReadinessStatus = networkReadinessStatus,
                     networkUnstableRuntimeStatus = networkUnstableRuntimeStatus,
                     networkTimelinePreview = networkTimelinePreview,

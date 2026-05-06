@@ -268,6 +268,32 @@ function Count-LinesWithPattern($lines, [string]$pattern) {
     return $count
 }
 
+function Get-LastRegexGroup($lines, [string]$pattern) {
+    $last = $null
+    foreach ($line in $lines) {
+        $text = "$line"
+        if ($text -match $pattern) {
+            $last = $matches[1]
+        }
+    }
+    return $last
+}
+
+function Test-PinningRequestAfterAlreadyActive($lines) {
+    $alreadyActiveSeen = $false
+    foreach ($line in $lines) {
+        $text = "$line"
+        if ($text -match "SCREEN_PINNING_ALREADY_ACTIVE|SCREEN_PINNING_REQUEST_SKIPPED_ALREADY_ACTIVE") {
+            $alreadyActiveSeen = $true
+            continue
+        }
+        if ($alreadyActiveSeen -and $text -match "SCREEN_PINNING_REQUESTED|SCREEN_PINNING_PENDING") {
+            return $true
+        }
+    }
+    return $false
+}
+
 function ConvertTo-DurationMs([string]$durationText) {
     $text = $durationText.Trim().TrimStart("+")
     if ($text -match "^(\d+)m(\d+)s(\d+)ms$") {
@@ -460,7 +486,7 @@ function Write-Summary(
         $filteredLogcat = $logcatLines | Where-Object {
             $_ -match $escapedPackage -or
             $_ -match "FATAL EXCEPTION|ANR in|AndroidRuntime|WebView|crash|Exception|lowmemorykiller|Application Not Responding" -or
-            $_ -match "ExamRuntimeHardening|WEBVIEW_RENDERER_GONE|WEBVIEW_RECOVERY_READY|WEBVIEW_EXIT_CLEANUP_|MEMORY_TRIM_HANDLED"
+            $_ -match "ExamRuntimeHardening|WEBVIEW_RENDERER_GONE|WEBVIEW_RECOVERY_READY|WEBVIEW_EXIT_CLEANUP_|WEBVIEW_PROVIDER_HEALTH_|MEMORY_TRIM_HANDLED|DIAGNOSTIC_EXPORT_|NETWORK_DNS_PROBE_FAILED|NETWORK_CAPTIVE_PORTAL_DETECTED|VENDOR_CHECKLIST_OPENED|DEVICE_COMPAT_PROFILE_RESOLVED|PRE_EXAM_HEALTH_CHECK_|SCREEN_PINNING_ALREADY_ACTIVE|SCREEN_PINNING_REQUEST_SKIPPED_ALREADY_ACTIVE|OVERLAY_TOUCH_WARNING|OVERLAY_TOUCH_SUPPRESSED|SAMSUNG_LEGACY_PROFILE_ACTIVE|PINNING_[A-Z_]+|OVERLAY_PARTIAL_LEGACY_WARNING|START_EXAM_BLOCKED_HEALTH_CHECK|FIELD_READINESS_TEST_|DEVICE_SURVIVAL_POLICY_RESOLVED|COMPATIBILITY_SCORE_UPDATED|PREPARATION_AUTOFIX_|PREVIOUS_SESSION_|EXAM_REFRESH_|EXAM_FOOTER_LAYOUT_MODE"
         }
         Write-TextFile (Join-Path $outDir "logcat-filtered.txt") $filteredLogcat
     }
@@ -544,6 +570,48 @@ function Write-Summary(
     $runtimeExitCleanupTimeoutCount = Count-LinesWithPattern $filteredLogcat "WEBVIEW_EXIT_CLEANUP_TIMEOUT"
     $runtimeExitCleanupFailedCount = Count-LinesWithPattern $filteredLogcat "WEBVIEW_EXIT_CLEANUP_FAILED"
     $runtimeMemoryTrimHandledCount = Count-LinesWithPattern $filteredLogcat "MEMORY_TRIM_HANDLED"
+    $runtimeDiagnosticExportRequestedCount = Count-LinesWithPattern $filteredLogcat "DIAGNOSTIC_EXPORT_REQUESTED"
+    $runtimeDiagnosticExportFailedCount = Count-LinesWithPattern $filteredLogcat "DIAGNOSTIC_EXPORT_FAILED"
+    $runtimeNetworkDnsProbeFailedCount = Count-LinesWithPattern $filteredLogcat "NETWORK_DNS_PROBE_FAILED"
+    $runtimeNetworkCaptivePortalDetectedCount = Count-LinesWithPattern $filteredLogcat "NETWORK_CAPTIVE_PORTAL_DETECTED"
+    $runtimeVendorChecklistOpenedCount = Count-LinesWithPattern $filteredLogcat "VENDOR_CHECKLIST_OPENED"
+    $runtimeDeviceCompatResolvedCount = Count-LinesWithPattern $filteredLogcat "DEVICE_COMPAT_PROFILE_RESOLVED"
+    $runtimePreExamHealthStartedCount = Count-LinesWithPattern $filteredLogcat "PRE_EXAM_HEALTH_CHECK_STARTED"
+    $runtimePreExamHealthCompletedCount = Count-LinesWithPattern $filteredLogcat "PRE_EXAM_HEALTH_CHECK_COMPLETED"
+    $runtimeScreenPinningAlreadyActiveCount = Count-LinesWithPattern $filteredLogcat "SCREEN_PINNING_ALREADY_ACTIVE"
+    $runtimeScreenPinningSkippedAlreadyActiveCount = Count-LinesWithPattern $filteredLogcat "SCREEN_PINNING_REQUEST_SKIPPED_ALREADY_ACTIVE"
+    $runtimeOverlayTouchWarningCount = Count-LinesWithPattern $filteredLogcat "OVERLAY_TOUCH_WARNING"
+    $runtimeOverlayTouchSuppressedCount = Count-LinesWithPattern $filteredLogcat "OVERLAY_TOUCH_SUPPRESSED"
+    $runtimeSamsungLegacyProfileActiveCount = Count-LinesWithPattern $filteredLogcat "SAMSUNG_LEGACY_PROFILE_ACTIVE"
+    $runtimePinningRefreshSafeSuppressedCount = Count-LinesWithPattern $filteredLogcat "PINNING_REFRESH_SAFE_SUPPRESSED"
+    $runtimeOverlayPartialLegacyWarningCount = Count-LinesWithPattern $filteredLogcat "OVERLAY_PARTIAL_LEGACY_WARNING"
+    $runtimeStartExamBlockedHealthCheckCount = Count-LinesWithPattern $filteredLogcat "START_EXAM_BLOCKED_HEALTH_CHECK"
+    $runtimeFieldReadinessStartedCount = Count-LinesWithPattern $filteredLogcat "FIELD_READINESS_TEST_STARTED"
+    $runtimeFieldReadinessCompletedCount = Count-LinesWithPattern $filteredLogcat "FIELD_READINESS_TEST_COMPLETED"
+    $runtimeDeviceSurvivalPolicyResolvedCount = Count-LinesWithPattern $filteredLogcat "DEVICE_SURVIVAL_POLICY_RESOLVED"
+    $runtimeCompatibilityScoreUpdatedCount = Count-LinesWithPattern $filteredLogcat "COMPATIBILITY_SCORE_UPDATED"
+    $runtimePreparationAutoFixShownCount = Count-LinesWithPattern $filteredLogcat "PREPARATION_AUTOFIX_SHOWN"
+    $runtimePreparationAutoFixActionOpenedCount = Count-LinesWithPattern $filteredLogcat "PREPARATION_AUTOFIX_ACTION_OPENED"
+    $runtimePreviousSessionBreadcrumbWrittenCount = Count-LinesWithPattern $filteredLogcat "PREVIOUS_SESSION_BREADCRUMB_WRITTEN"
+    $runtimePreviousSessionRecoveryHintShownCount = Count-LinesWithPattern $filteredLogcat "PREVIOUS_SESSION_RECOVERY_HINT_SHOWN"
+    $runtimeWebViewProviderHealthResolvedCount = Count-LinesWithPattern $filteredLogcat "WEBVIEW_PROVIDER_HEALTH_RESOLVED"
+    $runtimeWebViewProviderHealthWarningCount = Count-LinesWithPattern $filteredLogcat "WEBVIEW_PROVIDER_HEALTH_WARNING"
+    $runtimeWebViewProviderHealthFixOpenedCount = Count-LinesWithPattern $filteredLogcat "WEBVIEW_PROVIDER_HEALTH_FIX_OPENED"
+    $runtimeLastWebViewProviderVerdict = Get-LastRegexGroup $filteredLogcat "WEBVIEW_PROVIDER_HEALTH_RESOLVED.*verdict=([A-Za-z]+)"
+    $runtimeExamRefreshRequestedCount = Count-LinesWithPattern $filteredLogcat "EXAM_REFRESH_REQUESTED"
+    $runtimeExamRefreshSafeLockTaskSkippedCount = Count-LinesWithPattern $filteredLogcat "EXAM_REFRESH_SAFE_LOCKTASK_SKIPPED"
+    $runtimeExamRefreshPinningPendingBlockedCount = Count-LinesWithPattern $filteredLogcat "EXAM_REFRESH_PINNING_PENDING_BLOCKED"
+    $runtimeExamRefreshPinningInactiveBlockedCount = Count-LinesWithPattern $filteredLogcat "EXAM_REFRESH_PINNING_INACTIVE_BLOCKED"
+    $runtimeExamRefreshCompletedCount = Count-LinesWithPattern $filteredLogcat "EXAM_REFRESH_COMPLETED"
+    $runtimePinningStartRequestedCount = Count-LinesWithPattern $filteredLogcat "PINNING_START_REQUESTED"
+    $runtimePinningActiveConfirmedCount = Count-LinesWithPattern $filteredLogcat "PINNING_ACTIVE_CONFIRMED"
+    $runtimePinningWaitTimeoutCount = Count-LinesWithPattern $filteredLogcat "PINNING_WAIT_TIMEOUT"
+    $runtimePinningTransitionSuppressedCount = Count-LinesWithPattern $filteredLogcat "PINNING_TRANSITION_VIOLATION_SUPPRESSED"
+    $runtimePinningRetryReadyCount = Count-LinesWithPattern $filteredLogcat "PINNING_RETRY_READY"
+    $runtimeFooterLayoutModeCount = Count-LinesWithPattern $filteredLogcat "EXAM_FOOTER_LAYOUT_MODE"
+    $runtimeLastFooterLayoutMode = Get-LastRegexGroup $filteredLogcat "EXAM_FOOTER_LAYOUT_MODE.*mode=([A-Za-z0-9_]+)"
+    $runtimeLastCompatibilityScore = Get-LastRegexGroup $filteredLogcat "COMPATIBILITY_SCORE_UPDATED.*score=([A-Za-z]+)"
+    $runtimePinningRequestAfterAlreadyActive = Test-PinningRequestAfterAlreadyActive $filteredLogcat
     $rendererGoneUnhandled = $runtimeRendererGoneCount -gt $runtimeRecoveryReadyCount
     $exitCleanupTimeoutRepeated = $runtimeExitCleanupTimeoutCount -gt 1
     $appStartCount = Count-LinesWithPattern $logcatLines "Start proc \d+:$escapedPackage/"
@@ -633,6 +701,48 @@ function Write-Summary(
             webViewExitCleanupTimeoutCount = $runtimeExitCleanupTimeoutCount
             webViewExitCleanupFailedCount = $runtimeExitCleanupFailedCount
             memoryTrimHandledCount = $runtimeMemoryTrimHandledCount
+            diagnosticExportRequestedCount = $runtimeDiagnosticExportRequestedCount
+            diagnosticExportFailedCount = $runtimeDiagnosticExportFailedCount
+            networkDnsProbeFailedCount = $runtimeNetworkDnsProbeFailedCount
+            networkCaptivePortalDetectedCount = $runtimeNetworkCaptivePortalDetectedCount
+            vendorChecklistOpenedCount = $runtimeVendorChecklistOpenedCount
+            deviceCompatProfileResolvedCount = $runtimeDeviceCompatResolvedCount
+            preExamHealthCheckStartedCount = $runtimePreExamHealthStartedCount
+            preExamHealthCheckCompletedCount = $runtimePreExamHealthCompletedCount
+            screenPinningAlreadyActiveCount = $runtimeScreenPinningAlreadyActiveCount
+            screenPinningRequestSkippedAlreadyActiveCount = $runtimeScreenPinningSkippedAlreadyActiveCount
+            screenPinningRequestAfterAlreadyActive = $runtimePinningRequestAfterAlreadyActive
+            overlayTouchWarningCount = $runtimeOverlayTouchWarningCount
+            overlayTouchSuppressedCount = $runtimeOverlayTouchSuppressedCount
+            samsungLegacyProfileActiveCount = $runtimeSamsungLegacyProfileActiveCount
+            pinningRefreshSafeSuppressedCount = $runtimePinningRefreshSafeSuppressedCount
+            overlayPartialLegacyWarningCount = $runtimeOverlayPartialLegacyWarningCount
+            startExamBlockedHealthCheckCount = $runtimeStartExamBlockedHealthCheckCount
+            fieldReadinessTestStartedCount = $runtimeFieldReadinessStartedCount
+            fieldReadinessTestCompletedCount = $runtimeFieldReadinessCompletedCount
+            deviceSurvivalPolicyResolvedCount = $runtimeDeviceSurvivalPolicyResolvedCount
+            compatibilityScoreUpdatedCount = $runtimeCompatibilityScoreUpdatedCount
+            lastCompatibilityScore = $runtimeLastCompatibilityScore
+            preparationAutoFixShownCount = $runtimePreparationAutoFixShownCount
+            preparationAutoFixActionOpenedCount = $runtimePreparationAutoFixActionOpenedCount
+            previousSessionBreadcrumbWrittenCount = $runtimePreviousSessionBreadcrumbWrittenCount
+            previousSessionRecoveryHintShownCount = $runtimePreviousSessionRecoveryHintShownCount
+            webViewProviderHealthResolvedCount = $runtimeWebViewProviderHealthResolvedCount
+            webViewProviderHealthWarningCount = $runtimeWebViewProviderHealthWarningCount
+            webViewProviderHealthFixOpenedCount = $runtimeWebViewProviderHealthFixOpenedCount
+            lastWebViewProviderVerdict = $runtimeLastWebViewProviderVerdict
+            examRefreshRequestedCount = $runtimeExamRefreshRequestedCount
+            examRefreshSafeLockTaskSkippedCount = $runtimeExamRefreshSafeLockTaskSkippedCount
+            examRefreshPinningPendingBlockedCount = $runtimeExamRefreshPinningPendingBlockedCount
+            examRefreshPinningInactiveBlockedCount = $runtimeExamRefreshPinningInactiveBlockedCount
+            examRefreshCompletedCount = $runtimeExamRefreshCompletedCount
+            pinningStartRequestedCount = $runtimePinningStartRequestedCount
+            pinningActiveConfirmedCount = $runtimePinningActiveConfirmedCount
+            pinningWaitTimeoutCount = $runtimePinningWaitTimeoutCount
+            pinningTransitionSuppressedCount = $runtimePinningTransitionSuppressedCount
+            pinningRetryReadyCount = $runtimePinningRetryReadyCount
+            footerLayoutModeCount = $runtimeFooterLayoutModeCount
+            lastFooterLayoutMode = $runtimeLastFooterLayoutMode
             rendererGoneUnhandled = $rendererGoneUnhandled
             exitCleanupTimeoutRepeated = $exitCleanupTimeoutRepeated
         }
@@ -652,6 +762,7 @@ function Write-Summary(
             noWebViewCrash = -not $hasWebViewCrash
             noUnhandledWebViewRendererGone = -not $rendererGoneUnhandled
             noRepeatedExitCleanupTimeout = -not $exitCleanupTimeoutRepeated
+            noPinningRequestAfterAlreadyActive = -not $runtimePinningRequestAfterAlreadyActive
         }
     }
 
@@ -711,6 +822,36 @@ function Write-Summary(
         "- Runtime exit cleanup timeout count: $runtimeExitCleanupTimeoutCount",
         "- Runtime repeated cleanup timeout: $exitCleanupTimeoutRepeated",
         "- Runtime memory trim handled count: $runtimeMemoryTrimHandledCount",
+        "- Diagnostic export requested count: $runtimeDiagnosticExportRequestedCount",
+        "- Diagnostic export failed count: $runtimeDiagnosticExportFailedCount",
+        "- Network DNS probe failed count: $runtimeNetworkDnsProbeFailedCount",
+        "- Network captive portal detected count: $runtimeNetworkCaptivePortalDetectedCount",
+        "- Vendor checklist opened count: $runtimeVendorChecklistOpenedCount",
+        "- Device compatibility profile resolved count: $runtimeDeviceCompatResolvedCount",
+        "- Pre-exam health check started/completed: $runtimePreExamHealthStartedCount / $runtimePreExamHealthCompletedCount",
+        "- Screen pinning already active count: $runtimeScreenPinningAlreadyActiveCount",
+        "- Screen pinning skipped because already active count: $runtimeScreenPinningSkippedAlreadyActiveCount",
+        "- Screen pinning requested after already active: $runtimePinningRequestAfterAlreadyActive",
+        "- Overlay touch warning/suppressed count: $runtimeOverlayTouchWarningCount / $runtimeOverlayTouchSuppressedCount",
+        "- Samsung legacy profile active count: $runtimeSamsungLegacyProfileActiveCount",
+        "- Pinning refresh safe suppressed count: $runtimePinningRefreshSafeSuppressedCount",
+        "- Overlay partial legacy warning count: $runtimeOverlayPartialLegacyWarningCount",
+        "- Start exam blocked by health check count: $runtimeStartExamBlockedHealthCheckCount",
+        "- Field readiness test started/completed: $runtimeFieldReadinessStartedCount / $runtimeFieldReadinessCompletedCount",
+        "- Device survival policy resolved count: $runtimeDeviceSurvivalPolicyResolvedCount",
+        "- Compatibility score updated count: $runtimeCompatibilityScoreUpdatedCount",
+        "- Last compatibility score: $(if ($runtimeLastCompatibilityScore) { $runtimeLastCompatibilityScore } else { '-' })",
+        "- Preparation auto-fix shown/action count: $runtimePreparationAutoFixShownCount / $runtimePreparationAutoFixActionOpenedCount",
+        "- Previous session breadcrumb/recovery hint count: $runtimePreviousSessionBreadcrumbWrittenCount / $runtimePreviousSessionRecoveryHintShownCount",
+        "- WebView provider health resolved/warning/fix count: $runtimeWebViewProviderHealthResolvedCount / $runtimeWebViewProviderHealthWarningCount / $runtimeWebViewProviderHealthFixOpenedCount",
+        "- Last WebView provider verdict: $(if ($runtimeLastWebViewProviderVerdict) { $runtimeLastWebViewProviderVerdict } else { '-' })",
+        "- Exam refresh requested/completed count: $runtimeExamRefreshRequestedCount / $runtimeExamRefreshCompletedCount",
+        "- Exam refresh safe lock-task skipped count: $runtimeExamRefreshSafeLockTaskSkippedCount",
+        "- Exam refresh pinning blocked pending/inactive count: $runtimeExamRefreshPinningPendingBlockedCount / $runtimeExamRefreshPinningInactiveBlockedCount",
+        "- Pinning activation requested/confirmed/timeout: $runtimePinningStartRequestedCount / $runtimePinningActiveConfirmedCount / $runtimePinningWaitTimeoutCount",
+        "- Pinning transition suppressed/retry ready: $runtimePinningTransitionSuppressedCount / $runtimePinningRetryReadyCount",
+        "- Footer layout mode count: $runtimeFooterLayoutModeCount",
+        "- Last footer layout mode: $(if ($runtimeLastFooterLayoutMode) { $runtimeLastFooterLayoutMode } else { '-' })",
         "- Frames: $($gfxSummary.totalFrames)",
         "- Janky frames: $($gfxSummary.jankyFrames) ($($gfxSummary.jankyPercent)%)",
         "",
@@ -731,6 +872,7 @@ function Write-Summary(
         "- No WebView crash: $($summary.acceptance.noWebViewCrash)",
         "- No unhandled WebView renderer gone: $($summary.acceptance.noUnhandledWebViewRendererGone)",
         "- No repeated exit cleanup timeout: $($summary.acceptance.noRepeatedExitCleanupTimeout)",
+        "- No pinning request after already active: $($summary.acceptance.noPinningRequestAfterAlreadyActive)",
         "",
         "## Selected Startup Timeline",
         ""
@@ -987,7 +1129,7 @@ Write-TextFile (Join-Path $OutDir "logcat-full.txt") $logcatLines
 $filteredLogcat = $logcatLines | Where-Object {
     $_ -match [regex]::Escape($Package) -or
     $_ -match "FATAL EXCEPTION|ANR in|AndroidRuntime|WebView|crash|Exception|lowmemorykiller|Application Not Responding" -or
-    $_ -match "ExamRuntimeHardening|WEBVIEW_RENDERER_GONE|WEBVIEW_RECOVERY_READY|WEBVIEW_EXIT_CLEANUP_|MEMORY_TRIM_HANDLED"
+    $_ -match "ExamRuntimeHardening|WEBVIEW_RENDERER_GONE|WEBVIEW_RECOVERY_READY|WEBVIEW_EXIT_CLEANUP_|WEBVIEW_PROVIDER_HEALTH_|MEMORY_TRIM_HANDLED|DIAGNOSTIC_EXPORT_|NETWORK_DNS_PROBE_FAILED|NETWORK_CAPTIVE_PORTAL_DETECTED|VENDOR_CHECKLIST_OPENED|DEVICE_COMPAT_PROFILE_RESOLVED|PRE_EXAM_HEALTH_CHECK_|SCREEN_PINNING_ALREADY_ACTIVE|SCREEN_PINNING_REQUEST_SKIPPED_ALREADY_ACTIVE|OVERLAY_TOUCH_WARNING|OVERLAY_TOUCH_SUPPRESSED|SAMSUNG_LEGACY_PROFILE_ACTIVE|PINNING_[A-Z_]+|OVERLAY_PARTIAL_LEGACY_WARNING|START_EXAM_BLOCKED_HEALTH_CHECK|FIELD_READINESS_TEST_|DEVICE_SURVIVAL_POLICY_RESOLVED|COMPATIBILITY_SCORE_UPDATED|PREPARATION_AUTOFIX_|PREVIOUS_SESSION_|EXAM_REFRESH_|EXAM_FOOTER_LAYOUT_MODE"
 }
 Write-TextFile (Join-Path $OutDir "logcat-filtered.txt") $filteredLogcat
 

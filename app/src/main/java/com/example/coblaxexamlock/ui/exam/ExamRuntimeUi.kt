@@ -1,4 +1,5 @@
 package com.example.coblaxexamlock.ui.exam
+import android.util.Log
 import androidx.compose.foundation.BorderStroke
 import androidx.compose.foundation.background
 import androidx.compose.foundation.border
@@ -15,6 +16,7 @@ import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.heightIn
 import androidx.compose.foundation.layout.navigationBarsPadding
+import androidx.compose.foundation.layout.offset
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.width
@@ -38,6 +40,7 @@ import androidx.compose.material.icons.rounded.Home
 import androidx.compose.material.icons.rounded.Refresh
 import androidx.compose.material.icons.rounded.Security
 import androidx.compose.material.icons.rounded.SignalCellularAlt
+import androidx.compose.material.icons.rounded.SwapHoriz
 import androidx.compose.material.icons.rounded.WarningAmber
 import androidx.compose.material.icons.rounded.Wifi
 import androidx.compose.material.icons.rounded.WifiOff
@@ -48,6 +51,7 @@ import androidx.compose.material3.LinearProgressIndicator
 import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
@@ -56,10 +60,12 @@ import androidx.compose.ui.graphics.vector.ImageVector
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.IntOffset
+import androidx.compose.ui.unit.Dp
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import androidx.compose.ui.window.Popup
 import androidx.compose.ui.window.PopupProperties
+import com.example.coblaxexamlock.LocalLowRamProfile
 import com.example.coblaxexamlock.i18n.LocalUiLanguage
 import com.example.coblaxexamlock.i18n.tr
 import com.example.coblaxexamlock.model.ExamBatteryStatus
@@ -554,25 +560,11 @@ internal fun ExamWebViewBottomBar(
     onGoHome: () -> Unit,
     modifier: Modifier = Modifier
 ) {
-    val indicatorColor = when (networkStatus.verdict) {
-        NetworkReadinessVerdict.ConnectedStable -> Color(0xFF56C271)
-        NetworkReadinessVerdict.Offline,
-        NetworkReadinessVerdict.AirplaneMode -> Color(0xFFF26A6A)
-        NetworkReadinessVerdict.Unvalidated,
-        NetworkReadinessVerdict.CaptivePortal,
-        NetworkReadinessVerdict.Unstable -> LockGoldDark
-    }
     val batteryIndicatorColor = when {
         batteryStatus.isCharging -> Color(0xFF56C271)
         batteryStatus.levelPercent <= 20 -> Color(0xFFF26A6A)
         batteryStatus.levelPercent <= 40 -> LockGoldDark
         else -> LockBlue
-    }
-    val serverIndicatorColor = when (serverStatus) {
-        ExamServerFooterStatus.Online -> Color(0xFF56C271)
-        ExamServerFooterStatus.Warning -> LockGoldDark
-        ExamServerFooterStatus.Offline -> Color(0xFFF26A6A)
-        ExamServerFooterStatus.Checking -> Color(0xFF8A96A3)
     }
     val serverContentDescription = when (serverStatus) {
         ExamServerFooterStatus.Online -> tr("Exam server reachable", "Server ujian bisa diakses")
@@ -589,6 +581,11 @@ internal fun ExamWebViewBottomBar(
         ExamFooterShieldStatus.Safe -> tr("Security protected", "Keamanan terlindungi")
         ExamFooterShieldStatus.Warning -> tr("Security warning", "Peringatan keamanan")
         ExamFooterShieldStatus.Danger -> tr("Security issue detected", "Masalah keamanan terdeteksi")
+    }
+    val shieldLabel = when (shieldStatus) {
+        ExamFooterShieldStatus.Safe -> "Aman"
+        ExamFooterShieldStatus.Warning -> "Cek"
+        ExamFooterShieldStatus.Danger -> "Blok"
     }
     val transportLabel = networkStatus.transportLabel
     val networkContentDescription = when (networkStatus.verdict) {
@@ -608,100 +605,163 @@ internal fun ExamWebViewBottomBar(
         NetworkReadinessVerdict.Unstable ->
             tr("Network is unstable", "Jaringan tidak stabil")
     }
+    val lowRamProfile = LocalLowRamProfile.current
+    val connectivityIndicatorColor = when {
+        networkStatus.verdict == NetworkReadinessVerdict.Offline ||
+            networkStatus.verdict == NetworkReadinessVerdict.AirplaneMode -> Color(0xFFF26A6A)
+        networkStatus.verdict == NetworkReadinessVerdict.Unvalidated ||
+            networkStatus.verdict == NetworkReadinessVerdict.CaptivePortal ||
+            networkStatus.verdict == NetworkReadinessVerdict.Unstable -> LockGoldDark
+        else -> Color(0xFF56C271)
+    }
+    val connectivityVisual = resolveExamFooterConnectivityVisual(networkStatus, serverStatus)
+    val connectivityDescription = "$networkContentDescription. $serverContentDescription"
     val refreshContainerColor = if (isRefreshing) LockGold else LockBlue
     BoxWithConstraints(modifier = modifier) {
-        val compactFooter = maxWidth <= 390.dp
-        val footerHorizontalPadding = if (compactFooter) 5.dp else 8.dp
-        val footerVerticalPadding = if (compactFooter) 5.dp else 6.dp
-        val itemSpacing = if (compactFooter) 4.dp else 6.dp
-        val actionSpacing = if (compactFooter) 4.dp else 6.dp
-        val controlStatusGap = if (compactFooter) 8.dp else 10.dp
-        val actionButtonSize = if (compactFooter) 32.dp else 36.dp
-        val iconSize = if (compactFooter) 17.dp else 19.dp
+        val layoutSpec = calculateExamFooterLayoutSpec(
+            maxWidthDp = maxWidth.value.toInt(),
+            lowRamEnabled = lowRamProfile.enabled,
+            lowRamSevere = lowRamProfile.severe
+        )
+        val footerHorizontalPadding = layoutSpec.horizontalPaddingDp.dp
+        val footerVerticalPadding = layoutSpec.verticalPaddingDp.dp
+        val itemSpacing = layoutSpec.itemSpacingDp.dp
+        val actionSpacing = layoutSpec.actionSpacingDp.dp
+        val actionButtonSize = layoutSpec.buttonSizeDp.dp
+        val arrowPillWidth = layoutSpec.arrowPillWidthDp.dp
+        val connectivityPillWidth = layoutSpec.connectivityPillWidthDp.dp
+        val shieldPillWidth = layoutSpec.shieldPillWidthDp.dp
+        val actionTouchTargetSize = layoutSpec.touchTargetDp.dp
+        val iconSize = layoutSpec.iconSizeDp.dp
+        val rowSpacing = layoutSpec.rowSpacingDp.dp
         val batteryPillWidth = when {
-            compactFooter -> 54.dp
+            !layoutSpec.showBatteryPercent -> actionButtonSize
+            layoutSpec.compact -> 52.dp
             batteryStatus.levelPercent.coerceIn(0, 100) >= 100 -> 62.dp
             else -> 58.dp
+        }
+        LaunchedEffect(
+            layoutSpec.layoutMode,
+            maxWidth.value.toInt(),
+            lowRamProfile.enabled,
+            lowRamProfile.severe
+        ) {
+            Log.i(
+                "ExamRuntimeHardening",
+                "${ExamRuntimeHardeningDiagnostics.FooterLayoutMode} " +
+                    "mode=${layoutSpec.layoutMode.name} " +
+                    "width_dp=${maxWidth.value.toInt()} " +
+                    "low_ram=${lowRamProfile.enabled} " +
+                    "severe=${lowRamProfile.severe}"
+            )
         }
 
         Surface(
             modifier = Modifier.fillMaxWidth(),
             color = Color.White,
-            shape = RoundedCornerShape(if (compactFooter) 16.dp else 18.dp),
-            tonalElevation = 6.dp,
-            shadowElevation = 8.dp,
+            shape = RoundedCornerShape(layoutSpec.cornerRadiusDp.dp),
+            tonalElevation = layoutSpec.tonalElevationDp.dp,
+            shadowElevation = layoutSpec.shadowElevationDp.dp,
             border = BorderStroke(1.dp, LockOutline.copy(alpha = 0.80f))
         ) {
-            Row(
-                modifier = Modifier
-                    .fillMaxWidth()
-                    .padding(horizontal = footerHorizontalPadding, vertical = footerVerticalPadding),
-                verticalAlignment = Alignment.CenterVertically
-            ) {
-                ArrowVisibilityTogglePill(
-                    visible = showArrowControls,
-                    buttonSize = actionButtonSize,
-                    iconSize = if (compactFooter) 12.dp else 13.dp,
-                    onClick = onToggleArrowControls
-                )
-                Spacer(modifier = Modifier.width(controlStatusGap))
-                ExamFooterDivider(height = if (compactFooter) 20.dp else 22.dp)
-                Spacer(modifier = Modifier.width(controlStatusGap))
-                NetworkStatusIconPill(
-                    icon = networkStatusIcon(networkStatus),
-                    statusColor = indicatorColor,
-                    contentDescription = networkContentDescription,
-                    size = actionButtonSize,
-                    iconSize = iconSize
-                )
-                Spacer(modifier = Modifier.width(itemSpacing))
-                ServerStatusIconPill(
-                    serverStatus = serverStatus,
-                    statusColor = serverIndicatorColor,
-                    contentDescription = serverContentDescription,
-                    size = actionButtonSize,
-                    iconSize = iconSize
-                )
-                Spacer(modifier = Modifier.width(itemSpacing))
-                BatteryStatusIconPill(
-                    batteryStatus = batteryStatus,
-                    statusColor = batteryIndicatorColor,
-                    height = actionButtonSize,
-                    width = batteryPillWidth,
-                    iconSize = iconSize
-                )
-                Spacer(modifier = Modifier.width(itemSpacing))
-                SecurityShieldStatusIconPill(
-                    statusColor = shieldIndicatorColor,
-                    contentDescription = shieldContentDescription,
-                    size = actionButtonSize,
-                    iconSize = iconSize
-                )
-
-                Spacer(modifier = Modifier.weight(1f))
-
+            if (layoutSpec.layoutMode == ExamFooterLayoutMode.TwoRowCompact) {
+                Column(
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .heightIn(
+                            min = layoutSpec.minHeightDp.dp,
+                            max = layoutSpec.maxHeightDp.dp
+                        )
+                        .padding(
+                            horizontal = footerHorizontalPadding,
+                            vertical = footerVerticalPadding
+                        ),
+                    horizontalAlignment = Alignment.CenterHorizontally,
+                    verticalArrangement = Arrangement.spacedBy(rowSpacing, Alignment.CenterVertically)
+                ) {
+                    ArrowVisibilityTogglePill(
+                        visible = showArrowControls,
+                        buttonWidth = arrowPillWidth,
+                        buttonSize = actionButtonSize,
+                        touchTargetSize = actionTouchTargetSize,
+                        iconSize = layoutSpec.arrowIconSizeDp.dp,
+                        onClick = onToggleArrowControls
+                    )
+                    ExamFooterStatusCluster(
+                        connectivityVisual = connectivityVisual,
+                        connectivityIndicatorColor = connectivityIndicatorColor,
+                        connectivityDescription = connectivityDescription,
+                        connectivityPillWidth = connectivityPillWidth,
+                        batteryStatus = batteryStatus,
+                        batteryIndicatorColor = batteryIndicatorColor,
+                        batteryPillWidth = batteryPillWidth,
+                        shieldIndicatorColor = shieldIndicatorColor,
+                        shieldLabel = shieldLabel,
+                        shieldContentDescription = shieldContentDescription,
+                        shieldPillWidth = shieldPillWidth,
+                        actionButtonSize = actionButtonSize,
+                        iconSize = iconSize,
+                        itemSpacing = itemSpacing,
+                        showBatteryPercent = layoutSpec.showBatteryPercent
+                    )
+                    ExamFooterActionCluster(
+                        refreshContainerColor = refreshContainerColor,
+                        actionButtonSize = actionButtonSize,
+                        actionTouchTargetSize = actionTouchTargetSize,
+                        iconSize = iconSize,
+                        actionSpacing = actionSpacing,
+                        onRefresh = onRefresh,
+                        onGoHome = onGoHome
+                    )
+                }
+            } else {
                 Row(
-                    horizontalArrangement = Arrangement.spacedBy(actionSpacing),
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .heightIn(
+                            min = layoutSpec.minHeightDp.dp,
+                            max = layoutSpec.maxHeightDp.dp
+                        )
+                        .padding(horizontal = footerHorizontalPadding, vertical = footerVerticalPadding),
                     verticalAlignment = Alignment.CenterVertically
                 ) {
-                    ExamFooterIconButton(
-                        onClick = onRefresh,
-                        icon = Icons.Rounded.Refresh,
-                        contentDescription = tr("Refresh exam page", "Refresh halaman ujian"),
-                        containerColor = refreshContainerColor,
-                        contentColor = LockOnDark,
-                        size = actionButtonSize,
-                        iconSize = iconSize
+                    ArrowVisibilityTogglePill(
+                        visible = showArrowControls,
+                        buttonWidth = arrowPillWidth,
+                        buttonSize = actionButtonSize,
+                        touchTargetSize = actionTouchTargetSize,
+                        iconSize = layoutSpec.arrowIconSizeDp.dp,
+                        onClick = onToggleArrowControls
+                    )
+                    Spacer(modifier = Modifier.width(itemSpacing))
+                    ExamFooterStatusCluster(
+                        connectivityVisual = connectivityVisual,
+                        connectivityIndicatorColor = connectivityIndicatorColor,
+                        connectivityDescription = connectivityDescription,
+                        connectivityPillWidth = connectivityPillWidth,
+                        batteryStatus = batteryStatus,
+                        batteryIndicatorColor = batteryIndicatorColor,
+                        batteryPillWidth = batteryPillWidth,
+                        shieldIndicatorColor = shieldIndicatorColor,
+                        shieldLabel = shieldLabel,
+                        shieldContentDescription = shieldContentDescription,
+                        shieldPillWidth = shieldPillWidth,
+                        actionButtonSize = actionButtonSize,
+                        iconSize = iconSize,
+                        itemSpacing = itemSpacing,
+                        showBatteryPercent = layoutSpec.showBatteryPercent
                     )
 
-                    ExamFooterIconButton(
-                        onClick = onGoHome,
-                        icon = Icons.Rounded.Home,
-                        contentDescription = tr("Back to the main menu", "Kembali ke menu utama"),
-                        containerColor = LockSurfaceSoft,
-                        contentColor = LockBlueDeep,
-                        size = actionButtonSize,
-                        iconSize = iconSize
+                    Spacer(modifier = Modifier.weight(1f))
+
+                    ExamFooterActionCluster(
+                        refreshContainerColor = refreshContainerColor,
+                        actionButtonSize = actionButtonSize,
+                        actionTouchTargetSize = actionTouchTargetSize,
+                        iconSize = iconSize,
+                        actionSpacing = actionSpacing,
+                        onRefresh = onRefresh,
+                        onGoHome = onGoHome
                     )
                 }
             }
@@ -710,58 +770,149 @@ internal fun ExamWebViewBottomBar(
 }
 
 @Composable
-private fun ExamFooterDivider(height: androidx.compose.ui.unit.Dp) {
-    Box(
-        modifier = Modifier
-            .width(1.dp)
-            .height(height)
-            .clip(RoundedCornerShape(999.dp))
-            .background(LockOutline.copy(alpha = 0.75f))
-    )
+private fun ExamFooterStatusCluster(
+    connectivityVisual: ExamFooterConnectivityVisual,
+    connectivityIndicatorColor: Color,
+    connectivityDescription: String,
+    connectivityPillWidth: Dp,
+    batteryStatus: ExamBatteryStatus,
+    batteryIndicatorColor: Color,
+    batteryPillWidth: Dp,
+    shieldIndicatorColor: Color,
+    shieldLabel: String,
+    shieldContentDescription: String,
+    shieldPillWidth: Dp,
+    actionButtonSize: Dp,
+    iconSize: Dp,
+    itemSpacing: Dp,
+    showBatteryPercent: Boolean,
+    modifier: Modifier = Modifier
+) {
+    Row(
+        modifier = modifier,
+        horizontalArrangement = Arrangement.spacedBy(itemSpacing, Alignment.CenterHorizontally),
+        verticalAlignment = Alignment.CenterVertically
+    ) {
+        ConnectivitySignalPill(
+            visual = connectivityVisual,
+            statusColor = connectivityIndicatorColor,
+            contentDescription = connectivityDescription,
+            width = connectivityPillWidth,
+            height = actionButtonSize
+        )
+        BatteryStatusIconPill(
+            batteryStatus = batteryStatus,
+            statusColor = batteryIndicatorColor,
+            height = actionButtonSize,
+            width = batteryPillWidth,
+            iconSize = iconSize,
+            showPercent = showBatteryPercent
+        )
+        SecurityShieldStatusIconPill(
+            statusColor = shieldIndicatorColor,
+            label = shieldLabel,
+            contentDescription = shieldContentDescription,
+            width = shieldPillWidth,
+            height = actionButtonSize,
+            iconSize = iconSize
+        )
+    }
+}
+
+@Composable
+private fun ExamFooterActionCluster(
+    refreshContainerColor: Color,
+    actionButtonSize: Dp,
+    actionTouchTargetSize: Dp,
+    iconSize: Dp,
+    actionSpacing: Dp,
+    onRefresh: () -> Unit,
+    onGoHome: () -> Unit,
+    modifier: Modifier = Modifier
+) {
+    Row(
+        modifier = modifier,
+        horizontalArrangement = Arrangement.spacedBy(actionSpacing, Alignment.CenterHorizontally),
+        verticalAlignment = Alignment.CenterVertically
+    ) {
+        ExamFooterIconButton(
+            onClick = onRefresh,
+            icon = Icons.Rounded.Refresh,
+            contentDescription = tr("Refresh exam page", "Refresh halaman ujian"),
+            containerColor = refreshContainerColor,
+            contentColor = LockOnDark,
+            size = actionButtonSize,
+            touchTargetSize = actionTouchTargetSize,
+            iconSize = iconSize
+        )
+
+        ExamFooterIconButton(
+            onClick = onGoHome,
+            icon = Icons.Rounded.Home,
+            contentDescription = tr("Back to the main menu", "Kembali ke menu utama"),
+            containerColor = LockSurfaceSoft,
+            contentColor = LockBlueDeep,
+            size = actionButtonSize,
+            touchTargetSize = actionTouchTargetSize,
+            iconSize = iconSize
+        )
+    }
 }
 
 @Composable
 private fun ArrowVisibilityTogglePill(
     visible: Boolean,
-    buttonSize: androidx.compose.ui.unit.Dp,
-    iconSize: androidx.compose.ui.unit.Dp,
+    buttonWidth: Dp,
+    buttonSize: Dp,
+    touchTargetSize: Dp,
+    iconSize: Dp,
     onClick: () -> Unit
 ) {
     val containerColor = if (visible) LockBlue else LockSurfaceSoft
     val contentColor = if (visible) LockOnDark else LockBlueDeep
-    Surface(
-        onClick = onClick,
+    Box(
         modifier = Modifier
-            .size(buttonSize)
-            .border(
-                width = 1.dp,
-                color = if (visible) LockBlueDeep.copy(alpha = 0.35f) else LockOutline.copy(alpha = 0.65f),
-                shape = RoundedCornerShape(12.dp)
-            ),
-        shape = RoundedCornerShape(12.dp),
-        color = containerColor,
-        contentColor = contentColor
+            .width(buttonWidth)
+            .height(touchTargetSize)
+            .clip(RoundedCornerShape(14.dp))
+            .clickable(onClick = onClick),
+        contentAlignment = Alignment.Center
     ) {
-        Row(
-            verticalAlignment = Alignment.CenterVertically,
-            horizontalArrangement = Arrangement.Center
+        Surface(
+            modifier = Modifier
+                .width(buttonWidth)
+                .height(buttonSize)
+                .border(
+                    width = 1.dp,
+                    color = if (visible) LockBlueDeep.copy(alpha = 0.35f) else LockOutline.copy(alpha = 0.65f),
+                    shape = RoundedCornerShape(12.dp)
+                ),
+            shape = RoundedCornerShape(12.dp),
+            color = containerColor,
+            contentColor = contentColor
         ) {
-            Icon(
-                imageVector = Icons.AutoMirrored.Rounded.ArrowBack,
-                contentDescription = null,
-                tint = contentColor,
-                modifier = Modifier.size(iconSize)
-            )
-            Icon(
-                imageVector = Icons.AutoMirrored.Rounded.ArrowForward,
-                contentDescription = if (visible) {
-                    tr("Hide side arrows", "Sembunyikan tombol panah")
-                } else {
-                    tr("Show side arrows", "Tampilkan tombol panah")
-                },
-                tint = contentColor,
-                modifier = Modifier.size(iconSize)
-            )
+            Row(
+                verticalAlignment = Alignment.CenterVertically,
+                horizontalArrangement = Arrangement.spacedBy(3.dp, Alignment.CenterHorizontally)
+            ) {
+                Icon(
+                    imageVector = Icons.Rounded.SwapHoriz,
+                    contentDescription = if (visible) {
+                        tr("Hide side arrows", "Sembunyikan tombol panah")
+                    } else {
+                        tr("Show side arrows", "Tampilkan tombol panah")
+                    },
+                    tint = contentColor,
+                    modifier = Modifier.size(iconSize)
+                )
+                Text(
+                    text = "Panah",
+                    color = contentColor,
+                    fontSize = 9.sp,
+                    fontWeight = FontWeight.Bold,
+                    maxLines = 1
+                )
+            }
         }
     }
 }
@@ -773,41 +924,51 @@ private fun ExamFooterIconButton(
     containerColor: Color,
     contentColor: Color,
     size: androidx.compose.ui.unit.Dp,
+    touchTargetSize: androidx.compose.ui.unit.Dp,
     iconSize: androidx.compose.ui.unit.Dp,
     onClick: () -> Unit
 ) {
-    Surface(
-        onClick = onClick,
-        modifier = Modifier.size(size),
-        shape = RoundedCornerShape(12.dp),
-        color = containerColor,
-        contentColor = contentColor,
-        border = BorderStroke(1.dp, LockOutline.copy(alpha = 0.32f))
+    Box(
+        modifier = Modifier
+            .size(touchTargetSize)
+            .clip(RoundedCornerShape(14.dp))
+            .clickable(onClick = onClick),
+        contentAlignment = Alignment.Center
     ) {
-        Box(
-            modifier = Modifier.fillMaxSize(),
-            contentAlignment = Alignment.Center
+        Surface(
+            modifier = Modifier.size(size),
+            shape = RoundedCornerShape(12.dp),
+            color = containerColor,
+            contentColor = contentColor,
+            border = BorderStroke(1.dp, LockOutline.copy(alpha = 0.32f))
         ) {
-            Icon(
-                imageVector = icon,
-                contentDescription = contentDescription,
-                tint = contentColor,
-                modifier = Modifier.size(iconSize)
-            )
+            Box(
+                modifier = Modifier.fillMaxSize(),
+                contentAlignment = Alignment.Center
+            ) {
+                Icon(
+                    imageVector = icon,
+                    contentDescription = contentDescription,
+                    tint = contentColor,
+                    modifier = Modifier.size(iconSize)
+                )
+            }
         }
     }
 }
 
 @Composable
-private fun NetworkStatusIconPill(
-    icon: ImageVector,
+private fun ConnectivitySignalPill(
+    visual: ExamFooterConnectivityVisual,
     statusColor: Color,
     contentDescription: String,
-    size: androidx.compose.ui.unit.Dp,
-    iconSize: androidx.compose.ui.unit.Dp
+    width: Dp,
+    height: Dp
 ) {
     Surface(
-        modifier = Modifier.size(size),
+        modifier = Modifier
+            .width(width)
+            .height(height),
         shape = RoundedCornerShape(12.dp),
         color = LockSurfaceSoft,
         border = BorderStroke(1.dp, LockOutline.copy(alpha = 0.65f))
@@ -816,51 +977,64 @@ private fun NetworkStatusIconPill(
             modifier = Modifier.fillMaxSize(),
             contentAlignment = Alignment.Center
         ) {
-            Icon(
-                imageVector = icon,
-                contentDescription = contentDescription,
-                tint = statusColor,
-                modifier = Modifier.size(iconSize)
-            )
+            Row(
+                verticalAlignment = Alignment.Bottom,
+                horizontalArrangement = Arrangement.spacedBy(2.dp, Alignment.CenterHorizontally)
+            ) {
+                SignalBars(
+                    level = visual.signalLevel,
+                    statusColor = statusColor,
+                    danger = visual.severity == ExamFooterConnectivitySeverity.Danger
+                )
+                visual.cellularLabel?.let { label ->
+                    Text(
+                        text = label,
+                        color = statusColor,
+                        fontSize = 8.sp,
+                        fontWeight = FontWeight.Bold,
+                        maxLines = 1,
+                        modifier = Modifier.offset(y = 1.dp)
+                    )
+                }
+            }
+            visual.badgeText?.let { badge ->
+                Text(
+                    text = badge,
+                    color = Color.White,
+                    fontSize = 7.sp,
+                    fontWeight = FontWeight.Bold,
+                    modifier = Modifier
+                        .align(Alignment.TopEnd)
+                        .padding(top = 4.dp, end = 4.dp)
+                        .size(11.dp)
+                        .clip(CircleShape)
+                        .background(statusColor),
+                    maxLines = 1
+                )
+            }
+        }
+    }
+}
+
+@Composable
+private fun SignalBars(
+    level: Int,
+    statusColor: Color,
+    danger: Boolean
+) {
+    val activeBars = if (danger) 1 else level.coerceIn(0, 4)
+    val inactiveColor = LockOutline.copy(alpha = 0.42f)
+    Row(
+        verticalAlignment = Alignment.Bottom,
+        horizontalArrangement = Arrangement.spacedBy(2.dp)
+    ) {
+        listOf(7.dp, 10.dp, 13.dp, 16.dp).forEachIndexed { index, height ->
             Box(
                 modifier = Modifier
-                    .align(Alignment.TopEnd)
-                    .padding(top = 6.dp, end = 6.dp)
-                    .size(6.dp)
-                    .clip(CircleShape)
-                    .background(statusColor)
-            )
-        }
-    }
-}
-
-@Composable
-private fun ServerStatusIconPill(
-    serverStatus: ExamServerFooterStatus,
-    statusColor: Color,
-    contentDescription: String,
-    size: androidx.compose.ui.unit.Dp,
-    iconSize: androidx.compose.ui.unit.Dp
-) {
-    Surface(
-        modifier = Modifier.size(size),
-        shape = RoundedCornerShape(12.dp),
-        color = LockSurfaceSoft,
-        border = BorderStroke(1.dp, LockOutline.copy(alpha = 0.65f))
-    ) {
-        Box(
-            modifier = Modifier.fillMaxSize(),
-            contentAlignment = Alignment.Center
-        ) {
-            Icon(
-                imageVector = if (serverStatus == ExamServerFooterStatus.Offline) {
-                    Icons.Rounded.CloudOff
-                } else {
-                    Icons.Rounded.Cloud
-                },
-                contentDescription = contentDescription,
-                tint = statusColor,
-                modifier = Modifier.size(iconSize)
+                    .width(3.dp)
+                    .height(height)
+                    .clip(RoundedCornerShape(999.dp))
+                    .background(if (index < activeBars) statusColor else inactiveColor)
             )
         }
     }
@@ -869,25 +1043,40 @@ private fun ServerStatusIconPill(
 @Composable
 private fun SecurityShieldStatusIconPill(
     statusColor: Color,
+    label: String,
     contentDescription: String,
-    size: androidx.compose.ui.unit.Dp,
-    iconSize: androidx.compose.ui.unit.Dp
+    width: Dp,
+    height: Dp,
+    iconSize: Dp
 ) {
     Surface(
-        modifier = Modifier.size(size),
+        modifier = Modifier
+            .width(width)
+            .height(height),
         shape = RoundedCornerShape(12.dp),
         color = LockSurfaceSoft,
         border = BorderStroke(1.dp, LockOutline.copy(alpha = 0.65f))
     ) {
-        Box(
-            modifier = Modifier.fillMaxSize(),
-            contentAlignment = Alignment.Center
+        Row(
+            modifier = Modifier
+                .fillMaxSize()
+                .padding(horizontal = 4.dp),
+            verticalAlignment = Alignment.CenterVertically,
+            horizontalArrangement = Arrangement.spacedBy(3.dp, Alignment.CenterHorizontally)
         ) {
             Icon(
                 imageVector = Icons.Rounded.Security,
                 contentDescription = contentDescription,
                 tint = statusColor,
-                modifier = Modifier.size(iconSize)
+                modifier = Modifier.size((iconSize.value - 3).coerceAtLeast(12f).dp)
+            )
+            Text(
+                text = label,
+                color = statusColor,
+                fontSize = 9.sp,
+                fontWeight = FontWeight.Bold,
+                maxLines = 1,
+                overflow = TextOverflow.Clip
             )
         }
     }
@@ -899,7 +1088,8 @@ private fun BatteryStatusIconPill(
     statusColor: Color,
     height: androidx.compose.ui.unit.Dp,
     width: androidx.compose.ui.unit.Dp,
-    iconSize: androidx.compose.ui.unit.Dp
+    iconSize: androidx.compose.ui.unit.Dp,
+    showPercent: Boolean
 ) {
     val percent = batteryStatus.levelPercent.coerceIn(0, 100)
     val contentDescription = if (batteryStatus.isCharging) {
@@ -929,34 +1119,16 @@ private fun BatteryStatusIconPill(
                 tint = statusColor,
                 modifier = Modifier.size(iconSize)
             )
-            Text(
-                text = "$percent%",
-                color = LockTextPrimary,
-                fontSize = 10.sp,
-                fontWeight = FontWeight.SemiBold,
-                maxLines = 1
-            )
-        }
-    }
-}
-
-private fun networkStatusIcon(status: NetworkReadinessStatus): ImageVector {
-    val transportSummary =
-        (status.diagnostics.transports + status.transportLabel)
-            .joinToString(" ")
-            .lowercase(Locale.US)
-    return when (status.verdict) {
-        NetworkReadinessVerdict.AirplaneMode -> Icons.Rounded.AirplanemodeActive
-        NetworkReadinessVerdict.Offline -> Icons.Rounded.WifiOff
-        NetworkReadinessVerdict.Unvalidated,
-        NetworkReadinessVerdict.CaptivePortal,
-        NetworkReadinessVerdict.Unstable -> Icons.Rounded.WarningAmber
-        NetworkReadinessVerdict.ConnectedStable ->
-            if (transportSummary.contains("cellular")) {
-                Icons.Rounded.SignalCellularAlt
-            } else {
-                Icons.Rounded.Wifi
+            if (showPercent) {
+                Text(
+                    text = "$percent%",
+                    color = LockTextPrimary,
+                    fontSize = 10.sp,
+                    fontWeight = FontWeight.SemiBold,
+                    maxLines = 1
+                )
             }
+        }
     }
 }
 

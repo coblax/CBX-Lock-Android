@@ -12,11 +12,13 @@ import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.runtime.setValue
 import androidx.compose.runtime.withFrameNanos
 import androidx.compose.ui.platform.LocalContext
+import com.example.coblaxexamlock.LocalDeviceCompatibilityProfile
 import com.example.coblaxexamlock.LocalLowRamProfile
 import com.example.coblaxexamlock.LowRamProfile
 import com.example.coblaxexamlock.MemoryPressureCoordinator
 import com.example.coblaxexamlock.StartupTrace
 import com.example.coblaxexamlock.config.FastExamName
+import com.example.coblaxexamlock.currentDeviceCompatibilityProfile
 import com.example.coblaxexamlock.i18n.LocalUiLanguage
 import com.example.coblaxexamlock.persistence.HomeAdminSettings
 import com.example.coblaxexamlock.persistence.readHomeAdminSettings
@@ -24,9 +26,16 @@ import com.example.coblaxexamlock.persistence.readSavedUiLanguage
 import com.example.coblaxexamlock.persistence.saveUiLanguage
 import com.example.coblaxexamlock.resolveLowRamProfile
 import com.example.coblaxexamlock.ui.admin.ExamLockLowRamHomeScreen
+import com.example.coblaxexamlock.ui.exam.ExamRuntimeHardeningDiagnostics
+import com.example.coblaxexamlock.ui.exam.ExamRuntimeHardeningLogTag
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.withContext
+
+internal fun shouldStartRuntimeImmediately(
+    lowRamProfile: LowRamProfile,
+    initialHomeActionRaw: String?
+): Boolean = !lowRamProfile.deferHeavyUi || initialHomeActionRaw != null
 
 @Composable
 internal fun AppContent(
@@ -37,12 +46,15 @@ internal fun AppContent(
     val lowRamProfile = remember(context, initialLowRamProfile) {
         initialLowRamProfile ?: resolveLowRamProfile(context)
     }
+    val deviceCompatibilityProfile = remember(lowRamProfile) {
+        currentDeviceCompatibilityProfile(lowRamProfile)
+    }
     val initialUiLanguage = remember { context.readSavedUiLanguage() }
     var shellUiLanguage by rememberSaveable { mutableStateOf(initialUiLanguage) }
     var persistedShellUiLanguage by remember { mutableStateOf(initialUiLanguage) }
     var shellHomeSettings by remember { mutableStateOf(HomeAdminSettings()) }
     var shellShowDeferredChrome by rememberSaveable { mutableStateOf(false) }
-    val startRuntimeInitially = !lowRamProfile.severe || initialHomeActionRaw != null
+    val startRuntimeInitially = shouldStartRuntimeImmediately(lowRamProfile, initialHomeActionRaw)
     var startRuntime by rememberSaveable {
         mutableStateOf(startRuntimeInitially)
     }
@@ -53,15 +65,14 @@ internal fun AppContent(
 
     remember {
         val startupMode = when {
-            !lowRamProfile.severe -> "shell=runtime"
-            startRuntimeInitially -> "shell=runtime action=${initialHomeActionRaw.orEmpty()}"
-            else -> "shell=survival"
+            startRuntimeInitially -> "shell=runtime action=${initialHomeActionRaw.orEmpty()} low_ram=${lowRamProfile.enabled} severe=${lowRamProfile.severe}"
+            else -> "shell=survival low_ram=${lowRamProfile.enabled} severe=${lowRamProfile.severe}"
         }
         StartupTrace.mark("app_content_start", startupMode)
         true
     }
 
-    if (lowRamProfile.severe && !startRuntime) {
+    if (lowRamProfile.deferHeavyUi && !startRuntime) {
         remember {
             StartupTrace.mark("home_compose_start", "shell=survival")
             true
@@ -87,6 +98,13 @@ internal fun AppContent(
                 persistedShellUiLanguage = shellUiLanguage
             }
         }
+        LaunchedEffect(deviceCompatibilityProfile) {
+            Log.i(
+                ExamRuntimeHardeningLogTag,
+                "code=${ExamRuntimeHardeningDiagnostics.DeviceCompatProfileResolved} " +
+                    "level=INFO details=${deviceCompatibilityProfile.diagnosticSummary()} | shell=survival"
+            )
+        }
         DisposableEffect(lowRamProfile) {
             val listener: (Int) -> Unit = { level ->
                 if (MemoryPressureCoordinator.shouldReleaseUiBitmaps(level)) {
@@ -101,7 +119,8 @@ internal fun AppContent(
         }
         CompositionLocalProvider(
             LocalUiLanguage provides shellUiLanguage,
-            LocalLowRamProfile provides lowRamProfile
+            LocalLowRamProfile provides lowRamProfile,
+            LocalDeviceCompatibilityProfile provides deviceCompatibilityProfile
         ) {
             ExamLockLowRamHomeScreen(
                 uiLanguage = shellUiLanguage,

@@ -15,12 +15,50 @@ internal enum class NetworkReadinessVerdict {
     Unstable
 }
 
+internal enum class NetworkDnsProbeVerdict {
+    NotRun,
+    Skipped,
+    Resolved,
+    Failed,
+    Timeout
+}
+
+internal enum class NetworkLatencyBucket {
+    Unknown,
+    Fast,
+    Moderate,
+    Slow,
+    Timeout
+}
+
+internal enum class NetworkReadinessUserVerdict {
+    Stable,
+    Offline,
+    CaptivePortal,
+    Unvalidated,
+    DnsFailed,
+    Slow,
+    AirplaneMode,
+    Unstable
+}
+
+internal data class NetworkDnsProbeStatus(
+    val verdict: NetworkDnsProbeVerdict = NetworkDnsProbeVerdict.NotRun,
+    val host: String = "-",
+    val latencyMillis: Long? = null,
+    val latencyBucket: NetworkLatencyBucket = NetworkLatencyBucket.Unknown,
+    val error: String? = null
+)
+
 internal data class NetworkReadinessStatus(
     val examStatus: ExamNetworkStatus,
     val diagnostics: NetworkDiagnostics,
     val verdict: NetworkReadinessVerdict,
     val transportLabel: String,
-    val quickFixReason: String?
+    val quickFixReason: String?,
+    val dnsProbeStatus: NetworkDnsProbeStatus = NetworkDnsProbeStatus(),
+    val userFacingVerdict: NetworkReadinessUserVerdict = NetworkReadinessUserVerdict.Stable,
+    val userFacingQuickFixText: String? = null
 )
 
 internal data class NetworkTimelineEntry(

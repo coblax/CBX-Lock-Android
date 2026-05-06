@@ -263,6 +263,9 @@ internal fun buildNetworkEventDetails(
         append(" | vpn=").append(if (status.diagnostics.isVpnActive) "yes" else "no")
         append(" | airplane_mode=").append(if (status.diagnostics.isAirplaneModeEnabled) "yes" else "no")
         append(" | interface=").append(status.diagnostics.interfaceName.ifBlank { "-" })
+        append(" | user_verdict=").append(status.userFacingVerdict.name.lowercase(Locale.US))
+        append(" | dns_probe=").append(status.dnsProbeStatus.verdict.name.lowercase(Locale.US))
+        append(" | dns_latency=").append(status.dnsProbeStatus.latencyBucket.name.lowercase(Locale.US))
         append(" | detail=").append(status.examStatus.detail.ifBlank { "-" })
         extraContext?.takeIf { it.isNotBlank() }?.let {
             append(" | ").append(it)

@@ -103,6 +103,10 @@ if ($null -ne $summary.runtime) {
     $rendererGoneUnhandled = Get-BooleanOrFalse $summary.runtime.rendererGoneUnhandled
     $exitCleanupTimeoutRepeated = Get-BooleanOrFalse $summary.runtime.exitCleanupTimeoutRepeated
 }
+$lastCompatibilityScore = $null
+if ($null -ne $summary.runtime -and $null -ne $summary.runtime.lastCompatibilityScore) {
+    $lastCompatibilityScore = [string]$summary.runtime.lastCompatibilityScore
+}
 $noActiveFocusedSystemAnr = if ($null -ne $summary.acceptance.noActiveFocusedSystemAnrDialog) {
     [bool]$summary.acceptance.noActiveFocusedSystemAnrDialog
 } else {
@@ -177,6 +181,7 @@ Write-Output "Low-RAM gate ($Mode): $status"
 Write-Output "Summary: $resolvedSummaryPath"
 Write-Output "Package: $($summary.package)"
 Write-Output "Timestamp: $($summary.timestamp)"
+Write-Output "Compatibility score: $(if ($lastCompatibilityScore) { $lastCompatibilityScore } else { 'not parsed' })"
 
 foreach ($check in $checks) {
     $prefix = if ($check.passed) { "[PASS]" } else { "[FAIL]" }

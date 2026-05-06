@@ -17,9 +17,17 @@ import com.example.coblaxexamlock.model.CellularDiagnostics
 import com.example.coblaxexamlock.model.ExamBatteryStatus
 import com.example.coblaxexamlock.model.ExamNetworkStatus
 import com.example.coblaxexamlock.model.NetworkDiagnostics
+import com.example.coblaxexamlock.model.NetworkDnsProbeStatus
+import com.example.coblaxexamlock.model.NetworkDnsProbeVerdict
+import com.example.coblaxexamlock.model.NetworkLatencyBucket
 import com.example.coblaxexamlock.model.NetworkReadinessStatus
+import com.example.coblaxexamlock.model.NetworkReadinessUserVerdict
 import com.example.coblaxexamlock.model.NetworkReadinessVerdict
 import com.example.coblaxexamlock.model.WifiDiagnostics
+import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.withContext
+import kotlinx.coroutines.withTimeoutOrNull
+import java.net.InetAddress
 import java.util.Locale
 
 
@@ -327,8 +335,146 @@ internal fun readNetworkReadinessStatus(context: Context): NetworkReadinessStatu
         diagnostics = diagnostics,
         verdict = verdict,
         transportLabel = examStatus.toTransportLabel(),
-        quickFixReason = quickFixReason
+        quickFixReason = quickFixReason,
+        userFacingVerdict = resolveNetworkReadinessUserVerdict(verdict, NetworkDnsProbeStatus()),
+        userFacingQuickFixText = resolveNetworkReadinessQuickFixText(
+            verdict = verdict,
+            dnsProbeStatus = NetworkDnsProbeStatus()
+        )
     )
+}
+
+internal suspend fun readNetworkReadinessStatusWithProbe(
+    context: Context,
+    probeHost: String = "example.com",
+    timeoutMillis: Long = 1_200L,
+    slowThresholdMillis: Long = 900L
+): NetworkReadinessStatus {
+    val baseStatus = readNetworkReadinessStatus(context)
+    val probeStatus =
+        if (!baseStatus.examStatus.isConnected ||
+            baseStatus.verdict == NetworkReadinessVerdict.AirplaneMode ||
+            baseStatus.verdict == NetworkReadinessVerdict.CaptivePortal
+        ) {
+            NetworkDnsProbeStatus(
+                verdict = NetworkDnsProbeVerdict.Skipped,
+                host = probeHost,
+                error = baseStatus.verdict.name.lowercase(Locale.US)
+            )
+        } else {
+            probeNetworkDnsStatus(
+                host = probeHost,
+                timeoutMillis = timeoutMillis,
+                slowThresholdMillis = slowThresholdMillis
+            )
+        }
+    val userVerdict = resolveNetworkReadinessUserVerdict(baseStatus.verdict, probeStatus)
+    return baseStatus.copy(
+        dnsProbeStatus = probeStatus,
+        userFacingVerdict = userVerdict,
+        userFacingQuickFixText = resolveNetworkReadinessQuickFixText(
+            verdict = baseStatus.verdict,
+            dnsProbeStatus = probeStatus
+        )
+    )
+}
+
+internal suspend fun probeNetworkDnsStatus(
+    host: String,
+    timeoutMillis: Long = 1_200L,
+    slowThresholdMillis: Long = 900L,
+    resolver: suspend (String) -> Unit = { targetHost ->
+        withContext(Dispatchers.IO) {
+            InetAddress.getByName(targetHost)
+        }
+    }
+): NetworkDnsProbeStatus {
+    val startedAt = android.os.SystemClock.elapsedRealtime()
+    val result = withTimeoutOrNull(timeoutMillis) {
+        runCatching { resolver(host) }
+    } ?: return NetworkDnsProbeStatus(
+        verdict = NetworkDnsProbeVerdict.Timeout,
+        host = host,
+        latencyMillis = timeoutMillis,
+        latencyBucket = NetworkLatencyBucket.Timeout,
+        error = "timeout"
+    )
+    val elapsedMs = android.os.SystemClock.elapsedRealtime() - startedAt
+    return result.fold(
+        onSuccess = {
+            NetworkDnsProbeStatus(
+                verdict = NetworkDnsProbeVerdict.Resolved,
+                host = host,
+                latencyMillis = elapsedMs,
+                latencyBucket = resolveNetworkLatencyBucket(elapsedMs, slowThresholdMillis)
+            )
+        },
+        onFailure = { throwable ->
+            NetworkDnsProbeStatus(
+                verdict = NetworkDnsProbeVerdict.Failed,
+                host = host,
+                latencyMillis = elapsedMs,
+                latencyBucket = resolveNetworkLatencyBucket(elapsedMs, slowThresholdMillis),
+                error = throwable.javaClass.simpleName.take(80)
+            )
+        }
+    )
+}
+
+internal fun resolveNetworkLatencyBucket(
+    latencyMillis: Long?,
+    slowThresholdMillis: Long = 900L
+): NetworkLatencyBucket {
+    val latency = latencyMillis ?: return NetworkLatencyBucket.Unknown
+    return when {
+        latency >= slowThresholdMillis -> NetworkLatencyBucket.Slow
+        latency >= slowThresholdMillis / 2 -> NetworkLatencyBucket.Moderate
+        else -> NetworkLatencyBucket.Fast
+    }
+}
+
+internal fun resolveNetworkReadinessUserVerdict(
+    verdict: NetworkReadinessVerdict,
+    dnsProbeStatus: NetworkDnsProbeStatus
+): NetworkReadinessUserVerdict {
+    return when (verdict) {
+        NetworkReadinessVerdict.Offline -> NetworkReadinessUserVerdict.Offline
+        NetworkReadinessVerdict.CaptivePortal -> NetworkReadinessUserVerdict.CaptivePortal
+        NetworkReadinessVerdict.Unvalidated -> NetworkReadinessUserVerdict.Unvalidated
+        NetworkReadinessVerdict.AirplaneMode -> NetworkReadinessUserVerdict.AirplaneMode
+        NetworkReadinessVerdict.Unstable -> NetworkReadinessUserVerdict.Unstable
+        NetworkReadinessVerdict.ConnectedStable -> when {
+            dnsProbeStatus.verdict == NetworkDnsProbeVerdict.Failed ||
+                dnsProbeStatus.verdict == NetworkDnsProbeVerdict.Timeout ->
+                NetworkReadinessUserVerdict.DnsFailed
+            dnsProbeStatus.latencyBucket == NetworkLatencyBucket.Slow ->
+                NetworkReadinessUserVerdict.Slow
+            else -> NetworkReadinessUserVerdict.Stable
+        }
+    }
+}
+
+internal fun resolveNetworkReadinessQuickFixText(
+    verdict: NetworkReadinessVerdict,
+    dnsProbeStatus: NetworkDnsProbeStatus
+): String? {
+    return when (resolveNetworkReadinessUserVerdict(verdict, dnsProbeStatus)) {
+        NetworkReadinessUserVerdict.Stable -> null
+        NetworkReadinessUserVerdict.Slow ->
+            "Koneksi terdeteksi lambat. Pindah ke Wi-Fi/data yang lebih stabil sebelum mulai ujian."
+        NetworkReadinessUserVerdict.DnsFailed ->
+            "DNS gagal merespons. Ganti DNS/jaringan, matikan VPN bila perlu, lalu refresh."
+        NetworkReadinessUserVerdict.Offline ->
+            "Aktifkan Wi-Fi atau data seluler, lalu refresh."
+        NetworkReadinessUserVerdict.CaptivePortal ->
+            "Selesaikan login captive portal jaringan, lalu kembali dan refresh."
+        NetworkReadinessUserVerdict.Unvalidated ->
+            "Android belum memvalidasi internet. Tunggu sebentar atau pindah jaringan."
+        NetworkReadinessUserVerdict.AirplaneMode ->
+            "Matikan mode pesawat atau aktifkan Wi-Fi/data seluler."
+        NetworkReadinessUserVerdict.Unstable ->
+            "Gunakan jaringan paling stabil sebelum mulai ujian."
+    }
 }
 
 internal fun readExamNetworkStatus(context: Context): ExamNetworkStatus {

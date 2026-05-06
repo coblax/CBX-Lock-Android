@@ -23,6 +23,7 @@ import com.example.coblaxexamlock.RootSecurityStatus
 import com.example.coblaxexamlock.SecureStrings
 import com.example.coblaxexamlock.SignatureIntegrity
 import com.example.coblaxexamlock.SignatureIntegrityResult
+import com.example.coblaxexamlock.WebViewCompatibilityStatus
 import com.example.coblaxexamlock.diagnosticLabel
 import com.example.coblaxexamlock.formatCoordinates
 import com.example.coblaxexamlock.format.formatElapsedDuration
@@ -37,6 +38,7 @@ import com.example.coblaxexamlock.model.NetworkTimelineEntry
 import com.example.coblaxexamlock.model.NetworkUnstableRuntimeStatus
 import com.example.coblaxexamlock.model.UiLanguage
 import com.example.coblaxexamlock.model.VirtualEnvironmentDiagnostics
+import com.example.coblaxexamlock.readWebViewCompatibilityStatus
 import com.example.coblaxexamlock.resolveExpectedSigningFingerprints
 import com.example.coblaxexamlock.ui.geofence.effectiveCircleCenters
 import com.example.coblaxexamlock.ui.geofence.summarizeCircleCenters
@@ -117,6 +119,8 @@ internal data class TelegramSectionDetailsContext(
     val healthIntegrityResult: IntegrityCheckResult?,
     val healthReverseResult: ReverseEngineeringResult?,
     val healthLastCheckedAt: String?,
+    val webViewCompatibilityStatus: WebViewCompatibilityStatus? = null,
+    val lastExamRefreshDecision: String? = null,
     val networkReadinessStatus: NetworkReadinessStatus? = null,
     val networkUnstableRuntimeStatus: NetworkUnstableRuntimeStatus? = null,
     val networkTimelinePreview: List<NetworkTimelineEntry> = emptyList(),
@@ -839,9 +843,20 @@ internal fun StringBuilder.appendTelegramSectionDetails(details: TelegramSection
                         healthIntegrityResult ?: IntegrityGuard.check(context, baselineFingerprint = null)
                     val latestReverseResult =
                         healthReverseResult ?: ReverseEngineeringGuard.inspect(context)
+                    val webViewStatus =
+                        webViewCompatibilityStatus ?: readWebViewCompatibilityStatus(context)
                     appendLine("[SECURITY HEALTH]")
                     appendLine("Exam user-agent: ${examUserAgent.ifBlank { "-" }}")
                     appendLine("Exam user-agent source: ${examUserAgentSource.ifBlank { "-" }}")
+                    appendLine("WebView provider verdict: ${webViewStatus.verdict.name}")
+                    appendLine("WebView provider severity: ${webViewStatus.severity.name}")
+                    appendLine("WebView provider: ${webViewStatus.providerLabel}")
+                    appendLine("WebView package: ${webViewStatus.packageName}")
+                    appendLine("WebView version: ${webViewStatus.versionLabel}")
+                    appendLine("WebView source: ${webViewStatus.providerSource}")
+                    appendLine("WebView risk: ${webViewStatus.riskLabel}")
+                    appendLine("WebView quick fix: ${webViewStatus.quickFix?.ifBlank { "-" } ?: "-"}")
+                    appendLine("Last exam refresh decision: ${lastExamRefreshDecision?.ifBlank { "-" } ?: "-"}")
                     appendLine("Network status now: ${networkStatus.label.ifBlank { "-" }}")
                     appendLine("Offline active: ${if (offlineRuntimeStatus.offlineActive) "Ya" else "Tidak"}")
                     appendLine("Offline started at: ${offlineRuntimeStatus.offlineStartedAt?.ifBlank { "-" } ?: "-"}")

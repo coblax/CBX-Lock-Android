@@ -10,6 +10,7 @@ import android.os.Looper
 import android.util.AttributeSet
 import android.view.MotionEvent
 import android.webkit.JavascriptInterface
+import android.webkit.ValueCallback
 import android.webkit.WebView
 import java.util.concurrent.CountDownLatch
 import java.util.concurrent.TimeUnit
@@ -28,7 +29,7 @@ internal class SecureExamWebView @JvmOverloads constructor(
     context: Context,
     attrs: AttributeSet? = null,
     defStyleAttr: Int = 0,
-    private val onObscuredTouchDetected: () -> Unit = {}
+    private val onObscuredTouchDetected: (ExamOverlayTouchSignal) -> Boolean = { true }
 ) : WebView(context, attrs, defStyleAttr) {
     var requestedExamUrl: String? = null
 
@@ -48,8 +49,14 @@ internal class SecureExamWebView @JvmOverloads constructor(
                 partiallyObscured
 
         if (obscured) {
-            onObscuredTouchDetected()
-            return false
+            val shouldBlock = onObscuredTouchDetected(
+                ExamOverlayTouchSignal(
+                    fullyObscured = event.flags and MotionEvent.FLAG_WINDOW_IS_OBSCURED != 0,
+                    partiallyObscured = partiallyObscured,
+                    actionMasked = event.actionMasked
+                )
+            )
+            return !shouldBlock
         }
 
         return super.onFilterTouchEventForSecurity(event)
@@ -116,4 +123,28 @@ internal object ExamWebViewRecoveryTestHooks {
     fun simulateRendererGoneForTesting() {
         simulateRendererGoneHandler?.invoke()
     }
+}
+
+internal fun WebView.evaluateExamJavascriptSafely(
+    script: String,
+    callback: ValueCallback<String>? = null
+): Boolean {
+    return runCatching {
+        evaluateJavascript(script, callback)
+        true
+    }.getOrDefault(false)
+}
+
+internal fun WebView.loadExamUrlSafely(url: String): Boolean {
+    return runCatching {
+        loadUrl(url)
+        true
+    }.getOrDefault(false)
+}
+
+internal fun WebView.updateExamUserAgentSafely(userAgent: String): Boolean {
+    return runCatching {
+        settings.userAgentString = userAgent
+        true
+    }.getOrDefault(false)
 }
