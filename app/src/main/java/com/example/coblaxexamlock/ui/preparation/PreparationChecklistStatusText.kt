@@ -160,13 +160,13 @@ internal fun buildPreparationChecklistStatusText(
     val keyboardStatusLabel = when {
         bypassKeyboardPolicy -> tr("Bypassed", "Bypass")
         keyboardAllowed -> tr("Ready", "Siap")
-        else -> "Fallback"
+        else -> tr("Built-in", "Bawaan")
     }
     val rootStatusLabel = when {
         rootBypassState == RootBypassState.Tampered -> tr("Warning", "Peringatan")
         bypassRoot -> tr("Bypassed", "Bypass")
         rootSecurityStatus.detected -> tr("Danger", "Bahaya")
-        rootSecurityStatus.selinuxPermissive -> tr("Warning", "Peringatan")
+        rootSecurityStatus.selinuxPermissive -> tr("Action needed", "Perlu aksi")
         else -> tr("Safe", "Aman")
     }
     val signatureStatusLabel = when {
@@ -195,7 +195,7 @@ internal fun buildPreparationChecklistStatusText(
     val screenPinningStatusLabel = when {
         bypassScreenPinning -> tr("Bypassed", "Bypass")
         isScreenPinningActive -> tr("Active", "Aktif")
-        screenPinningAvailable -> tr("Available", "Tersedia")
+        screenPinningAvailable -> tr("Ready", "Siap")
         else -> tr("Unavailable", "Tidak tersedia")
     }
     val accessibilityGuardStatusLabel = when {
@@ -209,7 +209,7 @@ internal fun buildPreparationChecklistStatusText(
         bypassAppSwitch -> tr("Bypassed", "Bypass")
         appSwitchStatus.hasViolations -> tr("Warning", "Peringatan")
         appSwitchStatus.fallbackGuardActive -> tr("Fallback", "Fallback")
-        else -> tr("Monitored", "Dipantau")
+        else -> tr("Ready", "Siap")
     }
 
     PreparationChecklistStatusText(

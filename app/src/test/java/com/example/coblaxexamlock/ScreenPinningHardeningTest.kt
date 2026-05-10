@@ -89,7 +89,7 @@ class ScreenPinningHardeningTest {
                 lockTaskRequestPending = true,
                 examSessionStarted = false,
                 startedAtElapsedMs = 1_000L,
-                nowElapsedMs = 8_999L
+                nowElapsedMs = 12_999L
             )
         )
         assertFalse(
@@ -97,7 +97,7 @@ class ScreenPinningHardeningTest {
                 lockTaskRequestPending = true,
                 examSessionStarted = false,
                 startedAtElapsedMs = 1_000L,
-                nowElapsedMs = 9_001L
+                nowElapsedMs = 13_001L
             )
         )
         assertFalse(

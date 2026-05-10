@@ -31,8 +31,8 @@ internal fun buildPreparationChecklistReadiness(
     val bluetoothReady =
         bypassBluetooth || (!bluetoothEnabled && (!needsBluetoothPermission || bluetoothPermissionGranted))
     val accessibilityReady = bypassAccessibility || !accessibilityServiceEnabled
-    val adbReady = bypassAdb || !adbInspection.blocking
-    val rootReady = bypassRoot || !rootSecurityStatus.blocking
+    val adbReady = bypassAdb || (!adbInspection.blocking && !adbInspection.insecureSystemProperty)
+    val rootReady = bypassRoot || (!rootSecurityStatus.blocking && !rootSecurityStatus.selinuxPermissive)
     val virtualEnvironmentReady = bypassVirtualEnvironment || !virtualEnvironmentDetected
     val clipboardReady = true
     val deviceTimeReady = bypassDeviceTime || !deviceTimeSecurityStatus.blocking
@@ -43,7 +43,9 @@ internal fun buildPreparationChecklistReadiness(
     val fakeLocationReady =
         bypassFakeLocation ||
             !fakeLocationRuntimeStatus.securityStatus.monitoringEnabled ||
-            !fakeLocationRuntimeStatus.securityStatus.blocking
+            (!fakeLocationRuntimeStatus.securityStatus.blocking &&
+                !(fakeLocationRuntimeStatus.securityStatus.warningOnly &&
+                    fakeLocationRuntimeStatus.securityStatus.developerOptionsEnabled))
     val overlayReady = bypassOverlay || !overlayRiskResult.hasAnyRisk
     val accessibilityGuardReady = !accessibilityGuardRequired || accessibilityGuardEnabled
     val screenPinningReady =
@@ -76,7 +78,8 @@ internal fun buildPreparationChecklistReadiness(
         bypassGeofence,
         bypassFakeLocation,
         bypassDeviceTime,
-        bypassAppSwitch
+        bypassAppSwitch,
+        tamperDetected
     ).any { it }
 
     PreparationChecklistReadiness(

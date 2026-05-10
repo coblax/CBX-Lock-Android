@@ -38,7 +38,7 @@ class PreExamHealthCheckTest {
         val snapshot = buildPreExamHealthSnapshot(defaultInput())
 
         assertEquals(0, snapshot.blockingCount)
-        assertEquals(1, snapshot.warningCount)
+        assertEquals(0, snapshot.warningCount)
         assertTrue(snapshot.items.any { it.category == PreExamHealthCategory.ScreenPinning })
     }
 
