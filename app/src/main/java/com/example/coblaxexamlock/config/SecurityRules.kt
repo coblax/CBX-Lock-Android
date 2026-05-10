@@ -121,24 +121,42 @@ internal val RootBinaryIndicatorPaths = listOf(
     "/system/xbin/busybox",
     "/vendor/bin/busybox",
     "/system/sbin/busybox",
-    "/sbin/busybox"
+    "/sbin/busybox",
+    // Frida instrumentation server — only present if user deliberately deployed it (requires root)
+    "/data/local/tmp/frida-server",
+    "/data/local/tmp/re.frida.server"
 )
 
 internal val RootPackageNames = listOf(
+    // Classic root managers
     "com.topjohnwu.magisk",
     "eu.chainfire.supersu",
     "com.koushikdutta.superuser",
     "com.thirdparty.superuser",
-    "com.noshufou.android.su"
+    "com.noshufou.android.su",
+    // Modern kernel-level root frameworks (2022+)
+    "me.weishu.kernelsu",          // KernelSU Manager
+    "me.bmax.apatch",              // APatch Manager
+    "io.github.huskydg.magisk",   // Magisk Delta (fork)
+    // Hook / injection frameworks
+    "org.lsposed.manager",                // LSPosed Manager (runs on Zygisk)
+    "de.robv.android.xposed.installer",   // Classic Xposed Installer
+    "com.elderdrivers.riru.edxp"          // EdXposed Manager
 )
 
 internal val MagiskIndicatorPaths = listOf(
+    // Magisk
     "/sbin/.magisk",
     "/data/adb/magisk",
     "/data/adb/modules",
     "/data/adb/zygisk",
     "/cache/.magisk",
-    "/metadata/magisk"
+    "/metadata/magisk",
+    // KernelSU
+    "/data/adb/ksu",
+    "/data/adb/ksud",
+    // APatch
+    "/data/adb/ap"
 )
 
 internal val RiskyAccessibilityKeywords = listOf(

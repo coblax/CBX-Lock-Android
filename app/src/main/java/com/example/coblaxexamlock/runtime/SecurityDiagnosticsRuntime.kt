@@ -130,6 +130,7 @@ internal fun getRootDetectionDetails(context: Context): RootDetectionDetails {
     }
     val selinuxEnabled = readSelinuxEnabled()
     val selinuxEnforced = readSelinuxEnforced()
+    val xposedBridgeDetected = isXposedBridgeActive()
 
     return RootDetectionDetails(
         hasTestKeys = hasTestKeys,
@@ -138,6 +139,7 @@ internal fun getRootDetectionDetails(context: Context): RootDetectionDetails {
         rootBinaryPaths = rootBinaryPaths,
         magiskPaths = magiskPaths,
         zygiskDetected = zygiskDetected,
+        xposedBridgeDetected = xposedBridgeDetected,
         verifiedBootState = verifiedBootStateRaw.ifBlank { "-" },
         vbmetaDeviceState = vbmetaDeviceStateRaw.ifBlank { "-" },
         flashLocked = flashLockedRaw.ifBlank { "-" },
@@ -159,9 +161,20 @@ internal fun isDeviceRooted(details: RootDetectionDetails): Boolean {
         details.foundRootPackages.isNotEmpty() ||
         details.magiskPaths.isNotEmpty() ||
         details.zygiskDetected ||
+        details.xposedBridgeDetected ||
         details.bootloaderUnlocked ||
         details.dangerousSystemProperties.isNotEmpty() ||
         details.selinuxEnabled == false
+}
+
+@Suppress("TooGenericExceptionCaught")
+internal fun isXposedBridgeActive(): Boolean {
+    // Check 1: XposedBridge class injected into this process (Xposed / LSPosed active)
+    if (runCatching { Class.forName("de.robv.android.xposed.XposedBridge") }.isSuccess) return true
+    // Check 2: XposedBridge JAR on disk (classic Xposed installed at system level)
+    if (safeFileExists("/system/framework/XposedBridge.jar")) return true
+    if (safeFileExists("/system/lib/XposedBridge.jar")) return true
+    return false
 }
 
 internal fun isBootloaderUnlocked(
@@ -188,6 +201,7 @@ internal fun isBootloaderUnlocked(
 internal fun resolvePrimaryRootIndicator(details: RootDetectionDetails): RootIndicatorType? {
     return when {
         details.zygiskDetected -> RootIndicatorType.Zygisk
+        details.xposedBridgeDetected -> RootIndicatorType.XposedBridge
         details.magiskPaths.isNotEmpty() -> RootIndicatorType.Magisk
         details.rootBinaryPaths.isNotEmpty() || details.hasSuBinary -> RootIndicatorType.RootBinary
         details.selinuxEnabled == false -> RootIndicatorType.SelinuxDisabled
@@ -227,6 +241,7 @@ internal fun buildRootIndicatorLabel(
         }
         RootIndicatorType.SelinuxDisabled -> "SELinux nonaktif"
         RootIndicatorType.SelinuxPermissive -> "SELinux permissive"
+        RootIndicatorType.XposedBridge -> "Xposed/LSPosed framework aktif"
         RootIndicatorType.Bootloader -> {
             val info = listOfNotNull(
                 details.verifiedBootState.takeIf { it != "-" }?.let { "verifiedbootstate=$it" },

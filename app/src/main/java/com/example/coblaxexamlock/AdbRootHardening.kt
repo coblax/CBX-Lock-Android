@@ -99,6 +99,7 @@ internal fun buildRootSecurityStatus(details: RootDetectionDetails): RootSecurit
     }
     val evidenceSummary = buildList {
         if (details.zygiskDetected) add("zygisk")
+        if (details.xposedBridgeDetected) add("xposed_bridge")
         if (details.magiskPaths.isNotEmpty()) add("magisk")
         if (details.rootBinaryPaths.isNotEmpty() || details.hasSuBinary) add("su_binary")
         if (details.foundRootPackages.isNotEmpty()) add("root_package")
