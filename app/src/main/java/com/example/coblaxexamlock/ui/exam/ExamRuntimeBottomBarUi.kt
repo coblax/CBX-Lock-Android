@@ -112,12 +112,15 @@ internal fun ExamWebViewBottomBar(
             tr("Network is limited", "Jaringan terbatas")
         NetworkReadinessVerdict.CaptivePortal ->
             tr("Network requires captive portal login", "Jaringan membutuhkan login captive portal")
+        NetworkReadinessVerdict.VpnActive ->
+            tr("VPN is active", "VPN aktif")
         NetworkReadinessVerdict.Unstable ->
             tr("Network is unstable", "Jaringan tidak stabil")
     }
     val lowRamProfile = LocalLowRamProfile.current
     val connectivityIndicatorColor = when {
         networkStatus.verdict == NetworkReadinessVerdict.Offline ||
+            networkStatus.verdict == NetworkReadinessVerdict.VpnActive ||
             networkStatus.verdict == NetworkReadinessVerdict.AirplaneMode -> Color(0xFFD93025)
         networkStatus.verdict == NetworkReadinessVerdict.Unvalidated ||
             networkStatus.verdict == NetworkReadinessVerdict.CaptivePortal ||

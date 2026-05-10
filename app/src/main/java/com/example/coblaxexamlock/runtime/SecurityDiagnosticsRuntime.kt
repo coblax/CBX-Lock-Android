@@ -299,7 +299,12 @@ internal fun scanProcSelfMapsForZygisk(): Boolean {
         mapsFile.useLines { lines ->
             lines.any { line ->
                 line.contains("zygisk", ignoreCase = true) ||
-                    line.contains("libzygisk", ignoreCase = true)
+                    line.contains("libzygisk", ignoreCase = true) ||
+                    // Extended injection scan: Riru, LSPosed, EdXposed, Substrate
+                    line.contains("libriru", ignoreCase = true) ||
+                    line.contains("lsposed", ignoreCase = true) ||
+                    line.contains("edxposed", ignoreCase = true) ||
+                    line.contains("libsubstrate", ignoreCase = true)
             }
         }
     }.getOrDefault(false)

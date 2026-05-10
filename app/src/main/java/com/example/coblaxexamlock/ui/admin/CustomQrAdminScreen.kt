@@ -573,12 +573,23 @@ internal fun CustomQrAdminScreen(
                             modifier = Modifier.padding(horizontal = 14.dp, vertical = 14.dp),
                             verticalArrangement = Arrangement.spacedBy(12.dp)
                         ) {
-                            Text(
-                                text = tr("Location / Geofence", "Lokasi / Geofence"),
-                                color = LockTextPrimary,
-                                fontSize = 18.sp,
-                                fontWeight = FontWeight.Bold
-                            )
+                            Row(
+                                verticalAlignment = Alignment.CenterVertically,
+                                horizontalArrangement = Arrangement.spacedBy(8.dp)
+                            ) {
+                                Text(
+                                    text = tr("Location / Geofence", "Lokasi / Geofence"),
+                                    color = LockTextPrimary,
+                                    fontSize = 18.sp,
+                                    fontWeight = FontWeight.Bold
+                                )
+                                if (geofenceEnabled) {
+                                    Text(
+                                        text = if (geofenceConfigResult.config != null) "✅" else if (geofenceConfigResult.error != null) "❌" else "⚠\uFE0F",
+                                        fontSize = 16.sp
+                                    )
+                                }
+                            }
                             AdminToggleRow(
                                 title = tr("Enable Strict Geofence", "Aktifkan Geofence Ketat"),
                                 description = tr(
@@ -645,19 +656,69 @@ internal fun CustomQrAdminScreen(
                                 }
 
                                 if (selectedGeofenceShapeType == GeofenceShapeType.Circle) {
-                                    Button(
-                                        onClick = { onShowCircleMapEditorChange(true) },
+                                    Row(
                                         modifier = Modifier.fillMaxWidth(),
-                                        colors = ButtonDefaults.buttonColors(
-                                            containerColor = LockBlue,
-                                            contentColor = LockOnDark
-                                        )
+                                        horizontalArrangement = Arrangement.spacedBy(8.dp)
                                     ) {
-                                        Text(
-                                            tr("Open Circle Map", "Buka Map Circle"),
-                                            fontWeight = FontWeight.Bold
-                                        )
+                                        Button(
+                                            onClick = { onShowCircleMapEditorChange(true) },
+                                            modifier = Modifier.weight(1f),
+                                            colors = ButtonDefaults.buttonColors(
+                                                containerColor = LockBlue,
+                                                contentColor = LockOnDark
+                                            )
+                                        ) {
+                                            Text(
+                                                tr(
+                                                    "Open Map (${geofenceCircleCenters.size}/5)",
+                                                    "Buka Map (${geofenceCircleCenters.size}/5)"
+                                                ),
+                                                fontWeight = FontWeight.Bold
+                                            )
+                                        }
+                                        if (geofenceCircleCenters.isNotEmpty()) {
+                                            Button(
+                                                onClick = {
+                                                    updateDraft { current ->
+                                                        current.copy(
+                                                            geofenceCircleCenters = emptyList(),
+                                                            geofenceCenterLat = "",
+                                                            geofenceCenterLng = ""
+                                                        )
+                                                    }
+                                                    clearGeneratedQr()
+                                                },
+                                                colors = ButtonDefaults.buttonColors(
+                                                    containerColor = Color(0xFFFEF3F2),
+                                                    contentColor = Color(0xFFB42318)
+                                                ),
+                                                border = BorderStroke(1.dp, Color(0xFFB42318).copy(alpha = 0.3f))
+                                            ) {
+                                                Text(tr("Clear", "Hapus"), fontWeight = FontWeight.Bold)
+                                            }
+                                        }
                                     }
+                                    val radiusValue = geofenceRadiusMeters.toFloatOrNull() ?: 100f
+                                    Text(
+                                        text = tr(
+                                            "Radius: ${geofenceRadiusMeters.ifBlank { "-" }} m",
+                                            "Radius: ${geofenceRadiusMeters.ifBlank { "-" }} m"
+                                        ),
+                                        color = LockTextPrimary,
+                                        fontSize = 13.sp,
+                                        fontWeight = FontWeight.Bold
+                                    )
+                                    androidx.compose.material3.Slider(
+                                        value = radiusValue.coerceIn(50f, 5000f),
+                                        onValueChange = { value ->
+                                            updateDraft { current ->
+                                                current.copy(geofenceRadiusMeters = value.toInt().toString())
+                                            }
+                                            clearGeneratedQr()
+                                        },
+                                        valueRange = 50f..5000f,
+                                        modifier = Modifier.fillMaxWidth()
+                                    )
                                     Surface(
                                         modifier = Modifier.fillMaxWidth(),
                                         shape = RoundedCornerShape(14.dp),
@@ -725,18 +786,43 @@ internal fun CustomQrAdminScreen(
                                         lineHeight = 16.sp
                                     )
                                 } else {
-                                    Button(
-                                        onClick = { onShowPolygonMapEditorChange(true) },
+                                    Row(
                                         modifier = Modifier.fillMaxWidth(),
-                                        colors = ButtonDefaults.buttonColors(
-                                            containerColor = LockBlue,
-                                            contentColor = LockOnDark
-                                        )
+                                        horizontalArrangement = Arrangement.spacedBy(8.dp)
                                     ) {
-                                        Text(
-                                            tr("Open Polygon Map", "Buka Map Polygon"),
-                                            fontWeight = FontWeight.Bold
-                                        )
+                                        Button(
+                                            onClick = { onShowPolygonMapEditorChange(true) },
+                                            modifier = Modifier.weight(1f),
+                                            colors = ButtonDefaults.buttonColors(
+                                                containerColor = LockBlue,
+                                                contentColor = LockOnDark
+                                            )
+                                        ) {
+                                            Text(
+                                                tr(
+                                                    "Open Map (${polygonVertices.size}/50)",
+                                                    "Buka Map (${polygonVertices.size}/50)"
+                                                ),
+                                                fontWeight = FontWeight.Bold
+                                            )
+                                        }
+                                        if (polygonVertices.isNotEmpty()) {
+                                            Button(
+                                                onClick = {
+                                                    updateDraft { current ->
+                                                        current.copy(polygonVertices = emptyList())
+                                                    }
+                                                    clearGeneratedQr()
+                                                },
+                                                colors = ButtonDefaults.buttonColors(
+                                                    containerColor = Color(0xFFFEF3F2),
+                                                    contentColor = Color(0xFFB42318)
+                                                ),
+                                                border = BorderStroke(1.dp, Color(0xFFB42318).copy(alpha = 0.3f))
+                                            ) {
+                                                Text(tr("Clear", "Hapus"), fontWeight = FontWeight.Bold)
+                                            }
+                                        }
                                     }
                                     Surface(
                                         modifier = Modifier.fillMaxWidth(),
@@ -842,6 +928,31 @@ internal fun CustomQrAdminScreen(
                                 fontSize = 12.sp,
                                 lineHeight = 16.sp
                             )
+                            if (geofenceEnabled && geofenceConfigResult.error != null) {
+                                val validationMsg = when (geofenceConfigResult.error) {
+                                    "invalid_latitude" -> tr("⚠ Latitude must be between -90 and 90.", "⚠ Latitude harus antara -90 dan 90.")
+                                    "invalid_longitude" -> tr("⚠ Longitude must be between -180 and 180.", "⚠ Longitude harus antara -180 dan 180.")
+                                    "invalid_radius" -> tr("⚠ Radius must be greater than 0.", "⚠ Radius harus lebih dari 0.")
+                                    "polygon_min_3_vertices" -> tr("⚠ Polygon requires at least 3 points.", "⚠ Polygon membutuhkan minimal 3 titik.")
+                                    "polygon_degenerate" -> tr("⚠ Polygon area is too small or degenerate.", "⚠ Area polygon terlalu kecil atau degenerate.")
+                                    "polygon_self_intersecting" -> tr("⚠ Polygon lines must not cross each other.", "⚠ Garis polygon tidak boleh saling bersilangan.")
+                                    else -> tr("⚠ Configuration error: ${geofenceConfigResult.error}", "⚠ Error konfigurasi: ${geofenceConfigResult.error}")
+                                }
+                                Surface(
+                                    modifier = Modifier.fillMaxWidth(),
+                                    shape = RoundedCornerShape(10.dp),
+                                    color = Color(0xFFFEF3F2),
+                                    border = BorderStroke(1.dp, Color(0xFFB42318).copy(alpha = 0.3f))
+                                ) {
+                                    Text(
+                                        text = validationMsg,
+                                        color = Color(0xFFB42318),
+                                        fontSize = 12.sp,
+                                        lineHeight = 16.sp,
+                                        modifier = Modifier.padding(horizontal = 12.dp, vertical = 8.dp)
+                                    )
+                                }
+                            }
                         }
                     }
                 }

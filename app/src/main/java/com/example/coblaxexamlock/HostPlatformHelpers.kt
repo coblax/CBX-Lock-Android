@@ -559,6 +559,17 @@ internal fun openInternetConnectivitySettings(context: Context) {
     )
 }
 
+internal fun openVpnSettings(context: Context) {
+    launchFirstPlatformIntentSafely(
+        context,
+        listOf(
+            Intent(Settings.ACTION_VPN_SETTINGS),
+            Intent(Settings.ACTION_WIRELESS_SETTINGS),
+            Intent(Settings.ACTION_SETTINGS)
+        )
+    )
+}
+
 private fun createInternetConnectivityIntent(): Intent {
     return if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.Q) {
         Intent(Settings.Panel.ACTION_INTERNET_CONNECTIVITY)

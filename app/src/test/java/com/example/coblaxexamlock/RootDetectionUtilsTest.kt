@@ -102,6 +102,7 @@ class RootDetectionUtilsTest {
             rootBinaryPaths = emptyList<String>(),
             magiskPaths = emptyList<String>(),
             zygiskDetected = false,
+            xposedBridgeDetected = false,
             verifiedBootState = "-",
             vbmetaDeviceState = "-",
             flashLocked = "-",

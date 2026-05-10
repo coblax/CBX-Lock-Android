@@ -57,6 +57,8 @@ internal data class AdminSettings(
     val bypassRoot: Boolean = false,
     val rootBypassTampered: Boolean = false,
     val bypassVirtualEnvironment: Boolean = false,
+    val bypassVpn: Boolean = false,
+    val vpnBypassTampered: Boolean = false,
     val bypassKeyboardPolicy: Boolean = false,
     val bypassClipboard: Boolean = false,
     val clipboardBypassTampered: Boolean = false,
@@ -72,6 +74,12 @@ internal data class AdminSettings(
     val locationBypassTampered: Boolean = false,
     val bypassAppSwitch: Boolean = false,
     val appSwitchBypassTampered: Boolean = false,
+    val bypassScreenRecorder: Boolean = false,
+    val screenRecorderBypassTampered: Boolean = false,
+    val bypassDisplayMirror: Boolean = false,
+    val displayMirrorBypassTampered: Boolean = false,
+    val bypassMultiWindow: Boolean = false,
+    val multiWindowBypassTampered: Boolean = false,
     val showChecklistDetails: Boolean = false,
     val bypassMigrationResetNotice: Boolean = false
 ) {
@@ -82,6 +90,7 @@ internal data class AdminSettings(
             bypassAdb ||
             bypassRoot ||
             bypassVirtualEnvironment ||
+            bypassVpn ||
             bypassKeyboardPolicy ||
             bypassClipboard ||
             bypassOverlay ||
@@ -99,6 +108,7 @@ internal data class AdminSettings(
         if (bypassAdb) overrides.add("adb")
         if (bypassRoot) overrides.add("root")
         if (bypassVirtualEnvironment) overrides.add("virtual env")
+        if (bypassVpn) overrides.add("vpn")
         if (bypassKeyboardPolicy) overrides.add("keyboard policy")
         if (bypassClipboard) overrides.add("clipboard")
         if (bypassOverlay) overrides.add("overlay")

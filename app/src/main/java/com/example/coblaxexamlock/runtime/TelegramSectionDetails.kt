@@ -1,4 +1,4 @@
-﻿package com.example.coblaxexamlock.runtime
+package com.example.coblaxexamlock.runtime
 
 import android.content.Context
 import android.os.Build
@@ -115,6 +115,8 @@ internal data class TelegramSectionDetailsContext(
     val offlineRuntimeStatus: ExamOfflineRuntimeStatus,
     val deviceTimeSecurityStatus: DeviceTimeSecurityStatus,
     val bypassDeviceTime: Boolean,
+    val bypassVpn: Boolean,
+    val vpnBypassTampered: Boolean,
     val uiLanguage: UiLanguage,
     val healthIntegrityResult: IntegrityCheckResult?,
     val healthReverseResult: ReverseEngineeringResult?,
@@ -126,7 +128,14 @@ internal data class TelegramSectionDetailsContext(
     val networkTimelinePreview: List<NetworkTimelineEntry> = emptyList(),
     val lastNetworkChangeAt: String? = null,
     val lastNetworkChangeSource: String? = null,
-    val lastConnectedNetworkLabel: String? = null
+    val lastConnectedNetworkLabel: String? = null,
+    val screenRecorderPackages: List<String> = emptyList(),
+    val bypassScreenRecorder: Boolean = false,
+    val externalDisplayDetected: Boolean = false,
+    val externalDisplayCount: Int = 0,
+    val bypassDisplayMirror: Boolean = false,
+    val multiWindowDetected: Boolean = false,
+    val bypassMultiWindow: Boolean = false
 )
 
 private fun DeviceTimeSecurityVerdict.telegramLabel(): String = when (this) {
@@ -177,6 +186,8 @@ private fun StringBuilder.appendNetworkDetails(
     lastNetworkChangeAt: String?,
     lastNetworkChangeSource: String?,
     lastConnectedNetworkLabel: String?,
+    bypassVpn: Boolean,
+    vpnBypassTampered: Boolean,
     uiLanguage: UiLanguage
 ) {
     appendLine("[NETWORK / CONNECTIVITY]")
@@ -196,6 +207,8 @@ private fun StringBuilder.appendNetworkDetails(
         appendLine("Captive portal: ${yesNo(diagnostics.isCaptivePortal)}")
         appendLine("Metered: ${yesNo(diagnostics.isMetered)}")
         appendLine("VPN active: ${yesNo(diagnostics.isVpnActive)}")
+        appendLine("VPN bypass active: ${yesNo(bypassVpn)}")
+        appendLine("VPN bypass tampered: ${yesNo(vpnBypassTampered)}")
         appendLine("Airplane mode: ${yesNo(diagnostics.isAirplaneModeEnabled)}")
         appendLine("Not roaming: ${yesNoUnknown(diagnostics.notRoaming)}")
         appendLine("Interface: ${diagnostics.interfaceName.ifBlank { "-" }}")
@@ -300,6 +313,8 @@ internal fun StringBuilder.appendTelegramSectionDetails(details: TelegramSection
                     lastNetworkChangeAt = lastNetworkChangeAt,
                     lastNetworkChangeSource = lastNetworkChangeSource,
                     lastConnectedNetworkLabel = lastConnectedNetworkLabel,
+                    bypassVpn = bypassVpn,
+                    vpnBypassTampered = vpnBypassTampered,
                     uiLanguage = uiLanguage
                 )
                 DiagnosticSection.Accessibility -> {
@@ -926,6 +941,25 @@ internal fun StringBuilder.appendTelegramSectionDetails(details: TelegramSection
                         status = deviceTimeSecurityStatus,
                         bypassDeviceTime = bypassDeviceTime
                     )
+                }
+                DiagnosticSection.ScreenRecorder -> {
+                    appendLine("[SCREEN RECORDER]")
+                    appendLine("Screen recorder packages detected: ${screenRecorderPackages.size}")
+                    screenRecorderPackages.forEachIndexed { index, pkg ->
+                        appendLine("  [$index] $pkg")
+                    }
+                    appendLine("Bypass: ${if (bypassScreenRecorder) "Ya" else "Tidak"}")
+                }
+                DiagnosticSection.DisplayMirror -> {
+                    appendLine("[DISPLAY MIRROR]")
+                    appendLine("External display detected: ${if (externalDisplayDetected) "Ya" else "Tidak"}")
+                    appendLine("External display count: $externalDisplayCount")
+                    appendLine("Bypass: ${if (bypassDisplayMirror) "Ya" else "Tidak"}")
+                }
+                DiagnosticSection.MultiWindow -> {
+                    appendLine("[MULTI-WINDOW]")
+                    appendLine("Multi-window mode: ${if (multiWindowDetected) "Ya" else "Tidak"}")
+                    appendLine("Bypass: ${if (bypassMultiWindow) "Ya" else "Tidak"}")
                 }
             }
     }

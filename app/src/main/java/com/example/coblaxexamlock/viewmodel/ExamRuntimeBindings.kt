@@ -46,6 +46,7 @@ internal fun rememberBoundExamRuntimeViewModel(
     rootSecurityStatus: RootSecurityStatus,
     bypassVirtualEnvironment: Boolean,
     virtualEnvironmentDetected: Boolean,
+    bypassVpn: Boolean,
     bypassGeofence: Boolean,
     geofenceBypassState: GeofenceBypassState,
     geofenceRuntimeStatus: GeofenceRuntimeStatus,
@@ -103,6 +104,7 @@ internal fun rememberBoundExamRuntimeViewModel(
         rootSecurityStatus = rootSecurityStatus,
         bypassVirtualEnvironment = bypassVirtualEnvironment,
         virtualEnvironmentDetected = virtualEnvironmentDetected,
+        bypassVpn = bypassVpn,
         bypassGeofence = bypassGeofence,
         geofenceBypassState = geofenceBypassState,
         geofenceRuntimeStatus = geofenceRuntimeStatus,
@@ -250,6 +252,7 @@ private fun buildPreparationChecklistUiState(
     rootSecurityStatus: RootSecurityStatus,
     bypassVirtualEnvironment: Boolean,
     virtualEnvironmentDetected: Boolean,
+    bypassVpn: Boolean,
     bypassGeofence: Boolean,
     geofenceBypassState: GeofenceBypassState,
     geofenceRuntimeStatus: GeofenceRuntimeStatus,
@@ -274,6 +277,7 @@ private fun buildPreparationChecklistUiState(
     val adbReady = bypassAdb || !adbInspection.blocking
     val rootReady = bypassRoot || !rootSecurityStatus.blocking
     val virtualEnvironmentReady = bypassVirtualEnvironment || !virtualEnvironmentDetected
+    val vpnReady = bypassVpn || !networkReadinessStatus.diagnostics.isVpnActive
     val geofenceReady =
         bypassGeofence ||
             !geofenceRuntimeStatus.evaluation.enabled ||
@@ -295,6 +299,7 @@ private fun buildPreparationChecklistUiState(
             geofenceReady &&
             fakeLocationReady &&
             virtualEnvironmentReady &&
+            vpnReady &&
             signatureReady &&
             overlayReady &&
             keyboardReady &&
@@ -306,6 +311,7 @@ private fun buildPreparationChecklistUiState(
         NetworkReadinessVerdict.Offline -> tr("Offline", "Offline")
         NetworkReadinessVerdict.Unvalidated -> tr("Unvalidated", "Belum Tervalidasi")
         NetworkReadinessVerdict.CaptivePortal -> tr("Captive Portal", "Captive Portal")
+        NetworkReadinessVerdict.VpnActive -> tr("VPN Active", "VPN Aktif")
         NetworkReadinessVerdict.AirplaneMode -> tr("Airplane Mode", "Mode Pesawat")
         NetworkReadinessVerdict.Unstable -> tr("Unstable", "Tidak Stabil")
     }

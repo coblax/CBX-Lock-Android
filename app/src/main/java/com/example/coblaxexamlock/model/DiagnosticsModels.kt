@@ -15,7 +15,10 @@ internal enum class DiagnosticSection {
     Clipboard,
     ScreenPinning,
     DeviceTime,
-    SecurityHealth
+    SecurityHealth,
+    ScreenRecorder,
+    DisplayMirror,
+    MultiWindow
 }
 
 internal data class RootDetectionDetails(

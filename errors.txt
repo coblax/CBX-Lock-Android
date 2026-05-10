@@ -1,0 +1,1 @@
+﻿e: file:///D:/EXAM%20LOCK/app/src/main/java/com/example/coblaxexamlock/format/DiagnosticFormatting.kt:82:12 'when' expression must be exhaustive. Add the 'ScreenRecorder', 'DisplayMirror', 'MultiWindow' branches or an 'else' branch.

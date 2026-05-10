@@ -74,6 +74,10 @@ internal fun Context.readAdminSettings(): AdminSettings {
     val fakeLocationBypassResolution = bypassSnapshot.resolveCritical(GateKeys.FakeLocation)
     val deviceTimeBypassResolution = bypassSnapshot.resolveCritical(GateKeys.DeviceTime)
     val appSwitchBypassResolution = bypassSnapshot.resolveCritical(GateKeys.AppSwitch)
+    val vpnBypassResolution = bypassSnapshot.resolveCritical(GateKeys.Vpn)
+    val screenRecorderBypassResolution = bypassSnapshot.resolveCritical(GateKeys.ScreenRecorder)
+    val displayMirrorBypassResolution = bypassSnapshot.resolveCritical(GateKeys.DisplayMirror)
+    val multiWindowBypassResolution = bypassSnapshot.resolveCritical(GateKeys.MultiWindow)
     return AdminSettings(
         fastExamUrl = preferences.getString(
             AdminKeyFastExamUrl,
@@ -119,6 +123,8 @@ internal fun Context.readAdminSettings(): AdminSettings {
         bypassRoot = rootBypassResolution.enabled,
         rootBypassTampered = rootBypassResolution.tampered,
         bypassVirtualEnvironment = bypassSnapshot.isEnabled(GateKeys.VirtualEnv.id),
+        bypassVpn = vpnBypassResolution.enabled,
+        vpnBypassTampered = vpnBypassResolution.tampered,
         bypassKeyboardPolicy = bypassSnapshot.isEnabled(GateKeys.KeyboardPolicy.id),
         bypassClipboard = clipboardBypassResolution.enabled,
         clipboardBypassTampered = clipboardBypassResolution.tampered,
@@ -134,6 +140,12 @@ internal fun Context.readAdminSettings(): AdminSettings {
         locationBypassTampered = geofenceBypassResolution.tampered || fakeLocationBypassResolution.tampered,
         bypassAppSwitch = appSwitchBypassResolution.enabled,
         appSwitchBypassTampered = appSwitchBypassResolution.tampered,
+        bypassScreenRecorder = screenRecorderBypassResolution.enabled,
+        screenRecorderBypassTampered = screenRecorderBypassResolution.tampered,
+        bypassDisplayMirror = displayMirrorBypassResolution.enabled,
+        displayMirrorBypassTampered = displayMirrorBypassResolution.tampered,
+        bypassMultiWindow = multiWindowBypassResolution.enabled,
+        multiWindowBypassTampered = multiWindowBypassResolution.tampered,
         showChecklistDetails = preferences.getBoolean(AdminKeyShowChecklistDetails, false),
         bypassMigrationResetNotice = bypassSnapshot.migrationResetNotice
     )

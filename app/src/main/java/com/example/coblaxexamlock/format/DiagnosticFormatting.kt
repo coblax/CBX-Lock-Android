@@ -100,6 +100,11 @@ internal fun diagnosticSectionEventCodes(section: DiagnosticSection): Set<String
             "NETWORK_UNSTABLE_WARNING_SHOWN",
             "NETWORK_UNSTABLE_WARNING_ACKNOWLEDGED",
             "NETWORK_QUICK_FIX_REFRESH_REQUESTED",
+            "NETWORK_VPN_DETECTED",
+            "NETWORK_VPN_CLEARED",
+            "VPN_SETTINGS_OPENED",
+            "VPN_BYPASS_TAMPER_DETECTED",
+            "START_EXAM_BLOCKED_VPN",
             "INTERNET_SETTINGS_OPENED",
             "WIFI_SETTINGS_OPENED",
             "CELLULAR_SETTINGS_OPENED",
@@ -227,6 +232,20 @@ internal fun diagnosticSectionEventCodes(section: DiagnosticSection): Set<String
             "PRE_EXAM_HEALTH_CHECK_STARTED",
             "PRE_EXAM_HEALTH_CHECK_COMPLETED",
             "START_EXAM_BLOCKED_HEALTH_CHECK"
+        )
+        DiagnosticSection.ScreenRecorder -> setOf(
+            "SCREEN_RECORDER_DETECTED",
+            "START_EXAM_BLOCKED_SCREEN_RECORDER",
+            "APP_SETTINGS_OPENED"
+        )
+        DiagnosticSection.DisplayMirror -> setOf(
+            "DISPLAY_MIRROR_DETECTED",
+            "START_EXAM_BLOCKED_DISPLAY_MIRROR",
+            "CAST_SETTINGS_OPENED"
+        )
+        DiagnosticSection.MultiWindow -> setOf(
+            "MULTI_WINDOW_DETECTED",
+            "START_EXAM_BLOCKED_MULTI_WINDOW"
         )
     }
 }

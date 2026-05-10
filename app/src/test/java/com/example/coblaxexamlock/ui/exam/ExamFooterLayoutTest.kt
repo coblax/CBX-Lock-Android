@@ -207,6 +207,21 @@ class ExamFooterLayoutTest {
     }
 
     @Test
+    fun vpnActiveIsDangerForFooterConnectivity() {
+        val visual = resolveExamFooterConnectivityVisual(
+            networkStatus = networkStatus(
+                verdict = NetworkReadinessVerdict.VpnActive,
+                transports = listOf("wifi", "vpn"),
+                transportLabel = "Wi-Fi + VPN"
+            ),
+            serverStatus = ExamServerFooterStatus.Online
+        )
+
+        assertEquals(ExamFooterConnectivitySeverity.Danger, visual.severity)
+        assertNull(visual.badgeText)
+    }
+
+    @Test
     fun unknownStableTransportFallsBackWithoutCrash() {
         val visual = resolveExamFooterConnectivityVisual(
             networkStatus = networkStatus(
@@ -241,7 +256,7 @@ class ExamFooterLayoutTest {
                 isValidated = verdict == NetworkReadinessVerdict.ConnectedStable,
                 isCaptivePortal = verdict == NetworkReadinessVerdict.CaptivePortal,
                 isMetered = cellular != null,
-                isVpnActive = false,
+                isVpnActive = verdict == NetworkReadinessVerdict.VpnActive,
                 isAirplaneModeEnabled = verdict == NetworkReadinessVerdict.AirplaneMode,
                 notRoaming = true,
                 interfaceName = if (cellular != null) "rmnet_data0" else "wlan0",

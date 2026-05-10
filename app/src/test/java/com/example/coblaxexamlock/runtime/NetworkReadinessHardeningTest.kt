@@ -54,4 +54,15 @@ class NetworkReadinessHardeningTest {
             )
         )
     }
+
+    @Test
+    fun vpnActiveBecomesVpnActiveUserVerdict() {
+        assertEquals(
+            NetworkReadinessUserVerdict.VpnActive,
+            resolveNetworkReadinessUserVerdict(
+                NetworkReadinessVerdict.VpnActive,
+                NetworkDnsProbeStatus()
+            )
+        )
+    }
 }

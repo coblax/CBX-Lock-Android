@@ -15,6 +15,7 @@ import com.example.coblaxexamlock.OverlayRiskResult
 import com.example.coblaxexamlock.PinningActivationState
 import com.example.coblaxexamlock.RootBypassState
 import com.example.coblaxexamlock.RootSecurityStatus
+import com.example.coblaxexamlock.VpnBypassState
 import com.example.coblaxexamlock.model.DiagnosticSection
 import com.example.coblaxexamlock.model.NetworkReadinessStatus
 import com.example.coblaxexamlock.model.NetworkTimelineEntry
@@ -72,6 +73,8 @@ internal data class PreparationScreenState(
     val bypassAdb: Boolean,
     val bypassRoot: Boolean,
     val bypassVirtualEnvironment: Boolean,
+    val bypassVpn: Boolean,
+    val vpnBypassState: VpnBypassState,
     val bypassKeyboardPolicy: Boolean,
     val bypassClipboard: Boolean,
     val bypassOverlay: Boolean,
@@ -81,6 +84,12 @@ internal data class PreparationScreenState(
     val fakeLocationBypassState: FakeLocationBypassState,
     val bypassDeviceTime: Boolean,
     val bypassAppSwitch: Boolean,
+    val screenRecorderPackages: List<String>,
+    val bypassScreenRecorder: Boolean,
+    val externalDisplayDetected: Boolean,
+    val bypassDisplayMirror: Boolean,
+    val multiWindowDetected: Boolean,
+    val bypassMultiWindow: Boolean,
     val preExamHealthCheckSnapshot: PreExamHealthSnapshot,
     val deviceSurvivalPolicy: DeviceSurvivalPolicy,
     val previousExamSessionBreadcrumb: PreviousExamSessionBreadcrumb,
@@ -100,6 +109,7 @@ internal data class PreparationScreenActions(
     val onRefreshGeofenceLocation: () -> Unit,
     val onOpenGeofenceMapViewer: () -> Unit,
     val onOpenInternetSettings: () -> Unit,
+    val onOpenVpnSettings: () -> Unit,
     val onOpenWifiSettings: () -> Unit,
     val onOpenCellularSettings: () -> Unit,
     val onOpenAirplaneModeSettings: () -> Unit,
@@ -108,6 +118,8 @@ internal data class PreparationScreenActions(
     val onOpenFakeLocationDeveloperOptionsSettings: () -> Unit,
     val onOpenScreenPinningSettings: () -> Unit,
     val onOpenOverlaySettings: () -> Unit,
+    val onOpenAppSettings: () -> Unit,
+    val onOpenCastSettings: () -> Unit,
     val onOpenWebViewProviderSettings: () -> Unit,
     val onReinstallOfficialApk: () -> Unit,
     val onRefreshStatus: () -> Unit,

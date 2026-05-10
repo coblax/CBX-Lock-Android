@@ -13,6 +13,7 @@ import com.example.coblaxexamlock.runtime.buildRootIssueMessage
 import com.example.coblaxexamlock.ScreenPinningMode
 import com.example.coblaxexamlock.SplitLocationSecurityStatus
 import com.example.coblaxexamlock.i18n.localized
+import com.example.coblaxexamlock.model.NetworkReadinessStatus
 import com.example.coblaxexamlock.model.UiLanguage
 import java.util.Locale
 
@@ -97,6 +98,25 @@ internal fun resolveStartExamDeviceTimeBlockMessage(
     )
 }
 
+internal fun resolveStartExamVpnBlockMessage(
+    uiLanguage: UiLanguage,
+    status: NetworkReadinessStatus
+): StartExamBlockMessage? {
+    if (!status.diagnostics.isVpnActive) {
+        return null
+    }
+    return StartExamBlockMessage(
+        code = ExamRuntimeHardeningDiagnostics.StartExamBlockedVpn,
+        details = buildNetworkEventDetails("start_exam_precheck", status),
+        title = localized(uiLanguage, "VPN Active", "VPN Aktif"),
+        message = localized(
+            uiLanguage,
+            "Turn off VPN before starting the exam, then refresh Network status.",
+            "Matikan VPN sebelum memulai ujian, lalu refresh status Network."
+        )
+    )
+}
+
 internal fun resolveStartExamScheduleBlockMessage(
     uiLanguage: UiLanguage,
     payload: ExamQrPayload,
@@ -136,7 +156,13 @@ internal fun resolveStartExamStaticSecurityBlockMessage(
     adbEnabled: Boolean,
     adbInsecureSystemProperty: Boolean,
     bypassRoot: Boolean,
-    rootSecurityStatus: RootSecurityStatus
+    rootSecurityStatus: RootSecurityStatus,
+    bypassScreenRecorder: Boolean,
+    screenRecorderPackages: List<String>,
+    bypassDisplayMirror: Boolean,
+    externalDisplayDetected: Boolean,
+    bypassMultiWindow: Boolean,
+    multiWindowDetected: Boolean
 ): StartExamBlockMessage? {
     return when {
         !bypassAccessibility && accessibilityServiceEnabled ->
@@ -179,6 +205,28 @@ internal fun resolveStartExamStaticSecurityBlockMessage(
                 code = "START_EXAM_BLOCKED_ROOT",
                 title = "Root Device Terdeteksi",
                 message = buildRootIssueMessage(rootSecurityStatus.details)
+            )
+
+        !bypassScreenRecorder && screenRecorderPackages.isNotEmpty() ->
+            StartExamBlockMessage(
+                code = "START_EXAM_BLOCKED_SCREEN_RECORDER",
+                details = "packages=${screenRecorderPackages.joinToString()}",
+                title = "Screen Recorder Terdeteksi",
+                message = "Hapus aplikasi screen recorder (${screenRecorderPackages.size} app) sebelum memulai ujian."
+            )
+
+        !bypassDisplayMirror && externalDisplayDetected ->
+            StartExamBlockMessage(
+                code = "START_EXAM_BLOCKED_DISPLAY_MIRROR",
+                title = "Display Eksternal Terdeteksi",
+                message = "Putuskan koneksi display eksternal / screen casting sebelum memulai ujian."
+            )
+
+        !bypassMultiWindow && multiWindowDetected ->
+            StartExamBlockMessage(
+                code = "START_EXAM_BLOCKED_MULTI_WINDOW",
+                title = "Mode Split-Screen Aktif",
+                message = "Keluar dari mode split-screen atau picture-in-picture sebelum memulai ujian."
             )
 
         else -> null

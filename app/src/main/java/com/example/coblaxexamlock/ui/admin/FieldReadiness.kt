@@ -297,6 +297,7 @@ private fun buildFieldNetworkItem(status: NetworkReadinessStatus): FieldReadines
         NetworkReadinessUserVerdict.Unvalidated,
         NetworkReadinessUserVerdict.DnsFailed,
         NetworkReadinessUserVerdict.Slow,
+        NetworkReadinessUserVerdict.VpnActive,
         NetworkReadinessUserVerdict.AirplaneMode,
         NetworkReadinessUserVerdict.Unstable -> FieldReadinessVerdict.Warning
     }

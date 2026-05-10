@@ -43,6 +43,7 @@ internal fun hasFineLocationPermission(context: Context): Boolean {
 }
 
 internal val KnownFakeLocationPackageNames = listOf(
+    // Classic fake GPS apps
     "com.lexa.fakegps",
     "com.incorporateapps.fakegps.fre",
     "com.blogspot.newapphorizons.fakegps",
@@ -52,24 +53,83 @@ internal val KnownFakeLocationPackageNames = listOf(
     "com.evezzon.fakegps",
     "com.mock.mocklocations",
     "com.location.test",
-    "com.fakegps.mock"
+    "com.fakegps.mock",
+    // High-download fake GPS apps (2023+)
+    "com.lkr.fakelocation",
+    "com.theappninjas.fakegpsjoystick",
+    "com.fakegps.route",
+    "ru.gavrikov.mocklocations",
+    "com.divi.fakeGPS",
+    "com.usefullapps.fakegpslocationprofessional",
+    "com.ltp.pro.fakelocation",
+    "com.pe.fakegpsrun",
+    "com.fakegps.joystick.go",
+    "fr.dvilleneuve.lockito"
+)
+
+// Keywords that indicate a fake GPS / mock location app.
+// Used for dynamic scan of all installed user packages.
+private val FakeLocationPackageKeywords = listOf(
+    "fakegps",
+    "fake.gps",
+    "fake_gps",
+    "fakelocation",
+    "fake.location",
+    "fake_location",
+    "mockgps",
+    "mock.gps",
+    "mock.location",
+    "mocklocation",
+    "gpsspoof",
+    "gps.spoof",
+    "gpsjoystick",
+    "gps.joystick",
+    "gpsemulator",
+    "gps.emulator"
 )
 
 internal fun detectSuspiciousFakeLocationPackages(context: Context): List<String> {
     val packageManager = context.packageManager
-    return KnownFakeLocationPackageNames.mapNotNull { packageName ->
+    val results = mutableSetOf<String>()
+
+    // Phase 1: Check known package names (fast exact-match lookup)
+    for (packageName in KnownFakeLocationPackageNames) {
         val appInfo = runCatching {
             @Suppress("DEPRECATION")
             packageManager.getApplicationInfo(packageName, 0)
-        }.getOrNull() ?: return@mapNotNull null
-        val label = runCatching {
-            packageManager.getApplicationLabel(appInfo).toString().trim()
-        }.getOrDefault("")
-        if (label.isNotBlank() && !label.equals(packageName, ignoreCase = true)) {
-            "$label ($packageName)"
-        } else {
-            packageName
+        }.getOrNull() ?: continue
+        results.add(formatPackageLabel(packageManager, appInfo, packageName))
+    }
+
+    // Phase 2: Keyword-based scan of all installed user (non-system) packages
+    val installedPackages = runCatching {
+        @Suppress("DEPRECATION", "QueryPermissionsNeeded")
+        packageManager.getInstalledApplications(0)
+    }.getOrDefault(emptyList())
+    for (appInfo in installedPackages) {
+        // Skip system apps — only user-installed apps are suspicious
+        if (appInfo.flags and android.content.pm.ApplicationInfo.FLAG_SYSTEM != 0) continue
+        val pkg = appInfo.packageName.lowercase()
+        if (FakeLocationPackageKeywords.any { keyword -> pkg.contains(keyword) }) {
+            results.add(formatPackageLabel(packageManager, appInfo, appInfo.packageName))
         }
+    }
+
+    return results.toList()
+}
+
+private fun formatPackageLabel(
+    packageManager: PackageManager,
+    appInfo: android.content.pm.ApplicationInfo,
+    packageName: String
+): String {
+    val label = runCatching {
+        packageManager.getApplicationLabel(appInfo).toString().trim()
+    }.getOrDefault("")
+    return if (label.isNotBlank() && !label.equals(packageName, ignoreCase = true)) {
+        "$label ($packageName)"
+    } else {
+        packageName
     }
 }
 

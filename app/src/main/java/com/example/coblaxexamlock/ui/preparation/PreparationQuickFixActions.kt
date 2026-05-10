@@ -85,9 +85,12 @@ internal fun buildPreparationQuickFixActions(
                     NetworkReadinessVerdict.Offline,
                     NetworkReadinessVerdict.Unvalidated,
                     NetworkReadinessVerdict.CaptivePortal,
+                    NetworkReadinessVerdict.VpnActive,
                     NetworkReadinessVerdict.AirplaneMode,
                     NetworkReadinessVerdict.Unstable
                 )
+            val showNetworkVpnSettingsFix =
+                networkReadinessStatus.verdict == NetworkReadinessVerdict.VpnActive && !bypassVpn
             val showNetworkWifiSettingsFix =
                 networkReadinessStatus.verdict in setOf(
                     NetworkReadinessVerdict.Offline,
@@ -346,6 +349,16 @@ internal fun buildPreparationQuickFixActions(
                         priority = 70,
                         onClick = onOpenAirplaneModeSettings
                     )
+                } else if (showNetworkVpnSettingsFix) {
+                    addQuickFix(
+                        code = "vpn_settings_opened",
+                        text = tr("Open VPN Settings", "Buka Setelan VPN"),
+                        severity = QuickFixSeverity.Blocking,
+                        target = QuickFixTarget.Network,
+                        priority = 70,
+                        filled = true,
+                        onClick = onOpenVpnSettings
+                    )
                 } else if (networkPrimaryIsRefresh && showNetworkRefreshFix) {
                     addQuickFix(
                         text = if (isRefreshingNetwork) {
@@ -444,13 +457,49 @@ internal fun buildPreparationQuickFixActions(
                         onClick = onOpenKeyboardSettings
                     )
                 }
-                if (screenPinningFixNeeded) {
+if (screenPinningFixNeeded) {
                     addQuickFix(
                         text = tr("Enable Screen Pinning", "Aktifkan Screen Pinning"),
                         severity = QuickFixSeverity.Warning,
                         target = QuickFixTarget.ScreenPinning,
                         priority = 210,
                         onClick = onOpenScreenPinningSettings
+                    )
+                }
+                if (screenRecorderPackages.isNotEmpty() && !bypassScreenRecorder) {
+                    addQuickFix(
+                        text = tr(
+                            "Uninstall screen recorder apps to continue",
+                            "Hapus app screen recorder untuk melanjutkan"
+                        ),
+                        severity = QuickFixSeverity.Blocking,
+                        target = QuickFixTarget.ScreenRecorder,
+                        priority = 50,
+                        onClick = onOpenAppSettings
+                    )
+                }
+                if (externalDisplayDetected && !bypassDisplayMirror) {
+                    addQuickFix(
+                        text = tr(
+                            "Disconnect external display / screen casting to continue",
+                            "Putuskan display eksternal / screen casting untuk melanjutkan"
+                        ),
+                        severity = QuickFixSeverity.Blocking,
+                        target = QuickFixTarget.DisplayMirror,
+                        priority = 45,
+                        onClick = onOpenCastSettings
+                    )
+                }
+                if (multiWindowDetected && !bypassMultiWindow) {
+                    addQuickFix(
+                        text = tr(
+                            "Exit split-screen mode to continue",
+                            "Keluar dari mode split-screen untuk melanjutkan"
+                        ),
+                        severity = QuickFixSeverity.Blocking,
+                        target = QuickFixTarget.MultiWindow,
+                        priority = 40,
+                        onClick = onRefreshStatus
                     )
                 }
                 if (showOverlayAccessibilityFix) {

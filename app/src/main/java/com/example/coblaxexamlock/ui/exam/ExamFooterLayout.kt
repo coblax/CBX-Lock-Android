@@ -168,6 +168,7 @@ internal fun resolveExamFooterConnectivityVisual(
     }
     val severity = when {
         networkStatus.verdict == NetworkReadinessVerdict.Offline ||
+            networkStatus.verdict == NetworkReadinessVerdict.VpnActive ||
             networkStatus.verdict == NetworkReadinessVerdict.AirplaneMode -> ExamFooterConnectivitySeverity.Danger
         networkStatus.verdict == NetworkReadinessVerdict.Unvalidated ||
             networkStatus.verdict == NetworkReadinessVerdict.CaptivePortal ||

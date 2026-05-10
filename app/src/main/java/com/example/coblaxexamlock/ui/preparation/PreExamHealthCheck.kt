@@ -74,6 +74,7 @@ internal data class PreExamHealthCheckInput(
     val overlayRiskResult: OverlayRiskResult,
     val overlayBypassed: Boolean,
     val networkReadinessStatus: NetworkReadinessStatus,
+    val vpnBypassed: Boolean,
     val webViewCompatibilityStatus: WebViewCompatibilityStatus,
     val webViewRecoveryState: String,
     val webViewSessionResetInFlight: Boolean,
@@ -98,7 +99,7 @@ internal fun buildPreExamHealthSnapshot(
         items = listOf(
             buildScreenPinningHealthItem(input),
             buildOverlayHealthItem(input),
-            buildNetworkHealthItem(input.networkReadinessStatus),
+            buildNetworkHealthItem(input),
             buildWebViewHealthItem(input),
             buildLocationHealthItem(input),
             buildDeviceTimeHealthItem(input),
@@ -190,7 +191,25 @@ private fun buildOverlayHealthItem(input: PreExamHealthCheckInput): PreExamHealt
     }
 }
 
-private fun buildNetworkHealthItem(status: NetworkReadinessStatus): PreExamHealthItem {
+private fun buildNetworkHealthItem(input: PreExamHealthCheckInput): PreExamHealthItem {
+    val status = input.networkReadinessStatus
+    if (status.userFacingVerdict == NetworkReadinessUserVerdict.VpnActive) {
+        return PreExamHealthItem(
+            category = PreExamHealthCategory.Network,
+            verdict = if (input.vpnBypassed) PreExamHealthVerdict.Warning else PreExamHealthVerdict.Blocking,
+            title = "Network",
+            detail = if (input.vpnBypassed) {
+                "VPN bypass is active while VPN is detected on ${status.transportLabel.ifBlank { "-" }}."
+            } else {
+                "VPN is active on ${status.transportLabel.ifBlank { "-" }}."
+            },
+            quickFix = if (input.vpnBypassed) {
+                "Use bypass only for approved troubleshooting."
+            } else {
+                status.userFacingQuickFixText
+            }
+        )
+    }
     val verdict = when (status.userFacingVerdict) {
         NetworkReadinessUserVerdict.Stable -> PreExamHealthVerdict.Stable
         NetworkReadinessUserVerdict.Offline,
@@ -198,6 +217,7 @@ private fun buildNetworkHealthItem(status: NetworkReadinessStatus): PreExamHealt
         NetworkReadinessUserVerdict.Unvalidated,
         NetworkReadinessUserVerdict.DnsFailed,
         NetworkReadinessUserVerdict.Slow,
+        NetworkReadinessUserVerdict.VpnActive,
         NetworkReadinessUserVerdict.AirplaneMode,
         NetworkReadinessUserVerdict.Unstable -> PreExamHealthVerdict.Warning
     }

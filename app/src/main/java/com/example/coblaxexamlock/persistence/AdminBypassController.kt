@@ -21,6 +21,7 @@ internal object AdminBypassController {
             GateKeys.Adb.id to settings.bypassAdb,
             GateKeys.Root.id to settings.bypassRoot,
             GateKeys.VirtualEnv.id to settings.bypassVirtualEnvironment,
+            GateKeys.Vpn.id to settings.bypassVpn,
             GateKeys.KeyboardPolicy.id to settings.bypassKeyboardPolicy,
             GateKeys.Clipboard.id to settings.bypassClipboard,
             GateKeys.Overlay.id to settings.bypassOverlay,
@@ -28,7 +29,10 @@ internal object AdminBypassController {
             GateKeys.Location.id to false,
             GateKeys.Geofence.id to settings.bypassGeofence,
             GateKeys.FakeLocation.id to settings.bypassFakeLocation,
-            GateKeys.DeviceTime.id to settings.bypassDeviceTime
+            GateKeys.DeviceTime.id to settings.bypassDeviceTime,
+            GateKeys.ScreenRecorder.id to settings.bypassScreenRecorder,
+            GateKeys.DisplayMirror.id to settings.bypassDisplayMirror,
+            GateKeys.MultiWindow.id to settings.bypassMultiWindow
         )
         return BypassStorageRepository.writeAllStates(context, gateStates)
     }

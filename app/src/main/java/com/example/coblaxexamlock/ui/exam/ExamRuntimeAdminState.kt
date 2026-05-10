@@ -31,6 +31,7 @@ internal class ExamRuntimeAdminUiState(
     val geofenceBypassTamperLogged: MutableState<Boolean>,
     val fakeLocationBypassTamperLogged: MutableState<Boolean>,
     val deviceTimeBypassTamperLogged: MutableState<Boolean>,
+    val vpnBypassTamperLogged: MutableState<Boolean>,
     val appSwitchBypassTamperLogged: MutableState<Boolean>,
     val rootBypassTamperLogged: MutableState<Boolean>,
     val lastAppSwitchTrigger: MutableState<String?>,
@@ -79,6 +80,7 @@ internal fun rememberExamRuntimeAdminUiState(
     val geofenceBypassTamperLogged = rememberSaveable { mutableStateOf(false) }
     val fakeLocationBypassTamperLogged = rememberSaveable { mutableStateOf(false) }
     val deviceTimeBypassTamperLogged = rememberSaveable { mutableStateOf(false) }
+    val vpnBypassTamperLogged = rememberSaveable { mutableStateOf(false) }
     val appSwitchBypassTamperLogged = rememberSaveable { mutableStateOf(false) }
     val rootBypassTamperLogged = rememberSaveable { mutableStateOf(false) }
     val lastAppSwitchTrigger = rememberSaveable { mutableStateOf<String?>(null) }
@@ -145,6 +147,7 @@ internal fun rememberExamRuntimeAdminUiState(
         geofenceBypassTamperLogged = geofenceBypassTamperLogged,
         fakeLocationBypassTamperLogged = fakeLocationBypassTamperLogged,
         deviceTimeBypassTamperLogged = deviceTimeBypassTamperLogged,
+        vpnBypassTamperLogged = vpnBypassTamperLogged,
         appSwitchBypassTamperLogged = appSwitchBypassTamperLogged,
         rootBypassTamperLogged = rootBypassTamperLogged,
         lastAppSwitchTrigger = lastAppSwitchTrigger,

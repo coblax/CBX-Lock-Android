@@ -7,6 +7,7 @@ internal data class PreparationChecklistReadiness(
     val adbReady: Boolean,
     val rootReady: Boolean,
     val virtualEnvironmentReady: Boolean,
+    val vpnReady: Boolean,
     val clipboardReady: Boolean,
     val deviceTimeReady: Boolean,
     val geofenceReady: Boolean,
@@ -15,6 +16,9 @@ internal data class PreparationChecklistReadiness(
     val accessibilityGuardReady: Boolean,
     val screenPinningReady: Boolean,
     val appSwitchReady: Boolean,
+    val screenRecorderReady: Boolean,
+    val displayMirrorReady: Boolean,
+    val multiWindowReady: Boolean,
     val signatureReady: Boolean,
     val canStartExam: Boolean,
     val hasBypassIndicators: Boolean
@@ -34,6 +38,7 @@ internal fun buildPreparationChecklistReadiness(
     val adbReady = bypassAdb || (!adbInspection.blocking && !adbInspection.insecureSystemProperty)
     val rootReady = bypassRoot || !rootSecurityStatus.blocking
     val virtualEnvironmentReady = bypassVirtualEnvironment || !virtualEnvironmentDetected
+    val vpnReady = bypassVpn || !networkReadinessStatus.diagnostics.isVpnActive
     val clipboardReady = true
     val deviceTimeReady = bypassDeviceTime || !deviceTimeSecurityStatus.blocking
     val geofenceReady =
@@ -52,6 +57,9 @@ internal fun buildPreparationChecklistReadiness(
     val screenPinningReady =
         bypassScreenPinning || screenPinningAvailable || (accessibilityGuardAvailable && accessibilityGuardEnabled)
     val appSwitchReady = bypassAppSwitch || !appSwitchStatus.hasViolations
+    val screenRecorderReady = bypassScreenRecorder || screenRecorderPackages.isEmpty()
+    val displayMirrorReady = bypassDisplayMirror || !externalDisplayDetected
+    val multiWindowReady = bypassMultiWindow || !multiWindowDetected
     val signatureReady = !signatureMismatchDetected
     val canStartExam =
         bluetoothReady &&
@@ -65,7 +73,11 @@ internal fun buildPreparationChecklistReadiness(
             fakeLocationReady &&
             overlayBlockingReady &&
             virtualEnvironmentReady &&
+            vpnReady &&
             signatureReady &&
+            screenRecorderReady &&
+            displayMirrorReady &&
+            multiWindowReady &&
             !tamperDetected
     val hasBypassIndicators = listOf(
         bypassKeyboardPolicy,
@@ -74,6 +86,7 @@ internal fun buildPreparationChecklistReadiness(
         bypassAdb,
         bypassRoot,
         bypassVirtualEnvironment,
+        bypassVpn,
         bypassClipboard,
         bypassScreenPinning,
         bypassOverlay,
@@ -81,6 +94,9 @@ internal fun buildPreparationChecklistReadiness(
         bypassFakeLocation,
         bypassDeviceTime,
         bypassAppSwitch,
+        bypassScreenRecorder,
+        bypassDisplayMirror,
+        bypassMultiWindow,
         tamperDetected
     ).any { it }
 
@@ -91,6 +107,7 @@ internal fun buildPreparationChecklistReadiness(
         adbReady = adbReady,
         rootReady = rootReady,
         virtualEnvironmentReady = virtualEnvironmentReady,
+        vpnReady = vpnReady,
         clipboardReady = clipboardReady,
         deviceTimeReady = deviceTimeReady,
         geofenceReady = geofenceReady,
@@ -99,6 +116,9 @@ internal fun buildPreparationChecklistReadiness(
         accessibilityGuardReady = accessibilityGuardReady,
         screenPinningReady = screenPinningReady,
         appSwitchReady = appSwitchReady,
+        screenRecorderReady = screenRecorderReady,
+        displayMirrorReady = displayMirrorReady,
+        multiWindowReady = multiWindowReady,
         signatureReady = signatureReady,
         canStartExam = canStartExam,
         hasBypassIndicators = hasBypassIndicators

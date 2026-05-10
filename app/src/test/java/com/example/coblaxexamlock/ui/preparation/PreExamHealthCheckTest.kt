@@ -87,6 +87,41 @@ class PreExamHealthCheckTest {
     }
 
     @Test
+    fun vpnActiveWithoutBypassBlocksStartGate() {
+        val snapshot = buildPreExamHealthSnapshot(
+            defaultInput(
+                networkReadinessStatus = defaultNetwork(
+                    verdict = NetworkReadinessVerdict.VpnActive,
+                    userVerdict = NetworkReadinessUserVerdict.VpnActive,
+                    vpnActive = true
+                )
+            )
+        )
+
+        val network = snapshot.items.first { it.category == PreExamHealthCategory.Network }
+        assertEquals(PreExamHealthVerdict.Blocking, network.verdict)
+        assertEquals(PreExamHealthCategory.Network, preExamHealthStartBlocker(snapshot)?.category)
+    }
+
+    @Test
+    fun vpnActiveWithBypassWarnsWithoutBlockingStartGate() {
+        val snapshot = buildPreExamHealthSnapshot(
+            defaultInput(
+                vpnBypassed = true,
+                networkReadinessStatus = defaultNetwork(
+                    verdict = NetworkReadinessVerdict.VpnActive,
+                    userVerdict = NetworkReadinessUserVerdict.VpnActive,
+                    vpnActive = true
+                )
+            )
+        )
+
+        val network = snapshot.items.first { it.category == PreExamHealthCategory.Network }
+        assertEquals(PreExamHealthVerdict.Warning, network.verdict)
+        assertEquals(null, preExamHealthStartBlocker(snapshot))
+    }
+
+    @Test
     fun unavailableWebViewProviderBlocksStartGate() {
         val snapshot = buildPreExamHealthSnapshot(
             defaultInput(
@@ -160,6 +195,7 @@ class PreExamHealthCheckTest {
         accessibilityGuardEnabled: Boolean = false,
         overlayRiskResult: OverlayRiskResult = defaultOverlayRisk(),
         networkReadinessStatus: NetworkReadinessStatus = defaultNetwork(),
+        vpnBypassed: Boolean = false,
         webViewCompatibilityStatus: com.example.coblaxexamlock.WebViewCompatibilityStatus =
             resolveWebViewCompatibilityStatus(
                 packageName = "com.android.webview",
@@ -176,6 +212,7 @@ class PreExamHealthCheckTest {
             overlayRiskResult = overlayRiskResult,
             overlayBypassed = false,
             networkReadinessStatus = networkReadinessStatus,
+            vpnBypassed = vpnBypassed,
             webViewCompatibilityStatus = webViewCompatibilityStatus,
             webViewRecoveryState = "Idle",
             webViewSessionResetInFlight = false,
@@ -220,7 +257,8 @@ class PreExamHealthCheckTest {
 
     private fun defaultNetwork(
         verdict: NetworkReadinessVerdict = NetworkReadinessVerdict.ConnectedStable,
-        userVerdict: NetworkReadinessUserVerdict = NetworkReadinessUserVerdict.Stable
+        userVerdict: NetworkReadinessUserVerdict = NetworkReadinessUserVerdict.Stable,
+        vpnActive: Boolean = false
     ): NetworkReadinessStatus {
         return NetworkReadinessStatus(
             examStatus = ExamNetworkStatus(
@@ -230,12 +268,12 @@ class PreExamHealthCheckTest {
             ),
             diagnostics = NetworkDiagnostics(
                 activeNetworkAvailable = true,
-                transports = listOf("wifi"),
+                transports = if (vpnActive) listOf("wifi", "vpn") else listOf("wifi"),
                 hasInternetCapability = true,
                 isValidated = true,
                 isCaptivePortal = false,
                 isMetered = false,
-                isVpnActive = false,
+                isVpnActive = vpnActive,
                 isAirplaneModeEnabled = false,
                 notRoaming = true,
                 interfaceName = "wlan0",

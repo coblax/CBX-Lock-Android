@@ -39,6 +39,10 @@ object GateKeys {
     val Geofence = g(0x31415926)
     val FakeLocation = g(0x27182818)
     val DeviceTime = g(0x7F4A1C3B)
+    val Vpn = g(0x4E56504E)
+    val ScreenRecorder = g(0x5C8E3A2F)
+    val DisplayMirror = g(0x3B7D4E1A)
+    val MultiWindow = g(0x2A6C5F09)
 
     val DecoyOne = g(0x6A09E667)
     val DecoyTwo = g(0xBB67AE85.toInt())
@@ -59,7 +63,11 @@ object GateKeys {
         FakeLocation,
         DecoyOne,
         DecoyTwo,
-        DeviceTime
+        DeviceTime,
+        Vpn,
+        ScreenRecorder,
+        DisplayMirror,
+        MultiWindow
     )
 }
 
@@ -131,7 +139,8 @@ internal object SwitchMatrix {
         GateKeys.Location.id,
         GateKeys.Geofence.id,
         GateKeys.FakeLocation.id,
-        GateKeys.DeviceTime.id
+        GateKeys.DeviceTime.id,
+        GateKeys.Vpn.id
     )
 
     fun isEnabled(context: Context, key: GateKey): Boolean {
@@ -239,7 +248,8 @@ internal object LegacySwitchMatrixStorage {
             GateKeys.Location.id,
             GateKeys.Geofence.id,
             GateKeys.FakeLocation.id,
-            GateKeys.DeviceTime.id
+            GateKeys.DeviceTime.id,
+            GateKeys.Vpn.id
         )
     }
 

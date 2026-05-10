@@ -39,7 +39,8 @@ internal object BypassStorageRepository {
         GateKeys.Location,
         GateKeys.Geofence,
         GateKeys.FakeLocation,
-        GateKeys.DeviceTime
+        GateKeys.DeviceTime,
+        GateKeys.Vpn
     )
 
     private val defaultGateStates: Map<Int, Boolean>

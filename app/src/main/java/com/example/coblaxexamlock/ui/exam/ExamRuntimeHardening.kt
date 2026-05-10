@@ -146,6 +146,11 @@ internal object ExamRuntimeHardeningDiagnostics {
     const val DiagnosticExportFailed = "DIAGNOSTIC_EXPORT_FAILED"
     const val NetworkDnsProbeFailed = "NETWORK_DNS_PROBE_FAILED"
     const val NetworkCaptivePortalDetected = "NETWORK_CAPTIVE_PORTAL_DETECTED"
+    const val NetworkVpnDetected = "NETWORK_VPN_DETECTED"
+    const val NetworkVpnCleared = "NETWORK_VPN_CLEARED"
+    const val VpnBypassTamperDetected = "VPN_BYPASS_TAMPER_DETECTED"
+    const val VpnSettingsOpened = "VPN_SETTINGS_OPENED"
+    const val StartExamBlockedVpn = "START_EXAM_BLOCKED_VPN"
     const val VendorChecklistOpened = "VENDOR_CHECKLIST_OPENED"
     const val OverlayTouchSuppressed = "OVERLAY_TOUCH_SUPPRESSED"
     const val OverlayTouchWarning = "OVERLAY_TOUCH_WARNING"
@@ -200,6 +205,11 @@ internal object ExamRuntimeHardeningDiagnostics {
         DiagnosticExportFailed,
         NetworkDnsProbeFailed,
         NetworkCaptivePortalDetected,
+        NetworkVpnDetected,
+        NetworkVpnCleared,
+        VpnBypassTamperDetected,
+        VpnSettingsOpened,
+        StartExamBlockedVpn,
         VendorChecklistOpened,
         OverlayTouchSuppressed,
         OverlayTouchWarning,

@@ -11,6 +11,7 @@ internal enum class NetworkReadinessVerdict {
     Offline,
     Unvalidated,
     CaptivePortal,
+    VpnActive,
     AirplaneMode,
     Unstable
 }
@@ -38,6 +39,7 @@ internal enum class NetworkReadinessUserVerdict {
     Unvalidated,
     DnsFailed,
     Slow,
+    VpnActive,
     AirplaneMode,
     Unstable
 }

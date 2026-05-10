@@ -27,6 +27,7 @@ internal fun buildPreparationChecklistNetworkText(
         NetworkReadinessUserVerdict.CaptivePortal -> tr("Captive Portal", "Captive Portal")
         NetworkReadinessUserVerdict.DnsFailed -> tr("DNS Failed", "DNS Gagal")
         NetworkReadinessUserVerdict.Slow -> tr("Slow", "Lambat")
+        NetworkReadinessUserVerdict.VpnActive -> tr("VPN Active", "VPN Aktif")
         NetworkReadinessUserVerdict.AirplaneMode -> tr("Airplane Mode", "Mode Pesawat")
         NetworkReadinessUserVerdict.Unstable -> tr("Unstable", "Tidak Stabil")
     }
@@ -55,6 +56,17 @@ internal fun buildPreparationChecklistNetworkText(
             "Internet works, but the quick probe is slow. A steadier network is recommended.",
             "Internet bisa dipakai, tetapi probe cepat lambat. Jaringan yang lebih stabil disarankan."
         )
+        NetworkReadinessUserVerdict.VpnActive -> if (bypassVpn) {
+            tr(
+                "VPN is active, but the approved VPN bypass is currently enabled.",
+                "VPN aktif, tetapi bypass VPN resmi sedang aktif."
+            )
+        } else {
+            tr(
+                "VPN is active and Start Exam is blocked until it is turned off.",
+                "VPN aktif dan Mulai Ujian diblokir sampai VPN dimatikan."
+            )
+        }
         NetworkReadinessUserVerdict.AirplaneMode -> tr(
             "Airplane mode is on and no active connection is available.",
             "Mode pesawat aktif dan belum ada koneksi aktif."
@@ -107,6 +119,17 @@ internal fun buildPreparationChecklistNetworkText(
             "Move closer to Wi-Fi or switch network before starting.",
             "Dekatkan ke Wi-Fi atau pindah jaringan sebelum mulai."
         )
+        NetworkReadinessUserVerdict.VpnActive -> if (bypassVpn) {
+            tr(
+                "VPN bypass active. Use only for approved troubleshooting and send a Network report if requested.",
+                "Bypass VPN aktif. Gunakan hanya untuk troubleshooting resmi dan kirim report Network bila diminta."
+            )
+        } else {
+            tr(
+                "Turn off VPN from Android VPN settings, return here, then tap Refresh.",
+                "Matikan VPN dari setelan VPN Android, kembali ke sini, lalu tekan Refresh."
+            )
+        }
         NetworkReadinessUserVerdict.AirplaneMode -> tr(
             "Turn off airplane mode or enable Wi-Fi/mobile data, then tap Refresh.",
             "Matikan mode pesawat atau aktifkan Wi-Fi/data seluler, lalu tekan Refresh."

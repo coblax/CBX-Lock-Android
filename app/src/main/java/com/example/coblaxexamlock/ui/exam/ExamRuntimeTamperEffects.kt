@@ -27,6 +27,8 @@ internal fun BypassTamperLoggingEffects(
     updateFakeLocationBypassTamperLogged: (Boolean) -> Unit,
     deviceTimeBypassTamperLogged: Boolean,
     updateDeviceTimeBypassTamperLogged: (Boolean) -> Unit,
+    vpnBypassTamperLogged: Boolean,
+    updateVpnBypassTamperLogged: (Boolean) -> Unit,
     appSwitchBypassTamperLogged: Boolean,
     updateAppSwitchBypassTamperLogged: (Boolean) -> Unit,
     rootBypassTamperLogged: Boolean,
@@ -134,6 +136,19 @@ internal fun BypassTamperLoggingEffects(
             updateDeviceTimeBypassTamperLogged(true)
         } else if (!adminSettings.deviceTimeBypassTampered) {
             updateDeviceTimeBypassTamperLogged(false)
+        }
+    }
+
+    LaunchedEffect(adminSettings.vpnBypassTampered) {
+        if (adminSettings.vpnBypassTampered && !vpnBypassTamperLogged) {
+            recordAction(
+                ExamRuntimeHardeningDiagnostics.VpnBypassTamperDetected,
+                "VPN bypass seal mismatch; bypass disabled automatically",
+                DiagnosticEventLevel.SECURITY
+            )
+            updateVpnBypassTamperLogged(true)
+        } else if (!adminSettings.vpnBypassTampered) {
+            updateVpnBypassTamperLogged(false)
         }
     }
 

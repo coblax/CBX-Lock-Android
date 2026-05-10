@@ -100,7 +100,10 @@ internal fun ExamSecurityPreparationScreenContent(
                 QuickFixTarget.DeviceTime,
                 QuickFixTarget.ScreenPinning,
                 QuickFixTarget.WebView,
-                QuickFixTarget.Battery -> refreshPreparationStatus()
+                QuickFixTarget.Battery,
+                QuickFixTarget.ScreenRecorder,
+                QuickFixTarget.DisplayMirror,
+                QuickFixTarget.MultiWindow -> refreshPreparationStatus()
                 QuickFixTarget.All -> refreshAllSecurityChecks()
             }
         }

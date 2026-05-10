@@ -148,6 +148,7 @@ import com.example.coblaxexamlock.openKeyboardSettings
 import com.example.coblaxexamlock.openLocationServicesSettings
 import com.example.coblaxexamlock.openOverlaySettings
 import com.example.coblaxexamlock.openScreenPinningSettings
+import com.example.coblaxexamlock.openVpnSettings
 import com.example.coblaxexamlock.openWebViewProviderSettings
 import com.example.coblaxexamlock.openWifiSettings
 import com.example.coblaxexamlock.OverlayBypassResolver
@@ -206,6 +207,8 @@ import com.example.coblaxexamlock.SignatureIntegrity
 import com.example.coblaxexamlock.SignatureIntegrityResult
 import com.example.coblaxexamlock.SplitLocationSecurityStatus
 import com.example.coblaxexamlock.TrustedNetworkTimeCoordinator
+import com.example.coblaxexamlock.VpnBypassResolver
+import com.example.coblaxexamlock.VpnBypassState
 import com.example.coblaxexamlock.ui.geofence.effectiveCircleCenters
 import com.example.coblaxexamlock.ui.preparation.buildPreExamHealthSnapshot
 import com.example.coblaxexamlock.ui.preparation.PreExamHealthCheckInput
@@ -359,6 +362,15 @@ internal fun ExamRuntimeSessionScreenImpl(
             tampered = adminSettings.deviceTimeBypassTampered
         )
     }
+    val vpnBypassState = remember(
+        adminSettings.bypassVpn,
+        adminSettings.vpnBypassTampered
+    ) {
+        VpnBypassResolver.stateOf(
+            enabled = adminSettings.bypassVpn,
+            tampered = adminSettings.vpnBypassTampered
+        )
+    }
     val locationBypassState = geofenceBypassState
     val bypassScreenPinning = adminSettings.bypassScreenPinning
     val bypassBluetooth = adminSettings.bypassBluetooth
@@ -372,6 +384,7 @@ internal fun ExamRuntimeSessionScreenImpl(
     val bypassGeofence = geofenceBypassState == GeofenceBypassState.Active
     val bypassFakeLocation = fakeLocationBypassState == FakeLocationBypassState.Active
     val bypassDeviceTime = deviceTimeBypassState == DeviceTimeBypassState.Active
+    val bypassVpn = vpnBypassState == VpnBypassState.Active
     val bypassLocation = bypassGeofence
     val bypassAppSwitch = adminSettings.bypassAppSwitch
     val adminOverridesSummary = adminSettings.overrideSummary()
@@ -626,6 +639,7 @@ internal fun ExamRuntimeSessionScreenImpl(
     var geofenceBypassTamperLogged by adminUiState.geofenceBypassTamperLogged
     var fakeLocationBypassTamperLogged by adminUiState.fakeLocationBypassTamperLogged
     var deviceTimeBypassTamperLogged by adminUiState.deviceTimeBypassTamperLogged
+    var vpnBypassTamperLogged by adminUiState.vpnBypassTamperLogged
     var appSwitchBypassTamperLogged by adminUiState.appSwitchBypassTamperLogged
     var rootBypassTamperLogged by adminUiState.rootBypassTamperLogged
     var lastAppSwitchTrigger by adminUiState.lastAppSwitchTrigger
@@ -1124,6 +1138,7 @@ internal fun ExamRuntimeSessionScreenImpl(
                     previousStatus.transportLabel != refreshedStatus.transportLabel ||
                     previousStatus.diagnostics.isValidated != refreshedStatus.diagnostics.isValidated ||
                     previousStatus.diagnostics.isCaptivePortal != refreshedStatus.diagnostics.isCaptivePortal ||
+                    previousStatus.diagnostics.isVpnActive != refreshedStatus.diagnostics.isVpnActive ||
                     previousStatus.diagnostics.isAirplaneModeEnabled != refreshedStatus.diagnostics.isAirplaneModeEnabled ||
                     previousStatus.verdict != refreshedStatus.verdict ||
                     previousStatus.userFacingVerdict != refreshedStatus.userFacingVerdict ||
@@ -1142,6 +1157,26 @@ internal fun ExamRuntimeSessionScreenImpl(
                         status = refreshedStatus
                     ),
                     level = DiagnosticEventLevel.WARNING
+                )
+            }
+            if (!previousStatus.diagnostics.isVpnActive && refreshedStatus.diagnostics.isVpnActive) {
+                recordAction(
+                    code = ExamRuntimeHardeningDiagnostics.NetworkVpnDetected,
+                    details = currentNetworkEventDetails(
+                        trigger = source,
+                        status = refreshedStatus,
+                        extraContext = "bypass=${if (bypassVpn) "yes" else "no"}"
+                    ),
+                    level = if (bypassVpn) DiagnosticEventLevel.INFO else DiagnosticEventLevel.WARNING
+                )
+            } else if (previousStatus.diagnostics.isVpnActive && !refreshedStatus.diagnostics.isVpnActive) {
+                recordAction(
+                    code = ExamRuntimeHardeningDiagnostics.NetworkVpnCleared,
+                    details = currentNetworkEventDetails(
+                        trigger = source,
+                        status = refreshedStatus
+                    ),
+                    level = DiagnosticEventLevel.INFO
                 )
             }
             if (
@@ -1181,9 +1216,10 @@ internal fun ExamRuntimeSessionScreenImpl(
             }
 
             val flapRelevantChanged =
-                previousStatus.examStatus.isConnected != refreshedStatus.examStatus.isConnected ||
+                    previousStatus.examStatus.isConnected != refreshedStatus.examStatus.isConnected ||
                     previousStatus.transportLabel != refreshedStatus.transportLabel ||
-                    previousStatus.diagnostics.isValidated != refreshedStatus.diagnostics.isValidated
+                    previousStatus.diagnostics.isValidated != refreshedStatus.diagnostics.isValidated ||
+                    previousStatus.diagnostics.isVpnActive != refreshedStatus.diagnostics.isVpnActive
 
             if (flapRelevantChanged) {
                 val nowElapsed = SystemClock.elapsedRealtime()
@@ -1706,6 +1742,10 @@ internal fun ExamRuntimeSessionScreenImpl(
     ): DeviceTimeSecurityStatus = runtimeDiagnosticsOps.refreshDeviceTimeSecurity(trigger, emitDiagnosticEvent)
     fun appendNetworkTimelineEntry(entry: NetworkTimelineEntry) = runtimeDiagnosticsOps.appendNetworkTimelineEntry(entry)
     fun updateNetworkReadiness(source: String) = runtimeDiagnosticsOps.updateNetworkReadiness(source)
+    fun applyNetworkReadinessStatus(
+        source: String,
+        refreshedStatus: NetworkReadinessStatus
+    ) = runtimeDiagnosticsOps.applyNetworkReadinessStatus(source, refreshedStatus)
     fun launchNetworkManualRefresh(trigger: String) = runtimeDiagnosticsOps.launchNetworkManualRefresh(trigger)
     suspend fun evaluateLocationSecurityNow(preferFresh: Boolean): SplitLocationSecurityStatus = runtimeDiagnosticsOps.evaluateLocationSecurityNow(preferFresh)
     fun applyGeofenceRuntimeEvaluation(
@@ -2823,6 +2863,8 @@ internal fun ExamRuntimeSessionScreenImpl(
                     bypassAppSwitch = bypassAppSwitch,
                     deviceTimeSecurityStatus = latestDeviceTimeStatus,
                     bypassDeviceTime = bypassDeviceTime,
+                    bypassVpn = bypassVpn,
+                    vpnBypassTampered = adminSettings.vpnBypassTampered,
                     integritySummary = integrityPublicSummary,
                     diagnosticEvents = diagnosticEvents,
                     uiLanguage = uiLanguage,
@@ -3160,6 +3202,18 @@ internal fun ExamRuntimeSessionScreenImpl(
                 applyStartExamBlockMessage(startDeviceTimeBlock)
                 return
             }
+            val startNetworkStatus = readNetworkReadinessStatus(context)
+            applyNetworkReadinessStatus("start_exam_precheck", startNetworkStatus)
+            if (!bypassVpn) {
+                val startVpnBlock = resolveStartExamVpnBlockMessage(
+                    uiLanguage = uiLanguage,
+                    status = startNetworkStatus
+                )
+                if (startVpnBlock != null) {
+                    applyStartExamBlockMessage(startVpnBlock)
+                    return
+                }
+            }
             val startHealthSnapshot = buildPreExamHealthSnapshot(
                 PreExamHealthCheckInput(
                     compatibilityProfile = deviceCompatibilityProfile,
@@ -3170,7 +3224,8 @@ internal fun ExamRuntimeSessionScreenImpl(
                     accessibilityGuardEnabled = accessibilityGuardEnabled,
                     overlayRiskResult = overlayRiskResult,
                     overlayBypassed = bypassOverlay,
-                    networkReadinessStatus = networkReadinessStatus,
+                    networkReadinessStatus = startNetworkStatus,
+                    vpnBypassed = bypassVpn,
                     webViewCompatibilityStatus = webViewCompatibilityStatus,
                     webViewRecoveryState = examRuntimeRecoveryState.name,
                     webViewSessionResetInFlight = webViewSessionResetInFlight,
@@ -3554,6 +3609,8 @@ internal fun ExamRuntimeSessionScreenImpl(
         updateFakeLocationBypassTamperLogged = { fakeLocationBypassTamperLogged = it },
         deviceTimeBypassTamperLogged = deviceTimeBypassTamperLogged,
         updateDeviceTimeBypassTamperLogged = { deviceTimeBypassTamperLogged = it },
+        vpnBypassTamperLogged = vpnBypassTamperLogged,
+        updateVpnBypassTamperLogged = { vpnBypassTamperLogged = it },
         appSwitchBypassTamperLogged = appSwitchBypassTamperLogged,
         updateAppSwitchBypassTamperLogged = { appSwitchBypassTamperLogged = it },
         rootBypassTamperLogged = rootBypassTamperLogged,
@@ -3899,6 +3956,19 @@ internal fun ExamRuntimeSessionScreenImpl(
         openInternetConnectivitySettings(context)
     }
 
+    fun handleOpenVpnSettings() {
+        recordAction(
+            code = ExamRuntimeHardeningDiagnostics.VpnSettingsOpened,
+            details = currentNetworkEventDetails(
+                trigger = "network_vpn_quick_fix",
+                status = networkReadinessStatus,
+                extraContext = "bypass=${if (bypassVpn) "yes" else "no"}"
+            ),
+            level = DiagnosticEventLevel.INFO
+        )
+        openVpnSettings(context)
+    }
+
     fun handleOpenDateTimeSettings() {
         recordAction(
             code = "DEVICE_TIME_SETTINGS_OPENED",
@@ -3986,6 +4056,26 @@ internal fun ExamRuntimeSessionScreenImpl(
         openOverlaySettings(context)
     }
 
+    fun handleOpenAppSettings() {
+        recordAction(code = "APP_SETTINGS_OPENED", details = "quick_fix=screen_recorder")
+        runCatching {
+            context.startActivity(
+                android.content.Intent(android.provider.Settings.ACTION_APPLICATION_SETTINGS)
+                    .addFlags(android.content.Intent.FLAG_ACTIVITY_NEW_TASK)
+            )
+        }
+    }
+
+    fun handleOpenCastSettings() {
+        recordAction(code = "CAST_SETTINGS_OPENED", details = "quick_fix=display_mirror")
+        runCatching {
+            context.startActivity(
+                android.content.Intent(android.provider.Settings.ACTION_CAST_SETTINGS)
+                    .addFlags(android.content.Intent.FLAG_ACTIVITY_NEW_TASK)
+            )
+        }
+    }
+
     fun handleOpenWebViewProviderSettings() {
         recordAction(
             code = "WEBVIEW_PROVIDER_SETTINGS_OPENED",
@@ -4071,6 +4161,7 @@ internal fun ExamRuntimeSessionScreenImpl(
             overlayRiskResult = overlayRiskResult,
             overlayBypassed = bypassOverlay,
             networkReadinessStatus = networkReadinessStatus,
+            vpnBypassed = bypassVpn,
             webViewCompatibilityStatus = webViewCompatibilityStatus,
             webViewRecoveryState = examRuntimeRecoveryState.name,
             webViewSessionResetInFlight = webViewSessionResetInFlight,
@@ -4180,6 +4271,7 @@ internal fun ExamRuntimeSessionScreenImpl(
         rootSecurityStatus = rootSecurityStatus,
         bypassVirtualEnvironment = bypassVirtualEnvironment,
         virtualEnvironmentDetected = virtualEnvironmentDetected,
+        bypassVpn = bypassVpn,
         bypassGeofence = bypassGeofence,
         geofenceBypassState = geofenceBypassState,
         geofenceRuntimeStatus = geofenceRuntimeStatus,
@@ -4234,6 +4326,8 @@ internal fun ExamRuntimeSessionScreenImpl(
         rootSecurityStatus = rootSecurityStatus,
         bypassVirtualEnvironment = bypassVirtualEnvironment,
         virtualEnvironmentDetected = virtualEnvironmentDetected,
+        bypassVpn = bypassVpn,
+        networkReadinessStatus = networkReadinessStatus,
         bypassGeofence = bypassGeofence,
         geofenceRuntimeStatus = geofenceRuntimeStatus,
         bypassFakeLocation = bypassFakeLocation,
@@ -4324,6 +4418,7 @@ internal fun ExamRuntimeSessionScreenImpl(
         offlineDurationMs = offlineWarningDurationMs,
         currentOfflineDurationMs = currentOfflineDurationMs,
         uiLanguage = uiLanguage,
+        showVpnDetectedDialog = examSessionStarted && networkReadinessStatus.diagnostics.isVpnActive && !bypassVpn,
         showNetworkUnstableDialog = showNetworkUnstableDialog,
         networkReadinessStatus = networkReadinessStatus,
         networkUnstableRuntimeStatus = networkUnstableRuntimeStatus,
@@ -4385,6 +4480,9 @@ internal fun ExamRuntimeSessionScreenImpl(
             examAlarmController.stop()
         },
         dismissOfflineWarningDialog = { showOfflineWarningDialog = false },
+        openVpnSettings = ::handleOpenVpnSettings,
+        refreshVpnStatus = { launchNetworkManualRefresh("vpn_runtime_dialog") },
+        sendVpnReport = { handleRequestSectionReport(DiagnosticSection.Network) },
         dismissNetworkUnstableDialog = { showNetworkUnstableDialog = false },
         dismissGeofenceViolationDialog = {
             showGeofenceViolationDialog = false
@@ -4493,6 +4591,8 @@ internal fun ExamRuntimeSessionScreenImpl(
         bypassAdb = bypassAdb,
         bypassRoot = bypassRoot,
         bypassVirtualEnvironment = bypassVirtualEnvironment,
+        bypassVpn = bypassVpn,
+        vpnBypassState = vpnBypassState,
         bypassKeyboardPolicy = bypassKeyboardPolicy,
         bypassClipboard = bypassClipboard,
         bypassOverlay = bypassOverlay,
@@ -4502,6 +4602,12 @@ internal fun ExamRuntimeSessionScreenImpl(
         fakeLocationBypassState = fakeLocationBypassState,
         bypassDeviceTime = bypassDeviceTime,
         bypassAppSwitch = bypassAppSwitch,
+        screenRecorderPackages = com.example.coblaxexamlock.runtime.detectScreenRecorderPackages(context),
+        bypassScreenRecorder = adminSettings.bypassScreenRecorder,
+        externalDisplayDetected = com.example.coblaxexamlock.runtime.hasExternalDisplay(context),
+        bypassDisplayMirror = adminSettings.bypassDisplayMirror,
+        multiWindowDetected = com.example.coblaxexamlock.runtime.isInAnySplitMode(context),
+        bypassMultiWindow = adminSettings.bypassMultiWindow,
         preExamHealthCheckSnapshot = preExamHealthCheckSnapshot,
         deviceSurvivalPolicy = deviceSurvivalPolicy,
         previousExamSessionBreadcrumb = previousExamSessionBreadcrumb,
@@ -4520,6 +4626,7 @@ internal fun ExamRuntimeSessionScreenImpl(
         onRefreshGeofenceLocation = ::handleRefreshLocationSecurity,
         onOpenGeofenceMapViewer = ::handleOpenGeofenceMapViewer,
         onOpenInternetSettings = ::handleOpenInternetSettings,
+        onOpenVpnSettings = ::handleOpenVpnSettings,
         onOpenWifiSettings = ::handleOpenWifiSettings,
         onOpenCellularSettings = ::handleOpenCellularSettings,
         onOpenAirplaneModeSettings = ::handleOpenAirplaneModeSettings,
@@ -4528,6 +4635,8 @@ internal fun ExamRuntimeSessionScreenImpl(
         onOpenFakeLocationDeveloperOptionsSettings = ::handleOpenFakeLocationDeveloperOptionsSettings,
         onOpenScreenPinningSettings = ::handleOpenScreenPinningSettings,
         onOpenOverlaySettings = ::handleOpenOverlaySettings,
+        onOpenAppSettings = ::handleOpenAppSettings,
+        onOpenCastSettings = ::handleOpenCastSettings,
         onOpenWebViewProviderSettings = ::handleOpenWebViewProviderSettings,
         onReinstallOfficialApk = ::handleReinstallOfficialApk,
         onRefreshStatus = ::handleRefreshPreparationStatus,

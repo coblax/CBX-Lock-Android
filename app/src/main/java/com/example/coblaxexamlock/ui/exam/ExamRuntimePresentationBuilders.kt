@@ -40,6 +40,8 @@ internal fun resolveExamFooterShieldStatus(
     rootSecurityStatus: RootSecurityStatus,
     bypassVirtualEnvironment: Boolean,
     virtualEnvironmentDetected: Boolean,
+    bypassVpn: Boolean,
+    networkReadinessStatus: NetworkReadinessStatus,
     bypassGeofence: Boolean,
     geofenceRuntimeStatus: GeofenceRuntimeStatus,
     bypassFakeLocation: Boolean,
@@ -87,6 +89,7 @@ internal fun resolveExamFooterShieldStatus(
             (!bypassAdb && adbInspection.blocking) ||
             (!bypassRoot && rootSecurityStatus.blocking) ||
             (!bypassVirtualEnvironment && virtualEnvironmentDetected) ||
+            (!bypassVpn && networkReadinessStatus.diagnostics.isVpnActive) ||
             (!bypassGeofence && geofenceRuntimeStatus.securityStatus.blocking) ||
             (!bypassFakeLocation && fakeLocationRuntimeStatus.securityStatus.blocking) ||
             (!bypassDeviceTime && deviceTimeSecurityStatus.blocking) ||
@@ -105,6 +108,7 @@ internal fun resolveExamFooterShieldStatus(
             bypassAdb ||
             bypassRoot ||
             bypassVirtualEnvironment ||
+            bypassVpn ||
             bypassGeofence ||
             bypassFakeLocation ||
             bypassDeviceTime ||
@@ -210,6 +214,7 @@ internal fun buildExamRuntimeDialogsState(
     offlineDurationMs: Long?,
     currentOfflineDurationMs: Long?,
     uiLanguage: UiLanguage,
+    showVpnDetectedDialog: Boolean,
     showNetworkUnstableDialog: Boolean,
     networkReadinessStatus: NetworkReadinessStatus,
     networkUnstableRuntimeStatus: NetworkUnstableRuntimeStatus,
@@ -242,6 +247,9 @@ internal fun buildExamRuntimeDialogsState(
             offlineDurationMs ?: currentOfflineDurationMs ?: OfflineTooLongWarningThresholdMillis,
             uiLanguage
         ),
+        showVpnDetectedDialog = showVpnDetectedDialog,
+        vpnTransportLabel = networkReadinessStatus.transportLabel,
+        vpnInterfaceName = networkReadinessStatus.diagnostics.interfaceName,
         showNetworkUnstableDialog = showNetworkUnstableDialog,
         networkTransportLabel = networkReadinessStatus.transportLabel,
         networkUnstableFlapCount = networkUnstableRuntimeStatus.flapCount,
@@ -318,6 +326,7 @@ internal fun buildPreparationScreenActions(
     onRefreshGeofenceLocation: () -> Unit,
     onOpenGeofenceMapViewer: () -> Unit,
     onOpenInternetSettings: () -> Unit,
+    onOpenVpnSettings: () -> Unit,
     onOpenWifiSettings: () -> Unit,
     onOpenCellularSettings: () -> Unit,
     onOpenAirplaneModeSettings: () -> Unit,
@@ -326,6 +335,8 @@ internal fun buildPreparationScreenActions(
     onOpenFakeLocationDeveloperOptionsSettings: () -> Unit,
     onOpenScreenPinningSettings: () -> Unit,
     onOpenOverlaySettings: () -> Unit,
+    onOpenAppSettings: () -> Unit,
+    onOpenCastSettings: () -> Unit,
     onOpenWebViewProviderSettings: () -> Unit,
     onReinstallOfficialApk: () -> Unit,
     onRefreshStatus: () -> Unit,
@@ -352,6 +363,7 @@ internal fun buildPreparationScreenActions(
         onRefreshGeofenceLocation = onRefreshGeofenceLocation,
         onOpenGeofenceMapViewer = onOpenGeofenceMapViewer,
         onOpenInternetSettings = onOpenInternetSettings,
+        onOpenVpnSettings = onOpenVpnSettings,
         onOpenWifiSettings = onOpenWifiSettings,
         onOpenCellularSettings = onOpenCellularSettings,
         onOpenAirplaneModeSettings = onOpenAirplaneModeSettings,
@@ -360,6 +372,8 @@ internal fun buildPreparationScreenActions(
         onOpenFakeLocationDeveloperOptionsSettings = onOpenFakeLocationDeveloperOptionsSettings,
         onOpenScreenPinningSettings = onOpenScreenPinningSettings,
         onOpenOverlaySettings = onOpenOverlaySettings,
+        onOpenAppSettings = onOpenAppSettings,
+        onOpenCastSettings = onOpenCastSettings,
         onOpenWebViewProviderSettings = onOpenWebViewProviderSettings,
         onReinstallOfficialApk = onReinstallOfficialApk,
         onRefreshStatus = onRefreshStatus,

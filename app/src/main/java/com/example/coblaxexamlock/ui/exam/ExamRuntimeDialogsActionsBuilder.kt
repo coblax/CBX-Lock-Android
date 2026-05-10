@@ -65,6 +65,9 @@ internal fun buildExamRuntimeDialogsActions(
     dismissKeyboardViolationDialog: () -> Unit,
     dismissOverlayViolationDialog: () -> Unit,
     dismissOfflineWarningDialog: () -> Unit,
+    openVpnSettings: () -> Unit,
+    refreshVpnStatus: () -> Unit,
+    sendVpnReport: () -> Unit,
     dismissNetworkUnstableDialog: () -> Unit,
     dismissGeofenceViolationDialog: () -> Unit,
     dismissFakeLocationViolationDialog: () -> Unit,
@@ -169,6 +172,30 @@ internal fun buildExamRuntimeDialogsActions(
                 DiagnosticEventLevel.INFO
             )
             dismissOfflineWarningDialog()
+        },
+        onOpenVpnSettings = {
+            recordAction(
+                ExamRuntimeHardeningDiagnostics.VpnSettingsOpened,
+                currentNetworkEventDetails("vpn_runtime_dialog", networkReadinessStatus, null),
+                DiagnosticEventLevel.INFO
+            )
+            openVpnSettings()
+        },
+        onRefreshVpnStatus = {
+            recordAction(
+                "NETWORK_QUICK_FIX_REFRESH_REQUESTED",
+                currentNetworkEventDetails("vpn_runtime_dialog", networkReadinessStatus, null),
+                DiagnosticEventLevel.INFO
+            )
+            refreshVpnStatus()
+        },
+        onSendVpnReport = {
+            recordAction(
+                "DIAGNOSTIC_SECTION_REQUESTED",
+                "Network | source=vpn_runtime_dialog",
+                DiagnosticEventLevel.INFO
+            )
+            sendVpnReport()
         },
         onAcknowledgeNetworkUnstable = {
             recordAction(

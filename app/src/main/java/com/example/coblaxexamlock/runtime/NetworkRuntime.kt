@@ -316,8 +316,9 @@ internal fun readNetworkReadinessStatus(context: Context): NetworkReadinessStatu
     val examStatus = readExamNetworkStatus(context)
     val diagnostics = getNetworkDiagnostics(context)
     val verdict = when {
-        diagnostics.isAirplaneModeEnabled && !examStatus.isConnected -> NetworkReadinessVerdict.AirplaneMode
+        diagnostics.isAirplaneModeEnabled -> NetworkReadinessVerdict.AirplaneMode
         !examStatus.isConnected -> NetworkReadinessVerdict.Offline
+        diagnostics.isVpnActive -> NetworkReadinessVerdict.VpnActive
         diagnostics.isCaptivePortal -> NetworkReadinessVerdict.CaptivePortal
         diagnostics.hasInternetCapability && !diagnostics.isValidated -> NetworkReadinessVerdict.Unvalidated
         else -> NetworkReadinessVerdict.ConnectedStable
@@ -326,6 +327,7 @@ internal fun readNetworkReadinessStatus(context: Context): NetworkReadinessStatu
         NetworkReadinessVerdict.Offline -> "offline"
         NetworkReadinessVerdict.Unvalidated -> "unvalidated"
         NetworkReadinessVerdict.CaptivePortal -> "captive_portal"
+        NetworkReadinessVerdict.VpnActive -> "vpn_active"
         NetworkReadinessVerdict.AirplaneMode -> "airplane_mode"
         NetworkReadinessVerdict.Unstable -> "unstable"
         NetworkReadinessVerdict.ConnectedStable -> null
@@ -354,6 +356,7 @@ internal suspend fun readNetworkReadinessStatusWithProbe(
     val probeStatus =
         if (!baseStatus.examStatus.isConnected ||
             baseStatus.verdict == NetworkReadinessVerdict.AirplaneMode ||
+            baseStatus.verdict == NetworkReadinessVerdict.VpnActive ||
             baseStatus.verdict == NetworkReadinessVerdict.CaptivePortal
         ) {
             NetworkDnsProbeStatus(
@@ -441,6 +444,7 @@ internal fun resolveNetworkReadinessUserVerdict(
         NetworkReadinessVerdict.Offline -> NetworkReadinessUserVerdict.Offline
         NetworkReadinessVerdict.CaptivePortal -> NetworkReadinessUserVerdict.CaptivePortal
         NetworkReadinessVerdict.Unvalidated -> NetworkReadinessUserVerdict.Unvalidated
+        NetworkReadinessVerdict.VpnActive -> NetworkReadinessUserVerdict.VpnActive
         NetworkReadinessVerdict.AirplaneMode -> NetworkReadinessUserVerdict.AirplaneMode
         NetworkReadinessVerdict.Unstable -> NetworkReadinessUserVerdict.Unstable
         NetworkReadinessVerdict.ConnectedStable -> when {
@@ -464,6 +468,8 @@ internal fun resolveNetworkReadinessQuickFixText(
             "Koneksi terdeteksi lambat. Pindah ke Wi-Fi/data yang lebih stabil sebelum mulai ujian."
         NetworkReadinessUserVerdict.DnsFailed ->
             "DNS gagal merespons. Ganti DNS/jaringan, matikan VPN bila perlu, lalu refresh."
+        NetworkReadinessUserVerdict.VpnActive ->
+            "VPN terdeteksi aktif. Matikan VPN dari pengaturan jaringan, lalu refresh."
         NetworkReadinessUserVerdict.Offline ->
             "Aktifkan Wi-Fi atau data seluler, lalu refresh."
         NetworkReadinessUserVerdict.CaptivePortal ->

@@ -7,7 +7,10 @@ internal enum class QuickFixTarget {
     DeviceTime,
     ScreenPinning,
     WebView,
-    Battery
+    Battery,
+    ScreenRecorder,
+    DisplayMirror,
+    MultiWindow
 }
 
 internal enum class QuickFixSeverity {

@@ -543,6 +543,69 @@ internal fun PreparationChecklistItemsCard(
                         sendEnabled = sendingSection == null
                     )
                 }
+
+                SecurityChecklistItem(
+                    title = tr("Screen Recorder", "Screen Recorder"),
+                    value = when {
+                        bypassScreenRecorder -> tr("Bypass enabled", "Bypass aktif")
+                        screenRecorderPackages.isNotEmpty() -> tr(
+                            "Detected: {screenRecorderPackages.size} app(s)",
+                            "Terdeteksi: {screenRecorderPackages.size} aplikasi"
+                        )
+                        else -> tr("No screen recorder apps detected", "Tidak ada app screen recorder terdeteksi")
+                    },
+                    detail = if (screenRecorderPackages.isNotEmpty()) {
+                        screenRecorderPackages.joinToString("\n")
+                    } else null,
+                    status = when {
+                        bypassScreenRecorder -> tr("Bypassed", "Dibypass")
+                        screenRecorderPackages.isNotEmpty() -> tr("Not Ready", "Belum Siap")
+                        else -> tr("Ready", "Siap")
+                    },
+                    onSendTelegram = { onRequestSectionReport(DiagnosticSection.ScreenRecorder) },
+                    isSending = sendingSection == DiagnosticSection.ScreenRecorder,
+                    sendEnabled = sendingSection == null
+                )
+                SecurityChecklistItem(
+                    title = tr("Display Mirror", "Display Mirror"),
+                    value = when {
+                        bypassDisplayMirror -> tr("Bypass enabled", "Bypass aktif")
+                        externalDisplayDetected -> tr(
+                            "External display detected",
+                            "Display eksternal terdeteksi"
+                        )
+                        else -> tr("No external display connected", "Tidak ada display eksternal terhubung")
+                    },
+                    detail = null,
+                    status = when {
+                        bypassDisplayMirror -> tr("Bypassed", "Dibypass")
+                        externalDisplayDetected -> tr("Not Ready", "Belum Siap")
+                        else -> tr("Ready", "Siap")
+                    },
+                    onSendTelegram = { onRequestSectionReport(DiagnosticSection.DisplayMirror) },
+                    isSending = sendingSection == DiagnosticSection.DisplayMirror,
+                    sendEnabled = sendingSection == null
+                )
+                SecurityChecklistItem(
+                    title = tr("Multi-Window", "Multi-Window"),
+                    value = when {
+                        bypassMultiWindow -> tr("Bypass enabled", "Bypass aktif")
+                        multiWindowDetected -> tr(
+                            "Split-screen or PiP mode active",
+                            "Mode split-screen atau PiP aktif"
+                        )
+                        else -> tr("Normal single-app mode", "Mode single-app normal")
+                    },
+                    detail = null,
+                    status = when {
+                        bypassMultiWindow -> tr("Bypassed", "Dibypass")
+                        multiWindowDetected -> tr("Not Ready", "Belum Siap")
+                        else -> tr("Ready", "Siap")
+                    },
+                    onSendTelegram = { onRequestSectionReport(DiagnosticSection.MultiWindow) },
+                    isSending = sendingSection == DiagnosticSection.MultiWindow,
+                    sendEnabled = sendingSection == null
+                )
                 SecurityChecklistItem(
                     title = tr("App Switch", "App Switch"),
                     value = when {

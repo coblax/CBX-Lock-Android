@@ -33,5 +33,8 @@ internal fun diagnosticSectionLabel(section: DiagnosticSection, uiLanguage: UiLa
         DiagnosticSection.ScreenPinning -> localized(uiLanguage, "Screen Pinning", "Screen Pinning")
         DiagnosticSection.DeviceTime -> localized(uiLanguage, "Device Time", "Waktu Perangkat")
         DiagnosticSection.SecurityHealth -> localized(uiLanguage, "Security Health", "Kesehatan Keamanan")
+        DiagnosticSection.ScreenRecorder -> localized(uiLanguage, "Screen Recorder", "Screen Recorder")
+        DiagnosticSection.DisplayMirror -> localized(uiLanguage, "Display Mirror", "Display Mirror")
+        DiagnosticSection.MultiWindow -> localized(uiLanguage, "Multi-Window", "Multi-Window")
     }
 }

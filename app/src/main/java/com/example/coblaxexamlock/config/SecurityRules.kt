@@ -124,7 +124,14 @@ internal val RootBinaryIndicatorPaths = listOf(
     "/sbin/busybox",
     // Frida instrumentation server — only present if user deliberately deployed it (requires root)
     "/data/local/tmp/frida-server",
-    "/data/local/tmp/re.frida.server"
+    "/data/local/tmp/re.frida.server",
+    // Non-standard busybox paths (used by root tools)
+    "/data/adb/busybox",
+    "/data/local/tmp/busybox",
+    // Superuser app artifacts
+    "/system/app/Superuser.apk",
+    "/system/app/Superuser/Superuser.apk",
+    "/system/app/SuperSU/SuperSU.apk"
 )
 
 internal val RootPackageNames = listOf(
@@ -141,7 +148,13 @@ internal val RootPackageNames = listOf(
     // Hook / injection frameworks
     "org.lsposed.manager",                // LSPosed Manager (runs on Zygisk)
     "de.robv.android.xposed.installer",   // Classic Xposed Installer
-    "com.elderdrivers.riru.edxp"          // EdXposed Manager
+    "com.elderdrivers.riru.edxp",         // EdXposed Manager
+    // Root cloaking apps — only installed to hide root from detection
+    "com.devadvance.rootcloak",           // RootCloak
+    "com.devadvance.rootcloakplus",       // RootCloak Plus
+    "com.formyhm.hideroot",              // Hide My Root
+    "com.amphoras.hidemyroot",           // Hide My Root (alt)
+    "com.saurik.substrate"               // Cydia Substrate
 )
 
 internal val MagiskIndicatorPaths = listOf(

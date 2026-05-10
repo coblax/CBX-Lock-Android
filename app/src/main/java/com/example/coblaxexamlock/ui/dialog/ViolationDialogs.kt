@@ -647,6 +647,82 @@ internal fun NetworkUnstableDialog(
 }
 
 @Composable
+internal fun VpnDetectedDialog(
+    transportLabel: String,
+    interfaceName: String,
+    onOpenVpnSettings: () -> Unit,
+    onRefreshStatus: () -> Unit,
+    onSendReport: () -> Unit
+) {
+    AlertDialog(
+        onDismissRequest = {},
+        properties = DialogProperties(
+            dismissOnBackPress = false,
+            dismissOnClickOutside = false
+        ),
+        containerColor = Color(0xFFFDF1F1),
+        title = {
+            Row(
+                horizontalArrangement = Arrangement.spacedBy(10.dp),
+                verticalAlignment = Alignment.CenterVertically
+            ) {
+                Surface(shape = CircleShape, color = Color(0xFFB42318).copy(alpha = 0.12f)) {
+                    Icon(
+                        imageVector = Icons.Rounded.Language,
+                        contentDescription = null,
+                        tint = Color(0xFFB42318),
+                        modifier = Modifier.padding(6.dp).size(20.dp)
+                    )
+                }
+                Text(text = tr("VPN Active", "VPN Aktif"), color = Color(0xFFB42318), fontWeight = FontWeight.Bold)
+            }
+        },
+        text = {
+            Column {
+                Text(
+                    text = tr(
+                        "A VPN connection is active while the exam is running. Turn off VPN, then refresh status to continue.",
+                        "Koneksi VPN aktif saat ujian berjalan. Matikan VPN, lalu refresh status untuk melanjutkan."
+                    ),
+                    color = LockTextPrimary
+                )
+                Spacer(modifier = Modifier.height(10.dp))
+                Text(
+                    text = tr(
+                        "Transport: ${transportLabel.ifBlank { "-" }}",
+                        "Transport: ${transportLabel.ifBlank { "-" }}"
+                    ),
+                    color = Color(0xFFB42318),
+                    fontWeight = FontWeight.Bold
+                )
+                Text(
+                    text = tr(
+                        "Interface: ${interfaceName.ifBlank { "-" }}",
+                        "Interface: ${interfaceName.ifBlank { "-" }}"
+                    ),
+                    color = LockTextSecondary
+                )
+            }
+        },
+        confirmButton = {
+            TextButton(onClick = onOpenVpnSettings) {
+                Text(tr("Open VPN Settings", "Buka Setelan VPN"), color = LockBlueDeep)
+            }
+        },
+        dismissButton = {
+            Row(horizontalArrangement = Arrangement.spacedBy(4.dp)) {
+                TextButton(onClick = onRefreshStatus) {
+                    Text(tr("Refresh Status", "Refresh Status"), color = LockBlueDeep)
+                }
+                TextButton(onClick = onSendReport) {
+                    Text(tr("Send Network Report", "Kirim Report Network"), color = LockTextMuted)
+                }
+            }
+        }
+    )
+}
+
+@Composable
 internal fun GeofenceViolationDialog(
     locationStatus: GeofenceSecurityStatus,
     violationCount: Int,
@@ -1097,6 +1173,9 @@ internal data class ExamRuntimeDialogsState(
     val overlayTrigger: String?,
     val showOfflineWarningDialog: Boolean,
     val offlineDurationText: String,
+    val showVpnDetectedDialog: Boolean,
+    val vpnTransportLabel: String,
+    val vpnInterfaceName: String,
     val showNetworkUnstableDialog: Boolean,
     val networkTransportLabel: String,
     val networkUnstableFlapCount: Int,
@@ -1122,6 +1201,9 @@ internal data class ExamRuntimeDialogsActions(
     val onAcknowledgeKeyboard: () -> Unit,
     val onAcknowledgeOverlay: () -> Unit,
     val onAcknowledgeOffline: () -> Unit,
+    val onOpenVpnSettings: () -> Unit,
+    val onRefreshVpnStatus: () -> Unit,
+    val onSendVpnReport: () -> Unit,
     val onAcknowledgeNetworkUnstable: () -> Unit,
     val onAcknowledgeGeofence: () -> Unit,
     val onAcknowledgeFakeLocation: () -> Unit,
@@ -1171,7 +1253,17 @@ internal fun ExamRuntimeDialogsHost(
         )
     }
 
-    if (state.showNetworkUnstableDialog && !state.showOfflineWarningDialog) {
+    if (state.showVpnDetectedDialog && !state.showOfflineWarningDialog) {
+        VpnDetectedDialog(
+            transportLabel = state.vpnTransportLabel,
+            interfaceName = state.vpnInterfaceName,
+            onOpenVpnSettings = actions.onOpenVpnSettings,
+            onRefreshStatus = actions.onRefreshVpnStatus,
+            onSendReport = actions.onSendVpnReport
+        )
+    }
+
+    if (state.showNetworkUnstableDialog && !state.showOfflineWarningDialog && !state.showVpnDetectedDialog) {
         NetworkUnstableDialog(
             transportLabel = state.networkTransportLabel,
             flapCount = state.networkUnstableFlapCount,

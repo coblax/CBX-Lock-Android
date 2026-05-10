@@ -453,6 +453,7 @@ internal fun SecretAdminScreen(
         settings.bypassAdb,
         settings.bypassRoot,
         settings.bypassVirtualEnvironment,
+        settings.bypassVpn,
         settings.bypassKeyboardPolicy,
         settings.bypassClipboard,
         settings.bypassOverlay,
@@ -917,6 +918,8 @@ internal fun SecretAdminScreen(
                 bypassAppSwitch = settings.bypassAppSwitch,
                 deviceTimeSecurityStatus = latestDeviceTimeStatus,
                 bypassDeviceTime = settings.bypassDeviceTime,
+                bypassVpn = settings.bypassVpn,
+                vpnBypassTampered = settings.vpnBypassTampered,
                 integritySummary = healthIntegritySummary,
                 diagnosticEvents = emptyList(),
                 uiLanguage = uiLanguage,
@@ -1299,6 +1302,15 @@ internal fun SecretAdminScreen(
                     onCheckedChange = { onSettingsChange(settings.copy(bypassVirtualEnvironment = it)) }
                 )
                 AdminToggleRow(
+                    title = tr("Bypass VPN Detection", "Bypass Deteksi VPN"),
+                    description = tr(
+                        "Allow exam start while VPN is active for approved troubleshooting only.",
+                        "Izinkan mulai ujian saat VPN aktif hanya untuk troubleshooting resmi."
+                    ),
+                    checked = settings.bypassVpn,
+                    onCheckedChange = { onSettingsChange(settings.copy(bypassVpn = it)) }
+                )
+                AdminToggleRow(
                     title = tr("Bypass Keyboard Policy", "Bypass Kebijakan Keyboard"),
                     description = tr(
                         "Allow any system keyboard without fallback.",
@@ -1360,6 +1372,33 @@ internal fun SecretAdminScreen(
                     ),
                     checked = settings.bypassAppSwitch,
                     onCheckedChange = { onSettingsChange(settings.copy(bypassAppSwitch = it)) }
+                )
+                AdminToggleRow(
+                    title = tr("Bypass Screen Recorder Detection", "Bypass Deteksi Screen Recorder"),
+                    description = tr(
+                        "Skip screen recorder app detection.",
+                        "Lewati deteksi aplikasi screen recorder."
+                    ),
+                    checked = settings.bypassScreenRecorder,
+                    onCheckedChange = { onSettingsChange(settings.copy(bypassScreenRecorder = it)) }
+                )
+                AdminToggleRow(
+                    title = tr("Bypass Display Mirror Detection", "Bypass Deteksi Display Mirror"),
+                    description = tr(
+                        "Skip external display / screen casting detection.",
+                        "Lewati deteksi display eksternal / screen casting."
+                    ),
+                    checked = settings.bypassDisplayMirror,
+                    onCheckedChange = { onSettingsChange(settings.copy(bypassDisplayMirror = it)) }
+                )
+                AdminToggleRow(
+                    title = tr("Bypass Multi-Window Detection", "Bypass Deteksi Multi-Window"),
+                    description = tr(
+                        "Skip split-screen and picture-in-picture detection.",
+                        "Lewati deteksi split-screen dan picture-in-picture."
+                    ),
+                    checked = settings.bypassMultiWindow,
+                    onCheckedChange = { onSettingsChange(settings.copy(bypassMultiWindow = it)) }
                 )
             }
         }

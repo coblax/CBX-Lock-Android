@@ -185,7 +185,11 @@ internal fun PreparationNoticeStack(
 
             if (networkReadinessStatus.verdict != NetworkReadinessVerdict.ConnectedStable) {
                 PreparationNoticeCard(
-                    title = tr("Network Warning", "Peringatan Network"),
+                    title = if (networkReadinessStatus.verdict == NetworkReadinessVerdict.VpnActive && !bypassVpn) {
+                        tr("VPN Blocks Start Exam", "VPN Memblokir Mulai Ujian")
+                    } else {
+                        tr("Network Warning", "Peringatan Network")
+                    },
                     message = when (networkReadinessStatus.verdict) {
                         NetworkReadinessVerdict.Offline -> tr(
                             "The exam can still start, but the device is offline right now. Stabilize Wi-Fi or cellular data first if the exam depends on internet.",
@@ -199,6 +203,17 @@ internal fun PreparationNoticeStack(
                             "This connection may still need a login or captive-portal confirmation before internet access is fully ready.",
                             "Koneksi ini mungkin masih membutuhkan login atau konfirmasi captive portal sebelum internet benar-benar siap."
                         )
+                        NetworkReadinessVerdict.VpnActive -> if (bypassVpn) {
+                            tr(
+                                "VPN bypass active. Continue only when this is approved troubleshooting and keep a Network report ready for admin review.",
+                                "Bypass VPN aktif. Lanjutkan hanya untuk troubleshooting resmi dan siapkan report Network untuk admin."
+                            )
+                        } else {
+                            tr(
+                                "VPN is active. Start Exam is blocked until the VPN is turned off and Network status is refreshed.",
+                                "VPN aktif. Mulai Ujian diblokir sampai VPN dimatikan dan status Network direfresh."
+                            )
+                        }
                         NetworkReadinessVerdict.Unvalidated -> tr(
                             "Android has not validated this connection yet. The exam can still continue, but internet access may still be limited.",
                             "Android belum memvalidasi koneksi ini. Ujian tetap bisa lanjut, tetapi akses internet mungkin masih terbatas."
@@ -212,8 +227,16 @@ internal fun PreparationNoticeStack(
                             "Monitoring network menemukan peringatan konektivitas."
                         )
                     },
-                    accentColor = LockGoldDark,
-                    backgroundColor = Color(0xFFFFF8E8)
+                    accentColor = if (networkReadinessStatus.verdict == NetworkReadinessVerdict.VpnActive && !bypassVpn) {
+                        Color(0xFFB34A4A)
+                    } else {
+                        LockGoldDark
+                    },
+                    backgroundColor = if (networkReadinessStatus.verdict == NetworkReadinessVerdict.VpnActive && !bypassVpn) {
+                        Color(0xFFFFEFEF)
+                    } else {
+                        Color(0xFFFFF8E8)
+                    }
                 )
                 Spacer(modifier = Modifier.height(10.dp))
             }

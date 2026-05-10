@@ -6,8 +6,43 @@
 > Task :app:processDebugNavigationResources UP-TO-DATE
 > Task :app:parseDebugLocalResources UP-TO-DATE
 > Task :app:generateDebugRFile UP-TO-DATE
-> Task :app:compileDebugKotlin
 
-BUILD SUCCESSFUL in 3s
+> Task :app:compileDebugKotlin FAILED
+.\gradlew : e: file:///D:/EXAM%20LOCK/app/src/main/java/com/example/coblaxexamlock/ui/admin/FieldReadiness.kt:293:19 
+'when' expression must be exhaustive. Add the 'VpnActive' branch or an 'else' branch.
+At line:1 char:1
++ .\gradlew :app:compileDebugKotlin 2>&1 | Out-File "be.txt" -Encoding  ...
++ ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+    + CategoryInfo          : NotSpecified: (e: file:///D:/E... 'else' branch.:String) [], RemoteException
+    + FullyQualifiedErrorId : NativeCommandError
+ 
+e: file:///D:/EXAM%20LOCK/app/src/main/java/com/example/coblaxexamlock/ui/exam/ExamRuntimeBottomBarUi.kt:101:37 'when' 
+expression must be exhaustive. Add the 'VpnActive' branch or an 'else' branch.
+e: file:///D:/EXAM%20LOCK/app/src/main/java/com/example/coblaxexamlock/ui/preparation/PreExamHealthCheck.kt:194:19 
+'when' expression must be exhaustive. Add the 'VpnActive' branch or an 'else' branch.
+e: file:///D:/EXAM%20LOCK/app/src/main/java/com/example/coblaxexamlock/ui/preparation/PreparationChecklistNetworkText.k
+t:23:30 'when' expression must be exhaustive. Add the 'VpnActive' branch or an 'else' branch.
+e: file:///D:/EXAM%20LOCK/app/src/main/java/com/example/coblaxexamlock/ui/preparation/PreparationChecklistNetworkText.k
+t:33:24 'when' expression must be exhaustive. Add the 'VpnActive' branch or an 'else' branch.
+e: file:///D:/EXAM%20LOCK/app/src/main/java/com/example/coblaxexamlock/ui/preparation/PreparationChecklistNetworkText.k
+t:88:74 'when' expression must be exhaustive. Add the 'VpnActive' branch or an 'else' branch.
+e: file:///D:/EXAM%20LOCK/app/src/main/java/com/example/coblaxexamlock/ui/preparation/PreparationNoticeStack.kt:189:31 
+'when' expression must be exhaustive. Add the 'VpnActive' branch or an 'else' branch.
+e: file:///D:/EXAM%20LOCK/app/src/main/java/com/example/coblaxexamlock/viewmodel/ExamRuntimeBindings.kt:304:24 'when' 
+expression must be exhaustive. Add the 'VpnActive' branch or an 'else' branch.
+
+FAILURE: Build failed with an exception.
+
+* What went wrong:
+Execution failed for task ':app:compileDebugKotlin'.
+> A failure occurred while executing org.jetbrains.kotlin.compilerRunner.btapi.BuildToolsApiCompilationWork
+   > Compilation error. See log for more details
+
+* Try:
+> Run with --stacktrace option to get the stack trace.
+> Run with --info or --debug option to get more log output.
+> Run with --scan to get full insights from a Build Scan (powered by Develocity).
+> Get more help at https://help.gradle.org.
+
+BUILD FAILED in 10s
 7 actionable tasks: 1 executed, 6 up-to-date
-Consider enabling configuration cache to speed up this build: https://docs.gradle.org/9.3.1/userguide/configuration_cache_enabling.html
