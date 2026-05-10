@@ -260,7 +260,6 @@ import com.example.coblaxexamlock.runtime.hasLocationPermissionForWifi
 import com.example.coblaxexamlock.runtime.isLocationServicesEnabled
 import com.example.coblaxexamlock.runtime.readExamBatteryStatus
 import com.example.coblaxexamlock.runtime.readExamNetworkStatus
-import com.example.coblaxexamlock.runtime.readNetworkReadinessStatus
 import com.example.coblaxexamlock.runtime.readNetworkReadinessStatusWithProbe
 import com.example.coblaxexamlock.runtime.sendTelegramSectionReport
 import com.example.coblaxexamlock.ui.geofence.CircleGeofenceEditorScreen
@@ -268,11 +267,7 @@ import com.example.coblaxexamlock.ui.geofence.PolygonGeofenceEditor
 import com.example.coblaxexamlock.ui.geofence.effectiveCircleCenters
 import com.example.coblaxexamlock.ui.geofence.summarizeCircleVertexList
 import com.example.coblaxexamlock.ui.geofence.summarizePolygonVertexList
-import com.example.coblaxexamlock.ui.exam.ExamDeviceFieldReportExportHelper
-import com.example.coblaxexamlock.ui.exam.ExamDiagnosticExportHelper
 import com.example.coblaxexamlock.ui.exam.ExamRuntimeHardeningDiagnostics
-import com.example.coblaxexamlock.ui.exam.buildAdminDeviceFieldReport
-import com.example.coblaxexamlock.ui.exam.buildAdminExamDiagnosticSnapshot
 import com.example.coblaxexamlock.ui.theme.COBLAXEXAMLOCKTheme
 import com.example.coblaxexamlock.ui.theme.LockBackground
 import com.example.coblaxexamlock.ui.theme.LockBlue
@@ -524,76 +519,6 @@ internal fun SecretAdminScreen(
                 "ExamRuntimeHardening",
                 "code=${ExamRuntimeHardeningDiagnostics.WebViewProviderHealthWarning} level=WARNING details=${adminWebViewCompatibilityStatus.adminDetail}"
             )
-        }
-    }
-
-    fun exportSecretAdminDiagnostics() {
-        runCatching {
-            ExamDiagnosticExportHelper.share(
-                context = context,
-                snapshot = buildAdminExamDiagnosticSnapshot(
-                    context = context.applicationContext,
-                    settings = settings,
-                    lowRamProfile = lowRamProfile,
-                    deviceCompatibilityProfile = deviceCompatibilityProfile
-                )
-            )
-        }.onSuccess {
-            securityHealthFeedbackTitle = localized(
-                uiLanguage,
-                "Diagnostics ready",
-                "Diagnostik siap"
-            )
-            securityHealthFeedbackMessage = localized(
-                uiLanguage,
-                "The redacted diagnostic files were sent to the Android share sheet.",
-                "File diagnostik redacted sudah dikirim ke Android share sheet."
-            )
-        }.onFailure { throwable ->
-            securityHealthFeedbackTitle = localized(
-                uiLanguage,
-                "Diagnostics export failed",
-                "Export diagnostik gagal"
-            )
-            securityHealthFeedbackMessage =
-                throwable.message ?: throwable.javaClass.simpleName
-        }
-    }
-
-    fun exportDeviceFieldReport() {
-        runCatching {
-            ExamDeviceFieldReportExportHelper.share(
-                context = context,
-                report = buildAdminDeviceFieldReport(
-                    context = context.applicationContext,
-                    settings = settings,
-                    lowRamProfile = lowRamProfile,
-                    deviceCompatibilityProfile = deviceCompatibilityProfile,
-                    webViewCompatibilityStatus = readWebViewCompatibilityStatus(context.applicationContext),
-                    networkReadinessStatus = readNetworkReadinessStatus(context.applicationContext),
-                    batteryStatus = readExamBatteryStatus(context.applicationContext),
-                    fieldReadinessReport = fieldReadinessReport
-                )
-            )
-        }.onSuccess {
-            securityHealthFeedbackTitle = localized(
-                uiLanguage,
-                "Device report ready",
-                "Laporan perangkat siap"
-            )
-            securityHealthFeedbackMessage = localized(
-                uiLanguage,
-                "The redacted device report was sent to the Android share sheet.",
-                "Laporan perangkat redacted sudah dikirim ke Android share sheet."
-            )
-        }.onFailure { throwable ->
-            securityHealthFeedbackTitle = localized(
-                uiLanguage,
-                "Device report failed",
-                "Laporan perangkat gagal"
-            )
-            securityHealthFeedbackMessage =
-                throwable.message ?: throwable.javaClass.simpleName
         }
     }
 
@@ -1244,13 +1169,6 @@ internal fun SecretAdminScreen(
 
         Spacer(modifier = Modifier.height(18.dp))
 
-        AdminReportsCard(
-            onExportExamDiagnostics = ::exportSecretAdminDiagnostics,
-            onExportDeviceReport = ::exportDeviceFieldReport
-        )
-
-        Spacer(modifier = Modifier.height(18.dp))
-
         AdminAdvancedDiagnosticsCard(
             expanded = advancedDiagnosticsExpanded,
             onToggleExpanded = {
@@ -1877,75 +1795,6 @@ private fun AdminReadinessSummaryCard(
                     Text(
                         text = tr("Details", "Detail"),
                         color = LockBlue,
-                        fontWeight = FontWeight.Bold
-                    )
-                }
-            }
-        }
-    }
-}
-
-@Composable
-private fun AdminReportsCard(
-    onExportExamDiagnostics: () -> Unit,
-    onExportDeviceReport: () -> Unit
-) {
-    Surface(
-        modifier = Modifier.fillMaxWidth(),
-        shape = RoundedCornerShape(22.dp),
-        color = Color.White,
-        border = BorderStroke(1.dp, LockOutline),
-        tonalElevation = 1.dp,
-        shadowElevation = 2.dp
-    ) {
-        Column(
-            modifier = Modifier.padding(horizontal = 16.dp, vertical = 16.dp),
-            verticalArrangement = Arrangement.spacedBy(12.dp)
-        ) {
-            Text(
-                text = tr("Reports", "Laporan"),
-                color = LockTextPrimary,
-                fontSize = 18.sp,
-                fontWeight = FontWeight.Bold
-            )
-            Text(
-                text = tr(
-                    "Export redacted diagnostics when support needs evidence.",
-                    "Export diagnostik redacted saat butuh bukti support."
-                ),
-                color = LockTextSecondary,
-                fontSize = 12.sp,
-                lineHeight = 16.sp
-            )
-            Row(
-                modifier = Modifier.fillMaxWidth(),
-                horizontalArrangement = Arrangement.spacedBy(8.dp)
-            ) {
-                Button(
-                    onClick = onExportExamDiagnostics,
-                    shape = RoundedCornerShape(16.dp),
-                    colors = ButtonDefaults.buttonColors(
-                        containerColor = LockBlue,
-                        contentColor = LockOnDark
-                    ),
-                    modifier = Modifier.weight(1f)
-                ) {
-                    Text(
-                        text = tr("Exam Report", "Ujian"),
-                        fontWeight = FontWeight.Bold
-                    )
-                }
-                Button(
-                    onClick = onExportDeviceReport,
-                    shape = RoundedCornerShape(16.dp),
-                    colors = ButtonDefaults.buttonColors(
-                        containerColor = LockGoldDark,
-                        contentColor = LockOnDark
-                    ),
-                    modifier = Modifier.weight(1f)
-                ) {
-                    Text(
-                        text = tr("Device Report", "Perangkat"),
                         fontWeight = FontWeight.Bold
                     )
                 }
