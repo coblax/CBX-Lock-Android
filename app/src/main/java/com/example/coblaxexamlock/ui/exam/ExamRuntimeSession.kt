@@ -208,6 +208,7 @@ import com.example.coblaxexamlock.ClipboardBypassState
 import com.example.coblaxexamlock.ClipboardChangeDecision
 import com.example.coblaxexamlock.ClipboardRuntimeStatus
 import com.example.coblaxexamlock.ClipboardSnapshot
+import com.example.coblaxexamlock.DeviceSurvivalPolicy
 import com.example.coblaxexamlock.DeviceTimeBaseline
 import com.example.coblaxexamlock.DeviceTimeBypassResolver
 import com.example.coblaxexamlock.DeviceTimeBypassState
@@ -330,6 +331,7 @@ import com.example.coblaxexamlock.isExamGuardAccessibilityAvailable
 import com.example.coblaxexamlock.isExamGuardAccessibilityEnabled
 import com.example.coblaxexamlock.installExamNativeFullscreenDocumentStartScriptIfSupported
 import com.example.coblaxexamlock.TrustedNetworkTimeCoordinator
+import com.example.coblaxexamlock.WebViewCompatibilityStatus
 import com.example.coblaxexamlock.WebViewHealthSeverity
 import com.example.coblaxexamlock.readWebViewCompatibilityStatus
 import com.example.coblaxexamlock.model.AdminSettings
@@ -343,6 +345,7 @@ import com.example.coblaxexamlock.model.NetworkReadinessVerdict
 import com.example.coblaxexamlock.model.NetworkTimelineEntry
 import com.example.coblaxexamlock.model.NetworkUnstableRuntimeStatus
 import com.example.coblaxexamlock.model.UiLanguage
+import com.example.coblaxexamlock.model.VirtualEnvironmentDiagnostics
 import com.example.coblaxexamlock.model.effectiveExamUserAgent
 import com.example.coblaxexamlock.model.usesDefaultExamUserAgent
 import com.example.coblaxexamlock.openAccessibilitySettings
@@ -372,7 +375,8 @@ import com.example.coblaxexamlock.runtime.detectSuspiciousFakeLocationPackages
 import com.example.coblaxexamlock.runtime.getBluetoothConnectPermission
 import com.example.coblaxexamlock.runtime.getCurrentInputMethodPackage
 import com.example.coblaxexamlock.runtime.getRootDetectionDetails
-import com.example.coblaxexamlock.runtime.getVirtualEnvironmentDiagnostics
+import com.example.coblaxexamlock.runtime.getCachedVirtualEnvironmentDiagnostics
+import com.example.coblaxexamlock.runtime.getVirtualEnvironmentDiagnosticsOnIo
 import com.example.coblaxexamlock.runtime.hasBluetoothExamPermission
 import com.example.coblaxexamlock.runtime.hasFineLocationPermission
 import com.example.coblaxexamlock.runtime.hasLocationPermissionForWifi
@@ -451,10 +455,6 @@ import com.journeyapps.barcodescanner.ScanContract
 import com.journeyapps.barcodescanner.ScanIntentResult
 import com.journeyapps.barcodescanner.ScanOptions
 import java.lang.ref.WeakReference
-import java.net.HttpURLConnection
-import java.net.URL
-import java.net.URLEncoder
-import java.nio.charset.StandardCharsets
 import java.text.SimpleDateFormat
 import java.util.Calendar
 import java.util.Date
@@ -480,9 +480,6 @@ private const val PreparationLocationWarmupIntervalMillis = 10_000L
 private const val StartExamWarmLocationReuseWindowMillis = 12_000L
 private const val NetworkReadinessPollingStableIntervalMillis = 10_000L
 private const val NetworkReadinessPollingUnstableIntervalMillis = 3_000L
-private const val ExamServerProbeIntervalMillis = 30_000L
-private const val ExamServerProbeTimeoutMillis = 3_500
-private const val ExamServerProbeSlowThresholdMillis = 3_000L
 private const val ScreenPinningMonitorWarmupIntervalMillis = 300L
 private const val ScreenPinningMonitorSteadyIntervalMillis = 1_000L
 private const val ScreenPinningMonitorWarmupWindowMillis = 5_000L
@@ -506,157 +503,6 @@ private data class RuntimeIntegrityRefreshCache(
     val baselineFingerprint: String?,
     val capturedAtElapsedMs: Long
 )
-
-private data class ExamServerHttpProbeOutcome(
-    val method: String,
-    val code: Int?,
-    val latencyMs: Long,
-    val failure: String?
-)
-
-private data class ExamServerProbeResult(
-    val status: ExamServerFooterStatus,
-    val host: String,
-    val method: String,
-    val code: Int?,
-    val latencyMs: Long?,
-    val reason: String
-) {
-    val eventCode: String
-        get() = when (status) {
-            ExamServerFooterStatus.Online -> "EXAM_SERVER_PROBE_ONLINE"
-            ExamServerFooterStatus.Warning -> "EXAM_SERVER_PROBE_WARNING"
-            ExamServerFooterStatus.Offline -> "EXAM_SERVER_PROBE_OFFLINE"
-            ExamServerFooterStatus.Checking -> "EXAM_SERVER_PROBE_STARTED"
-        }
-
-    val eventLevel: DiagnosticEventLevel
-        get() = when (status) {
-            ExamServerFooterStatus.Online,
-            ExamServerFooterStatus.Checking -> DiagnosticEventLevel.INFO
-            ExamServerFooterStatus.Warning -> DiagnosticEventLevel.WARNING
-            ExamServerFooterStatus.Offline -> DiagnosticEventLevel.ERROR
-        }
-}
-
-private fun safeExamServerHost(examUrl: String): String {
-    return runCatching { URL(examUrl).host.orEmpty().trim() }
-        .getOrDefault("")
-        .ifBlank { "-" }
-}
-
-private fun buildExamServerProbeDetails(
-    trigger: String,
-    host: String,
-    method: String? = null,
-    code: Int? = null,
-    latencyMs: Long? = null,
-    reason: String? = null
-): String {
-    return buildString {
-        append("trigger=").append(trigger)
-        append(" | host=").append(host.ifBlank { "-" })
-        method?.let { append(" | method=").append(it.ifBlank { "-" }) }
-        append(" | code=").append(code?.toString() ?: "-")
-        append(" | latency_ms=").append(latencyMs?.toString() ?: "-")
-        reason?.let { append(" | reason=").append(it.ifBlank { "-" }) }
-    }
-}
-
-private fun executeExamServerHttpProbe(
-    url: URL,
-    method: String
-): ExamServerHttpProbeOutcome {
-    var connection: HttpURLConnection? = null
-    val startedAt = SystemClock.elapsedRealtime()
-    return try {
-        connection = (url.openConnection() as HttpURLConnection).apply {
-            requestMethod = method
-            connectTimeout = ExamServerProbeTimeoutMillis
-            readTimeout = ExamServerProbeTimeoutMillis
-            instanceFollowRedirects = false
-            useCaches = false
-            setRequestProperty("User-Agent", "CBX-Exam-Server-Probe/${BuildConfig.VERSION_NAME}")
-            if (method == "GET") {
-                setRequestProperty("Range", "bytes=0-0")
-            }
-        }
-        ExamServerHttpProbeOutcome(
-            method = method,
-            code = connection.responseCode,
-            latencyMs = (SystemClock.elapsedRealtime() - startedAt).coerceAtLeast(0L),
-            failure = null
-        )
-    } catch (throwable: Exception) {
-        ExamServerHttpProbeOutcome(
-            method = method,
-            code = null,
-            latencyMs = (SystemClock.elapsedRealtime() - startedAt).coerceAtLeast(0L),
-            failure = throwable.javaClass.simpleName.ifBlank { "connection_failed" }
-        )
-    } finally {
-        connection?.disconnect()
-    }
-}
-
-private fun classifyExamServerProbeOutcome(
-    host: String,
-    outcome: ExamServerHttpProbeOutcome
-): ExamServerProbeResult {
-    val code = outcome.code
-    val status = when {
-        code == null -> ExamServerFooterStatus.Offline
-        code in 200..399 || code == HttpURLConnection.HTTP_UNAUTHORIZED || code == HttpURLConnection.HTTP_FORBIDDEN ->
-            if (outcome.latencyMs > ExamServerProbeSlowThresholdMillis) {
-                ExamServerFooterStatus.Warning
-            } else {
-                ExamServerFooterStatus.Online
-            }
-        code in 400..499 -> ExamServerFooterStatus.Warning
-        code >= 500 -> ExamServerFooterStatus.Offline
-        else -> ExamServerFooterStatus.Warning
-    }
-    val reason = when {
-        code == null -> outcome.failure ?: "connection_failed"
-        status == ExamServerFooterStatus.Online -> "reachable"
-        outcome.latencyMs > ExamServerProbeSlowThresholdMillis &&
-            (code in 200..399 || code == HttpURLConnection.HTTP_UNAUTHORIZED || code == HttpURLConnection.HTTP_FORBIDDEN) ->
-            "slow_response"
-        code in 400..499 -> "http_client_error"
-        code >= 500 -> "http_server_error"
-        else -> "unexpected_http_status"
-    }
-    return ExamServerProbeResult(
-        status = status,
-        host = host,
-        method = outcome.method,
-        code = code,
-        latencyMs = outcome.latencyMs,
-        reason = reason
-    )
-}
-
-private suspend fun probeExamServerFooterStatus(examUrl: String): ExamServerProbeResult =
-    withContext(Dispatchers.IO) {
-        val url = runCatching { URL(examUrl) }.getOrNull()
-            ?: return@withContext ExamServerProbeResult(
-                status = ExamServerFooterStatus.Warning,
-                host = "-",
-                method = "-",
-                code = null,
-                latencyMs = null,
-                reason = "invalid_exam_url"
-            )
-        val host = url.host.orEmpty().ifBlank { "-" }
-        val headOutcome = executeExamServerHttpProbe(url, method = "HEAD")
-        val finalOutcome =
-            if (headOutcome.code == HttpURLConnection.HTTP_BAD_METHOD || headOutcome.code == HttpURLConnection.HTTP_NOT_IMPLEMENTED) {
-                executeExamServerHttpProbe(url, method = "GET")
-            } else {
-                headOutcome
-            }
-        classifyExamServerProbeOutcome(host, finalOutcome)
-    }
 
 private fun buildWarmLocationValidationPolicySignature(
     geofenceConfigParseResult: GeofenceConfigParseResult,
@@ -1063,7 +909,7 @@ private fun rememberExamRuntimeSecurityUiState(
     }
     val signatureMismatchDetected = rememberSaveable { mutableStateOf(false) }
     val virtualEnvironmentDetected = rememberSaveable {
-        mutableStateOf(getVirtualEnvironmentDiagnostics(context).detected)
+        mutableStateOf(getCachedVirtualEnvironmentDiagnostics()?.detected == true)
     }
     val tamperDetected = rememberSaveable { mutableStateOf(false) }
     val tamperSummary = rememberSaveable { mutableStateOf("-") }
@@ -3864,6 +3710,48 @@ private fun buildExamRuntimeDialogsState(
     )
 }
 
+@Composable
+private fun ExamRuntimeResolvedDiagnosticsEffects(
+    webViewCompatibilityStatus: WebViewCompatibilityStatus,
+    deviceSurvivalPolicy: DeviceSurvivalPolicy,
+    examName: String,
+    recordAction: (String, String, DiagnosticEventLevel) -> Unit,
+    writePreviousSessionBreadcrumb: (String, String) -> Unit
+) {
+    LaunchedEffect(webViewCompatibilityStatus.diagnosticSummary()) {
+        recordAction(
+            ExamRuntimeHardeningDiagnostics.WebViewProviderHealthResolved,
+            webViewCompatibilityStatus.diagnosticSummary(),
+            DiagnosticEventLevel.INFO
+        )
+        if (webViewCompatibilityStatus.severity != WebViewHealthSeverity.Stable) {
+            recordAction(
+                ExamRuntimeHardeningDiagnostics.WebViewProviderHealthWarning,
+                webViewCompatibilityStatus.adminDetail,
+                DiagnosticEventLevel.WARNING
+            )
+        }
+    }
+    LaunchedEffect(deviceSurvivalPolicy.diagnosticSummary()) {
+        recordAction(
+            ExamRuntimeHardeningDiagnostics.DeviceSurvivalPolicyResolved,
+            deviceSurvivalPolicy.diagnosticSummary(),
+            DiagnosticEventLevel.INFO
+        )
+        recordAction(
+            ExamRuntimeHardeningDiagnostics.CompatibilityScoreUpdated,
+            "score=${deviceSurvivalPolicy.score.name} | runtime=${deviceSurvivalPolicy.runtimeTier.name}",
+            DiagnosticEventLevel.INFO
+        )
+    }
+    LaunchedEffect(examName) {
+        writePreviousSessionBreadcrumb(
+            PreviousExamSessionBreadcrumbCodes.PreparationOpened,
+            "exam=${examName.take(80)} | score=${deviceSurvivalPolicy.score.name}"
+        )
+    }
+}
+
 private fun buildPreparationScreenActions(
     onChooseKeyboard: () -> Unit,
     onOpenKeyboardSettings: () -> Unit,
@@ -4807,6 +4695,9 @@ private fun ExamRuntimeSessionScreenImpl(
     var selinuxPermissiveWarning by securityUiState.selinuxPermissiveWarning
     var signatureMismatchDetected by securityUiState.signatureMismatchDetected
     var virtualEnvironmentDetected by securityUiState.virtualEnvironmentDetected
+    LaunchedEffect(context) {
+        virtualEnvironmentDetected = getVirtualEnvironmentDiagnosticsOnIo(context).detected
+    }
     var tamperDetected by securityUiState.tamperDetected
     var tamperSummary by securityUiState.tamperSummary
     var tamperLastLoggedSummary by securityUiState.tamperLastLoggedSummary
@@ -6836,14 +6727,38 @@ private fun ExamRuntimeSessionScreenImpl(
             return result
         }
 
+        fun applyVirtualEnvironmentDiagnostics(
+            diagnostics: VirtualEnvironmentDiagnostics,
+            triggerViolation: Boolean
+        ) {
+            val latestVirtualEnvironmentDetected = diagnostics.detected
+            if (
+                triggerViolation &&
+                examSessionStarted &&
+                !bypassVirtualEnvironment &&
+                !virtualEnvironmentDetected &&
+                latestVirtualEnvironmentDetected
+            ) {
+                recordAction(
+                    code = "VIRTUAL_ENVIRONMENT_DETECTED",
+                    details = diagnostics.indicators.joinToString().ifBlank { "-" },
+                    level = DiagnosticEventLevel.SECURITY
+                )
+                securityIssueDialogTitle = "Virtual Environment Terdeteksi"
+                securityIssueDialogMessage =
+                    "Perangkat ini terdeteksi berjalan di emulator/VM. Gunakan perangkat fisik untuk melanjutkan ujian."
+                examAlarmController.start()
+            }
+            virtualEnvironmentDetected = latestVirtualEnvironmentDetected
+        }
+
         fun refreshDeviceIntegritySecurity(triggerViolation: Boolean) {
             val latestAccessibilityInspection = inspectAccessibility(context)
             val latestAccessibilityServiceEnabled = latestAccessibilityInspection.blockingServiceActive
             val latestAdbInspection = inspectAdb(context)
             val rootDetectionDetails = getRootDetectionDetails(context)
             val latestRootSecurityStatus = buildRootSecurityStatus(rootDetectionDetails)
-            val virtualEnvironmentDiagnostics = getVirtualEnvironmentDiagnostics(context)
-            val latestVirtualEnvironmentDetected = virtualEnvironmentDiagnostics.detected
+            val cachedVirtualEnvironmentDiagnostics = getCachedVirtualEnvironmentDiagnostics()
             checkSignatureIntegrity(triggerViolation)
 
             if (triggerViolation && examSessionStarted) {
@@ -6880,21 +6795,6 @@ private fun ExamRuntimeSessionScreenImpl(
                     examAlarmController.start()
                 }
 
-                if (!bypassVirtualEnvironment &&
-                    !virtualEnvironmentDetected &&
-                    latestVirtualEnvironmentDetected
-                ) {
-                    recordAction(
-                        code = "VIRTUAL_ENVIRONMENT_DETECTED",
-                        details = virtualEnvironmentDiagnostics.indicators.joinToString().ifBlank { "-" },
-                        level = DiagnosticEventLevel.SECURITY
-                    )
-                    securityIssueDialogTitle = "Virtual Environment Terdeteksi"
-                    securityIssueDialogMessage =
-                        "Perangkat ini terdeteksi berjalan di emulator/VM. Gunakan perangkat fisik untuk melanjutkan ujian."
-                    examAlarmController.start()
-                }
-
                 if (!bypassRoot && !rootDetected && latestRootSecurityStatus.detected) {
                     recordAction(
                         code = "ROOT_INDICATOR_DETECTED",
@@ -6915,7 +6815,14 @@ private fun ExamRuntimeSessionScreenImpl(
             rootSecurityStatus = latestRootSecurityStatus
             rootDetected = latestRootSecurityStatus.detected
             selinuxPermissiveWarning = latestRootSecurityStatus.selinuxPermissive
-            virtualEnvironmentDetected = latestVirtualEnvironmentDetected
+            if (cachedVirtualEnvironmentDiagnostics != null) {
+                applyVirtualEnvironmentDiagnostics(cachedVirtualEnvironmentDiagnostics, triggerViolation)
+            } else {
+                coroutineScope.launch {
+                    val diagnostics = getVirtualEnvironmentDiagnosticsOnIo(context)
+                    applyVirtualEnvironmentDiagnostics(diagnostics, triggerViolation)
+                }
+            }
         }
 
         fun launchTelegramSectionReport(section: DiagnosticSection) {
@@ -7354,7 +7261,7 @@ private fun ExamRuntimeSessionScreenImpl(
             exitOnSecurityIssueDialogDismiss = false
         }
 
-        fun startExamSession() {
+        suspend fun startExamSession() {
             if (webViewSessionResetInFlight) {
                 return
             }
@@ -7362,6 +7269,11 @@ private fun ExamRuntimeSessionScreenImpl(
             examRuntimeRecoveryState = ExamRuntimeRecoveryState.Idle
             webViewSessionResetError = null
             recordAction(code = "START_EXAM_PRESSED")
+            val startVirtualEnvironmentDiagnostics = getVirtualEnvironmentDiagnosticsOnIo(context)
+            runtimeSecurityOps.applyVirtualEnvironmentDiagnostics(
+                diagnostics = startVirtualEnvironmentDiagnostics,
+                triggerViolation = false
+            )
             debugMeasureExamStartWork("startExamSession:tampers") {
                 refreshReverseEngineeringStatus()
                 refreshIntegrityGuard()
@@ -8879,7 +8791,9 @@ private fun ExamRuntimeSessionScreenImpl(
             code = PreviousExamSessionBreadcrumbCodes.StartPressed,
             details = "score=${deviceSurvivalPolicy.score.name} | health_blocking=${deviceSurvivalPolicy.healthBlockingCount}"
         )
-        startExamController.startExamSession()
+        coroutineScope.launch {
+            startExamController.startExamSession()
+        }
     }
     val examRuntimeViewModel = rememberBoundExamRuntimeViewModel(
         activity = componentActivity,
@@ -8995,99 +8909,35 @@ private fun ExamRuntimeSessionScreenImpl(
         batteryStatus = batteryStatus,
         shieldStatus = footerShieldStatus
     )
-    val runtimeChromeActions = buildExamRuntimeChromeActions(
-        onRetryLoading = {
-            markTrustedRuntimeChromeAction("webview_retry")
-            webViewErrorMessage = null
-            webViewInstance?.reload()
+    val runtimeChromeActions = buildExamRuntimeChromeActionsForSession(
+        examSessionStarted = examSessionStarted,
+        screenPinningMode = screenPinningMode,
+        screenPinningAvailable = screenPinningAvailable,
+        lockTaskRequestPending = lockTaskRequestPending,
+        deviceCompatibilityProfile = deviceCompatibilityProfile,
+        isIndonesian = isIndonesian,
+        lockTaskAlreadyActive = { lockTaskBridge.active() },
+        markTrustedRuntimeChromeAction = ::markTrustedRuntimeChromeAction,
+        clearWebViewError = { webViewErrorMessage = null },
+        reloadWebView = { webViewInstance?.reload() },
+        setLoadingProgress = { loadingProgress = it },
+        setLastExamRefreshDecision = { lastExamRefreshDecision = it },
+        setScreenPinningMessage = { screenPinningMessage = it },
+        setShowExitExamDialog = { showExitExamDialog = it },
+        launchExamServerProbe = { trigger, markChecking ->
+            launchExamServerProbe(trigger = trigger, markChecking = markChecking)
         },
-        onRefreshPage = {
-            markTrustedRuntimeChromeAction("webview_refresh")
-            val refreshSafetyDecision = resolveExamRefreshSafetyDecision(
-                examSessionStarted = examSessionStarted,
-                screenPinningEnforced = screenPinningMode == ScreenPinningMode.Enforced && screenPinningAvailable,
-                lockTaskAlreadyActive = lockTaskBridge.active(),
-                lockTaskRequestPending = lockTaskRequestPending
-            )
-            lastExamRefreshDecision =
-                "${refreshSafetyDecision.outcome.name.lowercase(Locale.US)} | ${refreshSafetyDecision.diagnosticDetails}"
-            recordAction(
-                code = ExamRuntimeHardeningDiagnostics.ExamRefreshRequested,
-                details = refreshSafetyDecision.diagnosticDetails
-            )
-            if (refreshSafetyDecision.eventCode != ExamRuntimeHardeningDiagnostics.ExamRefreshCompleted) {
-                recordAction(
-                    code = refreshSafetyDecision.eventCode,
-                    details = refreshSafetyDecision.diagnosticDetails,
-                    level = when (refreshSafetyDecision.outcome) {
-                        ExamRefreshSafetyOutcome.BlockedPinningInactive,
-                        ExamRefreshSafetyOutcome.BlockedPinningPending -> DiagnosticEventLevel.WARNING
-                        else -> DiagnosticEventLevel.INFO
-                    }
-                )
-            }
-            if (deviceCompatibilityProfile.samsungLegacyTablet) {
-                recordAction(
-                    code = ExamRuntimeHardeningDiagnostics.PinningRefreshSafeSuppressed,
-                    details = "trusted_chrome=webview_refresh | " +
-                        "family=${deviceCompatibilityProfile.family.name} | " +
-                        "overlay_suppression_ms=${deviceCompatibilityProfile.overlayChromeActionSuppressionMillis} | " +
-                        "refresh_outcome=${refreshSafetyDecision.outcome.name.lowercase(Locale.US)}",
-                    level = DiagnosticEventLevel.INFO
-                )
-            }
-            if (refreshSafetyDecision.allowWebViewReload) {
-                webViewErrorMessage = null
-                loadingProgress = 0.05f
-                launchExamServerProbe(trigger = "manual_refresh", markChecking = true)
-                webViewInstance?.reload()
-                recordAction(
-                    code = ExamRuntimeHardeningDiagnostics.ExamRefreshCompleted,
-                    details = refreshSafetyDecision.diagnosticDetails
-                )
-            } else if (refreshSafetyDecision.outcome == ExamRefreshSafetyOutcome.BlockedPinningInactive) {
-                screenPinningMessage = ScreenPinningEnforcer.pendingMessage(isIndonesian)
-            }
-        },
-        onGoHome = {
-            markTrustedRuntimeChromeAction("exit_to_menu")
-            recordAction(code = "EXIT_TO_MENU_REQUESTED")
-            showExitExamDialog = true
-        },
-        onTextKey = { value ->
-            markTrustedRuntimeChromeAction("built_in_keyboard_text")
-            sendBuiltInKeyboardText(value)
-        },
-        onBackspace = {
-            markTrustedRuntimeChromeAction("built_in_keyboard_backspace")
-            sendBuiltInKeyboardBackspace()
-        },
-        onArrowLeft = {
-            markTrustedRuntimeChromeAction("exam_arrow_left")
-            sendKeyboardArrowLeft()
-        },
-        onArrowRight = {
-            markTrustedRuntimeChromeAction("exam_arrow_right")
-            sendKeyboardArrowRight()
-        },
-        onToggleSideArrowControls = {
-            markTrustedRuntimeChromeAction("exam_arrow_toggle")
+        recordAction = { code, details, level -> recordAction(code, details, level) },
+        sendBuiltInKeyboardText = ::sendBuiltInKeyboardText,
+        sendBuiltInKeyboardBackspace = ::sendBuiltInKeyboardBackspace,
+        sendKeyboardArrowLeft = ::sendKeyboardArrowLeft,
+        sendKeyboardArrowRight = ::sendKeyboardArrowRight,
+        toggleSideArrowControls = {
             sideArrowControlsVisible = !sideArrowControlsVisible
-            recordAction(
-                code = "EXAM_ARROW_CONTROLS_TOGGLED",
-                details = if (sideArrowControlsVisible) "visible" else "hidden"
-            )
+            sideArrowControlsVisible
         },
-        onEnter = {
-            markTrustedRuntimeChromeAction("built_in_keyboard_enter")
-            sendBuiltInKeyboardEnter()
-        },
-        onSpace = {
-            markTrustedRuntimeChromeAction("built_in_keyboard_space")
-            sendBuiltInKeyboardText(" ")
-        },
-        onShiftToggle = {
-            markTrustedRuntimeChromeAction("built_in_keyboard_shift")
+        sendBuiltInKeyboardEnter = ::sendBuiltInKeyboardEnter,
+        toggleBuiltInKeyboardShift = {
             builtInKeyboardShiftEnabled = !builtInKeyboardShiftEnabled
         }
     )
@@ -9215,35 +9065,15 @@ private fun ExamRuntimeSessionScreenImpl(
     val previousExamSessionBreadcrumb = remember {
         PreviousExamSessionBreadcrumbStore.read(context)
     }
-    LaunchedEffect(webViewCompatibilityStatus.diagnosticSummary()) {
-        recordAction(
-            code = ExamRuntimeHardeningDiagnostics.WebViewProviderHealthResolved,
-            details = webViewCompatibilityStatus.diagnosticSummary()
-        )
-        if (webViewCompatibilityStatus.severity != WebViewHealthSeverity.Stable) {
-            recordAction(
-                code = ExamRuntimeHardeningDiagnostics.WebViewProviderHealthWarning,
-                details = webViewCompatibilityStatus.adminDetail,
-                level = DiagnosticEventLevel.WARNING
-            )
+    ExamRuntimeResolvedDiagnosticsEffects(
+        webViewCompatibilityStatus = webViewCompatibilityStatus,
+        deviceSurvivalPolicy = deviceSurvivalPolicy,
+        examName = payload.examName,
+        recordAction = { code, details, level -> recordAction(code, details, level) },
+        writePreviousSessionBreadcrumb = { code, details ->
+            writePreviousSessionBreadcrumb(code = code, details = details)
         }
-    }
-    LaunchedEffect(deviceSurvivalPolicy.diagnosticSummary()) {
-        recordAction(
-            code = ExamRuntimeHardeningDiagnostics.DeviceSurvivalPolicyResolved,
-            details = deviceSurvivalPolicy.diagnosticSummary()
-        )
-        recordAction(
-            code = ExamRuntimeHardeningDiagnostics.CompatibilityScoreUpdated,
-            details = "score=${deviceSurvivalPolicy.score.name} | runtime=${deviceSurvivalPolicy.runtimeTier.name}"
-        )
-    }
-    LaunchedEffect(payload.examName) {
-        writePreviousSessionBreadcrumb(
-            code = PreviousExamSessionBreadcrumbCodes.PreparationOpened,
-            details = "exam=${payload.examName.take(80)} | score=${deviceSurvivalPolicy.score.name}"
-        )
-    }
+    )
     val preparationState = PreparationScreenState(
         examName = payload.examName,
         keyboardPackage = currentKeyboardPackage,
@@ -9401,116 +9231,25 @@ private fun ExamRuntimeSessionScreenImpl(
             )
         },
         onOverlayObscuredTouch = { touchSignal ->
-            val nowElapsedMs = SystemClock.elapsedRealtime()
-            if (lockTaskRequestPending && !examSessionStarted) {
-                val pendingContext = buildString {
-                    append("source=secure_exam_webview_touch_filter")
-                    append(" | pinning_pending=true")
-                    append(" | fully_obscured=")
-                    append(if (touchSignal.fullyObscured) "yes" else "no")
-                    append(" | partially_obscured=")
-                    append(if (touchSignal.partiallyObscured) "yes" else "no")
-                    append(" | action=")
-                    append(touchSignal.actionMasked)
-                    append(" | state=")
-                    append(lockTaskBridge.stateLabel())
-                }
-                recordAction(
-                    code = ExamRuntimeHardeningDiagnostics.PinningTransitionViolationSuppressed,
-                    details = "$pendingContext | overlay_touch_pending=true",
-                    level = DiagnosticEventLevel.WARNING
-                )
-                recordAction(
-                    code = ExamRuntimeHardeningDiagnostics.OverlayTouchSuppressed,
-                    details = currentOverlayEventDetails(
-                        signal = OverlaySignal.ObscuredTouch,
-                        extraContext = pendingContext
-                    ),
-                    level = DiagnosticEventLevel.INFO
-                )
-                false
-            } else {
-            val elapsedSinceTrustedChromeActionMs =
-                lastTrustedRuntimeChromeActionElapsedMsState.value?.let { lastActionAt ->
-                    (nowElapsedMs - lastActionAt).coerceAtLeast(0L)
-                }
-            val decision = decideExamOverlayTouch(
-                signal = touchSignal,
-                profile = deviceQuirkProfile,
-                source = ExamOverlayTouchSource.WebViewContent,
-                elapsedSinceTrustedChromeActionMs = elapsedSinceTrustedChromeActionMs
-            )
-            val touchContext = buildString {
-                append("source=secure_exam_webview_touch_filter")
-                append(" | fully_obscured=")
-                append(if (touchSignal.fullyObscured) "yes" else "no")
-                append(" | partially_obscured=")
-                append(if (touchSignal.partiallyObscured) "yes" else "no")
-                append(" | action=")
-                append(touchSignal.actionMasked)
-                append(" | decision=")
-                append(decision.name.lowercase(Locale.US))
-                append(" | model=")
-                append(deviceQuirkProfile.model)
-                append(" | samsung_legacy_tablet=")
-                append(deviceQuirkProfile.samsungLegacyTablet)
-                lastTrustedRuntimeChromeActionReasonState.value?.let { reason ->
-                    append(" | trusted_chrome_reason=")
-                    append(reason)
-                }
-                elapsedSinceTrustedChromeActionMs?.let { elapsedMs ->
-                    append(" | trusted_chrome_age_ms=")
-                    append(elapsedMs)
-                }
-            }
-            when (decision) {
-                ExamOverlayTouchDecision.Allow -> false
-                ExamOverlayTouchDecision.SuppressAndAllow -> {
-                    recordAction(
-                        code = ExamRuntimeHardeningDiagnostics.OverlayTouchSuppressed,
-                        details = currentOverlayEventDetails(
-                            signal = OverlaySignal.ObscuredTouch,
-                            extraContext = touchContext
-                        ),
-                        level = DiagnosticEventLevel.INFO
-                    )
-                    false
-                }
-                ExamOverlayTouchDecision.WarnAndAllow -> {
-                    recordAction(
-                        code = ExamRuntimeHardeningDiagnostics.OverlayTouchWarning,
-                        details = currentOverlayEventDetails(
-                            signal = OverlaySignal.ObscuredTouch,
-                            extraContext = touchContext
-                        ),
-                        level = DiagnosticEventLevel.WARNING
-                    )
-                    if (deviceQuirkProfile.samsungLegacyTablet && touchSignal.partiallyObscured) {
-                        recordAction(
-                            code = ExamRuntimeHardeningDiagnostics.OverlayPartialLegacyWarning,
-                            details = currentOverlayEventDetails(
-                                signal = OverlaySignal.ObscuredTouch,
-                                extraContext = touchContext
-                            ),
-                            level = DiagnosticEventLevel.WARNING
-                        )
-                    }
-                    false
-                }
-                ExamOverlayTouchDecision.BlockAndReport -> {
-                    recordOverlayEvent(
-                        code = "OVERLAY_TOUCH_DETECTED",
-                        signal = OverlaySignal.ObscuredTouch,
-                        level = DiagnosticEventLevel.SECURITY,
-                        extraContext = touchContext
-                    )
+            handleExamRuntimeOverlayObscuredTouch(
+                touchSignal = touchSignal,
+                lockTaskRequestPending = lockTaskRequestPending,
+                examSessionStarted = examSessionStarted,
+                lockTaskStateLabel = lockTaskBridge.stateLabel(),
+                deviceQuirkProfile = deviceQuirkProfile,
+                lastTrustedRuntimeChromeActionElapsedMs = lastTrustedRuntimeChromeActionElapsedMsState.value,
+                lastTrustedRuntimeChromeActionReason = lastTrustedRuntimeChromeActionReasonState.value,
+                currentOverlayEventDetails = ::currentOverlayEventDetails,
+                recordAction = { code, details, level -> recordAction(code, details, level) },
+                recordOverlayEvent = { code, signal, level, extraContext ->
+                    recordOverlayEvent(code, signal, level, extraContext)
+                },
+                onBlockedOverlayTouch = {
                     overlayViolationCount += 1
                     showOverlayViolationDialog = true
                     examAlarmController.start()
-                    true
                 }
-            }
-            }
+            )
         },
         onShowBuiltInExamKeyboardChange = { showBuiltInExamKeyboard = it },
         onWebViewInstanceChange = { nextWebView ->
@@ -9525,85 +9264,45 @@ private fun ExamRuntimeSessionScreenImpl(
         },
         onHideSystemKeyboard = ::hideSystemKeyboard,
         onWebViewLoadStart = { url ->
-            recordAction(
-                code = "WEBVIEW_LOAD_START",
-                details = url ?: "tanpa URL"
+            handleExamRuntimeWebViewLoadStart(
+                url = url,
+                useBuiltInExamKeyboard = useBuiltInExamKeyboard,
+                recordAction = { code, details, level -> recordAction(code, details, level) },
+                setHasEditableFocus = { hasEditableFocus = it },
+                setWebViewErrorMessage = { webViewErrorMessage = it },
+                setLoadingProgress = { loadingProgress = it },
+                setExamServerStatus = { examServerStatus = it },
+                setShowBuiltInExamKeyboard = { showBuiltInExamKeyboard = it }
             )
-            hasEditableFocus = false
-            webViewErrorMessage = null
-            loadingProgress = 0.05f
-            if (!url.isNullOrBlank() && url != "about:blank") {
-                examServerStatus = ExamServerFooterStatus.Checking
-            }
-            if (useBuiltInExamKeyboard) {
-                showBuiltInExamKeyboard = false
-            }
         },
         onWebViewLoadFinish = { view, url ->
-            recordAction(
-                code = "WEBVIEW_LOAD_FINISH",
-                details = url ?: "tanpa URL"
+            handleExamRuntimeWebViewLoadFinish(
+                view = view,
+                url = url,
+                sideArrowControlsVisible = sideArrowControlsVisible,
+                useBuiltInExamKeyboard = useBuiltInExamKeyboard,
+                nativeExamFullscreenActive = nativeExamFullscreenActive,
+                recordAction = { code, details, level -> recordAction(code, details, level) },
+                setWebViewErrorMessage = { webViewErrorMessage = it },
+                setExamServerStatus = { examServerStatus = it },
+                hideSystemKeyboard = ::hideSystemKeyboard
             )
-            if (!url.isNullOrBlank() && url != "about:blank") {
-                webViewErrorMessage = null
-                examServerStatus = ExamServerFooterStatus.Online
-            }
-            view?.evaluateExamJavascriptSafely(
-                """
-                (function() {
-                    if (!document.body) return;
-                    document.documentElement.style.userSelect = 'none';
-                    document.documentElement.style.webkitUserSelect = 'none';
-                    document.documentElement.style.webkitTouchCallout = 'none';
-                    document.documentElement.style.webkitTapHighlightColor = 'transparent';
-                    document.documentElement.style.caretColor = 'auto';
-                    document.addEventListener('copy', function(event) { event.preventDefault(); });
-                    document.addEventListener('cut', function(event) { event.preventDefault(); });
-                    document.addEventListener('paste', function(event) { event.preventDefault(); });
-                    document.addEventListener('contextmenu', function(event) { event.preventDefault(); });
-                })();
-                """.trimIndent()
-            )
-            view?.evaluateExamJavascriptSafely(InstallExamKeyboardScript)
-            view?.evaluateExamJavascriptSafely(
-                if (sideArrowControlsVisible) {
-                    InstallExamSideArrowControlsScript
-                } else {
-                    RemoveExamSideArrowControlsScript
-                }
-            )
-            if (useBuiltInExamKeyboard) {
-                hideSystemKeyboard()
-            }
-            view?.evaluateExamJavascriptSafely(ExamNativeFullscreenBridgeInstallScript)
-            view?.evaluateExamJavascriptSafely(
-                buildExamNativeFullscreenStateSyncScript(nativeExamFullscreenActive)
-            )
-            view?.evaluateExamJavascriptSafely(ExamFullscreenRequestHookScript)
-            view?.evaluateExamJavascriptSafely(ExamParticipantCaptureProbeScript)
         },
         onWebViewLoadError = { description ->
-            recordAction(
-                code = "WEBVIEW_LOAD_ERROR",
-                details = description,
-                level = DiagnosticEventLevel.ERROR
+            handleExamRuntimeWebViewLoadError(
+                description = description,
+                recordAction = { code, details, level -> recordAction(code, details, level) },
+                setWebViewErrorMessage = { webViewErrorMessage = it },
+                setExamServerStatus = { examServerStatus = it }
             )
-            webViewErrorMessage = description
-            examServerStatus = ExamServerFooterStatus.Offline
         },
         onWebViewHttpError = { statusCode ->
-            recordAction(
-                code = "WEBVIEW_HTTP_ERROR",
-                details = "HTTP ${statusCode ?: "-"}",
-                level = DiagnosticEventLevel.ERROR
+            handleExamRuntimeWebViewHttpError(
+                statusCode = statusCode,
+                recordAction = { code, details, level -> recordAction(code, details, level) },
+                setWebViewErrorMessage = { webViewErrorMessage = it },
+                setExamServerStatus = { examServerStatus = it }
             )
-            webViewErrorMessage =
-                "Server ujian mengembalikan error ${statusCode ?: "-"}."
-            examServerStatus = when {
-                statusCode == null -> ExamServerFooterStatus.Offline
-                statusCode >= 500 -> ExamServerFooterStatus.Offline
-                else -> ExamServerFooterStatus.Warning
-            }
         },
         onWebViewRenderProcessGone = { view, didCrash, rendererPriorityAtExit ->
             handleWebViewRendererGone(

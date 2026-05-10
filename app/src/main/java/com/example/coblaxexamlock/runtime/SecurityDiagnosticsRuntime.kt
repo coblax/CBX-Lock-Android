@@ -30,7 +30,11 @@ import com.example.coblaxexamlock.model.VirtualEnvironmentDiagnostics
 import com.example.coblaxexamlock.readClipboardSnapshot
 import java.util.Locale
 import java.util.TimeZone
+import java.util.concurrent.atomic.AtomicReference
+import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.withContext
 
+private val virtualEnvDiagnosticsCache = AtomicReference<VirtualEnvironmentDiagnostics?>()
 
 internal fun isAccessibilityServiceEnabled(context: Context): Boolean {
     return inspectAccessibility(context).blockingServiceActive
@@ -305,8 +309,29 @@ internal fun getSystemProperty(key: String): String {
     }.getOrDefault("")
 }
 
-@SuppressLint("QueryPermissionsNeeded")
 internal fun getVirtualEnvironmentDiagnostics(context: Context): VirtualEnvironmentDiagnostics {
+    getCachedVirtualEnvironmentDiagnostics()?.let { return it }
+
+    val result = computeVirtualEnvironmentDiagnostics(context.applicationContext)
+    return if (virtualEnvDiagnosticsCache.compareAndSet(null, result)) {
+        result
+    } else {
+        virtualEnvDiagnosticsCache.get() ?: result
+    }
+}
+
+internal fun getCachedVirtualEnvironmentDiagnostics(): VirtualEnvironmentDiagnostics? {
+    return virtualEnvDiagnosticsCache.get()
+}
+
+internal suspend fun getVirtualEnvironmentDiagnosticsOnIo(
+    context: Context
+): VirtualEnvironmentDiagnostics = withContext(Dispatchers.IO) {
+    getVirtualEnvironmentDiagnostics(context.applicationContext)
+}
+
+@SuppressLint("QueryPermissionsNeeded")
+private fun computeVirtualEnvironmentDiagnostics(context: Context): VirtualEnvironmentDiagnostics {
     val indicators = mutableListOf<String>()
     val fingerprint = Build.FINGERPRINT.orEmpty()
     if (VirtualFingerprintTokens.any { token ->
@@ -373,14 +398,18 @@ internal fun getVirtualEnvironmentDiagnostics(context: Context): VirtualEnvironm
         indicators.add("qemu_files:${qemuFiles.joinToString()}")
     }
 
-    val installedPackages = runCatching {
-        context.packageManager.getInstalledPackages(0).map { it.packageName }
+    val emulatorPackages = runCatching {
+        context.packageManager
+            .getInstalledApplications(0)
+            .asSequence()
+            .map { it.packageName }
+            .filter { packageName ->
+                EmulatorPackagePrefixes.any { prefix ->
+                    packageName.startsWith(prefix, ignoreCase = true)
+                }
+            }
+            .toList()
     }.getOrDefault(emptyList())
-    val emulatorPackages = installedPackages.filter { packageName ->
-        EmulatorPackagePrefixes.any { prefix ->
-            packageName.startsWith(prefix, ignoreCase = true)
-        }
-    }
     if (emulatorPackages.isNotEmpty()) {
         indicators.add("packages:${emulatorPackages.joinToString()}")
     }
