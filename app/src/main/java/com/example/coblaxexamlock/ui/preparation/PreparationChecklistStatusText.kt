@@ -166,7 +166,7 @@ internal fun buildPreparationChecklistStatusText(
         rootBypassState == RootBypassState.Tampered -> tr("Warning", "Peringatan")
         bypassRoot -> tr("Bypassed", "Bypass")
         rootSecurityStatus.detected -> tr("Danger", "Bahaya")
-        rootSecurityStatus.selinuxPermissive -> tr("Action needed", "Perlu aksi")
+        rootSecurityStatus.selinuxPermissive -> tr("Warning", "Peringatan")
         else -> tr("Safe", "Aman")
     }
     val signatureStatusLabel = when {

@@ -122,10 +122,11 @@ internal fun getRootDetectionDetails(context: Context): RootDetectionDetails {
     val dangerousSystemProperties = buildList {
         if (roDebuggableRaw == "1") add("ro.debuggable=1")
         if (roSecureRaw == "0") add("ro.secure=0")
-        if (roAdbSecureRaw == "0") add("ro.adb.secure=0")
-        if (roBuildTypeRaw.isNotBlank() && !roBuildTypeRaw.equals("user", ignoreCase = true)) {
-            add("ro.build.type=$roBuildTypeRaw")
-        }
+        // ro.adb.secure=0 is already monitored via AdbInspection.insecureSystemProperty;
+        // some Samsung/Oppo OEM devices ship with this value on stock ROM — excluded to avoid
+        // false-positive root detection.
+        // ro.build.type is kept in evidenceSummary for diagnostics but excluded here because
+        // Xiaomi MIUI Developer ROM legitimately ships as "userdebug" without root.
     }
     val selinuxEnabled = readSelinuxEnabled()
     val selinuxEnforced = readSelinuxEnforced()
@@ -171,7 +172,14 @@ internal fun isBootloaderUnlocked(
     val verified = verifiedBootState.trim()
     val vbmeta = vbmetaDeviceState.trim()
     val flash = flashLocked.trim()
-    val verifiedIndicator = verified.isNotBlank() && !verified.equals("green", ignoreCase = true)
+    // "green"  = verified boot with OEM production key (safe)
+    // "yellow" = verified boot with custom device-specific key (safe on stock OEM ROMs;
+    //             some Oppo/Realme/MediaTek devices return this without user unlocking the bootloader)
+    // "orange" = user-unlocked bootloader (unsafe)
+    // "red"    = boot verification failed (unsafe)
+    val verifiedIndicator = verified.isNotBlank() &&
+        !verified.equals("green", ignoreCase = true) &&
+        !verified.equals("yellow", ignoreCase = true)
     val vbmetaIndicator = vbmeta.equals("unlocked", ignoreCase = true)
     val flashIndicator = flash == "0"
     return verifiedIndicator || vbmetaIndicator || flashIndicator

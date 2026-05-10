@@ -32,7 +32,7 @@ internal fun buildPreparationChecklistReadiness(
         bypassBluetooth || (!bluetoothEnabled && (!needsBluetoothPermission || bluetoothPermissionGranted))
     val accessibilityReady = bypassAccessibility || !accessibilityServiceEnabled
     val adbReady = bypassAdb || (!adbInspection.blocking && !adbInspection.insecureSystemProperty)
-    val rootReady = bypassRoot || (!rootSecurityStatus.blocking && !rootSecurityStatus.selinuxPermissive)
+    val rootReady = bypassRoot || !rootSecurityStatus.blocking
     val virtualEnvironmentReady = bypassVirtualEnvironment || !virtualEnvironmentDetected
     val clipboardReady = true
     val deviceTimeReady = bypassDeviceTime || !deviceTimeSecurityStatus.blocking

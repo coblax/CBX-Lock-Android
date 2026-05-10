@@ -181,7 +181,7 @@ internal fun resolveStartExamStaticSecurityBlockMessage(
                 message = buildRootIssueMessage(rootSecurityStatus.details)
             )
 
-        !bypassRoot && rootSecurityStatus.selinuxPermissive ->
+        !bypassRoot && rootSecurityStatus.selinuxPermissive && rootSecurityStatus.detected ->
             StartExamBlockMessage(
                 code = "START_EXAM_BLOCKED_SELINUX_PERMISSIVE",
                 title = "SELinux Permissive Terdeteksi",

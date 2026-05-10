@@ -107,6 +107,11 @@ internal fun buildRootSecurityStatus(details: RootDetectionDetails): RootSecurit
         if (details.hasTestKeys) add("test_keys")
         if (details.selinuxEnabled == false) add("selinux_disabled")
         if (selinuxPermissive) add("selinux_permissive")
+        // informational only — excluded from root detection to avoid false positives
+        if (details.roAdbSecure == "0") add("adb_secure_prop=0")
+        if (details.roBuildType.isNotBlank() && !details.roBuildType.equals("user", ignoreCase = true)) {
+            add("build_type=${details.roBuildType}")
+        }
     }.joinToString().ifBlank { "-" }
 
     return RootSecurityStatus(

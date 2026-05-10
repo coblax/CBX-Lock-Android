@@ -37,7 +37,7 @@ internal fun buildPreparationQuickFixActions(
             val showAdbFix = !bypassAdb && adbInspection.blocking
             val showAdbInsecurePropertyFix = !bypassAdb && !adbInspection.blocking && adbInspection.insecureSystemProperty
             val showRootBlockingFix = !bypassRoot && rootSecurityStatus.blocking
-            val showRootSelinuxFix = !bypassRoot && !rootSecurityStatus.blocking && rootSecurityStatus.selinuxPermissive
+            val showRootSelinuxFix = !bypassRoot && !rootSecurityStatus.blocking && rootSecurityStatus.selinuxPermissive && rootSecurityStatus.detected
             val showVirtualEnvFix = !bypassVirtualEnvironment && virtualEnvironmentDetected
             val showAppSwitchViolationFix = !bypassAppSwitch && appSwitchStatus.hasViolations
             val showGeofenceRequestPermissionFix =
