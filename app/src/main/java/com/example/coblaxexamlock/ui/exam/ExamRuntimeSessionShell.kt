@@ -14,6 +14,7 @@ import android.webkit.WebView
 import android.webkit.WebViewClient
 import android.widget.FrameLayout
 import androidx.compose.foundation.background
+import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.runtime.Composable
@@ -23,6 +24,7 @@ import androidx.compose.runtime.setValue
 import androidx.compose.ui.graphics.toArgb
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.viewinterop.AndroidView
+import androidx.compose.ui.zIndex
 import com.example.coblaxexamlock.applyExamWebViewSettings
 import com.example.coblaxexamlock.attachExamKeyboardBridge
 import com.example.coblaxexamlock.attachExamNativeFullscreenBridge
@@ -367,66 +369,76 @@ internal fun ExamRuntimeSessionRenderedUi(
     onDismissBugReportFeedback: () -> Unit,
     modifier: Modifier = Modifier
 ) {
-    Column(
-        modifier = modifier
-            .fillMaxSize()
-            .background(LockBackground)
-    ) {
-        ExamRuntimeSessionMainContent(
-            examSessionStarted = examSessionStarted,
-            showGeofenceMapViewer = showGeofenceMapViewer,
-            geofenceRuntimeStatus = geofenceRuntimeStatus,
-            geofenceManualRefreshInFlight = geofenceManualRefreshInFlight,
-            onDismissGeofenceMapViewer = onDismissGeofenceMapViewer,
-            onRefreshGeofenceMapViewer = onRefreshGeofenceMapViewer,
-            preparationState = preparationState,
-            preparationActions = preparationActions,
-            runtimeChromeState = runtimeChromeState,
-            runtimeChromeActions = runtimeChromeActions,
-            payload = payload,
-            bypassOverlay = bypassOverlay,
-            examAlarmController = examAlarmController,
-            participantCaptureBridge = participantCaptureBridge,
-            nativeFullscreenBridge = nativeFullscreenBridge,
-            keyboardBridge = keyboardBridge,
-            useBuiltInExamKeyboard = useBuiltInExamKeyboard,
-            effectiveExamUserAgent = effectiveExamUserAgent,
-            fullScreenContainer = fullScreenContainer,
-            fullScreenCustomView = fullScreenCustomView,
-            nativeExamFullscreenActive = nativeExamFullscreenActive,
-            onRefreshMapViewerActionLogged = onRefreshMapViewerActionLogged,
-            onOverlayObscuredTouch = onOverlayObscuredTouch,
-            onShowBuiltInExamKeyboardChange = onShowBuiltInExamKeyboardChange,
-            onWebViewInstanceChange = onWebViewInstanceChange,
-            onHideSystemKeyboard = onHideSystemKeyboard,
-            onWebViewLoadStart = onWebViewLoadStart,
-            onWebViewLoadFinish = onWebViewLoadFinish,
-            onWebViewLoadError = onWebViewLoadError,
-            onWebViewHttpError = onWebViewHttpError,
-            onWebViewRenderProcessGone = onWebViewRenderProcessGone,
-            onLoadingProgressChange = onLoadingProgressChange,
-            onWebViewErrorMessageChange = onWebViewErrorMessageChange,
-            onShowCustomView = onShowCustomView,
-            onHideCustomView = onHideCustomView,
-            modifier = Modifier.weight(1f)
-        )
-
-        ExamRuntimeDialogsCoordinator(
-            pendingSection = pendingSection,
-            uiLanguage = uiLanguage,
-            runtimeDialogsState = runtimeDialogsState,
-            runtimeDialogsActions = runtimeDialogsActions,
-            screenPinningMessage = screenPinningMessage,
-            securityIssueDialogTitle = securityIssueDialogTitle,
-            securityIssueDialogMessage = securityIssueDialogMessage,
-            bugReportFeedbackTitle = bugReportFeedbackTitle,
-            bugReportFeedbackMessage = bugReportFeedbackMessage,
-            onDismissPendingSection = onDismissPendingSection,
-            onConfirmPendingSection = onConfirmPendingSection,
-            onDismissScreenPinningMessage = onDismissScreenPinningMessage,
-            onDismissSecurityIssueDialog = onDismissSecurityIssueDialog,
-            onDismissBugReportFeedback = onDismissBugReportFeedback
-        )
+    Box(modifier = modifier.fillMaxSize()) {
+        Column(
+            modifier = Modifier
+                .fillMaxSize()
+                .background(LockBackground)
+        ) {
+            ExamRuntimeSessionMainContent(
+                examSessionStarted = examSessionStarted,
+                showGeofenceMapViewer = showGeofenceMapViewer,
+                geofenceRuntimeStatus = geofenceRuntimeStatus,
+                geofenceManualRefreshInFlight = geofenceManualRefreshInFlight,
+                onDismissGeofenceMapViewer = onDismissGeofenceMapViewer,
+                onRefreshGeofenceMapViewer = onRefreshGeofenceMapViewer,
+                preparationState = preparationState,
+                preparationActions = preparationActions,
+                runtimeChromeState = runtimeChromeState,
+                runtimeChromeActions = runtimeChromeActions,
+                payload = payload,
+                bypassOverlay = bypassOverlay,
+                examAlarmController = examAlarmController,
+                participantCaptureBridge = participantCaptureBridge,
+                nativeFullscreenBridge = nativeFullscreenBridge,
+                keyboardBridge = keyboardBridge,
+                useBuiltInExamKeyboard = useBuiltInExamKeyboard,
+                effectiveExamUserAgent = effectiveExamUserAgent,
+                fullScreenContainer = fullScreenContainer,
+                fullScreenCustomView = fullScreenCustomView,
+                nativeExamFullscreenActive = nativeExamFullscreenActive,
+                onRefreshMapViewerActionLogged = onRefreshMapViewerActionLogged,
+                onOverlayObscuredTouch = onOverlayObscuredTouch,
+                onShowBuiltInExamKeyboardChange = onShowBuiltInExamKeyboardChange,
+                onWebViewInstanceChange = onWebViewInstanceChange,
+                onHideSystemKeyboard = onHideSystemKeyboard,
+                onWebViewLoadStart = onWebViewLoadStart,
+                onWebViewLoadFinish = onWebViewLoadFinish,
+                onWebViewLoadError = onWebViewLoadError,
+                onWebViewHttpError = onWebViewHttpError,
+                onWebViewRenderProcessGone = onWebViewRenderProcessGone,
+                onLoadingProgressChange = onLoadingProgressChange,
+                onWebViewErrorMessageChange = onWebViewErrorMessageChange,
+                onShowCustomView = onShowCustomView,
+                onHideCustomView = onHideCustomView,
+                modifier = Modifier.weight(1f)
+            )
+            ExamRuntimeDialogsCoordinator(
+                pendingSection = pendingSection,
+                uiLanguage = uiLanguage,
+                runtimeDialogsState = runtimeDialogsState,
+                runtimeDialogsActions = runtimeDialogsActions,
+                screenPinningMessage = screenPinningMessage,
+                securityIssueDialogTitle = securityIssueDialogTitle,
+                securityIssueDialogMessage = securityIssueDialogMessage,
+                bugReportFeedbackTitle = bugReportFeedbackTitle,
+                bugReportFeedbackMessage = bugReportFeedbackMessage,
+                onDismissPendingSection = onDismissPendingSection,
+                onConfirmPendingSection = onConfirmPendingSection,
+                onDismissScreenPinningMessage = onDismissScreenPinningMessage,
+                onDismissSecurityIssueDialog = onDismissSecurityIssueDialog,
+                onDismissBugReportFeedback = onDismissBugReportFeedback
+            )
+        }
+        // Full-screen pinning overlay — shown when screen pinning is being activated.
+        // zIndex ensures it covers everything including dialogs.
+        if (preparationState.pinningActivationState.isPending()) {
+            PinningActivationOverlay(
+                modifier = Modifier
+                    .fillMaxSize()
+                    .zIndex(10f)
+            )
+        }
     }
 }
 

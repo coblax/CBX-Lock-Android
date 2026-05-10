@@ -8,6 +8,6 @@
 > Task :app:generateDebugRFile UP-TO-DATE
 > Task :app:compileDebugKotlin
 
-BUILD SUCCESSFUL in 7s
+BUILD SUCCESSFUL in 16s
 7 actionable tasks: 1 executed, 6 up-to-date
 Consider enabling configuration cache to speed up this build: https://docs.gradle.org/9.3.1/userguide/configuration_cache_enabling.html

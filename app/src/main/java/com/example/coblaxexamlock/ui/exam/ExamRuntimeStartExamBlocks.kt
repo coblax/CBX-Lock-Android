@@ -134,6 +134,7 @@ internal fun resolveStartExamStaticSecurityBlockMessage(
     bypassVirtualEnvironment: Boolean,
     virtualEnvironmentDetected: Boolean,
     adbEnabled: Boolean,
+    adbInsecureSystemProperty: Boolean,
     bypassRoot: Boolean,
     rootSecurityStatus: RootSecurityStatus
 ): StartExamBlockMessage? {
@@ -166,11 +167,25 @@ internal fun resolveStartExamStaticSecurityBlockMessage(
                 message = "USB debugging terdeteksi aktif. Nonaktifkan ADB sebelum memulai ujian."
             )
 
+        !bypassAdb && adbInsecureSystemProperty ->
+            StartExamBlockMessage(
+                code = "START_EXAM_BLOCKED_ADB_INSECURE_PROPERTY",
+                title = "ADB Security Property Tidak Aman",
+                message = "Properti keamanan ADB sistem terdeteksi dalam kondisi tidak aman. Restart perangkat dan pastikan USB debugging dinonaktifkan."
+            )
+
         !bypassRoot && rootSecurityStatus.detected ->
             StartExamBlockMessage(
                 code = "START_EXAM_BLOCKED_ROOT",
                 title = "Root Device Terdeteksi",
                 message = buildRootIssueMessage(rootSecurityStatus.details)
+            )
+
+        !bypassRoot && rootSecurityStatus.selinuxPermissive ->
+            StartExamBlockMessage(
+                code = "START_EXAM_BLOCKED_SELINUX_PERMISSIVE",
+                title = "SELinux Permissive Terdeteksi",
+                message = "SELinux perangkat ini dalam mode permissive, yang mengurangi keamanan sistem. Gunakan perangkat dengan SELinux enforcing, atau minta admin mengaktifkan bypass Root."
             )
 
         else -> null

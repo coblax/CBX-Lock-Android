@@ -144,10 +144,10 @@ private fun buildScreenPinningHealthItem(input: PreExamHealthCheckInput): PreExa
         )
         else -> PreExamHealthItem(
             category = PreExamHealthCategory.ScreenPinning,
-            verdict = PreExamHealthVerdict.Warning,
+            verdict = PreExamHealthVerdict.Stable,
+            detail = "Ready — pinning will be requested once when Start Exam Mode is pressed.",
             title = "Screen Pinning",
-            detail = "Ready. Android will ask for pinning only once when Start Exam Mode is pressed.",
-            quickFix = "Confirm the Android pinning dialog, then stay in CBX Exam Lock."
+            quickFix = "After pressing Start, confirm the Android pinning dialog and stay in CBX Exam Lock."
         )
     }
 }
@@ -270,6 +270,13 @@ private fun buildLocationHealthItem(input: PreExamHealthCheckInput): PreExamHeal
             detail = "Geofence=${geofenceStatus.finalVerdict.diagnosticLabel()}, fake-location=${fakeStatus.finalVerdict.diagnosticLabel()}.",
             quickFix = "Grant precise location, enable location services, and turn off mock-location tools."
         )
+        fakeStatus.warningOnly && input.fakeLocationRuntimeStatus.securityStatus.developerOptionsEnabled -> PreExamHealthItem(
+            category = PreExamHealthCategory.Location,
+            verdict = PreExamHealthVerdict.Blocking,
+            title = "Location / Fake Location",
+            detail = "A suspicious fake-location package is installed and Developer Options are enabled — elevated spoofing risk.",
+            quickFix = "Uninstall fake GPS apps and disable Developer Options before starting the exam."
+        )
         fakeStatus.warningOnly -> PreExamHealthItem(
             category = PreExamHealthCategory.Location,
             verdict = PreExamHealthVerdict.Warning,
@@ -318,13 +325,13 @@ private fun buildBatteryPowerHealthItem(input: PreExamHealthCheckInput): PreExam
     } else {
         ""
     }
-    return if (level <= 20 && !input.batteryStatus.isCharging) {
+    return if (level <= 30 && !input.batteryStatus.isCharging) {
         PreExamHealthItem(
             category = PreExamHealthCategory.BatteryPower,
             verdict = PreExamHealthVerdict.Warning,
             title = "Battery / Power",
             detail = "Battery is $level% and not charging.$lowRamDetail",
-            quickFix = "Charge the device and disable aggressive battery saver before the exam."
+            quickFix = "Charge to at least 40% and disable Battery Saver before the exam."
         )
     } else {
         PreExamHealthItem(

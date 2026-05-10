@@ -166,7 +166,8 @@ internal fun SecurityChecklistItem(
         modifier = Modifier.fillMaxWidth(),
         shape = RoundedCornerShape(18.dp),
         color = Color.White,
-        border = BorderStroke(1.dp, LockOutline)
+        border = BorderStroke(1.dp, accentColor.copy(alpha = 0.20f)),
+        shadowElevation = 1.dp
     ) {
         Row(
             modifier = Modifier

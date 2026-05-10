@@ -29,7 +29,7 @@ internal enum class PinningActivationState {
     }
 }
 
-internal const val PinningActivationGraceWindowMillis = 8_000L
+internal const val PinningActivationGraceWindowMillis = 12_000L
 internal const val PinningActivationTimeoutMillis = 20_000L
 internal const val PinningActivationPollIntervalMillis = 250L
 
@@ -204,7 +204,7 @@ internal object ScreenPinningEnforcer {
     private const val FeedbackDelayMillis = 1000L
     private const val ActivationTimeoutMillis = PinningActivationTimeoutMillis
     private const val PollIntervalMillis = PinningActivationPollIntervalMillis
-    private const val MaxEngageAttempts = 1
+    private const val MaxEngageAttempts = 2
 
     fun launchState(mode: ScreenPinningMode, bridge: LockTaskBridge?): ScreenPinningLaunchState {
         return when (mode) {

@@ -129,7 +129,10 @@ internal object OverlayRiskAnalyzer {
             signals.add(confirmedSignal)
         }
 
-        val heuristicRisk = accessibilityEnabled || riskyAccessibilityPackages.isNotEmpty()
+        // heuristicRisk is intentionally NOT triggered by accessibilityEnabled alone.
+        // A legitimate accessibility service (keyboard, TalkBack, switch access) should not
+        // be flagged as an overlay risk. Only risky packages confirmed by the package inspector trigger this.
+        val heuristicRisk = riskyAccessibilityPackages.isNotEmpty()
         val quickFixTargets = linkedSetOf<OverlayQuickFixTarget>()
         if (confirmedInteractionDetected) {
             quickFixTargets.add(OverlayQuickFixTarget.OverlaySettings)

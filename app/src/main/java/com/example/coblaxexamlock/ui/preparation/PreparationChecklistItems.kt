@@ -356,7 +356,10 @@ internal fun PreparationChecklistItemsCard(
                     } else if (bypassClipboard) {
                         tr("Bypass enabled", "Bypass aktif")
                     } else {
-                        tr("Clipboard changes will trigger an alarm", "Perubahan clipboard akan memicu alarm")
+                        tr(
+                            "Clipboard monitoring activates when the exam session starts",
+                            "Monitoring clipboard aktif saat sesi ujian dimulai"
+                        )
                     },
                     detail = clipboardDetail,
                     status = when {
@@ -365,7 +368,7 @@ internal fun PreparationChecklistItemsCard(
 
                         bypassClipboard -> tr("Bypassed", "Bypass")
                         clipboardViolationCount > 0 -> tr("Warning", "Peringatan")
-                        else -> tr("Monitored", "Dipantau")
+                        else -> tr("Ready", "Siap")
                     },
                     onSendTelegram = { onRequestSectionReport(DiagnosticSection.Clipboard) },
                     isSending = sendingSection == DiagnosticSection.Clipboard,

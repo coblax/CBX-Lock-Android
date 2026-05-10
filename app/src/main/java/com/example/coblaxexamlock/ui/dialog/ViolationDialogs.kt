@@ -521,11 +521,20 @@ internal fun OfflineTooLongDialog(
         ),
         containerColor = Color(0xFFFFFBF0),
         title = {
-            Text(
-                text = tr("Connection Lost Too Long", "Koneksi Terputus Terlalu Lama"),
-                color = LockGoldDark,
-                fontWeight = FontWeight.Bold
-            )
+            Row(
+                horizontalArrangement = Arrangement.spacedBy(10.dp),
+                verticalAlignment = Alignment.CenterVertically
+            ) {
+                Surface(shape = CircleShape, color = LockGoldDark.copy(alpha = 0.14f)) {
+                    Icon(
+                        imageVector = Icons.Rounded.Language,
+                        contentDescription = null,
+                        tint = LockGoldDark,
+                        modifier = Modifier.padding(6.dp).size(20.dp)
+                    )
+                }
+                Text(text = tr("Connection Lost Too Long", "Koneksi Terputus Terlalu Lama"), color = LockGoldDark, fontWeight = FontWeight.Bold)
+            }
         },
         text = {
             Column {
@@ -577,11 +586,20 @@ internal fun NetworkUnstableDialog(
         ),
         containerColor = Color(0xFFFFFBF0),
         title = {
-            Text(
-                text = tr("Connection Unstable", "Koneksi Tidak Stabil"),
-                color = LockGoldDark,
-                fontWeight = FontWeight.Bold
-            )
+            Row(
+                horizontalArrangement = Arrangement.spacedBy(10.dp),
+                verticalAlignment = Alignment.CenterVertically
+            ) {
+                Surface(shape = CircleShape, color = LockGoldDark.copy(alpha = 0.14f)) {
+                    Icon(
+                        imageVector = Icons.Rounded.Refresh,
+                        contentDescription = null,
+                        tint = LockGoldDark,
+                        modifier = Modifier.padding(6.dp).size(20.dp)
+                    )
+                }
+                Text(text = tr("Connection Unstable", "Koneksi Tidak Stabil"), color = LockGoldDark, fontWeight = FontWeight.Bold)
+            }
         },
         text = {
             Column {
@@ -951,11 +969,20 @@ internal fun BluetoothViolationDialog(
         ),
         containerColor = Color(0xFFFDF1F1),
         title = {
-            Text(
-                text = tr("Bluetooth Is Not Safe", "Bluetooth Tidak Aman"),
-                color = Color(0xFFB42318),
-                fontWeight = FontWeight.Bold
-            )
+            Row(
+                horizontalArrangement = Arrangement.spacedBy(10.dp),
+                verticalAlignment = Alignment.CenterVertically
+            ) {
+                Surface(shape = CircleShape, color = Color(0xFFB42318).copy(alpha = 0.12f)) {
+                    Icon(
+                        imageVector = Icons.Rounded.QrCodeScanner,
+                        contentDescription = null,
+                        tint = Color(0xFFB42318),
+                        modifier = Modifier.padding(6.dp).size(20.dp)
+                    )
+                }
+                Text(text = tr("Bluetooth Is Not Safe", "Bluetooth Tidak Aman"), color = Color(0xFFB42318), fontWeight = FontWeight.Bold)
+            }
         },
         text = {
             Column {
@@ -1003,11 +1030,20 @@ internal fun ClipboardViolationDialog(
         ),
         containerColor = Color(0xFFFDF1F1),
         title = {
-            Text(
-                text = tr("Clipboard Changed", "Clipboard Berubah"),
-                color = Color(0xFFB42318),
-                fontWeight = FontWeight.Bold
-            )
+            Row(
+                horizontalArrangement = Arrangement.spacedBy(10.dp),
+                verticalAlignment = Alignment.CenterVertically
+            ) {
+                Surface(shape = CircleShape, color = Color(0xFFB42318).copy(alpha = 0.12f)) {
+                    Icon(
+                        imageVector = Icons.AutoMirrored.Rounded.Backspace,
+                        contentDescription = null,
+                        tint = Color(0xFFB42318),
+                        modifier = Modifier.padding(6.dp).size(20.dp)
+                    )
+                }
+                Text(text = tr("Clipboard Changed", "Clipboard Berubah"), color = Color(0xFFB42318), fontWeight = FontWeight.Bold)
+            }
         },
         text = {
             Column {
@@ -1201,13 +1237,22 @@ internal fun SecurityViolationDialog(
             dismissOnBackPress = false,
             dismissOnClickOutside = false
         ),
-        containerColor = Color(0xFFFDF1F1),
+        containerColor = Color(0xFFFAEBEB),
         title = {
-            Text(
-                text = tr("Violation Detected", "Pelanggaran Terdeteksi"),
-                color = Color(0xFFB42318),
-                fontWeight = FontWeight.Bold
-            )
+            Row(
+                horizontalArrangement = Arrangement.spacedBy(10.dp),
+                verticalAlignment = Alignment.CenterVertically
+            ) {
+                Surface(shape = CircleShape, color = Color(0xFFB42318).copy(alpha = 0.16f)) {
+                    Icon(
+                        imageVector = Icons.Rounded.AdminPanelSettings,
+                        contentDescription = null,
+                        tint = Color(0xFFB42318),
+                        modifier = Modifier.padding(8.dp).size(24.dp)
+                    )
+                }
+                Text(text = tr("Violation Detected", "Pelanggaran Terdeteksi"), color = Color(0xFFB42318), fontWeight = FontWeight.Bold)
+            }
         },
         text = {
             Column {
@@ -1256,8 +1301,15 @@ internal fun SecurityViolationDialog(
             }
         },
         confirmButton = {
-            TextButton(onClick = onAcknowledge) {
-                Text(tr("I Understand", "Saya Mengerti"), color = LockBlueDeep)
+            Button(
+                onClick = onAcknowledge,
+                shape = RoundedCornerShape(12.dp),
+                colors = ButtonDefaults.buttonColors(
+                    containerColor = Color(0xFFB42318),
+                    contentColor = Color.White
+                )
+            ) {
+                Text(tr("I Understand", "Saya Mengerti"), fontWeight = FontWeight.Bold)
             }
         }
     )

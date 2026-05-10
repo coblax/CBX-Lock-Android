@@ -3247,6 +3247,7 @@ internal fun ExamRuntimeSessionScreenImpl(
                 bypassVirtualEnvironment = bypassVirtualEnvironment,
                 virtualEnvironmentDetected = virtualEnvironmentDetected,
                 adbEnabled = adbEnabled,
+                adbInsecureSystemProperty = adbInspection.insecureSystemProperty,
                 bypassRoot = bypassRoot,
                 rootSecurityStatus = rootSecurityStatus
             )
