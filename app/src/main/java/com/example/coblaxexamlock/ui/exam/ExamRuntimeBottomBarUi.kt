@@ -1,6 +1,9 @@
 package com.example.coblaxexamlock.ui.exam
 
 import android.util.Log
+import androidx.compose.animation.core.FastOutSlowInEasing
+import androidx.compose.animation.core.animateFloatAsState
+import androidx.compose.animation.core.tween
 import androidx.compose.foundation.border
 import androidx.compose.foundation.BorderStroke
 import androidx.compose.foundation.clickable
@@ -20,17 +23,20 @@ import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.rounded.Home
+import androidx.compose.material.icons.rounded.KeyboardArrowLeft
+import androidx.compose.material.icons.rounded.KeyboardArrowRight
 import androidx.compose.material.icons.rounded.Refresh
-import androidx.compose.material.icons.rounded.Security
-import androidx.compose.material.icons.rounded.SwapHoriz
 import androidx.compose.material3.Icon
 import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
+import androidx.compose.material3.VerticalDivider
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
+import androidx.compose.runtime.getValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.graphics.graphicsLayer
 import androidx.compose.ui.graphics.vector.ImageVector
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.text.font.FontWeight
@@ -44,6 +50,7 @@ import com.example.coblaxexamlock.model.NetworkReadinessStatus
 import com.example.coblaxexamlock.model.NetworkReadinessVerdict
 import com.example.coblaxexamlock.ui.theme.LockBlue
 import com.example.coblaxexamlock.ui.theme.LockBlueDeep
+import com.example.coblaxexamlock.ui.theme.LockFooterBg
 import com.example.coblaxexamlock.ui.theme.LockGold
 import com.example.coblaxexamlock.ui.theme.LockGoldDark
 import com.example.coblaxexamlock.ui.theme.LockOnDark
@@ -64,8 +71,8 @@ internal fun ExamWebViewBottomBar(
     modifier: Modifier = Modifier
 ) {
     val batteryIndicatorColor = when {
-        batteryStatus.isCharging -> Color(0xFF56C271)
-        batteryStatus.levelPercent <= 20 -> Color(0xFFF26A6A)
+        batteryStatus.isCharging -> Color(0xFF2E9E52)
+        batteryStatus.levelPercent <= 20 -> Color(0xFFD93025)
         batteryStatus.levelPercent <= 40 -> LockGoldDark
         else -> LockBlue
     }
@@ -76,9 +83,9 @@ internal fun ExamWebViewBottomBar(
         ExamServerFooterStatus.Checking -> tr("Checking exam server", "Mengecek server ujian")
     }
     val shieldIndicatorColor = when (shieldStatus) {
-        ExamFooterShieldStatus.Safe -> Color(0xFF56C271)
+        ExamFooterShieldStatus.Safe -> Color(0xFF2E9E52)
         ExamFooterShieldStatus.Warning -> LockGoldDark
-        ExamFooterShieldStatus.Danger -> Color(0xFFF26A6A)
+        ExamFooterShieldStatus.Danger -> Color(0xFFD93025)
     }
     val shieldContentDescription = when (shieldStatus) {
         ExamFooterShieldStatus.Safe -> tr("Security protected", "Keamanan terlindungi")
@@ -111,15 +118,27 @@ internal fun ExamWebViewBottomBar(
     val lowRamProfile = LocalLowRamProfile.current
     val connectivityIndicatorColor = when {
         networkStatus.verdict == NetworkReadinessVerdict.Offline ||
-            networkStatus.verdict == NetworkReadinessVerdict.AirplaneMode -> Color(0xFFF26A6A)
+            networkStatus.verdict == NetworkReadinessVerdict.AirplaneMode -> Color(0xFFD93025)
         networkStatus.verdict == NetworkReadinessVerdict.Unvalidated ||
             networkStatus.verdict == NetworkReadinessVerdict.CaptivePortal ||
             networkStatus.verdict == NetworkReadinessVerdict.Unstable -> LockGoldDark
-        else -> Color(0xFF56C271)
+        else -> Color(0xFF2E9E52)
     }
     val connectivityVisual = resolveExamFooterConnectivityVisual(networkStatus, serverStatus)
     val connectivityDescription = "$networkContentDescription. $serverContentDescription"
     val refreshContainerColor = if (isRefreshing) LockGold else LockBlue
+
+    // Refresh spin animation
+    val refreshRotation by animateFloatAsState(
+        targetValue = if (isRefreshing && !lowRamProfile.enabled) 360f else 0f,
+        animationSpec = if (isRefreshing && !lowRamProfile.enabled) {
+            tween(durationMillis = 800, easing = FastOutSlowInEasing)
+        } else {
+            tween(durationMillis = 0)
+        },
+        label = "refresh_rotation"
+    )
+
     BoxWithConstraints(modifier = modifier) {
         val layoutSpec = calculateExamFooterLayoutSpec(
             maxWidthDp = maxWidth.value.toInt(),
@@ -161,11 +180,16 @@ internal fun ExamWebViewBottomBar(
 
         Surface(
             modifier = Modifier.fillMaxWidth(),
-            color = Color.White,
-            shape = RoundedCornerShape(layoutSpec.cornerRadiusDp.dp),
-            tonalElevation = layoutSpec.tonalElevationDp.dp,
-            shadowElevation = layoutSpec.shadowElevationDp.dp,
-            border = BorderStroke(1.dp, LockOutline.copy(alpha = 0.80f))
+            color = LockFooterBg,
+            shape = RoundedCornerShape(
+                topStart = 20.dp,
+                topEnd = 20.dp,
+                bottomStart = layoutSpec.cornerRadiusDp.dp,
+                bottomEnd = layoutSpec.cornerRadiusDp.dp
+            ),
+            tonalElevation = if (lowRamProfile.enabled) 1.dp else 2.dp,
+            shadowElevation = if (lowRamProfile.enabled) 2.dp else 10.dp,
+            border = BorderStroke(1.dp, LockOutline.copy(alpha = 0.75f))
         ) {
             if (layoutSpec.layoutMode == ExamFooterLayoutMode.TwoRowCompact) {
                 Column(
@@ -202,6 +226,8 @@ internal fun ExamWebViewBottomBar(
                         shieldLabel = shieldLabel,
                         shieldContentDescription = shieldContentDescription,
                         shieldPillWidth = shieldPillWidth,
+                        shieldStatus = shieldStatus,
+                        serverStatus = serverStatus,
                         actionButtonSize = actionButtonSize,
                         iconSize = iconSize,
                         itemSpacing = itemSpacing,
@@ -209,6 +235,7 @@ internal fun ExamWebViewBottomBar(
                     )
                     ExamFooterActionCluster(
                         refreshContainerColor = refreshContainerColor,
+                        refreshRotation = refreshRotation,
                         actionButtonSize = actionButtonSize,
                         actionTouchTargetSize = actionTouchTargetSize,
                         iconSize = iconSize,
@@ -249,6 +276,8 @@ internal fun ExamWebViewBottomBar(
                         shieldLabel = shieldLabel,
                         shieldContentDescription = shieldContentDescription,
                         shieldPillWidth = shieldPillWidth,
+                        shieldStatus = shieldStatus,
+                        serverStatus = serverStatus,
                         actionButtonSize = actionButtonSize,
                         iconSize = iconSize,
                         itemSpacing = itemSpacing,
@@ -257,8 +286,18 @@ internal fun ExamWebViewBottomBar(
 
                     Spacer(modifier = Modifier.weight(1f))
 
+                    // Visual separator between status cluster and action cluster
+                    VerticalDivider(
+                        modifier = Modifier
+                            .height(actionButtonSize * 0.7f)
+                            .padding(end = actionSpacing),
+                        thickness = 0.5.dp,
+                        color = LockOutline.copy(alpha = 0.55f)
+                    )
+
                     ExamFooterActionCluster(
                         refreshContainerColor = refreshContainerColor,
+                        refreshRotation = refreshRotation,
                         actionButtonSize = actionButtonSize,
                         actionTouchTargetSize = actionTouchTargetSize,
                         iconSize = iconSize,
@@ -275,6 +314,7 @@ internal fun ExamWebViewBottomBar(
 @Composable
 private fun ExamFooterActionCluster(
     refreshContainerColor: Color,
+    refreshRotation: Float,
     actionButtonSize: Dp,
     actionTouchTargetSize: Dp,
     iconSize: Dp,
@@ -296,7 +336,8 @@ private fun ExamFooterActionCluster(
             contentColor = LockOnDark,
             size = actionButtonSize,
             touchTargetSize = actionTouchTargetSize,
-            iconSize = iconSize
+            iconSize = iconSize,
+            iconRotation = refreshRotation
         )
 
         ExamFooterIconButton(
@@ -337,7 +378,7 @@ private fun ArrowVisibilityTogglePill(
                 .height(buttonSize)
                 .border(
                     width = 1.dp,
-                    color = if (visible) LockBlueDeep.copy(alpha = 0.35f) else LockOutline.copy(alpha = 0.65f),
+                    color = if (visible) LockBlue.copy(alpha = 0.55f) else LockOutline.copy(alpha = 0.65f),
                     shape = RoundedCornerShape(12.dp)
                 ),
             shape = RoundedCornerShape(12.dp),
@@ -346,10 +387,16 @@ private fun ArrowVisibilityTogglePill(
         ) {
             Row(
                 verticalAlignment = Alignment.CenterVertically,
-                horizontalArrangement = Arrangement.spacedBy(3.dp, Alignment.CenterHorizontally)
+                horizontalArrangement = Arrangement.spacedBy(0.dp, Alignment.CenterHorizontally)
             ) {
                 Icon(
-                    imageVector = Icons.Rounded.SwapHoriz,
+                    imageVector = Icons.Rounded.KeyboardArrowLeft,
+                    contentDescription = null,
+                    tint = contentColor,
+                    modifier = Modifier.size(iconSize)
+                )
+                Icon(
+                    imageVector = Icons.Rounded.KeyboardArrowRight,
                     contentDescription = if (visible) {
                         tr("Hide side arrows", "Sembunyikan tombol panah")
                     } else {
@@ -357,13 +404,6 @@ private fun ArrowVisibilityTogglePill(
                     },
                     tint = contentColor,
                     modifier = Modifier.size(iconSize)
-                )
-                Text(
-                    text = "Panah",
-                    color = contentColor,
-                    fontSize = 9.sp,
-                    fontWeight = FontWeight.Bold,
-                    maxLines = 1
                 )
             }
         }
@@ -376,10 +416,11 @@ private fun ExamFooterIconButton(
     contentDescription: String,
     containerColor: Color,
     contentColor: Color,
-    size: androidx.compose.ui.unit.Dp,
-    touchTargetSize: androidx.compose.ui.unit.Dp,
-    iconSize: androidx.compose.ui.unit.Dp,
-    onClick: () -> Unit
+    size: Dp,
+    touchTargetSize: Dp,
+    iconSize: Dp,
+    onClick: () -> Unit,
+    iconRotation: Float = 0f
 ) {
     Box(
         modifier = Modifier
@@ -403,7 +444,9 @@ private fun ExamFooterIconButton(
                     imageVector = icon,
                     contentDescription = contentDescription,
                     tint = contentColor,
-                    modifier = Modifier.size(iconSize)
+                    modifier = Modifier
+                        .size(iconSize)
+                        .graphicsLayer { rotationZ = iconRotation }
                 )
             }
         }

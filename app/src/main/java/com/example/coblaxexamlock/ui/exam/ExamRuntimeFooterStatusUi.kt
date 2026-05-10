@@ -1,5 +1,13 @@
 package com.example.coblaxexamlock.ui.exam
 
+import androidx.compose.animation.core.FastOutSlowInEasing
+import androidx.compose.animation.core.LinearEasing
+import androidx.compose.animation.core.RepeatMode
+import androidx.compose.animation.core.animateFloat
+import androidx.compose.animation.core.animateFloatAsState
+import androidx.compose.animation.core.infiniteRepeatable
+import androidx.compose.animation.core.rememberInfiniteTransition
+import androidx.compose.animation.core.tween
 import androidx.compose.foundation.background
 import androidx.compose.foundation.border
 import androidx.compose.foundation.BorderStroke
@@ -24,9 +32,12 @@ import androidx.compose.material3.Icon
 import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.getValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.draw.clip
+import androidx.compose.ui.draw.scale
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.graphics.graphicsLayer
 import androidx.compose.ui.graphics.vector.ImageVector
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.text.font.FontWeight
@@ -35,8 +46,15 @@ import androidx.compose.ui.unit.Dp
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import com.example.coblaxexamlock.i18n.tr
+import com.example.coblaxexamlock.LocalLowRamProfile
 import com.example.coblaxexamlock.model.ExamBatteryStatus
+import com.example.coblaxexamlock.ui.theme.LockGoldDark
 import com.example.coblaxexamlock.ui.theme.LockOutline
+import com.example.coblaxexamlock.ui.theme.LockStatusDanger
+import com.example.coblaxexamlock.ui.theme.LockStatusDangerFill
+import com.example.coblaxexamlock.ui.theme.LockStatusSafe
+import com.example.coblaxexamlock.ui.theme.LockStatusSafeFill
+import com.example.coblaxexamlock.ui.theme.LockStatusWarnFill
 import com.example.coblaxexamlock.ui.theme.LockSurfaceSoft
 import com.example.coblaxexamlock.ui.theme.LockTextPrimary
 
@@ -53,6 +71,8 @@ internal fun ExamFooterStatusCluster(
     shieldLabel: String,
     shieldContentDescription: String,
     shieldPillWidth: Dp,
+    shieldStatus: ExamFooterShieldStatus,
+    serverStatus: ExamServerFooterStatus,
     actionButtonSize: Dp,
     iconSize: Dp,
     itemSpacing: Dp,
@@ -64,14 +84,15 @@ internal fun ExamFooterStatusCluster(
         horizontalArrangement = Arrangement.spacedBy(itemSpacing, Alignment.CenterHorizontally),
         verticalAlignment = Alignment.CenterVertically
     ) {
-        ConnectivitySignalPill(
+        ConnectivityInfoPill(
             visual = connectivityVisual,
             statusColor = connectivityIndicatorColor,
+            serverStatus = serverStatus,
             contentDescription = connectivityDescription,
             width = connectivityPillWidth,
             height = actionButtonSize
         )
-        BatteryStatusIconPill(
+        BatteryInfoPill(
             batteryStatus = batteryStatus,
             statusColor = batteryIndicatorColor,
             height = actionButtonSize,
@@ -79,7 +100,8 @@ internal fun ExamFooterStatusCluster(
             iconSize = iconSize,
             showPercent = showBatteryPercent
         )
-        SecurityShieldStatusIconPill(
+        SecurityShieldPill(
+            shieldStatus = shieldStatus,
             statusColor = shieldIndicatorColor,
             label = shieldLabel,
             contentDescription = shieldContentDescription,
@@ -90,61 +112,84 @@ internal fun ExamFooterStatusCluster(
     }
 }
 
+// ---------------------------------------------------------------------------
+// Connectivity pill
+// ---------------------------------------------------------------------------
+
 @Composable
-private fun ConnectivitySignalPill(
+private fun ConnectivityInfoPill(
     visual: ExamFooterConnectivityVisual,
     statusColor: Color,
+    serverStatus: ExamServerFooterStatus,
     contentDescription: String,
     width: Dp,
     height: Dp
 ) {
-    Surface(
+    val pillFill = when (visual.severity) {
+        ExamFooterConnectivitySeverity.Stable  -> LockStatusSafeFill
+        ExamFooterConnectivitySeverity.Warning -> LockStatusWarnFill
+        ExamFooterConnectivitySeverity.Danger  -> LockStatusDangerFill
+    }
+    val pillBorder = statusColor.copy(alpha = 0.45f)
+
+    Box(
         modifier = Modifier
             .width(width)
-            .height(height),
-        shape = RoundedCornerShape(12.dp),
-        color = LockSurfaceSoft,
-        border = BorderStroke(1.dp, LockOutline.copy(alpha = 0.65f))
+            .height(height)
     ) {
-        Box(
+        Surface(
             modifier = Modifier.fillMaxSize(),
-            contentAlignment = Alignment.Center
+            shape = RoundedCornerShape(12.dp),
+            color = pillFill,
+            border = BorderStroke(1.dp, pillBorder)
         ) {
-            Row(
-                verticalAlignment = Alignment.Bottom,
-                horizontalArrangement = Arrangement.spacedBy(2.dp, Alignment.CenterHorizontally)
+            Box(
+                modifier = Modifier.fillMaxSize(),
+                contentAlignment = Alignment.Center
             ) {
-                SignalBars(
-                    level = visual.signalLevel,
-                    statusColor = statusColor,
-                    danger = visual.severity == ExamFooterConnectivitySeverity.Danger
-                )
-                visual.cellularLabel?.let { label ->
-                    Text(
-                        text = label,
-                        color = statusColor,
-                        fontSize = 8.sp,
-                        fontWeight = FontWeight.Bold,
-                        maxLines = 1,
-                        modifier = Modifier.offset(y = 1.dp)
+                Row(
+                    verticalAlignment = Alignment.Bottom,
+                    horizontalArrangement = Arrangement.spacedBy(2.dp, Alignment.CenterHorizontally)
+                ) {
+                    SignalBars(
+                        level = visual.signalLevel,
+                        statusColor = statusColor,
+                        danger = visual.severity == ExamFooterConnectivitySeverity.Danger
                     )
+                    visual.cellularLabel?.let { label ->
+                        Text(
+                            text = label,
+                            color = statusColor,
+                            fontSize = 8.sp,
+                            fontWeight = FontWeight.Bold,
+                            maxLines = 1,
+                            modifier = Modifier.offset(y = 1.dp)
+                        )
+                    }
                 }
             }
-            visual.badgeText?.let { badge ->
-                Text(
-                    text = badge,
-                    color = Color.White,
-                    fontSize = 7.sp,
-                    fontWeight = FontWeight.Bold,
-                    modifier = Modifier
-                        .align(Alignment.TopEnd)
-                        .padding(top = 4.dp, end = 4.dp)
-                        .size(11.dp)
-                        .clip(CircleShape)
-                        .background(statusColor),
-                    maxLines = 1
-                )
-            }
+        }
+
+        // Server-status badge dot (replaces the old "!" badge text)
+        val serverDotColor = when (serverStatus) {
+            ExamServerFooterStatus.Online   -> LockStatusSafe
+            ExamServerFooterStatus.Checking -> LockGoldDark
+            ExamServerFooterStatus.Warning  -> LockGoldDark
+            ExamServerFooterStatus.Offline  -> LockStatusDanger
+        }
+        // Hide dot when everything is stable & server is online to reduce clutter
+        val showServerDot = serverStatus != ExamServerFooterStatus.Online ||
+            visual.severity != ExamFooterConnectivitySeverity.Stable
+        if (showServerDot) {
+            Box(
+                modifier = Modifier
+                    .align(Alignment.TopEnd)
+                    .padding(top = 3.dp, end = 3.dp)
+                    .size(7.dp)
+                    .clip(CircleShape)
+                    .background(serverDotColor)
+                    .border(0.5.dp, Color.White.copy(alpha = 0.9f), CircleShape)
+            )
         }
     }
 }
@@ -161,11 +206,11 @@ private fun SignalBars(
         verticalAlignment = Alignment.Bottom,
         horizontalArrangement = Arrangement.spacedBy(2.dp)
     ) {
-        listOf(7.dp, 10.dp, 13.dp, 16.dp).forEachIndexed { index, height ->
+        listOf(7.dp, 10.dp, 13.dp, 16.dp).forEachIndexed { index, barHeight ->
             Box(
                 modifier = Modifier
-                    .width(3.dp)
-                    .height(height)
+                    .width(4.dp)
+                    .height(barHeight)
                     .clip(RoundedCornerShape(999.dp))
                     .background(if (index < activeBars) statusColor else inactiveColor)
             )
@@ -173,8 +218,13 @@ private fun SignalBars(
     }
 }
 
+// ---------------------------------------------------------------------------
+// Security shield pill
+// ---------------------------------------------------------------------------
+
 @Composable
-private fun SecurityShieldStatusIconPill(
+private fun SecurityShieldPill(
+    shieldStatus: ExamFooterShieldStatus,
     statusColor: Color,
     label: String,
     contentDescription: String,
@@ -182,13 +232,38 @@ private fun SecurityShieldStatusIconPill(
     height: Dp,
     iconSize: Dp
 ) {
+    val lowRam = LocalLowRamProfile.current
+    val pillFill = when (shieldStatus) {
+        ExamFooterShieldStatus.Safe    -> LockStatusSafeFill
+        ExamFooterShieldStatus.Warning -> LockStatusWarnFill
+        ExamFooterShieldStatus.Danger  -> LockStatusDangerFill
+    }
+    val pillBorder = statusColor.copy(alpha = 0.45f)
+
+    // Pulse animation for Danger state (disabled on low-RAM)
+    val animatePulse = shieldStatus == ExamFooterShieldStatus.Danger && !lowRam.enabled
+    val pulseScale by if (animatePulse) {
+        rememberInfiniteTransition(label = "shield_pulse").animateFloat(
+            initialValue = 1f,
+            targetValue = 1.04f,
+            animationSpec = infiniteRepeatable(
+                animation = tween(600, easing = FastOutSlowInEasing),
+                repeatMode = RepeatMode.Reverse
+            ),
+            label = "shield_pulse_scale"
+        )
+    } else {
+        androidx.compose.runtime.remember { androidx.compose.runtime.mutableFloatStateOf(1f) }
+    }
+
     Surface(
         modifier = Modifier
             .width(width)
-            .height(height),
+            .height(height)
+            .scale(pulseScale),
         shape = RoundedCornerShape(12.dp),
-        color = LockSurfaceSoft,
-        border = BorderStroke(1.dp, LockOutline.copy(alpha = 0.65f))
+        color = pillFill,
+        border = BorderStroke(1.dp, pillBorder)
     ) {
         Row(
             modifier = Modifier
@@ -215,20 +290,50 @@ private fun SecurityShieldStatusIconPill(
     }
 }
 
+// ---------------------------------------------------------------------------
+// Battery pill
+// ---------------------------------------------------------------------------
+
 @Composable
-private fun BatteryStatusIconPill(
+private fun BatteryInfoPill(
     batteryStatus: ExamBatteryStatus,
     statusColor: Color,
-    height: androidx.compose.ui.unit.Dp,
-    width: androidx.compose.ui.unit.Dp,
-    iconSize: androidx.compose.ui.unit.Dp,
+    height: Dp,
+    width: Dp,
+    iconSize: Dp,
     showPercent: Boolean
 ) {
+    val lowRam = LocalLowRamProfile.current
     val percent = batteryStatus.levelPercent.coerceIn(0, 100)
+
+    val pillFill = when {
+        batteryStatus.isCharging    -> LockStatusSafeFill
+        percent <= 20               -> LockStatusDangerFill
+        percent <= 40               -> LockStatusWarnFill
+        else                        -> LockSurfaceSoft
+    }
+    val pillBorder = statusColor.copy(alpha = 0.40f)
+
     val contentDescription = if (batteryStatus.isCharging) {
         tr("Battery $percent percent, charging", "Baterai $percent persen, sedang diisi")
     } else {
         tr("Battery $percent percent", "Baterai $percent persen")
+    }
+
+    // Charging blink animation (disabled on low-RAM)
+    val animateCharging = batteryStatus.isCharging && !lowRam.enabled
+    val chargingAlpha by if (animateCharging) {
+        rememberInfiniteTransition(label = "battery_charge").animateFloat(
+            initialValue = 0.6f,
+            targetValue = 1f,
+            animationSpec = infiniteRepeatable(
+                animation = tween(900, easing = LinearEasing),
+                repeatMode = RepeatMode.Reverse
+            ),
+            label = "battery_blink"
+        )
+    } else {
+        androidx.compose.runtime.remember { androidx.compose.runtime.mutableFloatStateOf(1f) }
     }
 
     Surface(
@@ -236,8 +341,8 @@ private fun BatteryStatusIconPill(
             .height(height)
             .width(width),
         shape = RoundedCornerShape(12.dp),
-        color = LockSurfaceSoft,
-        border = BorderStroke(1.dp, LockOutline.copy(alpha = 0.65f))
+        color = pillFill,
+        border = BorderStroke(1.dp, pillBorder)
     ) {
         Row(
             modifier = Modifier
@@ -250,7 +355,9 @@ private fun BatteryStatusIconPill(
                 imageVector = batteryStatusIcon(batteryStatus),
                 contentDescription = contentDescription,
                 tint = statusColor,
-                modifier = Modifier.size(iconSize)
+                modifier = Modifier
+                    .size(iconSize)
+                    .graphicsLayer { alpha = chargingAlpha }
             )
             if (showPercent) {
                 Text(
@@ -267,8 +374,8 @@ private fun BatteryStatusIconPill(
 
 private fun batteryStatusIcon(status: ExamBatteryStatus): ImageVector {
     return when {
-        status.isCharging -> Icons.Rounded.BatteryChargingFull
-        status.levelPercent <= 20 -> Icons.Rounded.BatteryAlert
-        else -> Icons.Rounded.BatteryFull
+        status.isCharging          -> Icons.Rounded.BatteryChargingFull
+        status.levelPercent <= 20  -> Icons.Rounded.BatteryAlert
+        else                       -> Icons.Rounded.BatteryFull
     }
 }

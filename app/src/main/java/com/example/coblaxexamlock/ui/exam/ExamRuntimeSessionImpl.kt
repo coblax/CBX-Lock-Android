@@ -2885,92 +2885,34 @@ internal fun ExamRuntimeSessionScreenImpl(
         }
 
         fun resetPreparationSecurityEpisodes() {
-            geofenceViolationCount = 0
-            geofenceRuntimeEpisodeKey = null
-            lastGeofenceTrigger = null
-            lastGeofenceAt = null
-            lastGeofenceContext = null
-            lastGeofenceRefreshAt = null
-            showGeofenceViolationDialog = false
-            fakeLocationViolationCount = 0
-            fakeLocationRuntimeEpisodeKey = null
-            lastFakeLocationTrigger = null
-            lastFakeLocationAt = null
-            lastFakeLocationContext = null
-            showFakeLocationViolationDialog = false
+            resetStartExamPreparationSecurityEpisodes(flowUiState)
         }
 
         fun finalizeExamSessionStart(lockTaskAlreadyActive: Boolean) {
-            webViewSessionResetError = null
-            examSessionStartedAtElapsedMs = SystemClock.elapsedRealtime()
-            if (!lockTaskAlreadyActive) {
-                lockTaskBridge.engage(allowLockTask = false)
-            }
-            examSessionStarted = true
-            val clipboardSnapshot = readClipboardSnapshotLite(context)
-            clipboardDecisionFingerprint = clipboardSnapshot.decisionFingerprint
-            clipboardDecisionSemanticSignature = clipboardSnapshot.semanticSignature
-            lastClipboardObservedAt = null
-            lastClipboardConfirmedAt = null
-            lastClipboardObservedSignature = null
-            lastClipboardBaselineSemanticSignature = null
-            lastClipboardDetectedSemanticSignature = null
-            lastClipboardDecision = ClipboardChangeDecision.Idle.diagnosticLabel()
-            clipboardPreBackgroundFingerprint = null
-            clipboardPreBackgroundSignature = null
-            clipboardPreBackgroundSemanticSignature = null
-            clipboardResumeCheckPending = false
-            if (useBuiltInExamKeyboard) {
-                hideSystemKeyboard()
-            } else {
-                showBuiltInExamKeyboard = false
-                showSystemKeyboard()
-            }
-            sideArrowControlsVisible = true
+            finalizeStartExamSession(
+                context = context,
+                lockTaskBridge = lockTaskBridge,
+                flowUiState = flowUiState,
+                adminUiState = adminUiState,
+                clipboardUiState = clipboardUiState,
+                lockTaskAlreadyActive = lockTaskAlreadyActive,
+                hideSystemKeyboard = ::hideSystemKeyboard,
+                showSystemKeyboard = ::showSystemKeyboard
+            )
         }
 
         suspend fun prepareCleanExamWebViewSessionForStart(): Boolean {
-            if (webViewSessionResetInFlight) {
-                return false
-            }
-
-            webViewSessionResetInFlight = true
-            webViewSessionResetError = null
-            recordAction(code = "WEBVIEW_SESSION_RESET_STARTED", details = "strict_all")
-
-            val resetResult = debugMeasureExamStartSuspendWork("prepareCleanExamWebViewSessionForStart") {
-                clearExamWebViewSessionData(
-                    context = context,
-                    existingWebView = webViewInstance
-                )
-            }
-
-            webViewSessionResetInFlight = false
-            if (resetResult.isSuccess) {
-                recordAction(code = "WEBVIEW_SESSION_RESET_SUCCEEDED", details = "strict_all")
-                examRuntimeRecoveryState = ExamRuntimeRecoveryState.Idle
-                return true
-            }
-
-            val failureDetails = resetResult.exceptionOrNull()?.message ?: "unknown"
-            val userMessage = localized(
-                uiLanguage,
-                "The app could not clear the previous WebView session data yet. Retry Start Exam Mode. If this keeps happening, close and reopen the app.",
-                "Aplikasi belum bisa membersihkan data sesi WebView sebelumnya. Coba lagi Mulai Ujian. Jika tetap gagal, tutup lalu buka ulang aplikasi."
+            return prepareCleanExamWebViewSessionForStart(
+                context = context,
+                existingWebView = webViewInstance,
+                flowUiState = flowUiState,
+                adminUiState = adminUiState,
+                uiLanguage = uiLanguage,
+                recordAction = { code, details, level ->
+                    recordAction(code = code, details = details, level = level)
+                },
+                onRecoveryStateIdle = { examRuntimeRecoveryState = ExamRuntimeRecoveryState.Idle }
             )
-            recordAction(
-                code = "WEBVIEW_SESSION_RESET_FAILED",
-                details = failureDetails,
-                level = DiagnosticEventLevel.ERROR
-            )
-            webViewSessionResetError = userMessage
-            securityIssueDialogTitle = localized(
-                uiLanguage,
-                "Unable to Prepare Clean Exam Session",
-                "Gagal Menyiapkan Sesi Ujian Bersih"
-            )
-            securityIssueDialogMessage = userMessage
-            return false
         }
 
         fun completeStartExamSessionAfterPrechecks() {

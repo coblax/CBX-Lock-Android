@@ -105,14 +105,14 @@ internal fun calculateExamFooterLayoutSpec(
             else -> 64
         },
         connectivityPillWidthDp = when {
-            severe -> 42
-            compact -> 44
-            else -> 46
+            severe -> 46
+            compact -> 48
+            else -> 50
         },
         shieldPillWidthDp = when {
-            severe -> 48
-            compact -> 52
-            else -> 56
+            severe -> 52
+            compact -> 56
+            else -> 60
         },
         touchTargetDp = 48,
         iconSizeDp = when {
@@ -132,13 +132,13 @@ internal fun calculateExamFooterLayoutSpec(
         minHeightDp = when {
             layoutMode == ExamFooterLayoutMode.TwoRowCompact && severe -> 78
             layoutMode == ExamFooterLayoutMode.TwoRowCompact -> 82
-            layoutMode == ExamFooterLayoutMode.TabletWide -> 50
-            else -> 48
+            layoutMode == ExamFooterLayoutMode.TabletWide -> 52
+            else -> 52
         },
         maxHeightDp = when (layoutMode) {
             ExamFooterLayoutMode.TwoRowCompact -> 88
-            ExamFooterLayoutMode.TabletWide -> 56
-            ExamFooterLayoutMode.SingleRow -> 54
+            ExamFooterLayoutMode.TabletWide -> 58
+            ExamFooterLayoutMode.SingleRow -> 58
         },
         rowSpacingDp = if (severe) 2 else 4,
         cornerRadiusDp = if (compact) 14 else 16,

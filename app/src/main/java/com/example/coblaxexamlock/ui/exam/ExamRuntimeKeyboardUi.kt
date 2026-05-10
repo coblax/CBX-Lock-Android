@@ -19,6 +19,7 @@ import androidx.compose.material.icons.automirrored.rounded.Backspace
 import androidx.compose.material.icons.automirrored.rounded.KeyboardReturn
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.rounded.ArrowUpward
+import androidx.compose.material.icons.rounded.SpaceBar
 import androidx.compose.material3.Icon
 import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
@@ -130,6 +131,7 @@ internal fun ExamBuiltInKeyboardPanel(
                     )
                 }
                 ExamBuiltInKeyboardKey(
+                    icon = Icons.Rounded.SpaceBar,
                     label = "",
                     onClick = onSpace,
                     modifier = Modifier.weight(3.1f),

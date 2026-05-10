@@ -267,11 +267,29 @@ internal fun KeyboardViolationDialog(
         ),
         containerColor = Color(0xFFFDF1F1),
         title = {
-            Text(
-                text = tr("Keyboard Not Allowed", "Keyboard Tidak Diizinkan"),
-                color = Color(0xFFB42318),
-                fontWeight = FontWeight.Bold
-            )
+            Row(
+                horizontalArrangement = Arrangement.spacedBy(10.dp),
+                verticalAlignment = Alignment.CenterVertically
+            ) {
+                Surface(
+                    shape = CircleShape,
+                    color = Color(0xFFB42318).copy(alpha = 0.12f)
+                ) {
+                    Icon(
+                        imageVector = Icons.Rounded.QrCodeScanner,
+                        contentDescription = null,
+                        tint = Color(0xFFB42318),
+                        modifier = Modifier
+                            .padding(6.dp)
+                            .size(20.dp)
+                    )
+                }
+                Text(
+                    text = tr("Keyboard Not Allowed", "Keyboard Tidak Diizinkan"),
+                    color = Color(0xFFB42318),
+                    fontWeight = FontWeight.Bold
+                )
+            }
         },
         text = {
             Column {
@@ -328,35 +346,49 @@ internal fun ExitExamDialog(
         },
         containerColor = LockBackground,
         title = {
-            Text(
-                text = tr("Exit Exam Mode", "Keluar Dari Mode Ujian"),
-                color = LockTextPrimary,
-                fontWeight = FontWeight.Bold
-            )
+            Row(
+                horizontalArrangement = Arrangement.spacedBy(10.dp),
+                verticalAlignment = Alignment.CenterVertically
+            ) {
+                Surface(
+                    shape = CircleShape,
+                    color = LockTextPrimary.copy(alpha = 0.08f)
+                ) {
+                    Icon(
+                        imageVector = Icons.AutoMirrored.Rounded.Send,
+                        contentDescription = null,
+                        tint = LockTextPrimary,
+                        modifier = Modifier
+                            .padding(6.dp)
+                            .size(18.dp)
+                    )
+                }
+                Text(
+                    text = tr("Exit Exam Mode", "Keluar Dari Mode Ujian"),
+                    color = LockTextPrimary,
+                    fontWeight = FontWeight.Bold
+                )
+            }
         },
         text = {
             Text(
-                text =
-                    if (isClearingSession) {
-                        tr(
-                            "Clearing exam session data before returning to Home.",
-                            "Membersihkan data sesi ujian sebelum kembali ke Home."
-                        )
-                    } else {
-                        tr(
-                            "You will leave the exam screen and app lock mode will be turned off.",
-                            "Anda akan keluar dari layar ujian dan mode kunci aplikasi akan dimatikan."
-                        )
-                    },
+                text = if (isClearingSession) {
+                    tr(
+                        "Clearing exam session data before returning to Home.",
+                        "Membersihkan data sesi ujian sebelum kembali ke Home."
+                    )
+                } else {
+                    tr(
+                        "You will leave the exam screen and app lock mode will be turned off.",
+                        "Anda akan keluar dari layar ujian dan mode kunci aplikasi akan dimatikan."
+                    )
+                },
                 color = LockTextSecondary
             )
         },
         confirmButton = {
-            TextButton(
-                onClick = onConfirm,
-                enabled = !isClearingSession
-            ) {
-                if (isClearingSession) {
+            if (isClearingSession) {
+                TextButton(onClick = {}, enabled = false) {
                     Row(
                         horizontalArrangement = Arrangement.spacedBy(8.dp),
                         verticalAlignment = Alignment.CenterVertically
@@ -368,8 +400,17 @@ internal fun ExitExamDialog(
                         )
                         Text(tr("Clearing", "Membersihkan"), color = LockTextSecondary)
                     }
-                } else {
-                    Text(tr("Exit", "Keluar"), color = Color(0xFFB42318))
+                }
+            } else {
+                Button(
+                    onClick = onConfirm,
+                    shape = RoundedCornerShape(12.dp),
+                    colors = ButtonDefaults.buttonColors(
+                        containerColor = Color(0xFFB42318),
+                        contentColor = Color.White
+                    )
+                ) {
+                    Text(tr("Exit", "Keluar"), fontWeight = FontWeight.Bold)
                 }
             }
         },
@@ -408,11 +449,29 @@ internal fun OverlayViolationDialog(
         ),
         containerColor = Color(0xFFFDF1F1),
         title = {
-            Text(
-                text = tr("Floating App Detected", "Floating App Terdeteksi"),
-                color = Color(0xFFB42318),
-                fontWeight = FontWeight.Bold
-            )
+            Row(
+                horizontalArrangement = Arrangement.spacedBy(10.dp),
+                verticalAlignment = Alignment.CenterVertically
+            ) {
+                Surface(
+                    shape = CircleShape,
+                    color = Color(0xFFB42318).copy(alpha = 0.12f)
+                ) {
+                    Icon(
+                        imageVector = Icons.Rounded.AdminPanelSettings,
+                        contentDescription = null,
+                        tint = Color(0xFFB42318),
+                        modifier = Modifier
+                            .padding(6.dp)
+                            .size(20.dp)
+                    )
+                }
+                Text(
+                    text = tr("Floating App Detected", "Floating App Terdeteksi"),
+                    color = Color(0xFFB42318),
+                    fontWeight = FontWeight.Bold
+                )
+            }
         },
         text = {
             Column {
@@ -424,10 +483,7 @@ internal fun OverlayViolationDialog(
                     color = LockTextPrimary
                 )
                 Spacer(modifier = Modifier.height(10.dp))
-                Text(
-                    text = reasonText,
-                    color = LockTextSecondary
-                )
+                Text(text = reasonText, color = LockTextSecondary)
                 Spacer(modifier = Modifier.height(10.dp))
                 Text(
                     text = tr("Overlay violations: $violationCount", "Jumlah pelanggaran overlay: $violationCount"),

@@ -1,8 +1,6 @@
 package com.example.coblaxexamlock.ui.exam
 
-import androidx.compose.foundation.border
 import androidx.compose.foundation.BorderStroke
-import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.BoxScope
 import androidx.compose.foundation.layout.Column
@@ -24,6 +22,7 @@ import androidx.compose.material3.Surface
 import androidx.compose.runtime.Composable
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.graphics.StrokeCap
 import androidx.compose.ui.graphics.vector.ImageVector
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.unit.Dp
@@ -34,6 +33,7 @@ import androidx.compose.ui.window.PopupProperties
 import com.example.coblaxexamlock.i18n.tr
 import com.example.coblaxexamlock.ui.theme.LockBlue
 import com.example.coblaxexamlock.ui.theme.LockBlueDeep
+import com.example.coblaxexamlock.ui.theme.LockGold
 import com.example.coblaxexamlock.ui.theme.LockOutline
 import com.example.coblaxexamlock.ui.theme.LockSurfaceSoft
 import com.example.coblaxexamlock.ui.theme.LockTextMuted
@@ -46,6 +46,10 @@ internal fun ExamRuntimeChrome(
     webViewLayer: @Composable BoxScope.() -> Unit,
     fullscreenLayer: (@Composable BoxScope.() -> Unit)? = null
 ) {
+    val isRefreshing = state.loadingProgress in 0f..0.98f
+    // Progress bar color: gold while refreshing, blue while loading fresh content
+    val progressBarColor = if (isRefreshing) LockGold else LockBlue
+
     Box(modifier = modifier.fillMaxSize()) {
         Column(modifier = Modifier.fillMaxSize()) {
             Box(
@@ -58,13 +62,16 @@ internal fun ExamRuntimeChrome(
                 }
 
                 if (state.examSessionStarted && state.loadingProgress < 1f) {
+                    // Polished 3dp progress bar with rounded cap and color sync
                     LinearProgressIndicator(
                         progress = { state.loadingProgress.coerceIn(0f, 1f) },
                         modifier = Modifier
                             .fillMaxWidth()
+                            .height(3.dp)
                             .align(Alignment.TopCenter),
-                        color = LockBlue,
-                        trackColor = Color.Transparent
+                        color = progressBarColor,
+                        trackColor = Color.Transparent,
+                        strokeCap = StrokeCap.Round
                     )
                 }
 
@@ -103,7 +110,7 @@ internal fun ExamRuntimeChrome(
                     batteryStatus = state.batteryStatus,
                     shieldStatus = state.shieldStatus,
                     showArrowControls = state.showSideArrowControls,
-                    isRefreshing = state.loadingProgress in 0f..0.98f,
+                    isRefreshing = isRefreshing,
                     onToggleArrowControls = actions.onToggleSideArrowControls,
                     onRefresh = actions.onRefreshPage,
                     onGoHome = actions.onGoHome,
@@ -205,11 +212,13 @@ private fun ExamSideArrowButton(
     } else {
         LockTextMuted.copy(alpha = 0.78f)
     }
+    // Use Surface(onClick=...) for proper ripple feedback instead of Surface + clickable
     Surface(
+        onClick = onClick,
+        enabled = enabled,
         modifier = modifier
             .width(42.dp)
-            .height(70.dp)
-            .clickable(enabled = enabled, onClick = onClick),
+            .height(70.dp),
         shape = RoundedCornerShape(20.dp),
         color = containerColor,
         tonalElevation = if (enabled) 6.dp else 0.dp,
