@@ -181,13 +181,6 @@ internal fun resolveStartExamStaticSecurityBlockMessage(
                 message = buildRootIssueMessage(rootSecurityStatus.details)
             )
 
-        !bypassRoot && rootSecurityStatus.selinuxPermissive && rootSecurityStatus.detected ->
-            StartExamBlockMessage(
-                code = "START_EXAM_BLOCKED_SELINUX_PERMISSIVE",
-                title = "SELinux Permissive Terdeteksi",
-                message = "SELinux perangkat ini dalam mode permissive, yang mengurangi keamanan sistem. Gunakan perangkat dengan SELinux enforcing, atau minta admin mengaktifkan bypass Root."
-            )
-
         else -> null
     }
 }

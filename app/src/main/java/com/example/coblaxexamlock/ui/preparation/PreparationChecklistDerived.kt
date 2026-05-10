@@ -47,6 +47,7 @@ internal fun buildPreparationChecklistReadiness(
                 !(fakeLocationRuntimeStatus.securityStatus.warningOnly &&
                     fakeLocationRuntimeStatus.securityStatus.developerOptionsEnabled))
     val overlayReady = bypassOverlay || !overlayRiskResult.hasAnyRisk
+    val overlayBlockingReady = bypassOverlay || !overlayRiskResult.confirmedInteractionDetected
     val accessibilityGuardReady = !accessibilityGuardRequired || accessibilityGuardEnabled
     val screenPinningReady =
         bypassScreenPinning || screenPinningAvailable || (accessibilityGuardAvailable && accessibilityGuardEnabled)
@@ -62,6 +63,7 @@ internal fun buildPreparationChecklistReadiness(
             accessibilityGuardReady &&
             geofenceReady &&
             fakeLocationReady &&
+            overlayBlockingReady &&
             virtualEnvironmentReady &&
             signatureReady &&
             !tamperDetected
