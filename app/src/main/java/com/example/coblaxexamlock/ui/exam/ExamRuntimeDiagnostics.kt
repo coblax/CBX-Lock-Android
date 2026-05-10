@@ -5,20 +5,20 @@ import com.example.coblaxexamlock.AppSwitchMonitor
 import com.example.coblaxexamlock.AppSwitchSignal
 import com.example.coblaxexamlock.AppSwitchStatus
 import com.example.coblaxexamlock.AppSwitchSuppressionReason
-import com.example.coblaxexamlock.GeofenceSecurityStatus
-import com.example.coblaxexamlock.LocationPolicySource
-import com.example.coblaxexamlock.LocationSpoofSecurityStatus
-import com.example.coblaxexamlock.OverlayShieldStatus
-import com.example.coblaxexamlock.OverlaySignal
-import com.example.coblaxexamlock.ScreenPinningMode
 import com.example.coblaxexamlock.diagnosticLabel
 import com.example.coblaxexamlock.format.diagnosticTimestamp
 import com.example.coblaxexamlock.format.formatGeofenceDistance
 import com.example.coblaxexamlock.format.formatLocationFixAge
 import com.example.coblaxexamlock.formatCoordinates
+import com.example.coblaxexamlock.GeofenceSecurityStatus
+import com.example.coblaxexamlock.LocationPolicySource
+import com.example.coblaxexamlock.LocationSpoofSecurityStatus
 import com.example.coblaxexamlock.model.DiagnosticEvent
 import com.example.coblaxexamlock.model.DiagnosticEventLevel
 import com.example.coblaxexamlock.model.NetworkReadinessStatus
+import com.example.coblaxexamlock.OverlayShieldStatus
+import com.example.coblaxexamlock.OverlaySignal
+import com.example.coblaxexamlock.ScreenPinningMode
 import java.util.Locale
 
 internal fun examRuntimeDiagnosticScreen(

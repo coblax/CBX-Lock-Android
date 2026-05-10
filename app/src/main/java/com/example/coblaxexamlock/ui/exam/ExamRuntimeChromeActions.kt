@@ -1,9 +1,9 @@
 package com.example.coblaxexamlock.ui.exam
 
 import com.example.coblaxexamlock.DeviceCompatibilityProfile
+import com.example.coblaxexamlock.model.DiagnosticEventLevel
 import com.example.coblaxexamlock.ScreenPinningEnforcer
 import com.example.coblaxexamlock.ScreenPinningMode
-import com.example.coblaxexamlock.model.DiagnosticEventLevel
 import java.util.Locale
 
 internal fun buildExamRuntimeChromeActionsForSession(

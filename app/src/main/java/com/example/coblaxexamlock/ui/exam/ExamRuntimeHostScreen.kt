@@ -1,4 +1,4 @@
-﻿package com.example.coblaxexamlock.ui.exam
+package com.example.coblaxexamlock.ui.exam
 
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.DisposableEffect

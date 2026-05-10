@@ -1,0 +1,359 @@
+package com.example.coblaxexamlock.ui.exam
+
+import android.content.BroadcastReceiver
+import android.content.Context
+import android.content.Intent
+import android.content.IntentFilter
+import android.net.ConnectivityManager
+import android.net.Network
+import android.net.NetworkCapabilities
+import android.os.Handler
+import android.os.SystemClock
+import androidx.compose.runtime.Composable
+import androidx.compose.runtime.DisposableEffect
+import androidx.compose.runtime.LaunchedEffect
+import androidx.compose.runtime.MutableIntState
+import androidx.compose.runtime.mutableIntStateOf
+import androidx.compose.runtime.MutableState
+import androidx.compose.runtime.mutableStateOf
+import androidx.compose.runtime.remember
+import androidx.compose.runtime.saveable.rememberSaveable
+import androidx.core.content.ContextCompat
+import com.example.coblaxexamlock.config.NetworkUnstableRecoveryQuietPeriodMillis
+import com.example.coblaxexamlock.config.OfflineTooLongWarningThresholdMillis
+import com.example.coblaxexamlock.model.DiagnosticEventLevel
+import com.example.coblaxexamlock.model.ExamBatteryStatus
+import com.example.coblaxexamlock.model.NetworkReadinessStatus
+import com.example.coblaxexamlock.runtime.readExamBatteryStatus
+import kotlinx.coroutines.delay
+
+internal const val NetworkReadinessPollingStableIntervalMillis = 10_000L
+internal const val NetworkReadinessPollingUnstableIntervalMillis = 3_000L
+
+internal class ExamRuntimeNetworkUiState(
+    val networkUnstableEpisodeStartedAt: MutableState<String?>,
+    val networkUnstableEpisodeStartedElapsedMs: MutableState<Long?>,
+    val networkUnstableLastFlapAt: MutableState<String?>,
+    val networkUnstableLastFlapElapsedMs: MutableState<Long?>,
+    val networkUnstableWarningShown: MutableState<Boolean>,
+    val lastNetworkUnstableWarningAt: MutableState<String?>,
+    val showNetworkUnstableDialog: MutableState<Boolean>,
+    val networkUnstableFlapCount: MutableIntState,
+    val networkUnstableLastTransportLabel: MutableState<String?>,
+    val lastNetworkChangeAt: MutableState<String?>,
+    val lastNetworkChangeSource: MutableState<String?>,
+    val networkManualRefreshInFlight: MutableState<Boolean>,
+    val lastConnectedNetworkLabel: MutableState<String?>,
+    val offlineStartedAtElapsedMs: MutableState<Long?>,
+    val offlineStartedAtTimestamp: MutableState<String?>,
+    val offlineWarningShown: MutableState<Boolean>,
+    val lastOfflineWarningAt: MutableState<String?>,
+    val lastOfflineWarningElapsedMs: MutableState<Long?>,
+    val lastOfflineDurationMs: MutableState<Long?>,
+    val offlineWarningDurationMs: MutableState<Long?>,
+    val showOfflineWarningDialog: MutableState<Boolean>
+)
+
+@Composable
+internal fun rememberExamRuntimeNetworkUiState(
+    baseNetworkReadiness: NetworkReadinessStatus
+): ExamRuntimeNetworkUiState {
+    val networkUnstableEpisodeStartedAt = rememberSaveable { mutableStateOf<String?>(null) }
+    val networkUnstableEpisodeStartedElapsedMs = rememberSaveable { mutableStateOf<Long?>(null) }
+    val networkUnstableLastFlapAt = rememberSaveable { mutableStateOf<String?>(null) }
+    val networkUnstableLastFlapElapsedMs = rememberSaveable { mutableStateOf<Long?>(null) }
+    val networkUnstableWarningShown = rememberSaveable { mutableStateOf(false) }
+    val lastNetworkUnstableWarningAt = rememberSaveable { mutableStateOf<String?>(null) }
+    val showNetworkUnstableDialog = rememberSaveable { mutableStateOf(false) }
+    val networkUnstableFlapCount = rememberSaveable { mutableIntStateOf(0) }
+    val networkUnstableLastTransportLabel = rememberSaveable { mutableStateOf<String?>(null) }
+    val lastNetworkChangeAt = rememberSaveable { mutableStateOf<String?>(null) }
+    val lastNetworkChangeSource = rememberSaveable { mutableStateOf<String?>(null) }
+    val networkManualRefreshInFlight = rememberSaveable { mutableStateOf(false) }
+    val lastConnectedNetworkLabel = rememberSaveable {
+        mutableStateOf<String?>(
+            baseNetworkReadiness.transportLabel.takeIf { baseNetworkReadiness.examStatus.isConnected }
+        )
+    }
+    val offlineStartedAtElapsedMs = rememberSaveable { mutableStateOf<Long?>(null) }
+    val offlineStartedAtTimestamp = rememberSaveable { mutableStateOf<String?>(null) }
+    val offlineWarningShown = rememberSaveable { mutableStateOf(false) }
+    val lastOfflineWarningAt = rememberSaveable { mutableStateOf<String?>(null) }
+    val lastOfflineWarningElapsedMs = rememberSaveable { mutableStateOf<Long?>(null) }
+    val lastOfflineDurationMs = rememberSaveable { mutableStateOf<Long?>(null) }
+    val offlineWarningDurationMs = rememberSaveable { mutableStateOf<Long?>(null) }
+    val showOfflineWarningDialog = rememberSaveable { mutableStateOf(false) }
+    return remember {
+        ExamRuntimeNetworkUiState(
+            networkUnstableEpisodeStartedAt = networkUnstableEpisodeStartedAt,
+            networkUnstableEpisodeStartedElapsedMs = networkUnstableEpisodeStartedElapsedMs,
+            networkUnstableLastFlapAt = networkUnstableLastFlapAt,
+            networkUnstableLastFlapElapsedMs = networkUnstableLastFlapElapsedMs,
+            networkUnstableWarningShown = networkUnstableWarningShown,
+            lastNetworkUnstableWarningAt = lastNetworkUnstableWarningAt,
+            showNetworkUnstableDialog = showNetworkUnstableDialog,
+            networkUnstableFlapCount = networkUnstableFlapCount,
+            networkUnstableLastTransportLabel = networkUnstableLastTransportLabel,
+            lastNetworkChangeAt = lastNetworkChangeAt,
+            lastNetworkChangeSource = lastNetworkChangeSource,
+            networkManualRefreshInFlight = networkManualRefreshInFlight,
+            lastConnectedNetworkLabel = lastConnectedNetworkLabel,
+            offlineStartedAtElapsedMs = offlineStartedAtElapsedMs,
+            offlineStartedAtTimestamp = offlineStartedAtTimestamp,
+            offlineWarningShown = offlineWarningShown,
+            lastOfflineWarningAt = lastOfflineWarningAt,
+            lastOfflineWarningElapsedMs = lastOfflineWarningElapsedMs,
+            lastOfflineDurationMs = lastOfflineDurationMs,
+            offlineWarningDurationMs = offlineWarningDurationMs,
+            showOfflineWarningDialog = showOfflineWarningDialog
+        )
+    }
+}
+
+@Composable
+internal fun RuntimeConnectivityEffects(
+    context: Context,
+    examSessionStarted: Boolean,
+    networkReadinessStatus: NetworkReadinessStatus,
+    baseNetworkReadiness: NetworkReadinessStatus,
+    networkUiState: ExamRuntimeNetworkUiState,
+    batteryStatusState: MutableState<ExamBatteryStatus>,
+    networkMainHandler: Handler,
+    updateNetworkReadiness: (String) -> Unit,
+    currentNetworkPollingIntervalMillis: () -> Long,
+    recordAction: (String, String, DiagnosticEventLevel) -> Unit,
+    currentNetworkEventDetails: (String, NetworkReadinessStatus, String?) -> String,
+    clearNetworkFlapHistory: () -> Unit,
+    diagnosticTimestamp: () -> String
+) {
+    val networkStatus = networkReadinessStatus.examStatus
+
+    DisposableEffect(context, examSessionStarted) {
+        val connectivityManager = context.getSystemService(ConnectivityManager::class.java)
+        val pushNetworkStatusUpdate = { source: String ->
+            networkMainHandler.post {
+                updateNetworkReadiness(source)
+            }
+        }
+        val callback = object : ConnectivityManager.NetworkCallback() {
+            override fun onAvailable(network: Network) {
+                pushNetworkStatusUpdate("callback_available")
+            }
+
+            override fun onLost(network: Network) {
+                pushNetworkStatusUpdate("callback_lost")
+            }
+
+            override fun onCapabilitiesChanged(
+                network: Network,
+                networkCapabilities: NetworkCapabilities
+            ) {
+                pushNetworkStatusUpdate("callback_capabilities")
+            }
+
+            override fun onLinkPropertiesChanged(
+                network: Network,
+                linkProperties: android.net.LinkProperties
+            ) {
+                pushNetworkStatusUpdate("callback_link_properties")
+            }
+
+            override fun onUnavailable() {
+                pushNetworkStatusUpdate("callback_unavailable")
+            }
+        }
+
+        pushNetworkStatusUpdate("initial")
+        runCatching {
+            connectivityManager?.registerDefaultNetworkCallback(callback)
+        }
+
+        onDispose {
+            networkMainHandler.removeCallbacksAndMessages(null)
+            runCatching {
+                connectivityManager?.unregisterNetworkCallback(callback)
+            }
+        }
+    }
+
+    LaunchedEffect(context, examSessionStarted) {
+        if (!examSessionStarted) {
+            return@LaunchedEffect
+        }
+        while (true) {
+            delay(currentNetworkPollingIntervalMillis())
+            updateNetworkReadiness("poll")
+        }
+    }
+
+    LaunchedEffect(examSessionStarted, networkStatus.isConnected, networkStatus.label) {
+        if (!examSessionStarted) {
+            networkUiState.offlineStartedAtElapsedMs.value = null
+            networkUiState.offlineStartedAtTimestamp.value = null
+            networkUiState.offlineWarningShown.value = false
+            networkUiState.lastOfflineWarningElapsedMs.value = null
+            networkUiState.showOfflineWarningDialog.value = false
+            networkUiState.offlineWarningDurationMs.value = null
+            networkUiState.showNetworkUnstableDialog.value = false
+            if (networkStatus.isConnected) {
+                networkUiState.lastConnectedNetworkLabel.value = networkReadinessStatus.transportLabel
+            }
+            return@LaunchedEffect
+        }
+
+        if (networkStatus.isConnected) {
+            networkUiState.lastConnectedNetworkLabel.value = networkReadinessStatus.transportLabel
+            val previousOfflineStarted = networkUiState.offlineStartedAtElapsedMs.value
+            if (previousOfflineStarted != null) {
+                val recoveredDurationMs =
+                    (SystemClock.elapsedRealtime() - previousOfflineStarted).coerceAtLeast(0L)
+                recordAction(
+                    "NETWORK_OFFLINE_RECOVERED",
+                    buildString {
+                        append("transport=")
+                        append(networkUiState.lastConnectedNetworkLabel.value?.ifBlank { "-" } ?: "-")
+                        append(" | duration_ms=")
+                        append(recoveredDurationMs)
+                        append(" | warning_shown=")
+                        append(if (networkUiState.offlineWarningShown.value) "yes" else "no")
+                    },
+                    DiagnosticEventLevel.INFO
+                )
+            }
+            networkUiState.offlineStartedAtElapsedMs.value = null
+            networkUiState.offlineStartedAtTimestamp.value = null
+            networkUiState.offlineWarningShown.value = false
+            networkUiState.lastOfflineWarningElapsedMs.value = null
+            networkUiState.showOfflineWarningDialog.value = false
+            networkUiState.offlineWarningDurationMs.value = null
+        } else if (networkUiState.offlineStartedAtElapsedMs.value == null) {
+            networkUiState.offlineStartedAtElapsedMs.value = SystemClock.elapsedRealtime()
+            networkUiState.offlineStartedAtTimestamp.value = diagnosticTimestamp()
+            networkUiState.offlineWarningShown.value = false
+            networkUiState.lastOfflineWarningElapsedMs.value = null
+            networkUiState.showOfflineWarningDialog.value = false
+            networkUiState.offlineWarningDurationMs.value = null
+            recordAction(
+                "NETWORK_OFFLINE_STARTED",
+                buildString {
+                    append("last_transport=")
+                    append(networkUiState.lastConnectedNetworkLabel.value?.ifBlank { "-" } ?: "-")
+                    append(" | threshold_ms=")
+                    append(OfflineTooLongWarningThresholdMillis)
+                },
+                DiagnosticEventLevel.WARNING
+            )
+        }
+    }
+
+    LaunchedEffect(
+        examSessionStarted,
+        networkStatus.isConnected,
+        networkUiState.offlineStartedAtElapsedMs.value,
+        networkUiState.lastOfflineWarningElapsedMs.value,
+        networkUiState.showOfflineWarningDialog.value
+    ) {
+        val startedAt = networkUiState.offlineStartedAtElapsedMs.value ?: return@LaunchedEffect
+        val previousWarningElapsed = networkUiState.lastOfflineWarningElapsedMs.value
+        if (!examSessionStarted || networkStatus.isConnected || networkUiState.showOfflineWarningDialog.value) {
+            return@LaunchedEffect
+        }
+        val referenceElapsed = previousWarningElapsed ?: startedAt
+        val elapsedMs = (SystemClock.elapsedRealtime() - referenceElapsed).coerceAtLeast(0L)
+        val remainingMs = OfflineTooLongWarningThresholdMillis - elapsedMs
+        if (remainingMs > 0L) {
+            delay(remainingMs)
+        }
+
+        if (
+            examSessionStarted &&
+            !networkStatus.isConnected &&
+            networkUiState.offlineStartedAtElapsedMs.value == startedAt &&
+            networkUiState.lastOfflineWarningElapsedMs.value == previousWarningElapsed &&
+            !networkUiState.showOfflineWarningDialog.value
+        ) {
+            val warningElapsed = SystemClock.elapsedRealtime()
+            val warningDurationMs = (warningElapsed - startedAt).coerceAtLeast(0L)
+            networkUiState.offlineWarningShown.value = true
+            networkUiState.lastOfflineWarningAt.value = diagnosticTimestamp()
+            networkUiState.lastOfflineWarningElapsedMs.value = warningElapsed
+            networkUiState.lastOfflineDurationMs.value = warningDurationMs
+            networkUiState.offlineWarningDurationMs.value = warningDurationMs
+            networkUiState.showOfflineWarningDialog.value = true
+            recordAction(
+                "NETWORK_OFFLINE_TOO_LONG_WARNING",
+                buildString {
+                    append("last_transport=")
+                    append(networkUiState.lastConnectedNetworkLabel.value?.ifBlank { "-" } ?: "-")
+                    append(" | duration_ms=")
+                    append(warningDurationMs)
+                    append(" | threshold_ms=")
+                    append(OfflineTooLongWarningThresholdMillis)
+                },
+                DiagnosticEventLevel.WARNING
+            )
+        }
+    }
+
+    LaunchedEffect(
+        networkStatus.isConnected,
+        networkUiState.networkUnstableEpisodeStartedElapsedMs.value,
+        networkUiState.networkUnstableLastFlapElapsedMs.value
+    ) {
+        val episodeStartedAt = networkUiState.networkUnstableEpisodeStartedElapsedMs.value ?: return@LaunchedEffect
+        val lastFlapElapsed = networkUiState.networkUnstableLastFlapElapsedMs.value ?: return@LaunchedEffect
+        if (!networkStatus.isConnected) {
+            return@LaunchedEffect
+        }
+        val elapsedSinceLastFlap = (SystemClock.elapsedRealtime() - lastFlapElapsed).coerceAtLeast(0L)
+        val remainingMs = NetworkUnstableRecoveryQuietPeriodMillis - elapsedSinceLastFlap
+        if (remainingMs > 0L) {
+            delay(remainingMs)
+        }
+        if (
+            networkStatus.isConnected &&
+            networkUiState.networkUnstableEpisodeStartedElapsedMs.value == episodeStartedAt &&
+            networkUiState.networkUnstableLastFlapElapsedMs.value == lastFlapElapsed
+        ) {
+            recordAction(
+                "NETWORK_UNSTABLE_EPISODE_RECOVERED",
+                currentNetworkEventDetails(
+                    "unstable_recovered",
+                    baseNetworkReadiness,
+                    "flap_count=${networkUiState.networkUnstableFlapCount.intValue}"
+                ),
+                DiagnosticEventLevel.INFO
+            )
+            networkUiState.networkUnstableEpisodeStartedElapsedMs.value = null
+            networkUiState.networkUnstableEpisodeStartedAt.value = null
+            networkUiState.networkUnstableWarningShown.value = false
+            clearNetworkFlapHistory()
+            networkUiState.networkUnstableFlapCount.intValue = 0
+        }
+    }
+
+    DisposableEffect(context, examSessionStarted) {
+        if (!examSessionStarted) {
+            batteryStatusState.value = readExamBatteryStatus(context)
+            onDispose { }
+        } else {
+            val receiver = object : BroadcastReceiver() {
+                override fun onReceive(context: Context?, intent: Intent?) {
+                    batteryStatusState.value = readExamBatteryStatus(intent)
+                }
+            }
+            val filter = IntentFilter(Intent.ACTION_BATTERY_CHANGED)
+            val stickyIntent = ContextCompat.registerReceiver(
+                context,
+                receiver,
+                filter,
+                ContextCompat.RECEIVER_NOT_EXPORTED
+            )
+            batteryStatusState.value = readExamBatteryStatus(stickyIntent)
+
+            onDispose {
+                runCatching { context.unregisterReceiver(receiver) }
+            }
+        }
+    }
+}

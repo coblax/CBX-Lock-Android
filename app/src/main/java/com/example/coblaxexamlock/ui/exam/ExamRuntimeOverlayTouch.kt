@@ -1,8 +1,8 @@
 package com.example.coblaxexamlock.ui.exam
 
 import android.os.SystemClock
-import com.example.coblaxexamlock.OverlaySignal
 import com.example.coblaxexamlock.model.DiagnosticEventLevel
+import com.example.coblaxexamlock.OverlaySignal
 import java.util.Locale
 
 internal fun handleExamRuntimeOverlayObscuredTouch(

@@ -11,11 +11,11 @@ import com.example.coblaxexamlock.i18n.localized
 import com.example.coblaxexamlock.i18n.tr
 import com.example.coblaxexamlock.model.DiagnosticSection
 import com.example.coblaxexamlock.model.UiLanguage
+import com.example.coblaxexamlock.ui.admin.InfoDialog
 import com.example.coblaxexamlock.ui.dialog.ExamRuntimeDialogsActions
 import com.example.coblaxexamlock.ui.dialog.ExamRuntimeDialogsHost
 import com.example.coblaxexamlock.ui.dialog.ExamRuntimeDialogsState
 import com.example.coblaxexamlock.ui.theme.LockTextSecondary
-import com.example.coblaxexamlock.ui.admin.InfoDialog
 
 @Composable
 internal fun ExamRuntimeDialogsCoordinator(

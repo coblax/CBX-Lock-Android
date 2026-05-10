@@ -1,12 +1,12 @@
 package com.example.coblaxexamlock.ui.exam
 
 import android.webkit.WebView
-import com.example.coblaxexamlock.ExamParticipantCaptureProbeScript
 import com.example.coblaxexamlock.config.ExamFullscreenRequestHookScript
 import com.example.coblaxexamlock.config.ExamNativeFullscreenBridgeInstallScript
 import com.example.coblaxexamlock.config.InstallExamKeyboardScript
 import com.example.coblaxexamlock.config.InstallExamSideArrowControlsScript
 import com.example.coblaxexamlock.config.RemoveExamSideArrowControlsScript
+import com.example.coblaxexamlock.ExamParticipantCaptureProbeScript
 import com.example.coblaxexamlock.format.buildExamNativeFullscreenStateSyncScript
 import com.example.coblaxexamlock.model.DiagnosticEventLevel
 
