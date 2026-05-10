@@ -2871,6 +2871,19 @@ internal fun ExamRuntimeSessionScreenImpl(
     fun launchTelegramSectionReport(section: DiagnosticSection) = runtimeSecurityOps.launchTelegramSectionReport(section)
 
     class StartExamController {
+        private fun applyStartExamBlockMessage(
+            message: StartExamBlockMessage,
+            level: DiagnosticEventLevel = DiagnosticEventLevel.WARNING
+        ) {
+            recordAction(
+                code = message.code,
+                details = message.details,
+                level = level
+            )
+            securityIssueDialogTitle = message.title
+            securityIssueDialogMessage = message.message
+        }
+
         fun resetPreparationSecurityEpisodes() {
             geofenceViolationCount = 0
             geofenceRuntimeEpisodeKey = null
@@ -3148,68 +3161,22 @@ internal fun ExamRuntimeSessionScreenImpl(
             }
             val securityTamperDetectedNow = tamperDetected || integrityTamperDetected
             if (securityTamperDetectedNow) {
-                recordAction(
-                    code = "START_EXAM_BLOCKED_TAMPER",
-                    level = DiagnosticEventLevel.WARNING
-                )
-                securityIssueDialogTitle = localized(
-                    uiLanguage,
-                    "Security Check Failed",
-                    "Pemeriksaan Keamanan Gagal"
-                )
-                securityIssueDialogMessage = localized(
-                    uiLanguage,
-                    "Security checks failed. Close debugging or hooking tools and reopen the app.",
-                    "Pemeriksaan keamanan gagal. Tutup tool debugging/hooking lalu buka ulang aplikasi."
-                )
+                applyStartExamBlockMessage(resolveStartExamTamperBlockMessage(uiLanguage))
                 return
             }
             refreshScreenPinningDiagnostics()
             val latestAccessibilityGuardAvailable = isExamGuardAccessibilityAvailable(context)
             val latestAccessibilityGuardEnabled = isExamGuardAccessibilityEnabled(context)
             accessibilityGuardEnabled = latestAccessibilityGuardEnabled
-            if (
-                screenPinningMode == ScreenPinningMode.Enforced &&
-                !screenPinningAvailable &&
-                latestAccessibilityGuardAvailable &&
-                !latestAccessibilityGuardEnabled
-            ) {
-                recordAction(
-                    code = "ACCESSIBILITY_GUARD_MISSING_BLOCKED",
-                    details = "screen_pinning_available=false | accessibility_guard_available=true | accessibility_guard_enabled=false | bypass=false",
-                    level = DiagnosticEventLevel.WARNING
-                )
-                securityIssueDialogTitle = localized(
-                    uiLanguage,
-                    "Accessibility Exam Guard Required",
-                    "Accessibility Exam Guard Diperlukan"
-                )
-                securityIssueDialogMessage = localized(
-                    uiLanguage,
-                    "This device does not support Screen Pinning. Enable CBX Lock Exam Guard in Accessibility Settings, or use the Secret Admin Screen Pinning bypass.",
-                    "Perangkat ini tidak mendukung Screen Pinning. Aktifkan CBX Lock Exam Guard di Pengaturan Aksesibilitas, atau gunakan bypass Screen Pinning melalui Secret Admin."
-                )
-                return
-            } else if (
-                screenPinningMode == ScreenPinningMode.Enforced &&
-                !screenPinningAvailable &&
-                !latestAccessibilityGuardAvailable
-            ) {
-                recordAction(
-                    code = "START_EXAM_BLOCKED_SCREEN_PINNING_UNAVAILABLE",
-                    details = "screen_pinning_available=false | accessibility_guard_available=false | bypass=false",
-                    level = DiagnosticEventLevel.WARNING
-                )
-                securityIssueDialogTitle = localized(
-                    uiLanguage,
-                    "Screen Pinning Unavailable",
-                    "Screen Pinning Tidak Tersedia"
-                )
-                securityIssueDialogMessage = localized(
-                    uiLanguage,
-                    "This device does not support Screen Pinning. Use a supported device or Secret Admin Screen Pinning bypass.",
-                    "Perangkat ini tidak mendukung Screen Pinning. Gunakan perangkat yang mendukung atau bypass Screen Pinning melalui Secret Admin."
-                )
+            val screenPinningBlock = resolveStartExamScreenPinningBlockMessage(
+                uiLanguage = uiLanguage,
+                screenPinningMode = screenPinningMode,
+                screenPinningAvailable = screenPinningAvailable,
+                accessibilityGuardAvailable = latestAccessibilityGuardAvailable,
+                accessibilityGuardEnabled = latestAccessibilityGuardEnabled
+            )
+            if (screenPinningBlock != null) {
+                applyStartExamBlockMessage(screenPinningBlock)
                 return
             } else if (
                 screenPinningMode == ScreenPinningMode.Enforced &&
@@ -3229,59 +3196,26 @@ internal fun ExamRuntimeSessionScreenImpl(
                 refreshBluetoothSecurity(triggerViolation = false)
                 refreshDeviceIntegritySecurity(triggerViolation = false)
             }
-            if (
-                screenPinningMode == ScreenPinningMode.Enforced &&
-                !screenPinningAvailable &&
-                isExamGuardAccessibilityAvailable(context) &&
-                !accessibilityGuardEnabled
-            ) {
-                recordAction(
-                    code = "ACCESSIBILITY_GUARD_MISSING_BLOCKED",
-                    details = "screen_pinning_available=false | accessibility_guard_available=true | accessibility_guard_enabled=false | bypass=false | phase=device_prechecks",
-                    level = DiagnosticEventLevel.WARNING
-                )
-                securityIssueDialogTitle = localized(
-                    uiLanguage,
-                    "Accessibility Exam Guard Required",
-                    "Accessibility Exam Guard Diperlukan"
-                )
-                securityIssueDialogMessage = localized(
-                    uiLanguage,
-                    "This device does not support Screen Pinning. Enable CBX Lock Exam Guard in Accessibility Settings, or use the Secret Admin Screen Pinning bypass.",
-                    "Perangkat ini tidak mendukung Screen Pinning. Aktifkan CBX Lock Exam Guard di Pengaturan Aksesibilitas, atau gunakan bypass Screen Pinning melalui Secret Admin."
-                )
-                return
-            } else if (
-                screenPinningMode == ScreenPinningMode.Enforced &&
-                !screenPinningAvailable &&
-                !isExamGuardAccessibilityAvailable(context)
-            ) {
-                recordAction(
-                    code = "START_EXAM_BLOCKED_SCREEN_PINNING_UNAVAILABLE",
-                    details = "screen_pinning_available=false | accessibility_guard_available=false | bypass=false | phase=device_prechecks",
-                    level = DiagnosticEventLevel.WARNING
-                )
-                securityIssueDialogTitle = localized(
-                    uiLanguage,
-                    "Screen Pinning Unavailable",
-                    "Screen Pinning Tidak Tersedia"
-                )
-                securityIssueDialogMessage = localized(
-                    uiLanguage,
-                    "This device does not support Screen Pinning. Use a supported device or Secret Admin Screen Pinning bypass.",
-                    "Perangkat ini tidak mendukung Screen Pinning. Gunakan perangkat yang mendukung atau bypass Screen Pinning melalui Secret Admin."
-                )
+            val devicePrecheckScreenPinningBlock = resolveStartExamScreenPinningBlockMessage(
+                uiLanguage = uiLanguage,
+                screenPinningMode = screenPinningMode,
+                screenPinningAvailable = screenPinningAvailable,
+                accessibilityGuardAvailable = isExamGuardAccessibilityAvailable(context),
+                accessibilityGuardEnabled = accessibilityGuardEnabled,
+                phaseSuffix = "phase=device_prechecks"
+            )
+            if (devicePrecheckScreenPinningBlock != null) {
+                applyStartExamBlockMessage(devicePrecheckScreenPinningBlock)
                 return
             }
             val startDeviceTimeStatus = refreshDeviceTimeSecurity(trigger = "start_exam_precheck")
-            if (startDeviceTimeStatus.blocking) {
-                recordAction(
-                    code = "START_EXAM_BLOCKED_DEVICE_TIME",
-                    details = buildDeviceTimeEventDetails("start_exam_precheck", startDeviceTimeStatus),
-                    level = DiagnosticEventLevel.WARNING
-                )
-                securityIssueDialogTitle = deviceTimeBlockedTitle(uiLanguage)
-                securityIssueDialogMessage = deviceTimeBlockedMessage(uiLanguage, startDeviceTimeStatus)
+            val startDeviceTimeBlock = resolveStartExamDeviceTimeBlockMessage(
+                uiLanguage = uiLanguage,
+                trigger = "start_exam_precheck",
+                status = startDeviceTimeStatus
+            )
+            if (startDeviceTimeBlock != null) {
+                applyStartExamBlockMessage(startDeviceTimeBlock)
                 return
             }
             val startHealthSnapshot = buildPreExamHealthSnapshot(
@@ -3363,58 +3297,19 @@ internal fun ExamRuntimeSessionScreenImpl(
                 }
             }
 
-            if (!bypassAccessibility && accessibilityServiceEnabled) {
-                recordAction(
-                    code = "START_EXAM_BLOCKED_ACCESSIBILITY",
-                    level = DiagnosticEventLevel.WARNING
-                )
-                securityIssueDialogTitle = "Accessibility Service Masih Aktif"
-                securityIssueDialogMessage =
-                    "Nonaktifkan accessibility service sebelum memulai ujian."
-                return
-            }
-
-            if (!bypassAdb && developerOptionsEnabled) {
-                recordAction(
-                    code = "START_EXAM_BLOCKED_DEVELOPER_OPTIONS",
-                    level = DiagnosticEventLevel.WARNING
-                )
-                securityIssueDialogTitle = "Developer Mode Masih Aktif"
-                securityIssueDialogMessage =
-                    "Nonaktifkan Developer Mode sebelum memulai ujian."
-                return
-            }
-
-            if (!bypassVirtualEnvironment && virtualEnvironmentDetected) {
-                recordAction(
-                    code = "START_EXAM_BLOCKED_VIRTUAL_ENV",
-                    level = DiagnosticEventLevel.WARNING
-                )
-                securityIssueDialogTitle = "Virtual Environment Terdeteksi"
-                securityIssueDialogMessage =
-                    "Perangkat ini terdeteksi berjalan di emulator/VM. Gunakan perangkat fisik untuk melanjutkan ujian."
-                return
-            }
-
-            if (!bypassAdb && adbEnabled) {
-                recordAction(
-                    code = "START_EXAM_BLOCKED_ADB",
-                    level = DiagnosticEventLevel.WARNING
-                )
-                securityIssueDialogTitle = "USB Debugging (ADB) Masih Aktif"
-                securityIssueDialogMessage =
-                    "USB debugging terdeteksi aktif. Nonaktifkan ADB sebelum memulai ujian."
-                return
-            }
-
-            val latestRootSecurityStatus = rootSecurityStatus
-            if (!bypassRoot && latestRootSecurityStatus.detected) {
-                recordAction(
-                    code = "START_EXAM_BLOCKED_ROOT",
-                    level = DiagnosticEventLevel.WARNING
-                )
-                securityIssueDialogTitle = "Root Device Terdeteksi"
-                securityIssueDialogMessage = buildRootIssueMessage(latestRootSecurityStatus.details)
+            val staticSecurityBlock = resolveStartExamStaticSecurityBlockMessage(
+                bypassAccessibility = bypassAccessibility,
+                accessibilityServiceEnabled = accessibilityServiceEnabled,
+                bypassAdb = bypassAdb,
+                developerOptionsEnabled = developerOptionsEnabled,
+                bypassVirtualEnvironment = bypassVirtualEnvironment,
+                virtualEnvironmentDetected = virtualEnvironmentDetected,
+                adbEnabled = adbEnabled,
+                bypassRoot = bypassRoot,
+                rootSecurityStatus = rootSecurityStatus
+            )
+            if (staticSecurityBlock != null) {
+                applyStartExamBlockMessage(staticSecurityBlock)
                 return
             }
 
@@ -3428,23 +3323,14 @@ internal fun ExamRuntimeSessionScreenImpl(
                     bypassState = geofenceBypassState
                 )
                 geofenceEvaluation = geofenceSecurityStatus.geofenceEvaluation
-                recordAction(
-                    code = "START_EXAM_BLOCKED_GEOFENCE_CONFIG",
-                    details = currentGeofenceEventDetails(
-                        trigger = "start_exam",
-                        geofenceStatus = geofenceSecurityStatus
-                    ),
-                    level = DiagnosticEventLevel.WARNING
-                )
-                securityIssueDialogTitle = localized(
-                    uiLanguage,
-                    "Geofence Configuration Invalid",
-                    "Konfigurasi Geofence Tidak Valid"
-                )
-                securityIssueDialogMessage = localized(
-                    uiLanguage,
-                    "Check the geofence latitude, longitude, and radius in the Custom QR before starting the exam.",
-                    "Periksa latitude, longitude, dan radius geofence di Custom QR sebelum memulai ujian."
+                applyStartExamBlockMessage(
+                    resolveStartExamGeofenceConfigBlockMessage(
+                        uiLanguage = uiLanguage,
+                        details = currentGeofenceEventDetails(
+                            trigger = "start_exam",
+                            geofenceStatus = geofenceSecurityStatus
+                        )
+                    )
                 )
                 return
             }
@@ -3485,23 +3371,14 @@ internal fun ExamRuntimeSessionScreenImpl(
                     bypassState = geofenceBypassState
                 )
                 geofenceEvaluation = geofenceSecurityStatus.geofenceEvaluation
-                recordAction(
-                    code = "START_EXAM_BLOCKED_GEOFENCE_LOCATION_DISABLED",
-                    details = currentGeofenceEventDetails(
-                        trigger = "start_exam",
-                        geofenceStatus = geofenceSecurityStatus
-                    ),
-                    level = DiagnosticEventLevel.WARNING
-                )
-                securityIssueDialogTitle = localized(
-                    uiLanguage,
-                    "Location Services Disabled",
-                    "Layanan Lokasi Nonaktif"
-                )
-                securityIssueDialogMessage = localized(
-                    uiLanguage,
-                    "Turn on location services before starting the exam.",
-                    "Aktifkan layanan lokasi sebelum memulai ujian."
+                applyStartExamBlockMessage(
+                    resolveStartExamGeofenceLocationDisabledBlockMessage(
+                        uiLanguage = uiLanguage,
+                        details = currentGeofenceEventDetails(
+                            trigger = "start_exam",
+                            geofenceStatus = geofenceSecurityStatus
+                        )
+                    )
                 )
                 return
             }
@@ -3517,23 +3394,14 @@ internal fun ExamRuntimeSessionScreenImpl(
                     suspiciousFakeLocationPackages = detectSuspiciousFakeLocationPackages(context),
                     bypassState = fakeLocationBypassState
                 )
-                recordAction(
-                    code = "START_EXAM_BLOCKED_FAKE_LOCATION_LOCATION_DISABLED",
-                    details = currentFakeLocationEventDetails(
-                        trigger = "start_exam",
-                        fakeLocationStatus = fakeLocationSecurityStatus
-                    ),
-                    level = DiagnosticEventLevel.WARNING
-                )
-                securityIssueDialogTitle = localized(
-                    uiLanguage,
-                    "Location Services Disabled",
-                    "Layanan Lokasi Nonaktif"
-                )
-                securityIssueDialogMessage = localized(
-                    uiLanguage,
-                    "Turn on location services so anti-fake-location can validate the exam before it starts.",
-                    "Aktifkan layanan lokasi agar anti-fake-location bisa memvalidasi ujian sebelum dimulai."
+                applyStartExamBlockMessage(
+                    resolveStartExamFakeLocationServicesDisabledBlockMessage(
+                        uiLanguage = uiLanguage,
+                        details = currentFakeLocationEventDetails(
+                            trigger = "start_exam",
+                            fakeLocationStatus = fakeLocationSecurityStatus
+                        )
+                    )
                 )
                 return
             }
@@ -3548,349 +3416,63 @@ internal fun ExamRuntimeSessionScreenImpl(
                     resolveStartExamLocationValidation()
                 }
                 geofenceStartValidationInFlight = false
-                when {
-                    !bypassGeofence &&
-                        latestLocationStatus.geofenceStatus.finalVerdict == GeofenceSecurityVerdict.Outside -> {
-                        recordAction(
-                            code = "START_EXAM_BLOCKED_GEOFENCE_OUTSIDE",
-                            details = currentGeofenceEventDetails(
-                                trigger = "start_exam",
-                                geofenceStatus = latestLocationStatus.geofenceStatus
-                            ),
-                            level = DiagnosticEventLevel.WARNING
+                val locationBlockMessage = resolveStartExamLocationBlockMessage(
+                    uiLanguage = uiLanguage,
+                    latestLocationStatus = latestLocationStatus,
+                    bypassGeofence = bypassGeofence,
+                    bypassFakeLocation = bypassFakeLocation,
+                    geofenceDetails = { geofenceStatus ->
+                        currentGeofenceEventDetails(
+                            trigger = "start_exam",
+                            geofenceStatus = geofenceStatus
                         )
-                        securityIssueDialogTitle = localized(
-                            uiLanguage,
-                            "Outside Allowed Exam Area",
-                            "Di Luar Area Ujian"
-                        )
-                        securityIssueDialogMessage = localized(
-                            uiLanguage,
-                            "This device is outside the allowed exam radius. Move into the approved area before starting the exam.",
-                            "Perangkat ini berada di luar radius ujian yang diizinkan. Masuk ke area yang disetujui sebelum memulai ujian."
+                    },
+                    fakeLocationDetails = { fakeLocationStatus ->
+                        currentFakeLocationEventDetails(
+                            trigger = "start_exam",
+                            fakeLocationStatus = fakeLocationStatus
                         )
                     }
-                    !bypassGeofence &&
-                        latestLocationStatus.geofenceStatus.finalVerdict == GeofenceSecurityVerdict.PermissionMissing -> {
-                        recordAction(
-                            code = "START_EXAM_BLOCKED_GEOFENCE_PERMISSION",
-                            details = currentGeofenceEventDetails(
-                                trigger = "start_exam",
-                                geofenceStatus = latestLocationStatus.geofenceStatus
-                            ),
-                            level = DiagnosticEventLevel.WARNING
-                        )
-                        securityIssueDialogTitle = localized(
-                            uiLanguage,
-                            "Location Permission Required",
-                            "Izin Lokasi Diperlukan"
-                        )
-                        securityIssueDialogMessage = localized(
-                            uiLanguage,
-                            "Location permission must be granted before the exam can start.",
-                            "Izin lokasi harus diberikan sebelum ujian bisa dimulai."
-                        )
-                    }
-                    !bypassGeofence &&
-                        latestLocationStatus.geofenceStatus.finalVerdict == GeofenceSecurityVerdict.PreciseRequired -> {
-                        recordAction(
-                            code = "START_EXAM_BLOCKED_GEOFENCE_PRECISE_REQUIRED",
-                            details = currentGeofenceEventDetails(
-                                trigger = "start_exam",
-                                geofenceStatus = latestLocationStatus.geofenceStatus
-                            ),
-                            level = DiagnosticEventLevel.WARNING
-                        )
-                        securityIssueDialogTitle = localized(
-                            uiLanguage,
-                            "Precise Location Required",
-                            "Lokasi Presisi Diperlukan"
-                        )
-                        securityIssueDialogMessage = localized(
-                            uiLanguage,
-                            "Precise location must be granted before the exam can start.",
-                            "Lokasi presisi harus diberikan sebelum ujian bisa dimulai."
-                        )
-                    }
-                    !bypassGeofence &&
-                        latestLocationStatus.geofenceStatus.finalVerdict == GeofenceSecurityVerdict.LocationDisabled -> {
-                        recordAction(
-                            code = "START_EXAM_BLOCKED_GEOFENCE_LOCATION_DISABLED",
-                            details = currentGeofenceEventDetails(
-                                trigger = "start_exam",
-                                geofenceStatus = latestLocationStatus.geofenceStatus
-                            ),
-                            level = DiagnosticEventLevel.WARNING
-                        )
-                        securityIssueDialogTitle = localized(
-                            uiLanguage,
-                            "Location Services Disabled",
-                            "Layanan Lokasi Nonaktif"
-                        )
-                        securityIssueDialogMessage = localized(
-                            uiLanguage,
-                            "Turn on location services before starting the exam.",
-                            "Aktifkan layanan lokasi sebelum memulai ujian."
-                        )
-                    }
-                    !bypassGeofence &&
-                        latestLocationStatus.geofenceStatus.finalVerdict == GeofenceSecurityVerdict.NoFix -> {
-                        recordAction(
-                            code = "START_EXAM_BLOCKED_GEOFENCE_LOCATION_UNAVAILABLE",
-                            details = currentGeofenceEventDetails(
-                                trigger = "start_exam",
-                                geofenceStatus = latestLocationStatus.geofenceStatus
-                            ),
-                            level = DiagnosticEventLevel.WARNING
-                        )
-                        securityIssueDialogTitle = localized(
-                            uiLanguage,
-                            "Location Not Available",
-                            "Lokasi Belum Tersedia"
-                        )
-                        securityIssueDialogMessage = localized(
-                            uiLanguage,
-                            "The device location could not be validated yet. Wait for a location fix, then try again.",
-                            "Lokasi perangkat belum bisa divalidasi. Tunggu hingga lokasi tersedia lalu coba lagi."
-                        )
-                    }
-                    !bypassGeofence &&
-                        latestLocationStatus.geofenceStatus.finalVerdict == GeofenceSecurityVerdict.StaleFix -> {
-                        recordAction(
-                            code = "START_EXAM_BLOCKED_GEOFENCE_LOCATION_UNAVAILABLE",
-                            details = currentGeofenceEventDetails(
-                                trigger = "start_exam",
-                                geofenceStatus = latestLocationStatus.geofenceStatus
-                            ),
-                            level = DiagnosticEventLevel.WARNING
-                        )
-                        securityIssueDialogTitle = localized(
-                            uiLanguage,
-                            "Location Fix Too Old",
-                            "Fix Lokasi Terlalu Lama"
-                        )
-                        securityIssueDialogMessage = localized(
-                            uiLanguage,
-                            "The latest location fix is too old. Wait for a fresh location update, then try again.",
-                            "Fix lokasi terbaru terlalu lama. Tunggu pembaruan lokasi yang baru lalu coba lagi."
-                        )
-                    }
-                    !bypassGeofence &&
-                        latestLocationStatus.geofenceStatus.finalVerdict == GeofenceSecurityVerdict.LowAccuracy -> {
-                        recordAction(
-                            code = "START_EXAM_BLOCKED_GEOFENCE_LOCATION_UNAVAILABLE",
-                            details = currentGeofenceEventDetails(
-                                trigger = "start_exam",
-                                geofenceStatus = latestLocationStatus.geofenceStatus
-                            ),
-                            level = DiagnosticEventLevel.WARNING
-                        )
-                        securityIssueDialogTitle = localized(
-                            uiLanguage,
-                            "Location Accuracy Too Low",
-                            "Akurasi Lokasi Terlalu Rendah"
-                        )
-                        securityIssueDialogMessage = localized(
-                            uiLanguage,
-                            "The current location accuracy is still too weak for strict geofence validation. Wait for a better fix, then try again.",
-                            "Akurasi lokasi saat ini masih terlalu lemah untuk validasi geofence ketat. Tunggu fix yang lebih baik lalu coba lagi."
-                        )
-                    }
-                    !bypassGeofence &&
-                        latestLocationStatus.geofenceStatus.finalVerdict == GeofenceSecurityVerdict.MissingAccuracy -> {
-                        recordAction(
-                            code = "START_EXAM_BLOCKED_GEOFENCE_LOCATION_UNAVAILABLE",
-                            details = currentGeofenceEventDetails(
-                                trigger = "start_exam",
-                                geofenceStatus = latestLocationStatus.geofenceStatus
-                            ),
-                            level = DiagnosticEventLevel.WARNING
-                        )
-                        securityIssueDialogTitle = localized(
-                            uiLanguage,
-                            "Location Accuracy Missing",
-                            "Akurasi Lokasi Belum Ada"
-                        )
-                        securityIssueDialogMessage = localized(
-                            uiLanguage,
-                            "The current location fix does not include a usable accuracy value yet. Wait for a better fix, then try again.",
-                            "Fix lokasi saat ini belum memiliki nilai akurasi yang bisa dipakai. Tunggu fix yang lebih baik lalu coba lagi."
-                        )
-                    }
-                    !bypassFakeLocation &&
-                        latestLocationStatus.fakeLocationStatus.finalVerdict == LocationSpoofSecurityVerdict.PermissionRequired -> {
-                        recordAction(
-                            code = "START_EXAM_BLOCKED_FAKE_LOCATION_PERMISSION",
-                            details = currentFakeLocationEventDetails(
-                                trigger = "start_exam",
-                                fakeLocationStatus = latestLocationStatus.fakeLocationStatus
-                            ),
-                            level = DiagnosticEventLevel.WARNING
-                        )
-                        securityIssueDialogTitle = localized(
-                            uiLanguage,
-                            "Location Permission Required",
-                            "Izin Lokasi Diperlukan"
-                        )
-                        securityIssueDialogMessage = localized(
-                            uiLanguage,
-                            "Location access is required so anti-fake-location can validate the exam before it starts.",
-                            "Akses lokasi wajib tersedia agar anti-fake-location bisa memvalidasi ujian sebelum dimulai."
-                        )
-                    }
-                    !bypassFakeLocation &&
-                        latestLocationStatus.fakeLocationStatus.finalVerdict == LocationSpoofSecurityVerdict.LocationServicesDisabled -> {
-                        recordAction(
-                            code = "START_EXAM_BLOCKED_FAKE_LOCATION_LOCATION_DISABLED",
-                            details = currentFakeLocationEventDetails(
-                                trigger = "start_exam",
-                                fakeLocationStatus = latestLocationStatus.fakeLocationStatus
-                            ),
-                            level = DiagnosticEventLevel.WARNING
-                        )
-                        securityIssueDialogTitle = localized(
-                            uiLanguage,
-                            "Location Services Disabled",
-                            "Layanan Lokasi Nonaktif"
-                        )
-                        securityIssueDialogMessage = localized(
-                            uiLanguage,
-                            "Turn on location services so anti-fake-location can validate the exam before it starts.",
-                            "Aktifkan layanan lokasi agar anti-fake-location bisa memvalidasi ujian sebelum dimulai."
-                        )
-                    }
-                    !bypassFakeLocation &&
-                        latestLocationStatus.fakeLocationStatus.finalVerdict == LocationSpoofSecurityVerdict.LocationUnavailable -> {
-                        recordAction(
-                            code = "START_EXAM_BLOCKED_FAKE_LOCATION_LOCATION_UNAVAILABLE",
-                            details = currentFakeLocationEventDetails(
-                                trigger = "start_exam",
-                                fakeLocationStatus = latestLocationStatus.fakeLocationStatus
-                            ),
-                            level = DiagnosticEventLevel.WARNING
-                        )
-                        securityIssueDialogTitle = localized(
-                            uiLanguage,
-                            "Location Not Available",
-                            "Lokasi Belum Tersedia"
-                        )
-                        securityIssueDialogMessage = localized(
-                            uiLanguage,
-                            "Anti-fake-location is still waiting for a usable location snapshot. Refresh the location, then try again.",
-                            "Anti-fake-location masih menunggu snapshot lokasi yang bisa dipakai. Refresh lokasi lalu coba lagi."
-                        )
-                    }
-                    !bypassFakeLocation &&
-                        latestLocationStatus.fakeLocationStatus.finalVerdict == LocationSpoofSecurityVerdict.SpoofDetected -> {
-                        recordAction(
-                            code = "START_EXAM_BLOCKED_FAKE_LOCATION_SPOOF",
-                            details = currentFakeLocationEventDetails(
-                                trigger = "start_exam",
-                                fakeLocationStatus = latestLocationStatus.fakeLocationStatus
-                            ),
-                            level = DiagnosticEventLevel.WARNING
-                        )
-                        securityIssueDialogTitle = localized(
-                            uiLanguage,
-                            if (latestLocationStatus.fakeLocationStatus.confidenceTier == LocationSpoofConfidenceTier.Critical) {
-                                "Critical Fake Location Detected"
-                            } else {
-                                "Mock Location Detected"
-                            },
-                            if (latestLocationStatus.fakeLocationStatus.confidenceTier == LocationSpoofConfidenceTier.Critical) {
-                                "Fake Location Kritis Terdeteksi"
-                            } else {
-                                "Lokasi Palsu Terdeteksi"
-                            }
-                        )
-                        securityIssueDialogMessage = localized(
-                            uiLanguage,
-                            if (latestLocationStatus.fakeLocationStatus.confidenceTier == LocationSpoofConfidenceTier.Critical) {
-                                "Critical combined fake-location signals were detected. Disable Fake GPS, mock providers, or related developer tools before starting the exam."
-                            } else {
-                                "Location spoofing or mock-location signals were detected. Disable Fake GPS or developer mock providers before starting the exam."
-                            },
-                            if (latestLocationStatus.fakeLocationStatus.confidenceTier == LocationSpoofConfidenceTier.Critical) {
-                                "Terdeteksi kombinasi sinyal fake-location kritis. Nonaktifkan Fake GPS, mock provider, atau alat developer terkait sebelum memulai ujian."
-                            } else {
-                                "Terdeteksi sinyal spoofing lokasi atau mock location. Nonaktifkan Fake GPS atau mock provider developer sebelum memulai ujian."
-                            }
-                        )
-                    }
-                    !bypassGeofence &&
-                        latestLocationStatus.geofenceStatus.finalVerdict == GeofenceSecurityVerdict.ConfigInvalid -> {
-                        recordAction(
-                            code = "START_EXAM_BLOCKED_GEOFENCE_CONFIG",
-                            details = currentGeofenceEventDetails(
-                                trigger = "start_exam",
-                                geofenceStatus = latestLocationStatus.geofenceStatus
-                            ),
-                            level = DiagnosticEventLevel.WARNING
-                        )
-                        securityIssueDialogTitle = localized(
-                            uiLanguage,
-                    "Geofence Configuration Invalid",
-                    "Konfigurasi Geofence Tidak Valid"
                 )
-                securityIssueDialogMessage = localized(
-                    uiLanguage,
-                    "Check the geofence latitude, longitude, and radius in the Custom QR before starting the exam.",
-                    "Periksa latitude, longitude, dan radius geofence di Custom QR sebelum memulai ujian."
-                )
-                    }
-                    else -> {
-                        val finalDeviceTimeStatus = refreshDeviceTimeSecurity(
-                            trigger = "start_exam_final",
-                            emitDiagnosticEvent = false
-                        )
-                        if (finalDeviceTimeStatus.blocking) {
-                            recordAction(
-                                code = "START_EXAM_BLOCKED_DEVICE_TIME",
-                                details = buildDeviceTimeEventDetails("start_exam_final", finalDeviceTimeStatus),
-                                level = DiagnosticEventLevel.WARNING
-                            )
-                            securityIssueDialogTitle = deviceTimeBlockedTitle(uiLanguage)
-                            securityIssueDialogMessage = deviceTimeBlockedMessage(uiLanguage, finalDeviceTimeStatus)
-                            return@launch
-                        }
-                        val networkNowMillis = TrustedNetworkTimeCoordinator.currentNetworkNowMillis(context)
-                        val scheduleValidationResult = ExamScheduleValidator.validateAfterDeviceTimeCheck(
-                            payload = payload,
-                            deviceTimeStatus = finalDeviceTimeStatus,
-                            networkNowMillis = networkNowMillis
-                        )
-                        if (scheduleValidationResult != ExamScheduleValidationResult.Valid) {
-                            recordAction(
-                                code = "START_EXAM_BLOCKED_DEVICE_TIME",
-                                details =
-                                    "schedule_result=${scheduleValidationResult.name.lowercase(Locale.US)} | " +
-                                        "network_now_ms=${networkNowMillis ?: "unavailable"} | " +
-                                        buildDeviceTimeEventDetails("start_exam_schedule", finalDeviceTimeStatus),
-                                level = DiagnosticEventLevel.WARNING
-                            )
-                            securityIssueDialogTitle =
-                                if (scheduleValidationResult == ExamScheduleValidationResult.TimeSpoofDetected) {
-                                    deviceTimeBlockedTitle(uiLanguage)
-                                } else {
-                                    localized(
-                                        uiLanguage,
-                                        "Exam Schedule Not Active",
-                                        "Jadwal Ujian Tidak Aktif"
-                                    )
-                                }
-                            securityIssueDialogMessage = scheduleBlockedMessage(
-                                uiLanguage = uiLanguage,
-                                payload = payload,
-                                validationResult = scheduleValidationResult
-                            )
-                            return@launch
-                        }
-                        debugLogExamStart(
-                            "startExamSession passed all prechecks in ${SystemClock.elapsedRealtime() - startExamPressedAt} ms"
-                        )
-                        completeStartExamSessionAfterPrechecks()
-                    }
+                if (locationBlockMessage != null) {
+                    applyStartExamBlockMessage(locationBlockMessage)
+                    return@launch
                 }
+
+                val finalDeviceTimeStatus = refreshDeviceTimeSecurity(
+                    trigger = "start_exam_final",
+                    emitDiagnosticEvent = false
+                )
+                val finalDeviceTimeBlock = resolveStartExamDeviceTimeBlockMessage(
+                    uiLanguage = uiLanguage,
+                    trigger = "start_exam_final",
+                    status = finalDeviceTimeStatus
+                )
+                if (finalDeviceTimeBlock != null) {
+                    applyStartExamBlockMessage(finalDeviceTimeBlock)
+                    return@launch
+                }
+                val networkNowMillis = TrustedNetworkTimeCoordinator.currentNetworkNowMillis(context)
+                val scheduleValidationResult = ExamScheduleValidator.validateAfterDeviceTimeCheck(
+                    payload = payload,
+                    deviceTimeStatus = finalDeviceTimeStatus,
+                    networkNowMillis = networkNowMillis
+                )
+                val scheduleBlock = resolveStartExamScheduleBlockMessage(
+                    uiLanguage = uiLanguage,
+                    payload = payload,
+                    validationResult = scheduleValidationResult,
+                    networkNowMillis = networkNowMillis,
+                    deviceTimeStatus = finalDeviceTimeStatus
+                )
+                if (scheduleBlock != null) {
+                    applyStartExamBlockMessage(scheduleBlock)
+                    return@launch
+                }
+                debugLogExamStart(
+                    "startExamSession passed all prechecks in ${SystemClock.elapsedRealtime() - startExamPressedAt} ms"
+                )
+                completeStartExamSessionAfterPrechecks()
             }
         }
 
