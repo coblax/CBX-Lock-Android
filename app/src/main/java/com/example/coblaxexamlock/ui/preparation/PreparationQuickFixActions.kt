@@ -35,6 +35,11 @@ internal fun buildPreparationQuickFixActions(
                 !bypassOverlay &&
                     overlayRiskResult.quickFixTargets.contains(OverlayQuickFixTarget.OverlaySettings)
             val showAdbFix = !bypassAdb && adbInspection.blocking
+            val showAdbInsecurePropertyFix = !bypassAdb && !adbInspection.blocking && adbInspection.insecureSystemProperty
+            val showRootBlockingFix = !bypassRoot && rootSecurityStatus.blocking
+            val showRootSelinuxFix = !bypassRoot && !rootSecurityStatus.blocking && rootSecurityStatus.selinuxPermissive
+            val showVirtualEnvFix = !bypassVirtualEnvironment && virtualEnvironmentDetected
+            val showAppSwitchViolationFix = !bypassAppSwitch && appSwitchStatus.hasViolations
             val showGeofenceRequestPermissionFix =
                 !bypassGeofence &&
                     geofenceRuntimeStatus.evaluation.enabled &&
@@ -170,6 +175,71 @@ internal fun buildPreparationQuickFixActions(
                         target = QuickFixTarget.All,
                         priority = 20,
                         onClick = onOpenDeveloperOptionsSettings
+                    )
+                }
+                if (showAdbInsecurePropertyFix) {
+                    addQuickFix(
+                        code = "adb_insecure_property",
+                        text = tr(
+                            "ADB system property insecure — contact your admin or check Developer Options",
+                            "Properti sistem ADB tidak aman — hubungi admin atau periksa Developer Options"
+                        ),
+                        severity = QuickFixSeverity.Blocking,
+                        target = QuickFixTarget.All,
+                        priority = 21,
+                        onClick = onOpenDeveloperOptionsSettings
+                    )
+                }
+                if (showRootBlockingFix) {
+                    addQuickFix(
+                        code = "root_detected",
+                        text = tr(
+                            "Root detected — contact your administrator or refresh checks",
+                            "Root terdeteksi — hubungi administrator atau refresh pemeriksaan"
+                        ),
+                        severity = QuickFixSeverity.Blocking,
+                        target = QuickFixTarget.All,
+                        priority = 25,
+                        onClick = onRefreshAllSecurityChecks
+                    )
+                }
+                if (showRootSelinuxFix) {
+                    addQuickFix(
+                        code = "selinux_permissive",
+                        text = tr(
+                            "SELinux is permissive — contact your administrator",
+                            "SELinux permissive — hubungi administrator Anda"
+                        ),
+                        severity = QuickFixSeverity.Blocking,
+                        target = QuickFixTarget.All,
+                        priority = 26,
+                        onClick = onRefreshAllSecurityChecks
+                    )
+                }
+                if (showVirtualEnvFix) {
+                    addQuickFix(
+                        code = "virtual_env_detected",
+                        text = tr(
+                            "Emulator detected — exam must be on a physical device",
+                            "Emulator terdeteksi — ujian harus dijalankan di perangkat fisik"
+                        ),
+                        severity = QuickFixSeverity.Blocking,
+                        target = QuickFixTarget.All,
+                        priority = 27,
+                        onClick = onRefreshAllSecurityChecks
+                    )
+                }
+                if (showAppSwitchViolationFix) {
+                    addQuickFix(
+                        code = "app_switch_violations",
+                        text = tr(
+                            "App switch violation recorded — refresh to clear",
+                            "Pelanggaran app switch tercatat — refresh untuk menghapus"
+                        ),
+                        severity = QuickFixSeverity.Warning,
+                        target = QuickFixTarget.All,
+                        priority = 28,
+                        onClick = onRefreshAllSecurityChecks
                     )
                 }
                 if (showFakeLocationDeveloperOptionsFix) {
