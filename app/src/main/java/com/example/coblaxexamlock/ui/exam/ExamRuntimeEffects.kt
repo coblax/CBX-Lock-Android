@@ -59,10 +59,17 @@ internal fun RuntimeSetupEffects(
 
     LaunchedEffect(mainActivity, nativeExamFullscreenActive, webViewInstance) {
         nativeFullscreenBridge.updateActive(nativeExamFullscreenActive)
-        mainActivity?.setExamLockMode(
-            enabled = nativeExamFullscreenActive,
-            allowLockTask = false
-        )
+        if (nativeExamFullscreenActive) {
+            mainActivity?.setExamLockMode(
+                enabled = true,
+                allowLockTask = false
+            )
+        }
+        // When nativeExamFullscreenActive becomes false, do NOT call
+        // setExamLockMode(enabled=false) here — that is handled by the
+        // pinning activation flow and exam session teardown explicitly.
+        // Calling it here creates a race where the derived state briefly
+        // flickers to false during state transitions, causing stopLockTask().
         webViewInstance?.evaluateExamJavascriptSafely(ExamNativeFullscreenBridgeInstallScript)
         webViewInstance?.evaluateExamJavascriptSafely(
             buildExamNativeFullscreenStateSyncScript(nativeExamFullscreenActive)

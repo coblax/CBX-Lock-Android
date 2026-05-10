@@ -216,10 +216,7 @@ import com.example.coblaxexamlock.ui.geofence.effectiveCircleCenters
 import com.example.coblaxexamlock.ui.preparation.buildPreExamHealthSnapshot
 import com.example.coblaxexamlock.ui.preparation.PreExamHealthCheckInput
 import com.example.coblaxexamlock.ui.preparation.preExamHealthStartBlocker
-import com.example.coblaxexamlock.ui.preparation.PreparationScreenState
 import com.example.coblaxexamlock.ui.theme.LockBackground
-import com.example.coblaxexamlock.viewmodel.ExamRuntimeUiAction
-import com.example.coblaxexamlock.viewmodel.rememberBoundExamRuntimeViewModel
 import com.example.coblaxexamlock.WebViewCompatibilityStatus
 import java.util.Locale
 import kotlinx.coroutines.CompletableDeferred
@@ -1644,31 +1641,6 @@ internal fun ExamRuntimeSessionScreenImpl(
         details: String = "-"
     ) = runtimeDiagnosticsOps.writePreviousSessionBreadcrumb(code, details)
 
-    var runtimeStaticSecurityDialogKey by rememberSaveable { mutableStateOf<String?>(null) }
-    fun refreshRuntimeStaticSecurity(trigger: String) {
-        refreshRuntimeStaticSecurityState(
-            context = context,
-            examSessionStarted = examSessionStarted,
-            bypassScreenRecorder = bypassScreenRecorder,
-            bypassDisplayMirror = bypassDisplayMirror,
-            bypassMultiWindow = bypassMultiWindow,
-            securityUiState = securityUiState,
-            trigger = trigger,
-            recordAction = ::recordAction,
-            startAlarm = examAlarmController::start
-        )
-        val staticMessage = resolveRuntimeStaticSecurityUiMessage(securityUiState)
-        if (staticMessage != null) {
-            runtimeStaticSecurityDialogKey = staticMessage.key
-            securityIssueDialogTitle = staticMessage.title
-            securityIssueDialogMessage = staticMessage.message
-        } else if (runtimeStaticSecurityDialogKey != null) {
-            runtimeStaticSecurityDialogKey = null
-            securityIssueDialogTitle = null
-            securityIssueDialogMessage = null
-        }
-    }
-
     LaunchedEffect(deviceCompatibilityProfile.family, deviceCompatibilityProfile.model) {
         if (deviceCompatibilityProfile.samsungLegacyTablet) {
             recordAction(
@@ -2819,7 +2791,17 @@ internal fun ExamRuntimeSessionScreenImpl(
             refreshBluetoothSecurity(triggerViolation = false)
             refreshDeviceIntegritySecurity(triggerViolation = false)
             refreshIntegrityGuard()
-            refreshRuntimeStaticSecurity(trigger = "diagnostic_request")
+            refreshRuntimeStaticSecurityForSession(
+                context = context,
+                examSessionStarted = examSessionStarted,
+                bypassScreenRecorder = bypassScreenRecorder,
+                bypassDisplayMirror = bypassDisplayMirror,
+                bypassMultiWindow = bypassMultiWindow,
+                securityUiState = securityUiState,
+                trigger = "diagnostic_request",
+                recordAction = ::recordAction,
+                startAlarm = examAlarmController::start
+            )
             val latestDeviceTimeStatus = refreshDeviceTimeSecurity(
                 trigger = "diagnostic_request",
                 emitDiagnosticEvent = false
@@ -3788,12 +3770,15 @@ internal fun ExamRuntimeSessionScreenImpl(
     )
 
     RuntimeStaticSecurityEffects(
+        context = context,
         mainActivity = mainActivity,
         examSessionStarted = examSessionStarted,
         bypassScreenRecorder = bypassScreenRecorder,
         bypassDisplayMirror = bypassDisplayMirror,
         bypassMultiWindow = bypassMultiWindow,
-        refreshRuntimeStaticSecurity = ::refreshRuntimeStaticSecurity
+        securityUiState = securityUiState,
+        recordAction = ::recordAction,
+        startAlarm = examAlarmController::start
     )
 
     RuntimeHostActivityLifecycleEffect(
@@ -4172,7 +4157,17 @@ internal fun ExamRuntimeSessionScreenImpl(
         refreshBluetoothSecurity(triggerViolation = false)
         refreshDeviceIntegritySecurity(triggerViolation = false)
         refreshDeviceTimeSecurity(trigger = "checklist_refresh")
-        refreshRuntimeStaticSecurity(trigger = "checklist_refresh")
+        refreshRuntimeStaticSecurityForSession(
+            context = context,
+            examSessionStarted = examSessionStarted,
+            bypassScreenRecorder = bypassScreenRecorder,
+            bypassDisplayMirror = bypassDisplayMirror,
+            bypassMultiWindow = bypassMultiWindow,
+            securityUiState = securityUiState,
+            trigger = "checklist_refresh",
+            recordAction = ::recordAction,
+            startAlarm = examAlarmController::start
+        )
         debugLogExamStart(
             "refreshPreparationStatusChecks scheduled in ${SystemClock.elapsedRealtime() - startedAt} ms"
         )
@@ -4313,61 +4308,6 @@ internal fun ExamRuntimeSessionScreenImpl(
             startExamController.startExamSession()
         }
     }
-    val examRuntimeViewModel = rememberBoundExamRuntimeViewModel(
-        activity = componentActivity,
-        bypassKeyboardPolicy = bypassKeyboardPolicy,
-        isKeyboardAllowed = isKeyboardAllowed,
-        useBuiltInExamKeyboard = useBuiltInExamKeyboard,
-        bypassBluetooth = bypassBluetooth,
-        bluetoothEnabled = bluetoothEnabled,
-        bluetoothPermissionGranted = bluetoothPermissionGranted,
-        bypassAccessibility = bypassAccessibility,
-        accessibilityServiceEnabled = accessibilityServiceEnabled,
-        bypassAdb = bypassAdb,
-        adbInspection = adbInspection,
-        bypassRoot = bypassRoot,
-        rootSecurityStatus = rootSecurityStatus,
-        bypassVirtualEnvironment = bypassVirtualEnvironment,
-        virtualEnvironmentDetected = virtualEnvironmentDetected,
-        bypassVpn = bypassVpn,
-        bypassGeofence = bypassGeofence,
-        geofenceBypassState = geofenceBypassState,
-        geofenceRuntimeStatus = geofenceRuntimeStatus,
-        bypassFakeLocation = bypassFakeLocation,
-        fakeLocationBypassState = fakeLocationBypassState,
-        fakeLocationRuntimeStatus = fakeLocationRuntimeStatus,
-        bypassDeviceTime = bypassDeviceTime,
-        deviceTimeBypassState = deviceTimeBypassState,
-        deviceTimeSecurityStatus = deviceTimeSecurityStatus,
-        bypassOverlay = bypassOverlay,
-        overlayRiskResult = overlayRiskResult,
-        bypassAppSwitch = bypassAppSwitch,
-        appSwitchStatus = appSwitchStatus,
-        signatureMismatchDetected = signatureMismatchDetected,
-        securityTamperDetected = securityTamperDetected,
-        networkReadinessStatus = networkReadinessStatus,
-        examSessionStarted = examSessionStarted,
-        loadingProgress = loadingProgress,
-        webViewErrorMessage = webViewErrorMessage,
-        hasFullscreenCustomView = fullScreenCustomView != null,
-        builtInKeyboardVisible = useBuiltInExamKeyboard && showBuiltInExamKeyboard,
-        hasEditableFocus = hasEditableFocus,
-        pendingSection = pendingSection,
-        showForcedExitAlarm = showForcedExitAlarm,
-        showOfflineWarningDialog = showOfflineWarningDialog,
-        showNetworkUnstableDialog = showNetworkUnstableDialog,
-        showGeofenceViolationDialog = showGeofenceViolationDialog,
-        showFakeLocationViolationDialog = showFakeLocationViolationDialog,
-        showKeyboardViolationDialog = showKeyboardViolationDialog,
-        showOverlayViolationDialog = showOverlayViolationDialog,
-        showBluetoothViolationDialog = showBluetoothViolationDialog,
-        showClipboardViolationDialog = showClipboardViolationDialog,
-        showExitExamDialog = showExitExamDialog,
-        onRefreshAllSecurityChecks = ::handleRefreshAllSecurityChecks,
-        onRequestSectionReport = ::handleRequestSectionReport,
-        onRequestLocationPermission = ::handleRequestLocationPermission,
-        onOpenInternetSettings = ::handleOpenInternetSettings
-    )
     val footerShieldStatus = resolveExamFooterShieldStatus(
         examGuardArmed = examGuardArmed,
         bypassKeyboardPolicy = bypassKeyboardPolicy,
@@ -4494,27 +4434,20 @@ internal fun ExamRuntimeSessionScreenImpl(
         showExitExamDialog = showExitExamDialog,
         exitSessionClearInFlight = exitSessionClearInFlight
     )
-    val runtimeDialogsActions = buildExamRuntimeDialogsActions(
-        forcedExitViolationCount = forcedExitViolationCount,
+    val runtimeDialogsActions = buildRuntimeDialogsActionsForSession(
+        context = context,
+        componentActivity = componentActivity,
+        flowUiState = flowUiState,
+        securityUiState = securityUiState,
+        clipboardUiState = clipboardUiState,
+        networkUiState = networkUiState,
         appSwitchStatus = appSwitchStatus,
-        keyboardViolationCount = keyboardViolationCount,
-        currentKeyboardLabel = currentKeyboardLabel,
-        overlayViolationCount = overlayViolationCount,
         overlayRiskResult = overlayRiskResult,
-        lastConnectedNetworkLabel = lastConnectedNetworkLabel,
-        offlineWarningDurationMs = offlineWarningDurationMs,
-        currentOfflineDurationMs = currentOfflineDurationMs,
         networkReadinessStatus = networkReadinessStatus,
         networkUnstableRuntimeStatus = networkUnstableRuntimeStatus,
-        geofenceViolationCount = geofenceViolationCount,
+        currentOfflineDurationMs = currentOfflineDurationMs,
         geofenceRuntimeStatus = geofenceRuntimeStatus,
-        fakeLocationViolationCount = fakeLocationViolationCount,
         fakeLocationRuntimeStatus = fakeLocationRuntimeStatus,
-        bluetoothViolationCount = bluetoothViolationCount,
-        bluetoothEnabled = bluetoothEnabled,
-        clipboardViolationCount = clipboardViolationCount,
-        lastClipboardConfirmedAt = lastClipboardConfirmedAt,
-        lastClipboardDecision = lastClipboardDecision,
         clipboardRuntimeStatus = clipboardRuntimeStatus,
         alarmSessionIdentity = alarmSessionIdentity,
         appVersionName = appVersionName,
@@ -4524,63 +4457,18 @@ internal fun ExamRuntimeSessionScreenImpl(
         acknowledgeRuntimeAlarm = ::acknowledgeRuntimeAlarm,
         recordAction = { code, details, level -> recordAction(code, details, level) },
         currentNetworkEventDetails = ::currentNetworkEventDetails,
-        dismissForcedExitAlarm = {
-            showForcedExitAlarm = false
-            pendingForcedExitViolation = false
-            examAlarmController.stop()
-        },
-        dismissKeyboardViolationDialog = {
-            showKeyboardViolationDialog = false
-            examAlarmController.stop()
-        },
-        dismissOverlayViolationDialog = {
-            showOverlayViolationDialog = false
-            examAlarmController.stop()
-        },
-        dismissOfflineWarningDialog = { showOfflineWarningDialog = false },
         openVpnSettings = ::handleOpenVpnSettings,
-        refreshVpnStatus = { launchNetworkManualRefresh("vpn_runtime_dialog") },
-        sendVpnReport = { handleRequestSectionReport(DiagnosticSection.Network) },
-        dismissNetworkUnstableDialog = { showNetworkUnstableDialog = false },
-        dismissGeofenceViolationDialog = {
-            showGeofenceViolationDialog = false
-            examAlarmController.stop()
+        refreshVpnStatus = { trigger -> launchNetworkManualRefresh(trigger) },
+        requestSectionReport = ::handleRequestSectionReport,
+        refreshBluetoothSecurity = ::refreshBluetoothSecurity,
+        clearExamSessionOnExit = { reason, waitForResult ->
+            clearExamSessionOnExit(reason = reason, waitForResult = waitForResult)
         },
-        dismissFakeLocationViolationDialog = {
-            showFakeLocationViolationDialog = false
-            examAlarmController.stop()
+        writePreviousSessionBreadcrumb = { code, details ->
+            writePreviousSessionBreadcrumb(code = code, details = details)
         },
-        openBluetoothSettings = { openBluetoothSettings(context) },
-        dismissBluetoothViolationDialog = {
-            showBluetoothViolationDialog = false
-            examAlarmController.stop()
-        },
-        refreshBluetoothSecurity = { refreshBluetoothSecurity(triggerViolation = false) },
-        dismissClipboardViolationDialog = {
-            showClipboardViolationDialog = false
-            examAlarmController.stop()
-        },
-        dismissExitExamDialog = {
-            if (!exitSessionClearInFlight) {
-                showExitExamDialog = false
-            }
-        },
-        confirmExitExam = {
-            if (!exitSessionClearInFlight) {
-                componentActivity.lifecycleScope.launch {
-                    clearExamSessionOnExit(
-                        reason = "footer_home_confirm",
-                        waitForResult = true
-                    )
-                    writePreviousSessionBreadcrumb(
-                        code = PreviousExamSessionBreadcrumbCodes.ExitCompleted,
-                        details = "reason=footer_home_confirm"
-                    )
-                    showExitExamDialog = false
-                    onExit()
-                }
-            }
-        }
+        onExit = onExit,
+        examAlarmController = examAlarmController
     )
 
     val screenPinningFixNeeded = !bypassScreenPinning &&
@@ -4599,41 +4487,22 @@ internal fun ExamRuntimeSessionScreenImpl(
             writePreviousSessionBreadcrumb(code = code, details = details)
         }
     )
-    val preparationState = PreparationScreenState(
-        examName = payload.examName,
-        keyboardPackage = currentKeyboardPackage,
+    val preparationState = buildPreparationStateForSession(
+        payload = payload,
+        adminSettings = adminSettings,
+        flowUiState = flowUiState,
+        securityUiState = securityUiState,
+        clipboardUiState = clipboardUiState,
+        networkUiState = networkUiState,
+        locationWarmupUiState = locationWarmupUiState,
         keyboardAllowed = isKeyboardAllowed,
-        usingBuiltInExamKeyboard = useBuiltInExamKeyboard || !isKeyboardAllowed,
-        bluetoothPermissionGranted = bluetoothPermissionGranted,
-        bluetoothEnabled = bluetoothEnabled,
-        accessibilityServiceEnabled = accessibilityServiceEnabled,
-        adbInspection = adbInspection,
-        adbBypassState = adbBypassState,
-        rootSecurityStatus = rootSecurityStatus,
-        rootBypassState = rootBypassState,
-        signatureMismatchDetected = signatureMismatchDetected,
-        virtualEnvironmentDetected = virtualEnvironmentDetected,
-        tamperDetected = securityTamperDetected,
         sendingSection = sendingSection,
-        isStartingExam = lockTaskRequestPending || geofenceStartValidationInFlight,
-        pinningActivationState = pinningActivationState,
-        screenPinningMessage = screenPinningMessage,
-        webViewSessionResetInFlight = webViewSessionResetInFlight,
-        webViewSessionResetError = webViewSessionResetError,
-        isRefreshingGeofence = geofenceManualRefreshInFlight,
-        isWarmingLocation = locationWarmupInFlight,
-        isRefreshingNetwork = networkManualRefreshInFlight,
-        lastGeofenceRefreshAt = lastGeofenceRefreshAt,
         networkReadinessStatus = networkReadinessStatus,
         networkUnstableRuntimeStatus = networkUnstableRuntimeStatus,
         networkTimelinePreview = networkTimelinePreview,
-        lastNetworkChangeAt = lastNetworkChangeAt,
-        lastNetworkChangeSource = lastNetworkChangeSource,
-        lastConnectedNetworkLabel = lastConnectedNetworkLabel,
         screenPinningAvailable = screenPinningAvailable,
-        isScreenPinningActive = lockTaskBridge.active(),
+        screenPinningActive = lockTaskBridge.active(),
         screenPinningFixNeeded = screenPinningFixNeeded,
-        clipboardViolationCount = clipboardViolationCount,
         clipboardRuntimeStatus = clipboardRuntimeStatus,
         clipboardBypassState = clipboardBypassState,
         deviceTimeSecurityStatus = deviceTimeSecurityStatus,
@@ -4647,7 +4516,9 @@ internal fun ExamRuntimeSessionScreenImpl(
         bypassBluetooth = bypassBluetooth,
         bypassAccessibility = bypassAccessibility,
         bypassAdb = bypassAdb,
+        adbBypassState = adbBypassState,
         bypassRoot = bypassRoot,
+        rootBypassState = rootBypassState,
         bypassVirtualEnvironment = bypassVirtualEnvironment,
         bypassVpn = bypassVpn,
         vpnBypassState = vpnBypassState,
@@ -4660,16 +4531,12 @@ internal fun ExamRuntimeSessionScreenImpl(
         fakeLocationBypassState = fakeLocationBypassState,
         bypassDeviceTime = bypassDeviceTime,
         bypassAppSwitch = bypassAppSwitch,
-        screenRecorderPackages = securityUiState.screenRecorderPackages.value,
         bypassScreenRecorder = bypassScreenRecorder,
-        externalDisplayDetected = securityUiState.externalDisplayDetected.value,
         bypassDisplayMirror = bypassDisplayMirror,
-        multiWindowDetected = securityUiState.multiWindowDetected.value,
         bypassMultiWindow = bypassMultiWindow,
         preExamHealthCheckSnapshot = preExamHealthCheckSnapshot,
         deviceSurvivalPolicy = deviceSurvivalPolicy,
-        previousExamSessionBreadcrumb = previousExamSessionBreadcrumb,
-        showChecklistDetails = adminSettings.showChecklistDetails
+        previousExamSessionBreadcrumb = previousExamSessionBreadcrumb
     )
     val preparationActions = buildPreparationScreenActions(
         onChooseKeyboard = ::handleChooseKeyboard,
@@ -4698,9 +4565,7 @@ internal fun ExamRuntimeSessionScreenImpl(
         onOpenWebViewProviderSettings = ::handleOpenWebViewProviderSettings,
         onReinstallOfficialApk = ::handleReinstallOfficialApk,
         onRefreshStatus = ::handleRefreshPreparationStatus,
-        onRefreshAllSecurityChecks = {
-            examRuntimeViewModel.dispatch(ExamRuntimeUiAction.RefreshRequested)
-        },
+        onRefreshAllSecurityChecks = ::handleRefreshAllSecurityChecks,
         onRefreshHealthCheck = ::handleRefreshPreExamHealthCheck,
         onRequestSectionReport = ::handleRequestSectionReport,
         onExportDiagnostics = { handleExportExamDiagnostics("preparation_recovery") },
@@ -4755,6 +4620,7 @@ internal fun ExamRuntimeSessionScreenImpl(
         securityIssueDialogMessage = securityIssueDialogMessage,
         bugReportFeedbackTitle = bugReportFeedbackTitle,
         bugReportFeedbackMessage = bugReportFeedbackMessage,
+        securityUiState = securityUiState,
         onDismissGeofenceMapViewer = { showGeofenceMapViewer = false },
         onRefreshGeofenceMapViewer = {
             launchLocationSecurityManualRefresh(trigger = "geofence_map_viewer_refresh")
@@ -4860,6 +4726,10 @@ internal fun ExamRuntimeSessionScreenImpl(
             pendingSection = null
             launchTelegramSectionReport(section)
         },
+        onOpenStaticSecurityAppSettings = ::handleOpenAppSettings,
+        onOpenStaticSecurityCastSettings = ::handleOpenCastSettings,
+        onRefreshStaticSecurityStatus = ::handleRefreshPreparationStatus,
+        onSendStaticSecurityReport = ::launchTelegramSectionReport,
         onDismissScreenPinningMessage = { screenPinningMessage = null },
         onDismissSecurityIssueDialog = {
             val shouldExit = exitOnSecurityIssueDialogDismiss

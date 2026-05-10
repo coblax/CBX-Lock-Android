@@ -39,10 +39,12 @@ internal fun finalizeStartExamSession(
 ) {
     flowUiState.webViewSessionResetError.value = null
     adminUiState.examSessionStartedAtElapsedMs.value = SystemClock.elapsedRealtime()
+    // Set examSessionStarted BEFORE engage to prevent examGuardArmed from
+    // briefly becoming false during the transition (race condition fix).
+    flowUiState.examSessionStarted.value = true
     if (!lockTaskAlreadyActive) {
         lockTaskBridge.engage(allowLockTask = false)
     }
-    flowUiState.examSessionStarted.value = true
     val clipboardSnapshot = readClipboardSnapshotLite(context)
     clipboardUiState.clipboardDecisionFingerprint.value = clipboardSnapshot.decisionFingerprint
     clipboardUiState.clipboardDecisionSemanticSignature.value = clipboardSnapshot.semanticSignature

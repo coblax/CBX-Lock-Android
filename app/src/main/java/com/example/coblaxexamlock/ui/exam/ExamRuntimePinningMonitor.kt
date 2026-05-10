@@ -21,7 +21,7 @@ import kotlinx.coroutines.launch
 internal const val ScreenPinningMonitorWarmupIntervalMillis = 300L
 internal const val ScreenPinningMonitorSteadyIntervalMillis = 1_000L
 internal const val ScreenPinningMonitorWarmupWindowMillis = 5_000L
-private const val ScreenPinningMonitorStartupGraceMillis = 8_000L
+private const val ScreenPinningMonitorStartupGraceMillis = 12_000L
 
 @Composable
 internal fun RuntimeScreenPinningMonitorEffect(
@@ -213,6 +213,25 @@ internal fun RuntimeScreenPinningActivationEffect(
             adminUiState.screenPinningActivationDurationMs.value = screenPinningReport.activationDurationMs
 
             if (screenPinningReport.active) {
+                // Guard against immediate unpin on devices where the system dialog
+                // briefly drops lock task mode after confirmation (Samsung, etc.)
+                delay(500)
+                if (!lockTaskBridge.active()) {
+                    recordAction(
+                        ExamRuntimeHardeningDiagnostics.ScreenPinningTransientLossRecheck,
+                        "state=${lockTaskBridge.stateLabel()} | action=post_confirm_reengage",
+                        DiagnosticEventLevel.WARNING
+                    )
+                    lockTaskBridge.engage(allowLockTask = true)
+                    delay(1_000)
+                    if (!lockTaskBridge.active()) {
+                        recordAction(
+                            ExamRuntimeHardeningDiagnostics.ScreenPinningTransientLossRecheck,
+                            "state=${lockTaskBridge.stateLabel()} | action=post_confirm_reengage_failed",
+                            DiagnosticEventLevel.WARNING
+                        )
+                    }
+                }
                 flowUiState.pinningActivationState.value = PinningActivationState.ActiveConfirmed
                 recordAction(
                     ScreenPinningSignals.eventActive(),

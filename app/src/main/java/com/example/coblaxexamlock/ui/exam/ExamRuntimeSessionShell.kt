@@ -346,6 +346,7 @@ internal fun ExamRuntimeSessionRenderedUi(
     securityIssueDialogMessage: String?,
     bugReportFeedbackTitle: String?,
     bugReportFeedbackMessage: String?,
+    securityUiState: ExamRuntimeSecurityUiState,
     onDismissGeofenceMapViewer: () -> Unit,
     onRefreshGeofenceMapViewer: () -> Unit,
     onRefreshMapViewerActionLogged: () -> Unit,
@@ -364,6 +365,10 @@ internal fun ExamRuntimeSessionRenderedUi(
     onHideCustomView: () -> Unit,
     onDismissPendingSection: () -> Unit,
     onConfirmPendingSection: (DiagnosticSection) -> Unit,
+    onOpenStaticSecurityAppSettings: () -> Unit,
+    onOpenStaticSecurityCastSettings: () -> Unit,
+    onRefreshStaticSecurityStatus: () -> Unit,
+    onSendStaticSecurityReport: (DiagnosticSection) -> Unit,
     onDismissScreenPinningMessage: () -> Unit,
     onDismissSecurityIssueDialog: () -> Unit,
     onDismissBugReportFeedback: () -> Unit,
@@ -428,6 +433,13 @@ internal fun ExamRuntimeSessionRenderedUi(
                 onDismissScreenPinningMessage = onDismissScreenPinningMessage,
                 onDismissSecurityIssueDialog = onDismissSecurityIssueDialog,
                 onDismissBugReportFeedback = onDismissBugReportFeedback
+            )
+            RuntimeStaticSecurityDialogsHost(
+                securityUiState = securityUiState,
+                onOpenAppSettings = onOpenStaticSecurityAppSettings,
+                onOpenCastSettings = onOpenStaticSecurityCastSettings,
+                onRefreshStatus = onRefreshStaticSecurityStatus,
+                onSendReport = onSendStaticSecurityReport
             )
         }
         // Full-screen pinning overlay — shown when screen pinning is being activated.

@@ -21,13 +21,30 @@ internal data class RuntimeStaticSecurityUiMessage(
 
 @Composable
 internal fun RuntimeStaticSecurityEffects(
+    context: Context,
     mainActivity: MainActivity?,
     examSessionStarted: Boolean,
     bypassScreenRecorder: Boolean,
     bypassDisplayMirror: Boolean,
     bypassMultiWindow: Boolean,
-    refreshRuntimeStaticSecurity: (String) -> Unit
+    securityUiState: ExamRuntimeSecurityUiState,
+    recordAction: (String, String, DiagnosticEventLevel) -> Unit,
+    startAlarm: () -> Unit
 ) {
+    fun refreshRuntimeStaticSecurity(trigger: String) {
+        refreshRuntimeStaticSecurityForSession(
+            context = context,
+            examSessionStarted = examSessionStarted,
+            bypassScreenRecorder = bypassScreenRecorder,
+            bypassDisplayMirror = bypassDisplayMirror,
+            bypassMultiWindow = bypassMultiWindow,
+            securityUiState = securityUiState,
+            trigger = trigger,
+            recordAction = recordAction,
+            startAlarm = startAlarm
+        )
+    }
+
     LaunchedEffect(
         examSessionStarted,
         bypassScreenRecorder,
@@ -58,6 +75,30 @@ internal fun RuntimeStaticSecurityEffects(
             }
         }
     }
+}
+
+internal fun refreshRuntimeStaticSecurityForSession(
+    context: Context,
+    examSessionStarted: Boolean,
+    bypassScreenRecorder: Boolean,
+    bypassDisplayMirror: Boolean,
+    bypassMultiWindow: Boolean,
+    securityUiState: ExamRuntimeSecurityUiState,
+    trigger: String,
+    recordAction: (String, String, DiagnosticEventLevel) -> Unit,
+    startAlarm: () -> Unit
+) {
+    refreshRuntimeStaticSecurityState(
+        context = context,
+        examSessionStarted = examSessionStarted,
+        bypassScreenRecorder = bypassScreenRecorder,
+        bypassDisplayMirror = bypassDisplayMirror,
+        bypassMultiWindow = bypassMultiWindow,
+        securityUiState = securityUiState,
+        trigger = trigger,
+        recordAction = recordAction,
+        startAlarm = startAlarm
+    )
 }
 
 internal fun refreshRuntimeStaticSecurityState(
