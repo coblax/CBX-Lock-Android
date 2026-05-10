@@ -165,6 +165,13 @@ internal object ExamRuntimeHardeningDiagnostics {
     const val PinningRefreshSafeSuppressed = "PINNING_REFRESH_SAFE_SUPPRESSED"
     const val OverlayPartialLegacyWarning = "OVERLAY_PARTIAL_LEGACY_WARNING"
     const val StartExamBlockedHealthCheck = "START_EXAM_BLOCKED_HEALTH_CHECK"
+    const val ScreenRecorderDetected = "SCREEN_RECORDER_DETECTED"
+    const val ScreenRecorderCleared = "SCREEN_RECORDER_CLEARED"
+    const val DisplayMirrorDetected = "DISPLAY_MIRROR_DETECTED"
+    const val DisplayMirrorCleared = "DISPLAY_MIRROR_CLEARED"
+    const val MultiWindowDetected = "MULTI_WINDOW_DETECTED"
+    const val MultiWindowCleared = "MULTI_WINDOW_CLEARED"
+    const val MultiWindowModeChanged = "MULTI_WINDOW_MODE_CHANGED"
     const val FieldReadinessTestStarted = "FIELD_READINESS_TEST_STARTED"
     const val FieldReadinessTestCompleted = "FIELD_READINESS_TEST_COMPLETED"
     const val DeviceSurvivalPolicyResolved = "DEVICE_SURVIVAL_POLICY_RESOLVED"
@@ -224,6 +231,13 @@ internal object ExamRuntimeHardeningDiagnostics {
         PinningRefreshSafeSuppressed,
         OverlayPartialLegacyWarning,
         StartExamBlockedHealthCheck,
+        ScreenRecorderDetected,
+        ScreenRecorderCleared,
+        DisplayMirrorDetected,
+        DisplayMirrorCleared,
+        MultiWindowDetected,
+        MultiWindowCleared,
+        MultiWindowModeChanged,
         FieldReadinessTestStarted,
         FieldReadinessTestCompleted,
         DeviceSurvivalPolicyResolved,

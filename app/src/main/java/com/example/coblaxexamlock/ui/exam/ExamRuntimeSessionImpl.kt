@@ -176,7 +176,9 @@ import com.example.coblaxexamlock.RootBypassState
 import com.example.coblaxexamlock.RootSecurityStatus
 import com.example.coblaxexamlock.runtime.acquireBestEffortLocationSnapshot
 import com.example.coblaxexamlock.runtime.buildRootIssueMessage
+import com.example.coblaxexamlock.runtime.detectScreenRecorderPackages
 import com.example.coblaxexamlock.runtime.detectSuspiciousFakeLocationPackages
+import com.example.coblaxexamlock.runtime.getExternalDisplayCount
 import com.example.coblaxexamlock.runtime.getBluetoothConnectPermission
 import com.example.coblaxexamlock.runtime.getCachedVirtualEnvironmentDiagnostics
 import com.example.coblaxexamlock.runtime.getCurrentInputMethodPackage
@@ -187,6 +189,7 @@ import com.example.coblaxexamlock.runtime.hasFineLocationPermission
 import com.example.coblaxexamlock.runtime.hasLocationPermissionForWifi
 import com.example.coblaxexamlock.runtime.isAllowedExamKeyboard
 import com.example.coblaxexamlock.runtime.isBluetoothEnabledForExam
+import com.example.coblaxexamlock.runtime.isInAnySplitMode
 import com.example.coblaxexamlock.runtime.isLocationServicesEnabled
 import com.example.coblaxexamlock.runtime.readExamBatteryStatus
 import com.example.coblaxexamlock.runtime.readNetworkReadinessStatus
@@ -387,6 +390,9 @@ internal fun ExamRuntimeSessionScreenImpl(
     val bypassVpn = vpnBypassState == VpnBypassState.Active
     val bypassLocation = bypassGeofence
     val bypassAppSwitch = adminSettings.bypassAppSwitch
+    val bypassScreenRecorder = adminSettings.bypassScreenRecorder
+    val bypassDisplayMirror = adminSettings.bypassDisplayMirror
+    val bypassMultiWindow = adminSettings.bypassMultiWindow
     val adminOverridesSummary = adminSettings.overrideSummary()
     val effectiveLocationPolicy = payload.locationPolicy ?: ExamQrLocationPolicy()
     val effectiveLocationPolicySource = if (bypassGeofence) {
@@ -993,6 +999,9 @@ internal fun ExamRuntimeSessionScreenImpl(
                 showGeofenceViolationDialog = showGeofenceViolationDialog,
                 showFakeLocationViolationDialog = showFakeLocationViolationDialog,
                 showBluetoothViolationDialog = showBluetoothViolationDialog,
+                showScreenRecorderViolationDialog = securityUiState.showScreenRecorderViolationDialog.value,
+                showDisplayMirrorViolationDialog = securityUiState.showDisplayMirrorViolationDialog.value,
+                showMultiWindowViolationDialog = securityUiState.showMultiWindowViolationDialog.value,
                 showClipboardViolationDialog = showClipboardViolationDialog,
                 showExitExamDialog = showExitExamDialog,
                 pendingSectionPresent = pendingSection != null,
@@ -1634,6 +1643,31 @@ internal fun ExamRuntimeSessionScreenImpl(
         code: String,
         details: String = "-"
     ) = runtimeDiagnosticsOps.writePreviousSessionBreadcrumb(code, details)
+
+    var runtimeStaticSecurityDialogKey by rememberSaveable { mutableStateOf<String?>(null) }
+    fun refreshRuntimeStaticSecurity(trigger: String) {
+        refreshRuntimeStaticSecurityState(
+            context = context,
+            examSessionStarted = examSessionStarted,
+            bypassScreenRecorder = bypassScreenRecorder,
+            bypassDisplayMirror = bypassDisplayMirror,
+            bypassMultiWindow = bypassMultiWindow,
+            securityUiState = securityUiState,
+            trigger = trigger,
+            recordAction = ::recordAction,
+            startAlarm = examAlarmController::start
+        )
+        val staticMessage = resolveRuntimeStaticSecurityUiMessage(securityUiState)
+        if (staticMessage != null) {
+            runtimeStaticSecurityDialogKey = staticMessage.key
+            securityIssueDialogTitle = staticMessage.title
+            securityIssueDialogMessage = staticMessage.message
+        } else if (runtimeStaticSecurityDialogKey != null) {
+            runtimeStaticSecurityDialogKey = null
+            securityIssueDialogTitle = null
+            securityIssueDialogMessage = null
+        }
+    }
 
     LaunchedEffect(deviceCompatibilityProfile.family, deviceCompatibilityProfile.model) {
         if (deviceCompatibilityProfile.samsungLegacyTablet) {
@@ -2785,6 +2819,7 @@ internal fun ExamRuntimeSessionScreenImpl(
             refreshBluetoothSecurity(triggerViolation = false)
             refreshDeviceIntegritySecurity(triggerViolation = false)
             refreshIntegrityGuard()
+            refreshRuntimeStaticSecurity(trigger = "diagnostic_request")
             val latestDeviceTimeStatus = refreshDeviceTimeSecurity(
                 trigger = "diagnostic_request",
                 emitDiagnosticEvent = false
@@ -2875,7 +2910,14 @@ internal fun ExamRuntimeSessionScreenImpl(
                     networkTimelinePreview = networkTimelinePreview,
                     lastNetworkChangeAt = lastNetworkChangeAt,
                     lastNetworkChangeSource = lastNetworkChangeSource,
-                    lastConnectedNetworkLabel = lastConnectedNetworkLabel
+                    lastConnectedNetworkLabel = lastConnectedNetworkLabel,
+                    screenRecorderPackages = securityUiState.screenRecorderPackages.value,
+                    bypassScreenRecorder = bypassScreenRecorder,
+                    externalDisplayDetected = securityUiState.externalDisplayDetected.value,
+                    externalDisplayCount = securityUiState.externalDisplayCount.intValue,
+                    bypassDisplayMirror = bypassDisplayMirror,
+                    multiWindowDetected = securityUiState.multiWindowDetected.value,
+                    bypassMultiWindow = bypassMultiWindow
                 ).onSuccess {
                     recordAction(code = "DIAGNOSTIC_SECTION_SENT", details = section.name)
                     bugReportFeedbackTitle = localized(uiLanguage, "Diagnostics sent", "Diagnostik terkirim")
@@ -3304,7 +3346,13 @@ internal fun ExamRuntimeSessionScreenImpl(
                 adbEnabled = adbEnabled,
                 adbInsecureSystemProperty = adbInspection.insecureSystemProperty,
                 bypassRoot = bypassRoot,
-                rootSecurityStatus = rootSecurityStatus
+                rootSecurityStatus = rootSecurityStatus,
+                bypassScreenRecorder = bypassScreenRecorder,
+                screenRecorderPackages = detectScreenRecorderPackages(context),
+                bypassDisplayMirror = bypassDisplayMirror,
+                externalDisplayDetected = getExternalDisplayCount(context) > 0,
+                bypassMultiWindow = bypassMultiWindow,
+                multiWindowDetected = isInAnySplitMode(context)
             )
             if (staticSecurityBlock != null) {
                 applyStartExamBlockMessage(staticSecurityBlock)
@@ -3739,6 +3787,15 @@ internal fun ExamRuntimeSessionScreenImpl(
         armClipboardResumeCheck = ::armClipboardResumeCheck
     )
 
+    RuntimeStaticSecurityEffects(
+        mainActivity = mainActivity,
+        examSessionStarted = examSessionStarted,
+        bypassScreenRecorder = bypassScreenRecorder,
+        bypassDisplayMirror = bypassDisplayMirror,
+        bypassMultiWindow = bypassMultiWindow,
+        refreshRuntimeStaticSecurity = ::refreshRuntimeStaticSecurity
+    )
+
     RuntimeHostActivityLifecycleEffect(
         context = context,
         componentActivity = componentActivity,
@@ -4115,6 +4172,7 @@ internal fun ExamRuntimeSessionScreenImpl(
         refreshBluetoothSecurity(triggerViolation = false)
         refreshDeviceIntegritySecurity(triggerViolation = false)
         refreshDeviceTimeSecurity(trigger = "checklist_refresh")
+        refreshRuntimeStaticSecurity(trigger = "checklist_refresh")
         debugLogExamStart(
             "refreshPreparationStatusChecks scheduled in ${SystemClock.elapsedRealtime() - startedAt} ms"
         )
@@ -4602,12 +4660,12 @@ internal fun ExamRuntimeSessionScreenImpl(
         fakeLocationBypassState = fakeLocationBypassState,
         bypassDeviceTime = bypassDeviceTime,
         bypassAppSwitch = bypassAppSwitch,
-        screenRecorderPackages = com.example.coblaxexamlock.runtime.detectScreenRecorderPackages(context),
-        bypassScreenRecorder = adminSettings.bypassScreenRecorder,
-        externalDisplayDetected = com.example.coblaxexamlock.runtime.hasExternalDisplay(context),
-        bypassDisplayMirror = adminSettings.bypassDisplayMirror,
-        multiWindowDetected = com.example.coblaxexamlock.runtime.isInAnySplitMode(context),
-        bypassMultiWindow = adminSettings.bypassMultiWindow,
+        screenRecorderPackages = securityUiState.screenRecorderPackages.value,
+        bypassScreenRecorder = bypassScreenRecorder,
+        externalDisplayDetected = securityUiState.externalDisplayDetected.value,
+        bypassDisplayMirror = bypassDisplayMirror,
+        multiWindowDetected = securityUiState.multiWindowDetected.value,
+        bypassMultiWindow = bypassMultiWindow,
         preExamHealthCheckSnapshot = preExamHealthCheckSnapshot,
         deviceSurvivalPolicy = deviceSurvivalPolicy,
         previousExamSessionBreadcrumb = previousExamSessionBreadcrumb,

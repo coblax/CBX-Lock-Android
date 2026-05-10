@@ -1161,6 +1161,143 @@ internal fun ClipboardViolationDialog(
     )
 }
 
+@Composable
+private fun RuntimeStaticSecurityDialog(
+    title: String,
+    message: String,
+    detail: String,
+    violationCount: Int,
+    primaryActionLabel: String?,
+    onPrimaryAction: (() -> Unit)?,
+    onRefreshStatus: () -> Unit,
+    onSendReport: () -> Unit
+) {
+    AlertDialog(
+        onDismissRequest = {},
+        properties = DialogProperties(
+            dismissOnBackPress = false,
+            dismissOnClickOutside = false
+        ),
+        containerColor = Color(0xFFFDF1F1),
+        title = {
+            Row(
+                horizontalArrangement = Arrangement.spacedBy(10.dp),
+                verticalAlignment = Alignment.CenterVertically
+            ) {
+                Surface(shape = CircleShape, color = Color(0xFFB42318).copy(alpha = 0.12f)) {
+                    Icon(
+                        imageVector = Icons.Rounded.QrCodeScanner,
+                        contentDescription = null,
+                        tint = Color(0xFFB42318),
+                        modifier = Modifier.padding(6.dp).size(20.dp)
+                    )
+                }
+                Text(text = title, color = Color(0xFFB42318), fontWeight = FontWeight.Bold)
+            }
+        },
+        text = {
+            Column {
+                Text(text = message, color = LockTextPrimary)
+                Spacer(modifier = Modifier.height(10.dp))
+                Text(
+                    text = tr("Violations: $violationCount", "Jumlah pelanggaran: $violationCount"),
+                    color = Color(0xFFB42318),
+                    fontWeight = FontWeight.Bold
+                )
+                Spacer(modifier = Modifier.height(8.dp))
+                Text(text = detail.ifBlank { "-" }, color = LockTextSecondary)
+            }
+        },
+        confirmButton = {
+            if (primaryActionLabel != null && onPrimaryAction != null) {
+                TextButton(onClick = onPrimaryAction) {
+                    Text(primaryActionLabel, color = LockBlueDeep)
+                }
+            }
+        },
+        dismissButton = {
+            Row(horizontalArrangement = Arrangement.spacedBy(4.dp)) {
+                TextButton(onClick = onRefreshStatus) {
+                    Text(tr("Refresh Status", "Refresh Status"), color = LockBlueDeep)
+                }
+                TextButton(onClick = onSendReport) {
+                    Text(tr("Send Report", "Kirim Report"), color = LockTextMuted)
+                }
+            }
+        }
+    )
+}
+
+@Composable
+internal fun ScreenRecorderRuntimeViolationDialog(
+    packages: List<String>,
+    violationCount: Int,
+    onOpenAppSettings: () -> Unit,
+    onRefreshStatus: () -> Unit,
+    onSendReport: () -> Unit
+) {
+    RuntimeStaticSecurityDialog(
+        title = tr("Screen Recorder Detected", "Screen Recorder Terdeteksi"),
+        message = tr(
+            "A screen recorder app is present while the exam is running. Remove or disable it, then refresh status.",
+            "Aplikasi screen recorder terdeteksi saat ujian berjalan. Hapus atau nonaktifkan, lalu refresh status."
+        ),
+        detail = packages.joinToString("\n").ifBlank { "-" },
+        violationCount = violationCount,
+        primaryActionLabel = tr("Open App Settings", "Buka Setelan App"),
+        onPrimaryAction = onOpenAppSettings,
+        onRefreshStatus = onRefreshStatus,
+        onSendReport = onSendReport
+    )
+}
+
+@Composable
+internal fun DisplayMirrorRuntimeViolationDialog(
+    externalDisplayCount: Int,
+    violationCount: Int,
+    onOpenCastSettings: () -> Unit,
+    onRefreshStatus: () -> Unit,
+    onSendReport: () -> Unit
+) {
+    RuntimeStaticSecurityDialog(
+        title = tr("Display Mirror Detected", "Display Mirror Terdeteksi"),
+        message = tr(
+            "An external display or casting route is active while the exam is running. Disconnect it, then refresh status.",
+            "Display eksternal atau casting aktif saat ujian berjalan. Putuskan koneksinya, lalu refresh status."
+        ),
+        detail = tr(
+            "External display count: $externalDisplayCount",
+            "Jumlah display eksternal: $externalDisplayCount"
+        ),
+        violationCount = violationCount,
+        primaryActionLabel = tr("Open Cast Settings", "Buka Setelan Cast"),
+        onPrimaryAction = onOpenCastSettings,
+        onRefreshStatus = onRefreshStatus,
+        onSendReport = onSendReport
+    )
+}
+
+@Composable
+internal fun MultiWindowRuntimeViolationDialog(
+    violationCount: Int,
+    onRefreshStatus: () -> Unit,
+    onSendReport: () -> Unit
+) {
+    RuntimeStaticSecurityDialog(
+        title = tr("Split-Screen Active", "Split-Screen Aktif"),
+        message = tr(
+            "The exam app is in split-screen or picture-in-picture mode. Return to normal single-app mode, then refresh status.",
+            "Aplikasi ujian berada di mode split-screen atau picture-in-picture. Kembali ke mode satu aplikasi, lalu refresh status."
+        ),
+        detail = tr("Multi-window mode: active", "Mode multi-window: aktif"),
+        violationCount = violationCount,
+        primaryActionLabel = null,
+        onPrimaryAction = null,
+        onRefreshStatus = onRefreshStatus,
+        onSendReport = onSendReport
+    )
+}
+
 internal data class ExamRuntimeDialogsState(
     val showForcedExitAlarm: Boolean,
     val forcedExitViolationCount: Int,

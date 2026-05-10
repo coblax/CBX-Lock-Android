@@ -127,6 +127,9 @@ internal fun resolveInternalDialogReason(
     showGeofenceViolationDialog: Boolean,
     showFakeLocationViolationDialog: Boolean,
     showBluetoothViolationDialog: Boolean,
+    showScreenRecorderViolationDialog: Boolean,
+    showDisplayMirrorViolationDialog: Boolean,
+    showMultiWindowViolationDialog: Boolean,
     showClipboardViolationDialog: Boolean,
     showExitExamDialog: Boolean,
     pendingSectionPresent: Boolean,
@@ -142,6 +145,9 @@ internal fun resolveInternalDialogReason(
         showGeofenceViolationDialog -> "geofence_alarm_dialog"
         showFakeLocationViolationDialog -> "fake_location_alarm_dialog"
         showBluetoothViolationDialog -> "bluetooth_alarm_dialog"
+        showScreenRecorderViolationDialog -> "screen_recorder_alarm_dialog"
+        showDisplayMirrorViolationDialog -> "display_mirror_alarm_dialog"
+        showMultiWindowViolationDialog -> "multi_window_alarm_dialog"
         showClipboardViolationDialog -> "clipboard_alarm_dialog"
         showExitExamDialog -> "exit_exam_dialog"
         pendingSectionPresent -> "telegram_confirm_dialog"

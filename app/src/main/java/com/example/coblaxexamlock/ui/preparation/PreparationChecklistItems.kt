@@ -549,8 +549,8 @@ internal fun PreparationChecklistItemsCard(
                     value = when {
                         bypassScreenRecorder -> tr("Bypass enabled", "Bypass aktif")
                         screenRecorderPackages.isNotEmpty() -> tr(
-                            "Detected: {screenRecorderPackages.size} app(s)",
-                            "Terdeteksi: {screenRecorderPackages.size} aplikasi"
+                            "Detected: ${screenRecorderPackages.size} app(s)",
+                            "Terdeteksi: ${screenRecorderPackages.size} aplikasi"
                         )
                         else -> tr("No screen recorder apps detected", "Tidak ada app screen recorder terdeteksi")
                     },

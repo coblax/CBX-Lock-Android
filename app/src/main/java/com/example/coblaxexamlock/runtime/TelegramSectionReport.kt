@@ -120,7 +120,14 @@ internal suspend fun sendTelegramSectionReport(
     networkTimelinePreview: List<NetworkTimelineEntry> = emptyList(),
     lastNetworkChangeAt: String? = null,
     lastNetworkChangeSource: String? = null,
-    lastConnectedNetworkLabel: String? = null
+    lastConnectedNetworkLabel: String? = null,
+    screenRecorderPackages: List<String> = emptyList(),
+    bypassScreenRecorder: Boolean = false,
+    externalDisplayDetected: Boolean = false,
+    externalDisplayCount: Int = 0,
+    bypassDisplayMirror: Boolean = false,
+    multiWindowDetected: Boolean = false,
+    bypassMultiWindow: Boolean = false
 ): Result<Unit> = withContext(Dispatchers.IO) {
     runCatching {
         val token = SecureStrings.telegramBotToken.trim()
@@ -270,7 +277,14 @@ internal suspend fun sendTelegramSectionReport(
                     networkTimelinePreview = networkTimelinePreview,
                     lastNetworkChangeAt = lastNetworkChangeAt,
                     lastNetworkChangeSource = lastNetworkChangeSource,
-                    lastConnectedNetworkLabel = lastConnectedNetworkLabel
+                    lastConnectedNetworkLabel = lastConnectedNetworkLabel,
+                    screenRecorderPackages = screenRecorderPackages,
+                    bypassScreenRecorder = bypassScreenRecorder,
+                    externalDisplayDetected = externalDisplayDetected,
+                    externalDisplayCount = externalDisplayCount,
+                    bypassDisplayMirror = bypassDisplayMirror,
+                    multiWindowDetected = multiWindowDetected,
+                    bypassMultiWindow = bypassMultiWindow
                 )
             )
 

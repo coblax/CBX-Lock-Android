@@ -235,16 +235,20 @@ internal fun diagnosticSectionEventCodes(section: DiagnosticSection): Set<String
         )
         DiagnosticSection.ScreenRecorder -> setOf(
             "SCREEN_RECORDER_DETECTED",
+            "SCREEN_RECORDER_CLEARED",
             "START_EXAM_BLOCKED_SCREEN_RECORDER",
             "APP_SETTINGS_OPENED"
         )
         DiagnosticSection.DisplayMirror -> setOf(
             "DISPLAY_MIRROR_DETECTED",
+            "DISPLAY_MIRROR_CLEARED",
             "START_EXAM_BLOCKED_DISPLAY_MIRROR",
             "CAST_SETTINGS_OPENED"
         )
         DiagnosticSection.MultiWindow -> setOf(
             "MULTI_WINDOW_DETECTED",
+            "MULTI_WINDOW_CLEARED",
+            "MULTI_WINDOW_MODE_CHANGED",
             "START_EXAM_BLOCKED_MULTI_WINDOW"
         )
     }

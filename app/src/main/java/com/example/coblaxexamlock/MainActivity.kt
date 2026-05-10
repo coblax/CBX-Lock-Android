@@ -1,5 +1,6 @@
 package com.example.coblaxexamlock
 import android.app.ActivityManager
+import android.content.res.Configuration
 import android.content.pm.ActivityInfo
 import android.graphics.Color
 import android.os.Build
@@ -26,6 +27,7 @@ import java.lang.ref.WeakReference
 class MainActivity : ComponentActivity() {
     private var onUserLeaveExamHandler: WeakReference<(() -> Unit)>? = null
     private var onExamWindowFocusChangedHandler: WeakReference<((Boolean) -> Unit)>? = null
+    private var onExamMultiWindowModeChangedHandler: WeakReference<((Boolean) -> Unit)>? = null
     private var composeContentStarted = false
     private var edgeToEdgeEnabled = false
     private var initialLowRamProfile: LowRamProfile? = null
@@ -233,6 +235,10 @@ class MainActivity : ComponentActivity() {
         onExamWindowFocusChangedHandler = handler?.let { WeakReference(it) }
     }
 
+    fun setOnExamMultiWindowModeChangedHandler(handler: ((Boolean) -> Unit)?) {
+        onExamMultiWindowModeChangedHandler = handler?.let { WeakReference(it) }
+    }
+
     fun setExamPortraitMode(enabled: Boolean) {
         runCatching {
             requestedOrientation =
@@ -252,6 +258,26 @@ class MainActivity : ComponentActivity() {
     override fun onWindowFocusChanged(hasFocus: Boolean) {
         super.onWindowFocusChanged(hasFocus)
         onExamWindowFocusChangedHandler?.get()?.invoke(hasFocus)
+    }
+
+    override fun onMultiWindowModeChanged(isInMultiWindowMode: Boolean) {
+        super.onMultiWindowModeChanged(isInMultiWindowMode)
+        dispatchExamWindowModeChanged()
+    }
+
+    override fun onMultiWindowModeChanged(isInMultiWindowMode: Boolean, newConfig: Configuration) {
+        super.onMultiWindowModeChanged(isInMultiWindowMode, newConfig)
+        dispatchExamWindowModeChanged()
+    }
+
+    override fun onPictureInPictureModeChanged(isInPictureInPictureMode: Boolean) {
+        super.onPictureInPictureModeChanged(isInPictureInPictureMode)
+        dispatchExamWindowModeChanged()
+    }
+
+    override fun onPictureInPictureModeChanged(isInPictureInPictureMode: Boolean, newConfig: Configuration) {
+        super.onPictureInPictureModeChanged(isInPictureInPictureMode, newConfig)
+        dispatchExamWindowModeChanged()
     }
 
     override fun onTrimMemory(level: Int) {
@@ -339,6 +365,13 @@ class MainActivity : ComponentActivity() {
                 else -> "UNKNOWN"
             }
         }.getOrDefault("Unknown")
+    }
+
+    private fun dispatchExamWindowModeChanged() {
+        val splitModeActive =
+            (Build.VERSION.SDK_INT >= Build.VERSION_CODES.N && runCatching { isInMultiWindowMode }.getOrDefault(false)) ||
+                (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O && runCatching { isInPictureInPictureMode }.getOrDefault(false))
+        onExamMultiWindowModeChangedHandler?.get()?.invoke(splitModeActive)
     }
 
     private companion object {

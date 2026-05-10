@@ -24,11 +24,14 @@ import com.example.coblaxexamlock.inspectAdb
 import com.example.coblaxexamlock.LocationSpoofSecurityStatus
 import com.example.coblaxexamlock.RootSecurityStatus
 import com.example.coblaxexamlock.runtime.detectSuspiciousFakeLocationPackages
+import com.example.coblaxexamlock.runtime.detectScreenRecorderPackages
+import com.example.coblaxexamlock.runtime.getExternalDisplayCount
 import com.example.coblaxexamlock.runtime.getCachedVirtualEnvironmentDiagnostics
 import com.example.coblaxexamlock.runtime.getRootDetectionDetails
 import com.example.coblaxexamlock.runtime.hasBluetoothExamPermission
 import com.example.coblaxexamlock.runtime.hasFineLocationPermission
 import com.example.coblaxexamlock.runtime.hasLocationPermissionForWifi
+import com.example.coblaxexamlock.runtime.isInAnySplitMode
 import com.example.coblaxexamlock.runtime.isBluetoothEnabledForExam
 import com.example.coblaxexamlock.runtime.isLocationServicesEnabled
 
@@ -72,6 +75,16 @@ internal class ExamRuntimeSecurityUiState(
     val integrityBaselineFingerprint: MutableState<String?>,
     val bluetoothViolationCount: MutableIntState,
     val showBluetoothViolationDialog: MutableState<Boolean>,
+    val screenRecorderPackages: MutableState<List<String>>,
+    val screenRecorderViolationCount: MutableIntState,
+    val showScreenRecorderViolationDialog: MutableState<Boolean>,
+    val externalDisplayDetected: MutableState<Boolean>,
+    val externalDisplayCount: MutableIntState,
+    val displayMirrorViolationCount: MutableIntState,
+    val showDisplayMirrorViolationDialog: MutableState<Boolean>,
+    val multiWindowDetected: MutableState<Boolean>,
+    val multiWindowViolationCount: MutableIntState,
+    val showMultiWindowViolationDialog: MutableState<Boolean>,
     val geofenceEvaluation: MutableState<GeofenceEvaluation>,
     val geofenceSecurityStatus: MutableState<GeofenceSecurityStatus>,
     val fakeLocationSecurityStatus: MutableState<LocationSpoofSecurityStatus>
@@ -144,6 +157,30 @@ internal fun rememberExamRuntimeSecurityUiState(
     val integrityBaselineFingerprint = rememberSaveable { mutableStateOf<String?>(null) }
     val bluetoothViolationCount = rememberSaveable { mutableIntStateOf(0) }
     val showBluetoothViolationDialog = rememberSaveable { mutableStateOf(false) }
+    val initialScreenRecorderPackages = remember(context) {
+        detectScreenRecorderPackages(context)
+    }
+    val screenRecorderPackages = remember {
+        mutableStateOf(initialScreenRecorderPackages)
+    }
+    val screenRecorderViolationCount = rememberSaveable { mutableIntStateOf(0) }
+    val showScreenRecorderViolationDialog = rememberSaveable { mutableStateOf(false) }
+    val initialExternalDisplayCount = remember(context) {
+        getExternalDisplayCount(context)
+    }
+    val externalDisplayDetected = rememberSaveable {
+        mutableStateOf(initialExternalDisplayCount > 0)
+    }
+    val externalDisplayCount = rememberSaveable {
+        mutableIntStateOf(initialExternalDisplayCount)
+    }
+    val displayMirrorViolationCount = rememberSaveable { mutableIntStateOf(0) }
+    val showDisplayMirrorViolationDialog = rememberSaveable { mutableStateOf(false) }
+    val multiWindowDetected = rememberSaveable {
+        mutableStateOf(isInAnySplitMode(context))
+    }
+    val multiWindowViolationCount = rememberSaveable { mutableIntStateOf(0) }
+    val showMultiWindowViolationDialog = rememberSaveable { mutableStateOf(false) }
     val initialGeofenceEvaluation = remember(
         geofenceConfigParseResult,
         context
@@ -240,6 +277,16 @@ internal fun rememberExamRuntimeSecurityUiState(
         integrityBaselineFingerprint = integrityBaselineFingerprint,
         bluetoothViolationCount = bluetoothViolationCount,
         showBluetoothViolationDialog = showBluetoothViolationDialog,
+        screenRecorderPackages = screenRecorderPackages,
+        screenRecorderViolationCount = screenRecorderViolationCount,
+        showScreenRecorderViolationDialog = showScreenRecorderViolationDialog,
+        externalDisplayDetected = externalDisplayDetected,
+        externalDisplayCount = externalDisplayCount,
+        displayMirrorViolationCount = displayMirrorViolationCount,
+        showDisplayMirrorViolationDialog = showDisplayMirrorViolationDialog,
+        multiWindowDetected = multiWindowDetected,
+        multiWindowViolationCount = multiWindowViolationCount,
+        showMultiWindowViolationDialog = showMultiWindowViolationDialog,
         geofenceEvaluation = geofenceEvaluation,
         geofenceSecurityStatus = geofenceSecurityStatus,
         fakeLocationSecurityStatus = fakeLocationSecurityStatus

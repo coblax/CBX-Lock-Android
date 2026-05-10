@@ -37,6 +37,7 @@
 
         <activity
             android:name=".MainActivity"
+            android:configChanges="orientation|screenSize|screenLayout|keyboard|keyboardHidden|smallestScreenSize|uiMode"
             android:exported="true"
             android:resizeableActivity="false"
             android:supportsPictureInPicture="false"
