@@ -127,6 +127,18 @@ internal fun shouldSuppressPinningTransitionViolation(
         )
 }
 
+internal fun shouldTreatScreenPinningDialogAsRejected(
+    dialogLikelyShown: Boolean,
+    dialogFocusLossObserved: Boolean,
+    windowHasFocus: Boolean?,
+    lockTaskActive: Boolean
+): Boolean {
+    return dialogLikelyShown &&
+        dialogFocusLossObserved &&
+        windowHasFocus == true &&
+        !lockTaskActive
+}
+
 internal class ActivityLockTaskBridge(private val activityProvider: () -> MainActivity?) : LockTaskBridge {
     override fun engage(allowLockTask: Boolean) {
         activityProvider()?.setExamLockMode(enabled = true, allowLockTask = allowLockTask)
@@ -243,7 +255,8 @@ internal object ScreenPinningEnforcer {
 
     suspend fun requestAndAwaitActivation(
         bridge: LockTaskBridge,
-        isIndonesian: Boolean
+        isIndonesian: Boolean,
+        windowHasFocus: () -> Boolean? = { null }
     ): ScreenPinningActivationReport {
         if (bridge.active()) {
             return alreadyActiveReport(bridge)
@@ -272,8 +285,10 @@ internal object ScreenPinningEnforcer {
         }
 
         var remainingMillis = ActivationTimeoutMillis - FeedbackDelayMillis
+        var dialogFocusLossObserved = runCatching { windowHasFocus() }.getOrNull() == false
         while (remainingMillis >= 0L) {
-            if (bridge.active()) {
+            val lockTaskActive = bridge.active()
+            if (lockTaskActive) {
                 return ScreenPinningActivationReport(
                     active = true,
                     afterState = bridge.stateLabel(),
@@ -282,6 +297,29 @@ internal object ScreenPinningEnforcer {
                     userActionInference = ScreenPinningSignals.successUserAction(),
                     activationDurationMs = SystemClock.elapsedRealtime() - startedAt,
                     guidanceMessage = null,
+                    engageAttemptCount = engageAttemptCount
+                )
+            }
+            val currentWindowHasFocus = runCatching { windowHasFocus() }.getOrNull()
+            if (currentWindowHasFocus == false) {
+                dialogFocusLossObserved = true
+            }
+            if (
+                shouldTreatScreenPinningDialogAsRejected(
+                    dialogLikelyShown = dialogLikelyShown,
+                    dialogFocusLossObserved = dialogFocusLossObserved,
+                    windowHasFocus = currentWindowHasFocus,
+                    lockTaskActive = lockTaskActive
+                )
+            ) {
+                return ScreenPinningActivationReport(
+                    active = false,
+                    afterState = bridge.stateLabel(),
+                    dialogLikelyShown = true,
+                    outcome = ScreenPinningSignals.failureOutcome(),
+                    userActionInference = ScreenPinningSignals.rejectedUserAction(),
+                    activationDurationMs = SystemClock.elapsedRealtime() - startedAt,
+                    guidanceMessage = localizedScreenPinningGuidance(isIndonesian),
                     engageAttemptCount = engageAttemptCount
                 )
             }

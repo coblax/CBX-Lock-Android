@@ -42,6 +42,9 @@ internal data class PreparationChecklistText(
     val fakeLocationDetail: String?,
     val screenPinningDetail: String?,
     val accessibilityGuardDetail: String?,
+    val screenRecorderDetail: String?,
+    val displayMirrorDetail: String?,
+    val multiWindowDetail: String?,
     val appSwitchDetail: String?
 )
 
@@ -62,7 +65,10 @@ internal fun buildPreparationChecklistText(
         accessibilityGuardRequired = accessibilityGuardRequired,
         needsBluetoothPermission = needsBluetoothPermission
     )
-    val networkText = buildPreparationChecklistNetworkText(state)
+    val networkText = buildPreparationChecklistNetworkText(
+        state = state,
+        uiLanguage = uiLanguage
+    )
     val detailText = buildPreparationChecklistDetailText(
         state = state,
         uiLanguage = uiLanguage,
@@ -72,6 +78,61 @@ internal fun buildPreparationChecklistText(
     val locationDetailText = buildPreparationChecklistLocationDetailText(
         state = state,
         uiLanguage = uiLanguage
+    )
+    val deviceTimeDetail = appendPreparationAuditDetail(
+        actionDetail = statusText.deviceTimeDetail,
+        auditDetail = if (state.showChecklistDetails) {
+            buildPreparationDeviceTimeAuditDetail(
+                status = state.deviceTimeSecurityStatus,
+                uiLanguage = uiLanguage
+            )
+        } else {
+            null
+        }
+    )
+    val screenRecorderActionDetail = if (state.screenRecorderPackages.isNotEmpty()) {
+        state.screenRecorderPackages.joinToString("\n")
+    } else {
+        null
+    }
+    val screenRecorderDetail = appendPreparationAuditDetail(
+        actionDetail = screenRecorderActionDetail,
+        auditDetail = if (state.showChecklistDetails) {
+            buildPreparationScreenRecorderAuditDetail(
+                screenRecorderPackages = state.screenRecorderPackages,
+                bypassScreenRecorder = state.bypassScreenRecorder,
+                uiLanguage = uiLanguage
+            )
+        } else {
+            null
+        }
+    )
+    val displayMirrorDetail = appendPreparationAuditDetail(
+        actionDetail = null,
+        auditDetail = if (state.showChecklistDetails) {
+            buildPreparationDisplayMirrorAuditDetail(
+                externalDisplayDetected = state.externalDisplayDetected,
+                externalDisplayCount = state.externalDisplayCount,
+                externalDisplayInfoList = state.externalDisplayInfoList,
+                bypassDisplayMirror = state.bypassDisplayMirror,
+                uiLanguage = uiLanguage
+            )
+        } else {
+            null
+        }
+    )
+    val multiWindowDetail = appendPreparationAuditDetail(
+        actionDetail = null,
+        auditDetail = if (state.showChecklistDetails) {
+            buildPreparationMultiWindowAuditDetail(
+                modeInfo = state.multiWindowModeInfo,
+                runtimeDetected = state.multiWindowDetected,
+                bypassMultiWindow = state.bypassMultiWindow,
+                uiLanguage = uiLanguage
+            )
+        } else {
+            null
+        }
     )
 
     return PreparationChecklistText(
@@ -88,7 +149,7 @@ internal fun buildPreparationChecklistText(
         webViewProviderStatusLabel = networkText.webViewProviderStatusLabel,
         webViewProviderValue = networkText.webViewProviderValue,
         webViewProviderDetail = networkText.webViewProviderDetail,
-        deviceTimeDetail = statusText.deviceTimeDetail,
+        deviceTimeDetail = deviceTimeDetail,
         bluetoothStatusLabel = statusText.bluetoothStatusLabel,
         developerStatusLabel = statusText.developerStatusLabel,
         keyboardStatusLabel = statusText.keyboardStatusLabel,
@@ -112,6 +173,9 @@ internal fun buildPreparationChecklistText(
         fakeLocationDetail = locationDetailText.fakeLocationDetail,
         screenPinningDetail = detailText.screenPinningDetail,
         accessibilityGuardDetail = detailText.accessibilityGuardDetail,
+        screenRecorderDetail = screenRecorderDetail,
+        displayMirrorDetail = displayMirrorDetail,
+        multiWindowDetail = multiWindowDetail,
         appSwitchDetail = detailText.appSwitchDetail
     )
 }

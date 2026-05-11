@@ -111,6 +111,42 @@ class ScreenPinningHardeningTest {
     }
 
     @Test
+    fun screenPinningDialogRejectionRequiresFocusLossReturnAndInactiveLockTask() {
+        assertTrue(
+            shouldTreatScreenPinningDialogAsRejected(
+                dialogLikelyShown = true,
+                dialogFocusLossObserved = true,
+                windowHasFocus = true,
+                lockTaskActive = false
+            )
+        )
+        assertFalse(
+            shouldTreatScreenPinningDialogAsRejected(
+                dialogLikelyShown = true,
+                dialogFocusLossObserved = false,
+                windowHasFocus = true,
+                lockTaskActive = false
+            )
+        )
+        assertFalse(
+            shouldTreatScreenPinningDialogAsRejected(
+                dialogLikelyShown = true,
+                dialogFocusLossObserved = true,
+                windowHasFocus = false,
+                lockTaskActive = false
+            )
+        )
+        assertFalse(
+            shouldTreatScreenPinningDialogAsRejected(
+                dialogLikelyShown = true,
+                dialogFocusLossObserved = true,
+                windowHasFocus = true,
+                lockTaskActive = true
+            )
+        )
+    }
+
+    @Test
     fun activationDoesNotEngageWhenLockTaskAlreadyActive() = runBlocking {
         val bridge = FakeLockTaskBridge(active = true, stateLabel = "PINNED")
 

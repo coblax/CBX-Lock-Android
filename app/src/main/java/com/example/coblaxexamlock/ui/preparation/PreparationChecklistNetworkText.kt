@@ -4,6 +4,7 @@ import androidx.compose.runtime.Composable
 import com.example.coblaxexamlock.i18n.tr
 import com.example.coblaxexamlock.model.NetworkReadinessUserVerdict
 import com.example.coblaxexamlock.model.NetworkReadinessVerdict
+import com.example.coblaxexamlock.model.UiLanguage
 import java.util.Locale
 
 internal data class PreparationChecklistNetworkText(
@@ -18,7 +19,8 @@ internal data class PreparationChecklistNetworkText(
 
 @Composable
 internal fun buildPreparationChecklistNetworkText(
-    state: PreparationScreenState
+    state: PreparationScreenState,
+    uiLanguage: UiLanguage
 ): PreparationChecklistNetworkText = with(state) {
     val networkStatusLabel = when (networkReadinessStatus.userFacingVerdict) {
         NetworkReadinessUserVerdict.Stable -> tr("Stable", "Stabil")
@@ -97,7 +99,7 @@ internal fun buildPreparationChecklistNetworkText(
     val networkMeta = listOfNotNull(networkFlapMeta, networkProbeMeta)
         .joinToString("\n")
         .ifBlank { null }
-    val networkDetail = networkReadinessStatus.userFacingQuickFixText ?: when (networkReadinessStatus.userFacingVerdict) {
+    val networkActionDetail = networkReadinessStatus.userFacingQuickFixText ?: when (networkReadinessStatus.userFacingVerdict) {
         NetworkReadinessUserVerdict.Stable -> null
         NetworkReadinessUserVerdict.Offline -> tr(
             "Check Wi-Fi or mobile data, then tap Refresh.",
@@ -139,6 +141,22 @@ internal fun buildPreparationChecklistNetworkText(
             "Gunakan jaringan yang paling stabil sebelum mulai ujian."
         )
     }
+    val networkAuditDetail = if (showChecklistDetails) {
+        buildPreparationNetworkAuditDetail(
+            status = networkReadinessStatus,
+            unstableStatus = networkUnstableRuntimeStatus,
+            lastNetworkChangeAt = lastNetworkChangeAt,
+            lastNetworkChangeSource = lastNetworkChangeSource,
+            lastConnectedNetworkLabel = lastConnectedNetworkLabel,
+            bypassVpn = bypassVpn,
+            vpnBypassState = vpnBypassState,
+            isRefreshingNetwork = isRefreshingNetwork,
+            uiLanguage = uiLanguage
+        )
+    } else {
+        null
+    }
+    val networkDetail = appendPreparationAuditDetail(networkActionDetail, networkAuditDetail)
     val webViewHealthItem = preExamHealthCheckSnapshot.items.firstOrNull {
         it.category == PreExamHealthCategory.WebView
     }
@@ -152,7 +170,20 @@ internal fun buildPreparationChecklistNetworkText(
         "WebView provider status is not available yet.",
         "Status WebView provider belum tersedia."
     )
-    val webViewProviderDetail = webViewHealthItem?.quickFix
+    val webViewProviderAuditDetail = if (showChecklistDetails) {
+        buildPreparationWebViewAuditDetail(
+            status = webViewCompatibilityStatus,
+            webViewSessionResetInFlight = webViewSessionResetInFlight,
+            webViewSessionResetError = webViewSessionResetError,
+            uiLanguage = uiLanguage
+        )
+    } else {
+        null
+    }
+    val webViewProviderDetail = appendPreparationAuditDetail(
+        actionDetail = webViewHealthItem?.quickFix,
+        auditDetail = webViewProviderAuditDetail
+    )
 
     PreparationChecklistNetworkText(
         networkStatusLabel = networkStatusLabel,

@@ -16,12 +16,15 @@ import com.example.coblaxexamlock.PinningActivationState
 import com.example.coblaxexamlock.RootBypassState
 import com.example.coblaxexamlock.RootSecurityStatus
 import com.example.coblaxexamlock.VpnBypassState
+import com.example.coblaxexamlock.WebViewCompatibilityStatus
 import com.example.coblaxexamlock.model.DiagnosticSection
 import com.example.coblaxexamlock.model.NetworkReadinessStatus
 import com.example.coblaxexamlock.model.NetworkTimelineEntry
 import com.example.coblaxexamlock.model.NetworkUnstableRuntimeStatus
 import com.example.coblaxexamlock.DeviceSurvivalPolicy
 import com.example.coblaxexamlock.PreviousExamSessionBreadcrumb
+import com.example.coblaxexamlock.runtime.ExternalDisplayInfo
+import com.example.coblaxexamlock.runtime.MultiWindowModeInfo
 
 internal data class PreparationScreenState(
     val examName: String,
@@ -60,6 +63,7 @@ internal data class PreparationScreenState(
     val clipboardViolationCount: Int,
     val clipboardRuntimeStatus: ClipboardRuntimeStatus,
     val clipboardBypassState: ClipboardBypassState,
+    val webViewCompatibilityStatus: WebViewCompatibilityStatus,
     val deviceTimeSecurityStatus: DeviceTimeSecurityStatus,
     val deviceTimeBypassState: DeviceTimeBypassState,
     val geofenceRuntimeStatus: GeofenceRuntimeStatus,
@@ -87,8 +91,11 @@ internal data class PreparationScreenState(
     val screenRecorderPackages: List<String>,
     val bypassScreenRecorder: Boolean,
     val externalDisplayDetected: Boolean,
+    val externalDisplayCount: Int,
+    val externalDisplayInfoList: List<ExternalDisplayInfo>,
     val bypassDisplayMirror: Boolean,
     val multiWindowDetected: Boolean,
+    val multiWindowModeInfo: MultiWindowModeInfo,
     val bypassMultiWindow: Boolean,
     val preExamHealthCheckSnapshot: PreExamHealthSnapshot,
     val deviceSurvivalPolicy: DeviceSurvivalPolicy,

@@ -17,11 +17,14 @@ import com.example.coblaxexamlock.PreviousExamSessionBreadcrumb
 import com.example.coblaxexamlock.RootBypassState
 import com.example.coblaxexamlock.RootSecurityStatus
 import com.example.coblaxexamlock.VpnBypassState
+import com.example.coblaxexamlock.WebViewCompatibilityStatus
 import com.example.coblaxexamlock.model.AdminSettings
 import com.example.coblaxexamlock.model.DiagnosticSection
 import com.example.coblaxexamlock.model.NetworkReadinessStatus
 import com.example.coblaxexamlock.model.NetworkTimelineEntry
 import com.example.coblaxexamlock.model.NetworkUnstableRuntimeStatus
+import com.example.coblaxexamlock.runtime.ExternalDisplayInfo
+import com.example.coblaxexamlock.runtime.MultiWindowModeInfo
 import com.example.coblaxexamlock.ui.preparation.PreExamHealthSnapshot
 import com.example.coblaxexamlock.ui.preparation.PreparationScreenState
 
@@ -43,6 +46,7 @@ internal fun buildPreparationStateForSession(
     screenPinningFixNeeded: Boolean,
     clipboardRuntimeStatus: ClipboardRuntimeStatus,
     clipboardBypassState: ClipboardBypassState,
+    webViewCompatibilityStatus: WebViewCompatibilityStatus,
     deviceTimeSecurityStatus: DeviceTimeSecurityStatus,
     deviceTimeBypassState: DeviceTimeBypassState,
     geofenceRuntimeStatus: GeofenceRuntimeStatus,
@@ -71,7 +75,9 @@ internal fun buildPreparationStateForSession(
     bypassAppSwitch: Boolean,
     bypassScreenRecorder: Boolean,
     bypassDisplayMirror: Boolean,
+    externalDisplayInfoList: List<ExternalDisplayInfo>,
     bypassMultiWindow: Boolean,
+    multiWindowModeInfo: MultiWindowModeInfo,
     preExamHealthCheckSnapshot: PreExamHealthSnapshot,
     deviceSurvivalPolicy: DeviceSurvivalPolicy,
     previousExamSessionBreadcrumb: PreviousExamSessionBreadcrumb
@@ -114,6 +120,7 @@ internal fun buildPreparationStateForSession(
         clipboardViolationCount = clipboardUiState.clipboardViolationCount.intValue,
         clipboardRuntimeStatus = clipboardRuntimeStatus,
         clipboardBypassState = clipboardBypassState,
+        webViewCompatibilityStatus = webViewCompatibilityStatus,
         deviceTimeSecurityStatus = deviceTimeSecurityStatus,
         deviceTimeBypassState = deviceTimeBypassState,
         geofenceRuntimeStatus = geofenceRuntimeStatus,
@@ -141,8 +148,11 @@ internal fun buildPreparationStateForSession(
         screenRecorderPackages = securityUiState.screenRecorderPackages.value,
         bypassScreenRecorder = bypassScreenRecorder,
         externalDisplayDetected = securityUiState.externalDisplayDetected.value,
+        externalDisplayCount = securityUiState.externalDisplayCount.intValue,
+        externalDisplayInfoList = externalDisplayInfoList,
         bypassDisplayMirror = bypassDisplayMirror,
         multiWindowDetected = securityUiState.multiWindowDetected.value,
+        multiWindowModeInfo = multiWindowModeInfo,
         bypassMultiWindow = bypassMultiWindow,
         preExamHealthCheckSnapshot = preExamHealthCheckSnapshot,
         deviceSurvivalPolicy = deviceSurvivalPolicy,

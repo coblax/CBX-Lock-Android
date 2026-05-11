@@ -191,7 +191,8 @@ internal fun RuntimeScreenPinningActivationEffect(
             )
             val screenPinningReport = ScreenPinningEnforcer.requestAndAwaitActivation(
                 bridge = lockTaskBridge,
-                isIndonesian = isIndonesian
+                isIndonesian = isIndonesian,
+                windowHasFocus = { mainActivity.hasWindowFocus() }
             )
             if (screenPinningReport.dialogLikelyShown) {
                 flowUiState.pinningActivationState.value = PinningActivationState.WaitingForSystemDialog

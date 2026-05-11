@@ -90,6 +90,9 @@ internal fun PreparationChecklistItemsCard(
             val fakeLocationDetail = text.fakeLocationDetail
             val screenPinningDetail = text.screenPinningDetail
             val accessibilityGuardDetail = text.accessibilityGuardDetail
+            val screenRecorderDetail = text.screenRecorderDetail
+            val displayMirrorDetail = text.displayMirrorDetail
+            val multiWindowDetail = text.multiWindowDetail
             val appSwitchDetail = text.appSwitchDetail
         Surface(
             modifier = Modifier.fillMaxWidth(),
@@ -559,9 +562,7 @@ internal fun PreparationChecklistItemsCard(
                         )
                         else -> tr("No screen recorder apps detected", "Tidak ada app screen recorder terdeteksi")
                     },
-                    detail = if (screenRecorderPackages.isNotEmpty()) {
-                        screenRecorderPackages.joinToString("\n")
-                    } else null,
+                    detail = screenRecorderDetail,
                     status = when {
                         bypassScreenRecorder -> tr("Bypassed", "Dibypass")
                         screenRecorderPackages.isNotEmpty() -> tr("Not Ready", "Belum Siap")
@@ -581,7 +582,7 @@ internal fun PreparationChecklistItemsCard(
                         )
                         else -> tr("No external display connected", "Tidak ada display eksternal terhubung")
                     },
-                    detail = null,
+                    detail = displayMirrorDetail,
                     status = when {
                         bypassDisplayMirror -> tr("Bypassed", "Dibypass")
                         externalDisplayDetected -> tr("Not Ready", "Belum Siap")
@@ -601,7 +602,7 @@ internal fun PreparationChecklistItemsCard(
                         )
                         else -> tr("Normal single-app mode", "Mode single-app normal")
                     },
-                    detail = null,
+                    detail = multiWindowDetail,
                     status = when {
                         bypassMultiWindow -> tr("Bypassed", "Dibypass")
                         multiWindowDetected -> tr("Not Ready", "Belum Siap")

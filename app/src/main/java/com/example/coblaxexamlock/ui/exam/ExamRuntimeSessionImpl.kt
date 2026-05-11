@@ -180,6 +180,7 @@ import com.example.coblaxexamlock.runtime.buildRootIssueMessage
 import com.example.coblaxexamlock.runtime.detectScreenRecorderPackages
 import com.example.coblaxexamlock.runtime.detectSuspiciousFakeLocationPackages
 import com.example.coblaxexamlock.runtime.getExternalDisplayCount
+import com.example.coblaxexamlock.runtime.getExternalDisplayInfoList
 import com.example.coblaxexamlock.runtime.getBluetoothConnectPermission
 import com.example.coblaxexamlock.runtime.getCachedVirtualEnvironmentDiagnostics
 import com.example.coblaxexamlock.runtime.getCurrentInputMethodPackage
@@ -192,6 +193,7 @@ import com.example.coblaxexamlock.runtime.isAllowedExamKeyboard
 import com.example.coblaxexamlock.runtime.isBluetoothEnabledForExam
 import com.example.coblaxexamlock.runtime.isInAnySplitMode
 import com.example.coblaxexamlock.runtime.isLocationServicesEnabled
+import com.example.coblaxexamlock.runtime.readMultiWindowModeInfo
 import com.example.coblaxexamlock.runtime.readExamBatteryStatus
 import com.example.coblaxexamlock.runtime.readNetworkReadinessStatus
 import com.example.coblaxexamlock.runtime.readNetworkReadinessStatusWithProbe
@@ -4650,6 +4652,7 @@ internal fun ExamRuntimeSessionScreenImpl(
         screenPinningFixNeeded = screenPinningFixNeeded,
         clipboardRuntimeStatus = clipboardRuntimeStatus,
         clipboardBypassState = clipboardBypassState,
+        webViewCompatibilityStatus = webViewCompatibilityStatus,
         deviceTimeSecurityStatus = deviceTimeSecurityStatus,
         deviceTimeBypassState = deviceTimeBypassState,
         geofenceRuntimeStatus = geofenceRuntimeStatus,
@@ -4678,7 +4681,9 @@ internal fun ExamRuntimeSessionScreenImpl(
         bypassAppSwitch = bypassAppSwitch,
         bypassScreenRecorder = bypassScreenRecorder,
         bypassDisplayMirror = bypassDisplayMirror,
+        externalDisplayInfoList = getExternalDisplayInfoList(context),
         bypassMultiWindow = bypassMultiWindow,
+        multiWindowModeInfo = readMultiWindowModeInfo(context),
         preExamHealthCheckSnapshot = preExamHealthCheckSnapshot,
         deviceSurvivalPolicy = deviceSurvivalPolicy,
         previousExamSessionBreadcrumb = previousExamSessionBreadcrumb
