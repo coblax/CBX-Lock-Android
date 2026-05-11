@@ -117,6 +117,7 @@ internal data class PreparationScreenActions(
     val onOpenDateTimeSettings: () -> Unit,
     val onOpenFakeLocationDeveloperOptionsSettings: () -> Unit,
     val onOpenScreenPinningSettings: () -> Unit,
+    val onStartScreenPinning: () -> Unit,
     val onOpenOverlaySettings: () -> Unit,
     val onOpenAppSettings: () -> Unit,
     val onOpenCastSettings: () -> Unit,

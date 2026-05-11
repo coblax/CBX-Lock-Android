@@ -125,7 +125,7 @@ private fun buildScreenPinningHealthItem(input: PreExamHealthCheckInput): PreExa
             category = PreExamHealthCategory.ScreenPinning,
             verdict = PreExamHealthVerdict.Stable,
             title = "Screen Pinning",
-            detail = "Already active. CBX will skip a repeated Android pinning request."
+            detail = "Already active. Start Exam can continue without a repeated Android pinning request."
         )
         !input.screenPinningAvailable &&
             input.accessibilityGuardAvailable &&
@@ -141,17 +141,18 @@ private fun buildScreenPinningHealthItem(input: PreExamHealthCheckInput): PreExa
             verdict = PreExamHealthVerdict.Blocking,
             title = "Screen Pinning",
             detail = "Screen Pinning is not available on this device.",
-            quickFix = "Enable Screen Pinning/Lock to app or use an approved fallback device."
+            quickFix = "Use a device that supports Screen Pinning, enable the Accessibility Exam Guard fallback, or use an approved Secret Admin bypass."
         )
         else -> PreExamHealthItem(
             category = PreExamHealthCategory.ScreenPinning,
-            verdict = PreExamHealthVerdict.Stable,
-            detail = "Ready — pinning will be requested once when Start Exam Mode is pressed.",
+            verdict = PreExamHealthVerdict.Blocking,
             title = "Screen Pinning",
-            quickFix = "After pressing Start, confirm the Android pinning dialog and stay in CBX Exam Lock."
+            detail = "Screen Pinning is available but not active yet. Start Screen Pinning from Preparation before starting the exam.",
+            quickFix = "Press Start Screen Pinning, confirm the Android dialog, then press Start Exam."
         )
     }
 }
+
 
 private fun buildOverlayHealthItem(input: PreExamHealthCheckInput): PreExamHealthItem {
     val compatibilityDetail = if (input.compatibilityProfile.allowPartialObscuredWebViewTouch) {

@@ -363,6 +363,7 @@ internal fun CompactPrepActionButton(
 internal fun PreparationFloatingActionBar(
     startButtonColor: Color,
     startButtonContentColor: Color,
+    canStartExam: Boolean,
     isStartingExam: Boolean,
     webViewSessionResetInFlight: Boolean,
     onRefreshStatus: () -> Unit,
@@ -390,7 +391,8 @@ internal fun PreparationFloatingActionBar(
                 onClick = onRefreshStatus
             )
             val lowRam = LocalLowRamProfile.current
-            val buttonBg = if (!lowRam.enabled && !(isStartingExam || webViewSessionResetInFlight)) {
+            val startEnabled = canStartExam && !(isStartingExam || webViewSessionResetInFlight)
+            val buttonBg = if (!lowRam.enabled && startEnabled) {
                 Modifier.background(
                     brush = Brush.verticalGradient(
                         colors = listOf(startButtonColor.copy(alpha = 0.88f), startButtonColor)
@@ -407,7 +409,7 @@ internal fun PreparationFloatingActionBar(
                     .height(58.dp)
                     .then(buttonBg),
                 shape = RoundedCornerShape(20.dp),
-                enabled = !(isStartingExam || webViewSessionResetInFlight),
+                enabled = startEnabled,
                 colors = ButtonDefaults.buttonColors(
                     containerColor = startButtonColor,
                     contentColor = startButtonContentColor,

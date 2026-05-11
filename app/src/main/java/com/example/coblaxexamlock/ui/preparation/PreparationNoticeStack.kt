@@ -122,19 +122,19 @@ internal fun PreparationNoticeStack(
             if ((pinningPending || pinningRetryReady) && !bypassScreenPinning) {
                 PreparationNoticeCard(
                     title = if (pinningRetryReady) {
-                        tr("Screen Pinning Not Active — Try Again", "Screen Pinning Belum Aktif — Coba Lagi")
+                        tr("Screen Pinning Not Active - Try Again", "Screen Pinning Belum Aktif - Coba Lagi")
                     } else {
-                        tr("Activating Exam Mode...", "Mengaktifkan Mode Ujian...")
+                        tr("Starting Screen Pinning...", "Menjalankan Screen Pinning...")
                     },
                     message = if (pinningRetryReady) {
                         tr(
-                            "1. Tap \"Start Exam Mode\" again.\n2. When Android shows the dialog, tap Got it or Pin.\n3. DO NOT press Home or Recent — stay on this screen until the exam opens.",
-                            "1. Ketuk \"Start Exam Mode\" lagi.\n2. Saat Android menampilkan dialog, ketuk Got it atau Pin.\n3. JANGAN tekan Home atau Recent — tetap di layar ini sampai ujian terbuka."
+                            "1. Tap \"Start Screen Pinning\" again.\n2. When Android shows the dialog, tap Got it or Pin.\n3. DO NOT press Home or Recent - stay on Preparation until Screen Pinning is active.",
+                            "1. Ketuk \"Start Screen Pinning\" lagi.\n2. Saat Android menampilkan dialog, ketuk Got it atau Pin.\n3. JANGAN tekan Home atau Recent - tetap di Preparation sampai Screen Pinning aktif."
                         )
                     } else {
                         screenPinningMessage ?: tr(
-                            "1. If Android shows a dialog, tap Got it or Pin.\n2. DO NOT press Home or Recent during activation.\n3. Stay on this screen — the exam opens automatically.",
-                            "1. Jika Android menampilkan dialog, ketuk Got it atau Pin.\n2. JANGAN tekan Home atau Recent saat proses berlangsung.\n3. Tetap di layar ini — ujian terbuka otomatis."
+                            "1. If Android shows a dialog, tap Got it or Pin.\n2. DO NOT press Home or Recent during activation.\n3. Stay on Preparation until Screen Pinning is active.",
+                            "1. Jika Android menampilkan dialog, ketuk Got it atau Pin.\n2. JANGAN tekan Home atau Recent saat proses berlangsung.\n3. Tetap di Preparation sampai Screen Pinning aktif."
                         )
                     },
                     accentColor = if (pinningRetryReady) Color(0xFFB34A4A) else LockGoldDark,

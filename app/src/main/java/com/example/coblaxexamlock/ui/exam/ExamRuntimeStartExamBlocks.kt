@@ -40,15 +40,32 @@ internal fun resolveStartExamScreenPinningBlockMessage(
     uiLanguage: UiLanguage,
     screenPinningMode: ScreenPinningMode,
     screenPinningAvailable: Boolean,
+    screenPinningActive: Boolean,
     accessibilityGuardAvailable: Boolean,
     accessibilityGuardEnabled: Boolean,
     phaseSuffix: String = ""
 ): StartExamBlockMessage? {
-    if (screenPinningMode != ScreenPinningMode.Enforced || screenPinningAvailable) {
+    if (screenPinningMode != ScreenPinningMode.Enforced) {
         return null
     }
 
     val suffix = phaseSuffix.takeIf { it.isNotBlank() }?.let { " | $it" }.orEmpty()
+    if (screenPinningAvailable && !screenPinningActive) {
+        return StartExamBlockMessage(
+            code = ExamRuntimeHardeningDiagnostics.StartExamBlockedScreenPinningInactive,
+            details = "screen_pinning_available=true | lock_task_active=false | bypass=false$suffix",
+            title = localized(uiLanguage, "Start Screen Pinning First", "Start Screen Pinning Dulu"),
+            message = localized(
+                uiLanguage,
+                "Start Screen Pinning first from Preparation, confirm the Android dialog, then press Start Exam.",
+                "Jalankan Start Screen Pinning dulu dari Preparation, konfirmasi dialog Android, lalu tekan Mulai Ujian."
+            )
+        )
+    }
+    if (screenPinningAvailable) {
+        return null
+    }
+
     return when {
         accessibilityGuardAvailable && !accessibilityGuardEnabled ->
             StartExamBlockMessage(

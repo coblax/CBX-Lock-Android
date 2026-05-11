@@ -9,6 +9,7 @@ import com.example.coblaxexamlock.ActivityLockTaskBridge
 import com.example.coblaxexamlock.FatalSecuritySignal
 import com.example.coblaxexamlock.MainActivity
 import com.example.coblaxexamlock.model.DiagnosticEventLevel
+import com.example.coblaxexamlock.PinningActivationPurpose
 import com.example.coblaxexamlock.PinningActivationState
 import com.example.coblaxexamlock.ScreenPinningEnforcer
 import com.example.coblaxexamlock.ScreenPinningMode
@@ -154,8 +155,9 @@ internal fun RuntimeScreenPinningActivationEffect(
 ) {
     val lockTaskRequestPending = flowUiState.lockTaskRequestPending.value
     val examSessionStarted = flowUiState.examSessionStarted.value
+    val pinningActivationPurpose = flowUiState.pinningActivationPurpose.value
 
-    LaunchedEffect(lockTaskRequestPending, mainActivity) {
+    LaunchedEffect(lockTaskRequestPending, mainActivity, pinningActivationPurpose) {
         if (lockTaskRequestPending) {
             if (mainActivity == null) {
                 recordAction(
@@ -164,6 +166,7 @@ internal fun RuntimeScreenPinningActivationEffect(
                     DiagnosticEventLevel.ERROR
                 )
                 flowUiState.lockTaskRequestPending.value = false
+                flowUiState.pinningActivationPurpose.value = PinningActivationPurpose.ExamStart
                 flowUiState.pinningActivationState.value = PinningActivationState.TimeoutRetryReady
                 flowUiState.pinningActivationStartedAtElapsedMs.value = null
                 adminUiState.lockTaskStateAfterPinningRequest.value = "Unknown"
@@ -203,7 +206,7 @@ internal fun RuntimeScreenPinningActivationEffect(
                     DiagnosticEventLevel.WARNING
                 )
                 flowUiState.screenPinningMessage.value =
-                    ScreenPinningEnforcer.pendingMessage(isIndonesian)
+                    ScreenPinningEnforcer.pendingMessage(isIndonesian, pinningActivationPurpose)
             }
             flowUiState.lockTaskRequestPending.value = false
             adminUiState.lockTaskStateAfterPinningRequest.value = screenPinningReport.afterState
@@ -248,6 +251,11 @@ internal fun RuntimeScreenPinningActivationEffect(
                 flowUiState.screenPinningMessage.value = null
                 flowUiState.webViewErrorMessage.value = null
                 adminUiState.exitOnSecurityIssueDialogDismiss.value = false
+                if (pinningActivationPurpose == PinningActivationPurpose.PreparationSetup) {
+                    flowUiState.pinningActivationPurpose.value = PinningActivationPurpose.ExamStart
+                    clearAppSwitchSuppression()
+                    return@LaunchedEffect
+                }
                 resetPreparationSecurityEpisodes()
                 coroutineScope.launch {
                     if (!prepareCleanExamWebViewSessionForStart()) {
@@ -290,15 +298,20 @@ internal fun RuntimeScreenPinningActivationEffect(
                 flowUiState.showBuiltInExamKeyboard.value = false
                 flowUiState.hasEditableFocus.value = false
                 clearAppSwitchSuppression()
+                flowUiState.pinningActivationPurpose.value = PinningActivationPurpose.ExamStart
                 flowUiState.pinningActivationStartedAtElapsedMs.value = null
-                flowUiState.screenPinningMessage.value = ScreenPinningEnforcer.retryMessage(isIndonesian)
+                flowUiState.screenPinningMessage.value =
+                    ScreenPinningEnforcer.retryMessage(isIndonesian, pinningActivationPurpose)
             }
         } else if (!examSessionStarted) {
             flowUiState.lockTaskRequestPending.value = false
-            if (flowUiState.pinningActivationState.value != PinningActivationState.TimeoutRetryReady) {
+            if (lockTaskBridge.active()) {
+                flowUiState.pinningActivationState.value = PinningActivationState.ActiveConfirmed
+            } else if (flowUiState.pinningActivationState.value != PinningActivationState.TimeoutRetryReady) {
                 flowUiState.pinningActivationState.value = PinningActivationState.Idle
             }
             flowUiState.pinningActivationStartedAtElapsedMs.value = null
+            flowUiState.pinningActivationPurpose.value = PinningActivationPurpose.ExamStart
             clearAppSwitchSuppression()
             disarmExamRuntimeMonitoring()
             adminUiState.examSessionStartedAtElapsedMs.value = null

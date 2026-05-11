@@ -24,6 +24,18 @@ internal data class PreparationChecklistReadiness(
     val hasBypassIndicators: Boolean
 )
 
+internal fun resolvePreparationScreenPinningReady(
+    bypassScreenPinning: Boolean,
+    screenPinningAvailable: Boolean,
+    isScreenPinningActive: Boolean,
+    accessibilityGuardAvailable: Boolean,
+    accessibilityGuardEnabled: Boolean
+): Boolean {
+    return bypassScreenPinning ||
+        isScreenPinningActive ||
+        (!screenPinningAvailable && accessibilityGuardAvailable && accessibilityGuardEnabled)
+}
+
 internal fun buildPreparationChecklistReadiness(
     state: PreparationScreenState,
     needsBluetoothPermission: Boolean,
@@ -54,8 +66,13 @@ internal fun buildPreparationChecklistReadiness(
     val overlayReady = bypassOverlay || !overlayRiskResult.hasAnyRisk
     val overlayBlockingReady = bypassOverlay || !overlayRiskResult.confirmedInteractionDetected
     val accessibilityGuardReady = !accessibilityGuardRequired || accessibilityGuardEnabled
-    val screenPinningReady =
-        bypassScreenPinning || screenPinningAvailable || (accessibilityGuardAvailable && accessibilityGuardEnabled)
+    val screenPinningReady = resolvePreparationScreenPinningReady(
+        bypassScreenPinning = bypassScreenPinning,
+        screenPinningAvailable = screenPinningAvailable,
+        isScreenPinningActive = isScreenPinningActive,
+        accessibilityGuardAvailable = accessibilityGuardAvailable,
+        accessibilityGuardEnabled = accessibilityGuardEnabled
+    )
     val appSwitchReady = bypassAppSwitch || !appSwitchStatus.hasViolations
     val screenRecorderReady = bypassScreenRecorder || screenRecorderPackages.isEmpty()
     val displayMirrorReady = bypassDisplayMirror || !externalDisplayDetected

@@ -8,6 +8,7 @@ import androidx.compose.runtime.MutableState
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.saveable.rememberSaveable
+import com.example.coblaxexamlock.PinningActivationPurpose
 import com.example.coblaxexamlock.PinningActivationState
 import com.example.coblaxexamlock.runtime.getCurrentInputMethodPackage
 import com.example.coblaxexamlock.runtime.isAllowedExamKeyboard
@@ -16,6 +17,7 @@ import com.example.coblaxexamlock.runtime.resolveKeyboardAppLabel
 internal class ExamRuntimeFlowUiState(
     val examSessionStarted: MutableState<Boolean>,
     val lockTaskRequestPending: MutableState<Boolean>,
+    val pinningActivationPurpose: MutableState<PinningActivationPurpose>,
     val pinningActivationState: MutableState<PinningActivationState>,
     val pinningActivationStartedAtElapsedMs: MutableState<Long?>,
     val pinningSuppressedTransitionCount: MutableIntState,
@@ -62,6 +64,9 @@ internal fun rememberExamRuntimeFlowUiState(
 ): ExamRuntimeFlowUiState {
     val examSessionStarted = rememberSaveable { mutableStateOf(false) }
     val lockTaskRequestPending = rememberSaveable { mutableStateOf(false) }
+    val pinningActivationPurpose = rememberSaveable {
+        mutableStateOf(PinningActivationPurpose.ExamStart)
+    }
     val pinningActivationState = rememberSaveable {
         mutableStateOf(PinningActivationState.Idle)
     }
@@ -113,6 +118,7 @@ internal fun rememberExamRuntimeFlowUiState(
         ExamRuntimeFlowUiState(
             examSessionStarted = examSessionStarted,
             lockTaskRequestPending = lockTaskRequestPending,
+            pinningActivationPurpose = pinningActivationPurpose,
             pinningActivationState = pinningActivationState,
             pinningActivationStartedAtElapsedMs = pinningActivationStartedAtElapsedMs,
             pinningSuppressedTransitionCount = pinningSuppressedTransitionCount,

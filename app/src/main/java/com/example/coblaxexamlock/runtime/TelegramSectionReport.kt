@@ -123,11 +123,20 @@ internal suspend fun sendTelegramSectionReport(
     lastConnectedNetworkLabel: String? = null,
     screenRecorderPackages: List<String> = emptyList(),
     bypassScreenRecorder: Boolean = false,
+    screenRecorderBypassTampered: Boolean = false,
+    screenRecorderViolationCount: Int = 0,
+    screenRecorderDialogActive: Boolean = false,
     externalDisplayDetected: Boolean = false,
     externalDisplayCount: Int = 0,
     bypassDisplayMirror: Boolean = false,
+    displayMirrorBypassTampered: Boolean = false,
+    displayMirrorViolationCount: Int = 0,
+    displayMirrorDialogActive: Boolean = false,
     multiWindowDetected: Boolean = false,
-    bypassMultiWindow: Boolean = false
+    bypassMultiWindow: Boolean = false,
+    multiWindowBypassTampered: Boolean = false,
+    multiWindowViolationCount: Int = 0,
+    multiWindowDialogActive: Boolean = false
 ): Result<Unit> = withContext(Dispatchers.IO) {
     runCatching {
         val token = SecureStrings.telegramBotToken.trim()
@@ -280,11 +289,20 @@ internal suspend fun sendTelegramSectionReport(
                     lastConnectedNetworkLabel = lastConnectedNetworkLabel,
                     screenRecorderPackages = screenRecorderPackages,
                     bypassScreenRecorder = bypassScreenRecorder,
+                    screenRecorderBypassTampered = screenRecorderBypassTampered,
+                    screenRecorderViolationCount = screenRecorderViolationCount,
+                    screenRecorderDialogActive = screenRecorderDialogActive,
                     externalDisplayDetected = externalDisplayDetected,
                     externalDisplayCount = externalDisplayCount,
                     bypassDisplayMirror = bypassDisplayMirror,
+                    displayMirrorBypassTampered = displayMirrorBypassTampered,
+                    displayMirrorViolationCount = displayMirrorViolationCount,
+                    displayMirrorDialogActive = displayMirrorDialogActive,
                     multiWindowDetected = multiWindowDetected,
-                    bypassMultiWindow = bypassMultiWindow
+                    bypassMultiWindow = bypassMultiWindow,
+                    multiWindowBypassTampered = multiWindowBypassTampered,
+                    multiWindowViolationCount = multiWindowViolationCount,
+                    multiWindowDialogActive = multiWindowDialogActive
                 )
             )
 

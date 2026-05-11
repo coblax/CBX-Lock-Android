@@ -500,13 +500,18 @@ internal fun PreparationChecklistItemsCard(
                         )
                     } else if (screenPinningFixNeeded) {
                         tr(
-                            "Screen Pinning is available but not active yet. Press START EXAM MODE, then confirm the Android Screen Pinning dialog.",
-                            "Screen Pinning tersedia tetapi belum aktif. Tekan START EXAM MODE, lalu konfirmasi dialog Screen Pinning dari Android."
+                            "Screen Pinning is available but not active yet. Press Start Screen Pinning first; if Android still does not show the pinning dialog, use the settings fallback.",
+                            "Screen Pinning tersedia tetapi belum aktif. Tekan Start Screen Pinning dulu; jika Android tetap tidak memunculkan dialog pinning, gunakan fallback pengaturan."
+                        )
+                    } else if (screenPinningAvailable) {
+                        tr(
+                            "Screen Pinning is available but not active yet. Press Start Screen Pinning, confirm the Android dialog, then Start Exam will become available.",
+                            "Screen Pinning tersedia tetapi belum aktif. Tekan Start Screen Pinning, konfirmasi dialog Android, lalu tombol Mulai Ujian akan tersedia."
                         )
                     } else {
                         tr(
-                            "Screen Pinning is available. It is not active yet and will be requested when START EXAM MODE is pressed.",
-                            "Screen Pinning tersedia. Saat ini belum aktif dan akan diminta ketika START EXAM MODE ditekan."
+                            "Screen Pinning status is not ready yet.",
+                            "Status Screen Pinning belum siap."
                         )
                     },
                     detail = screenPinningDetail,

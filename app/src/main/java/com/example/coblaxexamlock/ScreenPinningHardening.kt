@@ -29,6 +29,11 @@ internal enum class PinningActivationState {
     }
 }
 
+internal enum class PinningActivationPurpose {
+    ExamStart,
+    PreparationSetup
+}
+
 internal const val PinningActivationGraceWindowMillis = 12_000L
 internal const val PinningActivationTimeoutMillis = 20_000L
 internal const val PinningActivationPollIntervalMillis = 250L
@@ -322,37 +327,70 @@ internal object ScreenPinningEnforcer {
         }
     }
 
-    fun pendingMessage(isIndonesian: Boolean): String = localizedScreenPinningGuidance(isIndonesian)
+    fun pendingMessage(
+        isIndonesian: Boolean,
+        purpose: PinningActivationPurpose = PinningActivationPurpose.ExamStart
+    ): String = localizedScreenPinningGuidance(isIndonesian, purpose)
 
-    fun activatingMessage(isIndonesian: Boolean): String {
-        return if (isIndonesian) {
-            "Jika Android menampilkan dialog pin aplikasi, pilih Got it atau Pin. Tetap di layar ini sampai mode ujian terbuka."
-        } else {
-            "If Android shows the app pinning dialog, choose Got it or Pin. Stay on this screen until exam mode opens."
+    fun activatingMessage(
+        isIndonesian: Boolean,
+        purpose: PinningActivationPurpose = PinningActivationPurpose.ExamStart
+    ): String {
+        return when (purpose) {
+            PinningActivationPurpose.PreparationSetup -> if (isIndonesian) {
+                "Jika Android menampilkan dialog pin aplikasi, pilih Got it atau Pin. Tetap di layar Preparation sampai Screen Pinning aktif."
+            } else {
+                "If Android shows the app pinning dialog, choose Got it or Pin. Stay on Preparation until Screen Pinning is active."
+            }
+            PinningActivationPurpose.ExamStart -> if (isIndonesian) {
+                "Jika Android menampilkan dialog pin aplikasi, pilih Got it atau Pin. Tetap di layar ini sampai Screen Pinning aktif."
+            } else {
+                "If Android shows the app pinning dialog, choose Got it or Pin. Stay on this screen until Screen Pinning is active."
+            }
         }
     }
 
-    fun retryMessage(isIndonesian: Boolean): String {
-        return if (isIndonesian) {
-            "Tekan Start Exam Mode lagi, pilih Got it/Pin, lalu jangan buka Recent sampai mode ujian aktif."
-        } else {
-            "Press Start Exam Mode again, choose Got it/Pin, then do not open Recents until exam mode is active."
+    fun retryMessage(
+        isIndonesian: Boolean,
+        purpose: PinningActivationPurpose = PinningActivationPurpose.ExamStart
+    ): String {
+        return when (purpose) {
+            PinningActivationPurpose.PreparationSetup -> if (isIndonesian) {
+                "Tekan Start Screen Pinning lagi, pilih Got it/Pin, lalu jangan buka Home atau Recent sampai status Screen Pinning aktif."
+            } else {
+                "Press Start Screen Pinning again, choose Got it/Pin, then do not open Home or Recents until Screen Pinning is active."
+            }
+            PinningActivationPurpose.ExamStart -> if (isIndonesian) {
+                "Kembali ke Preparation, tekan Start Screen Pinning, pilih Got it/Pin, lalu mulai ujian setelah status aktif."
+            } else {
+                "Return to Preparation, press Start Screen Pinning, choose Got it/Pin, then start the exam after it is active."
+            }
         }
     }
 
     fun transitionInterruptedMessage(isIndonesian: Boolean): String {
         return if (isIndonesian) {
-            "Screen pinning dibatalkan karena tombol Home/Recent dibuka saat Android masih mengaktifkan pinning. Tetap di layar ini setelah menekan \"Got it\" atau \"Pin\", tunggu sampai mode ujian terbuka, lalu jangan buka Recent Apps."
+            "Screen pinning dibatalkan karena tombol Home/Recent dibuka saat Android masih mengaktifkan pinning. Tetap di layar ini setelah menekan \"Got it\" atau \"Pin\", tunggu sampai Screen Pinning aktif, lalu jangan buka Recent Apps."
         } else {
-            "Screen pinning was interrupted because Home/Recent was opened while Android was still activating pinning. Stay on this screen after choosing \"Got it\" or \"Pin\", wait until exam mode opens, and do not open Recent Apps."
+            "Screen pinning was interrupted because Home/Recent was opened while Android was still activating pinning. Stay on this screen after choosing \"Got it\" or \"Pin\", wait until Screen Pinning is active, and do not open Recent Apps."
         }
     }
 
-    private fun localizedScreenPinningGuidance(isIndonesian: Boolean): String {
-        return if (isIndonesian) {
-            "Screen pinning belum aktif. Saat Android menampilkan dialog pin aplikasi, pilih \"Got it\" atau \"Pin\", lalu tetap di aplikasi sampai mode ujian terbuka. Jika dialog tidak muncul, buka Settings > Security > Screen Pinning, aktifkan, lalu tekan Start Exam Mode lagi."
-        } else {
-            "Screen pinning is not active yet. When Android shows the app pinning dialog, choose \"Got it\" or \"Pin\", then stay in the app until exam mode opens. If the dialog does not appear, open Settings > Security > Screen Pinning, enable it, then press Start Exam Mode again."
+    private fun localizedScreenPinningGuidance(
+        isIndonesian: Boolean,
+        purpose: PinningActivationPurpose = PinningActivationPurpose.ExamStart
+    ): String {
+        return when (purpose) {
+            PinningActivationPurpose.PreparationSetup -> if (isIndonesian) {
+                "Screen pinning belum aktif. Saat Android menampilkan dialog pin aplikasi, pilih \"Got it\" atau \"Pin\", lalu tetap di aplikasi sampai status Screen Pinning aktif. Jika dialog tidak muncul, buka Settings > Security > Screen Pinning, aktifkan, lalu tekan Start Screen Pinning lagi."
+            } else {
+                "Screen pinning is not active yet. When Android shows the app pinning dialog, choose \"Got it\" or \"Pin\", then stay in the app until Screen Pinning is active. If the dialog does not appear, open Settings > Security > Screen Pinning, enable it, then press Start Screen Pinning again."
+            }
+            PinningActivationPurpose.ExamStart -> if (isIndonesian) {
+                "Screen pinning belum aktif. Kembali ke Preparation, tekan Start Screen Pinning, pilih \"Got it\" atau \"Pin\", lalu mulai ujian setelah status aktif. Jika dialog tidak muncul, buka Settings > Security > Screen Pinning dan aktifkan."
+            } else {
+                "Screen pinning is not active yet. Return to Preparation, press Start Screen Pinning, choose \"Got it\" or \"Pin\", then start the exam after it is active. If the dialog does not appear, open Settings > Security > Screen Pinning and enable it."
+            }
         }
     }
 }

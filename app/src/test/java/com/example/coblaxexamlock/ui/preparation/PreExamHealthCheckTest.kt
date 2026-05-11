@@ -50,7 +50,19 @@ class PreExamHealthCheckTest {
 
         val pinning = snapshot.items.first { it.category == PreExamHealthCategory.ScreenPinning }
         assertEquals(PreExamHealthVerdict.Stable, pinning.verdict)
-        assertTrue(pinning.detail.contains("skip", ignoreCase = true))
+        assertTrue(pinning.detail.contains("repeated", ignoreCase = true))
+    }
+
+    @Test
+    fun supportedInactiveScreenPinningBlocksStartGate() {
+        val snapshot = buildPreExamHealthSnapshot(
+            defaultInput(screenPinningActive = false)
+        )
+
+        val pinning = snapshot.items.first { it.category == PreExamHealthCategory.ScreenPinning }
+        assertEquals(PreExamHealthVerdict.Blocking, pinning.verdict)
+        assertTrue(pinning.quickFix.orEmpty().contains("Start Screen Pinning"))
+        assertEquals(PreExamHealthCategory.ScreenPinning, preExamHealthStartBlocker(snapshot)?.category)
     }
 
     @Test
@@ -190,7 +202,7 @@ class PreExamHealthCheckTest {
 
     private fun defaultInput(
         screenPinningAvailable: Boolean = true,
-        screenPinningActive: Boolean = false,
+        screenPinningActive: Boolean = screenPinningAvailable,
         accessibilityGuardAvailable: Boolean = false,
         accessibilityGuardEnabled: Boolean = false,
         overlayRiskResult: OverlayRiskResult = defaultOverlayRisk(),

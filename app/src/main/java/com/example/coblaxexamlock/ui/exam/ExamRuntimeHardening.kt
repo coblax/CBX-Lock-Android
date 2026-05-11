@@ -165,6 +165,7 @@ internal object ExamRuntimeHardeningDiagnostics {
     const val PinningRefreshSafeSuppressed = "PINNING_REFRESH_SAFE_SUPPRESSED"
     const val OverlayPartialLegacyWarning = "OVERLAY_PARTIAL_LEGACY_WARNING"
     const val StartExamBlockedHealthCheck = "START_EXAM_BLOCKED_HEALTH_CHECK"
+    const val StartExamBlockedScreenPinningInactive = "START_EXAM_BLOCKED_SCREEN_PINNING_INACTIVE"
     const val ScreenRecorderDetected = "SCREEN_RECORDER_DETECTED"
     const val ScreenRecorderCleared = "SCREEN_RECORDER_CLEARED"
     const val DisplayMirrorDetected = "DISPLAY_MIRROR_DETECTED"
@@ -231,6 +232,7 @@ internal object ExamRuntimeHardeningDiagnostics {
         PinningRefreshSafeSuppressed,
         OverlayPartialLegacyWarning,
         StartExamBlockedHealthCheck,
+        StartExamBlockedScreenPinningInactive,
         ScreenRecorderDetected,
         ScreenRecorderCleared,
         DisplayMirrorDetected,

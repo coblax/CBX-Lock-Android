@@ -195,7 +195,8 @@ internal fun buildPreparationChecklistStatusText(
     val screenPinningStatusLabel = when {
         bypassScreenPinning -> tr("Bypassed", "Bypass")
         isScreenPinningActive -> tr("Active", "Aktif")
-        screenPinningAvailable -> tr("Ready", "Siap")
+        screenPinningFixNeeded -> tr("Start Required", "Perlu Start")
+        screenPinningAvailable -> tr("Start Required", "Perlu Start")
         else -> tr("Unavailable", "Tidak tersedia")
     }
     val accessibilityGuardStatusLabel = when {

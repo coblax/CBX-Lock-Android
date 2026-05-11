@@ -457,13 +457,15 @@ internal fun buildPreparationQuickFixActions(
                         onClick = onOpenKeyboardSettings
                     )
                 }
-if (screenPinningFixNeeded) {
+                if (!bypassScreenPinning && screenPinningAvailable && !isScreenPinningActive) {
                     addQuickFix(
-                        text = tr("Enable Screen Pinning", "Aktifkan Screen Pinning"),
-                        severity = QuickFixSeverity.Warning,
+                        code = "start_screen_pinning",
+                        text = tr("Start Screen Pinning", "Start Screen Pinning"),
+                        severity = QuickFixSeverity.Blocking,
                         target = QuickFixTarget.ScreenPinning,
                         priority = 210,
-                        onClick = onOpenScreenPinningSettings
+                        filled = true,
+                        onClick = onStartScreenPinning
                     )
                 }
                 if (screenRecorderPackages.isNotEmpty() && !bypassScreenRecorder) {

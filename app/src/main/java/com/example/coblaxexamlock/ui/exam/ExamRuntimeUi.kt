@@ -242,10 +242,10 @@ internal fun PinningActivationOverlay(modifier: Modifier = Modifier) {
                 PinningStep(
                     step = "3",
                     icon = Icons.Rounded.Lock,
-                    title = tr("Wait until exam opens", "Tunggu hingga ujian terbuka"),
+                    title = tr("Wait until Screen Pinning is active", "Tunggu sampai Screen Pinning aktif"),
                     desc = tr(
-                        "Stay here. The exam opens automatically once pinning is confirmed.",
-                        "Tetap di sini. Ujian terbuka otomatis setelah pinning terkonfirmasi."
+                        "Stay here. Start Exam becomes available after pinning is confirmed.",
+                        "Tetap di sini. Mulai Ujian tersedia setelah pinning terkonfirmasi."
                     )
                 )
                 Surface(

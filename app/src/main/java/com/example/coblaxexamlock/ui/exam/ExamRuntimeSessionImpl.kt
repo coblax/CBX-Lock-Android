@@ -159,6 +159,7 @@ import com.example.coblaxexamlock.OverlayShieldStatus
 import com.example.coblaxexamlock.OverlaySignal
 import com.example.coblaxexamlock.parseExamParticipantContext
 import com.example.coblaxexamlock.parseGeofenceConfig
+import com.example.coblaxexamlock.PinningActivationPurpose
 import com.example.coblaxexamlock.PinningActivationGraceWindowMillis
 import com.example.coblaxexamlock.PinningActivationState
 import com.example.coblaxexamlock.platform.openExternalUrl
@@ -440,6 +441,7 @@ internal fun ExamRuntimeSessionScreenImpl(
     val locationWarmupUiState = rememberExamRuntimeLocationWarmupUiState()
     var examSessionStarted by flowUiState.examSessionStarted
     var lockTaskRequestPending by flowUiState.lockTaskRequestPending
+    var pinningActivationPurpose by flowUiState.pinningActivationPurpose
     var pinningActivationState by flowUiState.pinningActivationState
     var pinningActivationStartedAtElapsedMs by flowUiState.pinningActivationStartedAtElapsedMs
     var pinningSuppressedTransitionCount by flowUiState.pinningSuppressedTransitionCount
@@ -2895,11 +2897,20 @@ internal fun ExamRuntimeSessionScreenImpl(
                     lastConnectedNetworkLabel = lastConnectedNetworkLabel,
                     screenRecorderPackages = securityUiState.screenRecorderPackages.value,
                     bypassScreenRecorder = bypassScreenRecorder,
+                    screenRecorderBypassTampered = adminSettings.screenRecorderBypassTampered,
+                    screenRecorderViolationCount = securityUiState.screenRecorderViolationCount.intValue,
+                    screenRecorderDialogActive = securityUiState.showScreenRecorderViolationDialog.value,
                     externalDisplayDetected = securityUiState.externalDisplayDetected.value,
                     externalDisplayCount = securityUiState.externalDisplayCount.intValue,
                     bypassDisplayMirror = bypassDisplayMirror,
+                    displayMirrorBypassTampered = adminSettings.displayMirrorBypassTampered,
+                    displayMirrorViolationCount = securityUiState.displayMirrorViolationCount.intValue,
+                    displayMirrorDialogActive = securityUiState.showDisplayMirrorViolationDialog.value,
                     multiWindowDetected = securityUiState.multiWindowDetected.value,
-                    bypassMultiWindow = bypassMultiWindow
+                    bypassMultiWindow = bypassMultiWindow,
+                    multiWindowBypassTampered = adminSettings.multiWindowBypassTampered,
+                    multiWindowViolationCount = securityUiState.multiWindowViolationCount.intValue,
+                    multiWindowDialogActive = securityUiState.showMultiWindowViolationDialog.value
                 ).onSuccess {
                     recordAction(code = "DIAGNOSTIC_SECTION_SENT", details = section.name)
                     bugReportFeedbackTitle = localized(uiLanguage, "Diagnostics sent", "Diagnostik terkirim")
@@ -3117,6 +3128,30 @@ internal fun ExamRuntimeSessionScreenImpl(
                 return
             }
 
+            if (screenPinningMode == ScreenPinningMode.Enforced && screenPinningAvailable) {
+                applyStartExamBlockMessage(
+                    resolveStartExamScreenPinningBlockMessage(
+                        uiLanguage = uiLanguage,
+                        screenPinningMode = screenPinningMode,
+                        screenPinningAvailable = screenPinningAvailable,
+                        screenPinningActive = false,
+                        accessibilityGuardAvailable = isExamGuardAccessibilityAvailable(context),
+                        accessibilityGuardEnabled = accessibilityGuardEnabled,
+                        phaseSuffix = "phase=final_precheck"
+                    ) ?: StartExamBlockMessage(
+                        code = ExamRuntimeHardeningDiagnostics.StartExamBlockedScreenPinningInactive,
+                        details = "screen_pinning_available=true | lock_task_active=false | bypass=false | phase=final_precheck",
+                        title = localized(uiLanguage, "Start Screen Pinning First", "Start Screen Pinning Dulu"),
+                        message = localized(
+                            uiLanguage,
+                            "Start Screen Pinning first from Preparation, confirm the Android dialog, then press Start Exam.",
+                            "Jalankan Start Screen Pinning dulu dari Preparation, konfirmasi dialog Android, lalu tekan Mulai Ujian."
+                        )
+                    )
+                )
+                return
+            }
+
             if (!examGuardArmed) {
                 armExamRuntimeMonitoring(reason = "start_exam_pressed")
             }
@@ -3145,7 +3180,10 @@ internal fun ExamRuntimeSessionScreenImpl(
                 level = DiagnosticEventLevel.INFO
             )
             setAppSwitchSuppression(AppSwitchSuppressionReason.ScreenPinningRequest)
-            screenPinningMessage = ScreenPinningEnforcer.activatingMessage(isIndonesian)
+            screenPinningMessage = ScreenPinningEnforcer.activatingMessage(
+                isIndonesian = isIndonesian,
+                purpose = PinningActivationPurpose.ExamStart
+            )
             webViewErrorMessage = null
             exitOnSecurityIssueDialogDismiss = false
         }
@@ -3180,6 +3218,7 @@ internal fun ExamRuntimeSessionScreenImpl(
                 uiLanguage = uiLanguage,
                 screenPinningMode = screenPinningMode,
                 screenPinningAvailable = screenPinningAvailable,
+                screenPinningActive = lockTaskBridge.active(),
                 accessibilityGuardAvailable = latestAccessibilityGuardAvailable,
                 accessibilityGuardEnabled = latestAccessibilityGuardEnabled
             )
@@ -3208,6 +3247,7 @@ internal fun ExamRuntimeSessionScreenImpl(
                 uiLanguage = uiLanguage,
                 screenPinningMode = screenPinningMode,
                 screenPinningAvailable = screenPinningAvailable,
+                screenPinningActive = lockTaskBridge.active(),
                 accessibilityGuardAvailable = isExamGuardAccessibilityAvailable(context),
                 accessibilityGuardEnabled = accessibilityGuardEnabled,
                 phaseSuffix = "phase=device_prechecks"
@@ -3568,7 +3608,10 @@ internal fun ExamRuntimeSessionScreenImpl(
         )
         pinningSuppressedTransitionCount += 1
         pinningActivationState = PinningActivationState.WaitingForLockTaskActive
-        screenPinningMessage = ScreenPinningEnforcer.activatingMessage(isIndonesian)
+        screenPinningMessage = ScreenPinningEnforcer.activatingMessage(
+            isIndonesian = isIndonesian,
+            purpose = pinningActivationPurpose
+        )
         recordAction(
             code = ExamRuntimeHardeningDiagnostics.PinningTransitionViolationSuppressed,
             details = "source=user_leave_hint | state=$stateAfterInterrupt | elapsed_ms=${elapsedMs ?: -1} | within_grace=$withinGrace | suppressed_count=$pinningSuppressedTransitionCount | wait_until_timeout=true",
@@ -4093,6 +4136,108 @@ internal fun ExamRuntimeSessionScreenImpl(
         openScreenPinningSettings(context)
     }
 
+    fun handleStartScreenPinning() {
+        refreshScreenPinningDiagnostics()
+        if (lockTaskRequestPending || examSessionStarted) {
+            return
+        }
+        if (bypassScreenPinning || screenPinningMode == ScreenPinningMode.Bypassed) {
+            recordAction(
+                code = ScreenPinningSignals.eventBypassUsed(),
+                details = "source=preparation_start_screen_pinning | bypass=true",
+                level = DiagnosticEventLevel.INFO
+            )
+            pinningActivationPurpose = PinningActivationPurpose.ExamStart
+            return
+        }
+        if (!screenPinningAvailable) {
+            recordAction(
+                code = ExamRuntimeHardeningDiagnostics.StartExamBlockedScreenPinningInactive,
+                details = "source=preparation_start_screen_pinning | screen_pinning_available=false",
+                level = DiagnosticEventLevel.WARNING
+            )
+            securityIssueDialogTitle = localized(
+                uiLanguage,
+                "Screen Pinning Unavailable",
+                "Screen Pinning Tidak Tersedia"
+            )
+            securityIssueDialogMessage = localized(
+                uiLanguage,
+                "This device does not support Screen Pinning. Use the Accessibility Exam Guard fallback or Secret Admin bypass.",
+                "Perangkat ini tidak mendukung Screen Pinning. Gunakan fallback Accessibility Exam Guard atau bypass Secret Admin."
+            )
+            return
+        }
+        if (screenPinningEnabledInSystem.equals("Nonaktif", ignoreCase = true)) {
+            recordAction(
+                code = "SCREEN_PINNING_START_ATTEMPTED_WITH_SETTING_OFF",
+                details = "source=preparation_start_screen_pinning | system_setting=$screenPinningEnabledInSystem",
+                level = DiagnosticEventLevel.INFO
+            )
+        }
+        if (lockTaskBridge.active()) {
+            val activeState = lockTaskBridge.stateLabel()
+            lockTaskStateBeforePinningRequest = activeState
+            lockTaskStateAfterPinningRequest = activeState
+            screenPinningRequestOutcome = ScreenPinningSignals.successOutcome()
+            screenPinningDialogLikelyShown = false
+            screenPinningUserActionInference = "Sudah aktif; setup preparation dilewati"
+            screenPinningActivationDurationMs = 0L
+            examSessionCancelledByPinningFailure = false
+            pinningActivationPurpose = PinningActivationPurpose.ExamStart
+            lockTaskRequestPending = false
+            pinningActivationState = PinningActivationState.ActiveConfirmed
+            pinningActivationStartedAtElapsedMs = null
+            pinningSuppressedTransitionCount = 0
+            clearAppSwitchSuppression()
+            screenPinningMessage = null
+            webViewErrorMessage = null
+            exitOnSecurityIssueDialogDismiss = false
+            recordAction(
+                code = ScreenPinningSignals.eventActive(),
+                details = "preparation_setup_already_active | state=$activeState",
+                level = DiagnosticEventLevel.INFO
+            )
+            return
+        }
+
+        val requestState = ScreenPinningEnforcer.launchState(screenPinningMode, lockTaskBridge)
+        lockTaskStateBeforePinningRequest = requestState.beforeState
+        lockTaskStateAfterPinningRequest = requestState.afterState
+        screenPinningRequestOutcome = requestState.outcome
+        screenPinningDialogLikelyShown = requestState.dialogLikelyShown
+        screenPinningUserActionInference = requestState.userActionInference
+        screenPinningActivationDurationMs = requestState.activationDurationMs
+        examSessionCancelledByPinningFailure = false
+        pinningActivationPurpose = PinningActivationPurpose.PreparationSetup
+        lockTaskRequestPending = true
+        pinningActivationState = PinningActivationState.Requested
+        pinningActivationStartedAtElapsedMs = SystemClock.elapsedRealtime()
+        pinningSuppressedTransitionCount = 0
+        recordAction(
+            code = requestState.eventCode,
+            details = "purpose=preparation_setup | ${requestState.eventDetails}",
+            level = DiagnosticEventLevel.INFO
+        )
+        recordAction(
+            code = ExamRuntimeHardeningDiagnostics.PinningStartRequested,
+            details = "purpose=preparation_setup | before=${requestState.beforeState} | state=${requestState.afterState} | grace_ms=$PinningActivationGraceWindowMillis",
+            level = DiagnosticEventLevel.INFO
+        )
+        recordAction(
+            code = ExamRuntimeHardeningDiagnostics.PinningDialogExpected,
+            details = "purpose=preparation_setup | screen_pinning_dialog_expected=true | keep_app_foreground=true",
+            level = DiagnosticEventLevel.INFO
+        )
+        setAppSwitchSuppression(AppSwitchSuppressionReason.ScreenPinningRequest)
+        screenPinningMessage = ScreenPinningEnforcer.activatingMessage(
+            isIndonesian = isIndonesian,
+            purpose = PinningActivationPurpose.PreparationSetup
+        )
+        webViewErrorMessage = null
+        exitOnSecurityIssueDialogDismiss = false
+    }
+
     fun handleOpenOverlaySettings() {
         recordAction(code = "OVERLAY_SETTINGS_OPENED")
         openOverlaySettings(context)
@@ -4559,6 +4704,7 @@ internal fun ExamRuntimeSessionScreenImpl(
         onOpenDateTimeSettings = ::handleOpenDateTimeSettings,
         onOpenFakeLocationDeveloperOptionsSettings = ::handleOpenFakeLocationDeveloperOptionsSettings,
         onOpenScreenPinningSettings = ::handleOpenScreenPinningSettings,
+        onStartScreenPinning = ::handleStartScreenPinning,
         onOpenOverlaySettings = ::handleOpenOverlaySettings,
         onOpenAppSettings = ::handleOpenAppSettings,
         onOpenCastSettings = ::handleOpenCastSettings,

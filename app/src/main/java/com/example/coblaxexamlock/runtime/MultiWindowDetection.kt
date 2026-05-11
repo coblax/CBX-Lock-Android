@@ -14,6 +14,27 @@ import android.os.Build
  * enters split-screen or PiP mode. In normal single-app mode, always false.
  */
 
+internal data class MultiWindowModeInfo(
+    val multiWindowApiSupported: Boolean,
+    val pictureInPictureApiSupported: Boolean,
+    val inMultiWindowMode: Boolean,
+    val inPictureInPictureMode: Boolean
+) {
+    val inAnySplitMode: Boolean
+        get() = inMultiWindowMode || inPictureInPictureMode
+}
+
+internal fun readMultiWindowModeInfo(context: Context): MultiWindowModeInfo {
+    val multiWindowApiSupported = Build.VERSION.SDK_INT >= Build.VERSION_CODES.N
+    val pictureInPictureApiSupported = Build.VERSION.SDK_INT >= Build.VERSION_CODES.O
+    return MultiWindowModeInfo(
+        multiWindowApiSupported = multiWindowApiSupported,
+        pictureInPictureApiSupported = pictureInPictureApiSupported,
+        inMultiWindowMode = isInMultiWindowMode(context),
+        inPictureInPictureMode = isInPictureInPictureMode(context)
+    )
+}
+
 internal fun isInMultiWindowMode(context: Context): Boolean {
     if (Build.VERSION.SDK_INT < Build.VERSION_CODES.N) return false
     val activity = context as? Activity ?: return false
@@ -27,5 +48,5 @@ internal fun isInPictureInPictureMode(context: Context): Boolean {
 }
 
 internal fun isInAnySplitMode(context: Context): Boolean {
-    return isInMultiWindowMode(context) || isInPictureInPictureMode(context)
+    return readMultiWindowModeInfo(context).inAnySplitMode
 }

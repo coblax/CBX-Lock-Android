@@ -256,6 +256,7 @@ internal fun ExamSecurityPreparationScreenContent(
         PreparationFloatingActionBar(
             startButtonColor = startButtonColor,
             startButtonContentColor = startButtonContentColor,
+            canStartExam = canStartExam,
             isStartingExam = isStartingExam,
             webViewSessionResetInFlight = webViewSessionResetInFlight,
             onRefreshStatus = onRefreshStatus,

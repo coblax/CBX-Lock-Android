@@ -342,7 +342,8 @@ internal fun buildPreparationChecklistDetailText(
             "- ActivityManager.lockTaskModeState (LOCKED/PINNED)\n" +
             "- Screen Pinning support available: ${if (screenPinningAvailable) "Yes" else "No"}\n" +
             "Impact:\n" +
-            "- Available but inactive -> Android pinning is requested only after START EXAM MODE is pressed\n" +
+            "- Available but inactive -> Start Exam stays blocked until Start Screen Pinning succeeds\n" +
+            "- If Android does not show the pinning dialog, use Screen Pinning settings as a fallback\n" +
             "- Unavailable -> Start Exam is blocked; use a supported device or Secret Admin bypass\n" +
             "- If bypass enabled -> skip pin/lock-task flow"
         },
@@ -352,7 +353,8 @@ internal fun buildPreparationChecklistDetailText(
             "- ActivityManager.lockTaskModeState (LOCKED/PINNED)\n" +
             "- Dukungan Screen Pinning tersedia: ${if (screenPinningAvailable) "Ya" else "Tidak"}\n" +
             "Dampak:\n" +
-            "- Tersedia tapi belum aktif -> pinning Android baru diminta setelah START EXAM MODE ditekan\n" +
+            "- Tersedia tapi belum aktif -> Mulai Ujian tetap diblokir sampai Start Screen Pinning berhasil\n" +
+            "- Jika Android tidak menampilkan dialog pinning, gunakan pengaturan Screen Pinning sebagai fallback\n" +
             "- Tidak tersedia -> Start Exam diblokir; gunakan perangkat yang mendukung atau bypass Secret Admin\n" +
             "- Jika bypass aktif -> lewati alur pin/lock-task"
         }

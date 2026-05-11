@@ -131,11 +131,20 @@ internal data class TelegramSectionDetailsContext(
     val lastConnectedNetworkLabel: String? = null,
     val screenRecorderPackages: List<String> = emptyList(),
     val bypassScreenRecorder: Boolean = false,
+    val screenRecorderBypassTampered: Boolean = false,
+    val screenRecorderViolationCount: Int = 0,
+    val screenRecorderDialogActive: Boolean = false,
     val externalDisplayDetected: Boolean = false,
     val externalDisplayCount: Int = 0,
     val bypassDisplayMirror: Boolean = false,
+    val displayMirrorBypassTampered: Boolean = false,
+    val displayMirrorViolationCount: Int = 0,
+    val displayMirrorDialogActive: Boolean = false,
     val multiWindowDetected: Boolean = false,
-    val bypassMultiWindow: Boolean = false
+    val bypassMultiWindow: Boolean = false,
+    val multiWindowBypassTampered: Boolean = false,
+    val multiWindowViolationCount: Int = 0,
+    val multiWindowDialogActive: Boolean = false
 )
 
 private fun DeviceTimeSecurityVerdict.telegramLabel(): String = when (this) {
@@ -176,6 +185,102 @@ private fun yesNo(value: Boolean): String = if (value) "Ya" else "Tidak"
 
 private fun yesNoUnknown(value: Boolean?): String =
     value?.let(::yesNo) ?: "-"
+
+private fun ScreenRecorderDetectionSource.telegramLabel(): String = when (this) {
+    ScreenRecorderDetectionSource.KnownPackage -> "known_package"
+    ScreenRecorderDetectionSource.KeywordScan -> "keyword_scan"
+}
+
+internal fun buildScreenRecorderTelegramDetails(
+    detectedApps: List<ScreenRecorderAppReport>,
+    runtimePackageCount: Int,
+    bypassActive: Boolean,
+    bypassTampered: Boolean,
+    violationCount: Int,
+    dialogActive: Boolean
+): List<String> = buildList {
+    add("[SCREEN RECORDER]")
+    add("Detection method: known_package lookup + keyword_scan package scan")
+    add(
+        "Package visibility note: best-effort; Android package visibility can hide packages " +
+            "that are not visible to this app."
+    )
+    add("Screen recorder packages detected: ${detectedApps.size}")
+    add("Runtime package list count: $runtimePackageCount")
+    add("Bypass active: ${yesNo(bypassActive)}")
+    add("Bypass tampered: ${yesNo(bypassTampered)}")
+    add("Runtime violation count: $violationCount")
+    add("Runtime dialog active: ${yesNo(dialogActive)}")
+    add("No visible recorder package detected: ${yesNo(detectedApps.isEmpty())}")
+    detectedApps.forEachIndexed { index, app ->
+        add(
+            "  [$index] label=${app.label.ifBlank { "-" }} | " +
+                "package=${app.packageName.ifBlank { "-" }} | " +
+                "version=${app.versionName.ifBlank { "-" }} | " +
+                "appType=${if (app.systemApp) "system" else "user"} | " +
+                "enabled=${yesNo(app.enabled)} | " +
+                "source=${app.source.telegramLabel()}"
+        )
+    }
+}
+
+internal fun buildDisplayMirrorTelegramDetails(
+    displayInfos: List<ExternalDisplayInfo>,
+    externalDisplayDetected: Boolean,
+    externalDisplayCount: Int,
+    bypassActive: Boolean,
+    bypassTampered: Boolean,
+    violationCount: Int,
+    dialogActive: Boolean
+): List<String> = buildList {
+    val resolvedDisplayCount = maxOf(externalDisplayCount, displayInfos.size)
+    add("[DISPLAY MIRROR]")
+    add("Detection method: DisplayManager.getDisplays")
+    add("Blocking definition: external display count > 0")
+    add("External display detected: ${yesNo(externalDisplayDetected || resolvedDisplayCount > 0)}")
+    add("External display count: $resolvedDisplayCount")
+    add("DisplayManager external display list count: ${displayInfos.size}")
+    add("Bypass active: ${yesNo(bypassActive)}")
+    add("Bypass tampered: ${yesNo(bypassTampered)}")
+    add("Runtime violation count: $violationCount")
+    add("Runtime dialog active: ${yesNo(dialogActive)}")
+    if (displayInfos.isEmpty()) {
+        add("External display list: -")
+    } else {
+        displayInfos.forEachIndexed { index, display ->
+            add(
+                "  [$index] id=${display.displayId} | " +
+                    "name=${display.name.ifBlank { "-" }} | " +
+                    "state=${displayStateLabel(display.state)} | " +
+                    "flagsRaw=${display.flags} | " +
+                    "flags=${displayFlagsLabel(display.flags)}"
+            )
+        }
+    }
+}
+
+internal fun buildMultiWindowTelegramDetails(
+    modeInfo: MultiWindowModeInfo,
+    runtimeDetected: Boolean,
+    bypassActive: Boolean,
+    bypassTampered: Boolean,
+    violationCount: Int,
+    dialogActive: Boolean
+): List<String> = buildList {
+    add("[MULTI-WINDOW]")
+    add("Detection method: Activity.isInMultiWindowMode + Activity.isInPictureInPictureMode")
+    add("Event codes tracked: MULTI_WINDOW_MODE_CHANGED, MULTI_WINDOW_DETECTED, MULTI_WINDOW_CLEARED, START_EXAM_BLOCKED_MULTI_WINDOW")
+    add("Multi-window API >= 24 supported: ${yesNo(modeInfo.multiWindowApiSupported)}")
+    add("PiP API >= 26 supported: ${yesNo(modeInfo.pictureInPictureApiSupported)}")
+    add("isInMultiWindowMode: ${yesNo(modeInfo.inMultiWindowMode)}")
+    add("isInPictureInPictureMode: ${yesNo(modeInfo.inPictureInPictureMode)}")
+    add("isInAnySplitMode: ${yesNo(modeInfo.inAnySplitMode)}")
+    add("Runtime combined state: ${yesNo(runtimeDetected)}")
+    add("Bypass active: ${yesNo(bypassActive)}")
+    add("Bypass tampered: ${yesNo(bypassTampered)}")
+    add("Runtime violation count: $violationCount")
+    add("Runtime dialog active: ${yesNo(dialogActive)}")
+}
 
 private fun StringBuilder.appendNetworkDetails(
     networkStatus: ExamNetworkStatus,
@@ -943,23 +1048,36 @@ internal fun StringBuilder.appendTelegramSectionDetails(details: TelegramSection
                     )
                 }
                 DiagnosticSection.ScreenRecorder -> {
-                    appendLine("[SCREEN RECORDER]")
-                    appendLine("Screen recorder packages detected: ${screenRecorderPackages.size}")
-                    screenRecorderPackages.forEachIndexed { index, pkg ->
-                        appendLine("  [$index] $pkg")
-                    }
-                    appendLine("Bypass: ${if (bypassScreenRecorder) "Ya" else "Tidak"}")
+                    val detectedApps = inspectScreenRecorderApps(context)
+                    buildScreenRecorderTelegramDetails(
+                        detectedApps = detectedApps,
+                        runtimePackageCount = screenRecorderPackages.size,
+                        bypassActive = bypassScreenRecorder,
+                        bypassTampered = screenRecorderBypassTampered,
+                        violationCount = screenRecorderViolationCount,
+                        dialogActive = screenRecorderDialogActive
+                    ).forEach(::appendLine)
                 }
                 DiagnosticSection.DisplayMirror -> {
-                    appendLine("[DISPLAY MIRROR]")
-                    appendLine("External display detected: ${if (externalDisplayDetected) "Ya" else "Tidak"}")
-                    appendLine("External display count: $externalDisplayCount")
-                    appendLine("Bypass: ${if (bypassDisplayMirror) "Ya" else "Tidak"}")
+                    buildDisplayMirrorTelegramDetails(
+                        displayInfos = getExternalDisplayInfoList(context),
+                        externalDisplayDetected = externalDisplayDetected,
+                        externalDisplayCount = externalDisplayCount,
+                        bypassActive = bypassDisplayMirror,
+                        bypassTampered = displayMirrorBypassTampered,
+                        violationCount = displayMirrorViolationCount,
+                        dialogActive = displayMirrorDialogActive
+                    ).forEach(::appendLine)
                 }
                 DiagnosticSection.MultiWindow -> {
-                    appendLine("[MULTI-WINDOW]")
-                    appendLine("Multi-window mode: ${if (multiWindowDetected) "Ya" else "Tidak"}")
-                    appendLine("Bypass: ${if (bypassMultiWindow) "Ya" else "Tidak"}")
+                    buildMultiWindowTelegramDetails(
+                        modeInfo = readMultiWindowModeInfo(context),
+                        runtimeDetected = multiWindowDetected,
+                        bypassActive = bypassMultiWindow,
+                        bypassTampered = multiWindowBypassTampered,
+                        violationCount = multiWindowViolationCount,
+                        dialogActive = multiWindowDialogActive
+                    ).forEach(::appendLine)
                 }
             }
     }

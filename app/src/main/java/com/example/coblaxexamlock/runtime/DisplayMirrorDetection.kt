@@ -23,6 +23,36 @@ internal data class ExternalDisplayInfo(
     val flags: Int
 )
 
+internal fun displayStateLabel(state: Int): String {
+    return when (state) {
+        0 -> "UNKNOWN"
+        1 -> "OFF"
+        2 -> "ON"
+        3 -> "DOZE"
+        4 -> "DOZE_SUSPEND"
+        5 -> "VR"
+        6 -> "ON_SUSPEND"
+        else -> "state_$state"
+    }
+}
+
+internal fun displayFlagsLabel(flags: Int): String {
+    val labels = mutableListOf<String>()
+    if (flags and Display.FLAG_SUPPORTS_PROTECTED_BUFFERS != 0) {
+        labels.add("SUPPORTS_PROTECTED_BUFFERS")
+    }
+    if (flags and Display.FLAG_SECURE != 0) {
+        labels.add("SECURE")
+    }
+    if (flags and Display.FLAG_PRIVATE != 0) {
+        labels.add("PRIVATE")
+    }
+    if (flags and Display.FLAG_PRESENTATION != 0) {
+        labels.add("PRESENTATION")
+    }
+    return labels.joinToString("|").ifBlank { "none" }
+}
+
 internal fun hasExternalDisplay(context: Context): Boolean {
     return getExternalDisplayCount(context) > 0
 }
