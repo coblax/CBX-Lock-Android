@@ -15,23 +15,27 @@ internal class CachedDetectorValue<T>(
     private val nowMillis: () -> Long = { SystemClock.elapsedRealtime() }
 ) {
     private val lock = Any()
-    private var loadedAtMillis: Long = Long.MIN_VALUE
-    private var loaded = false
-    private var cachedValue: T? = null
+    @Volatile private var loadedAtMillis: Long = Long.MIN_VALUE
+    @Volatile private var loaded = false
+    @Volatile private var cachedValue: T? = null
 
     fun read(forceRefresh: Boolean = false, loader: () -> T): T {
-        synchronized(lock) {
-            val now = nowMillis()
-            if (!forceRefresh && loaded && now - loadedAtMillis < ttlMillis) {
-                @Suppress("UNCHECKED_CAST")
-                return cachedValue as T
-            }
-            return loader().also { value ->
-                cachedValue = value
-                loadedAtMillis = nowMillis()
-                loaded = true
+        if (!forceRefresh) {
+            synchronized(lock) {
+                val now = nowMillis()
+                if (loaded && now - loadedAtMillis < ttlMillis) {
+                    @Suppress("UNCHECKED_CAST")
+                    return cachedValue as T
+                }
             }
         }
+        val value = loader()
+        synchronized(lock) {
+            cachedValue = value
+            loadedAtMillis = nowMillis()
+            loaded = true
+        }
+        return value
     }
 
     fun invalidate() {
@@ -56,19 +60,23 @@ internal class CachedDetectorMap<K, V>(
     private val cachedValues = mutableMapOf<K, Entry<V>>()
 
     fun read(key: K, forceRefresh: Boolean = false, loader: () -> V): V {
-        synchronized(lock) {
-            val now = nowMillis()
-            val cached = cachedValues[key]
-            if (!forceRefresh && cached != null && now - cached.loadedAtMillis < ttlMillis) {
-                return cached.value
-            }
-            return loader().also { value ->
-                cachedValues[key] = Entry(
-                    loadedAtMillis = nowMillis(),
-                    value = value
-                )
+        if (!forceRefresh) {
+            synchronized(lock) {
+                val now = nowMillis()
+                val cached = cachedValues[key]
+                if (cached != null && now - cached.loadedAtMillis < ttlMillis) {
+                    return cached.value
+                }
             }
         }
+        val value = loader()
+        synchronized(lock) {
+            cachedValues[key] = Entry(
+                loadedAtMillis = nowMillis(),
+                value = value
+            )
+        }
+        return value
     }
 
     fun invalidate() {

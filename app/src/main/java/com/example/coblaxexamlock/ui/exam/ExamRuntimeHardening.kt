@@ -16,7 +16,8 @@ internal data class ExamRuntimeMemoryAction(
     val clearIntegrityCache: Boolean = false,
     val clearUnusedFullscreenContainer: Boolean = false,
     val cleanupInactiveWebView: Boolean = false,
-    val keepActiveWebView: Boolean = false
+    val keepActiveWebView: Boolean = false,
+    val clearActiveWebViewCache: Boolean = false
 ) {
     fun diagnosticActions(): List<String> {
         if (!respond) {
@@ -28,6 +29,7 @@ internal data class ExamRuntimeMemoryAction(
             if (clearIntegrityCache) add("clear_integrity_cache")
             if (clearUnusedFullscreenContainer) add("clear_unused_fullscreen_container")
             if (cleanupInactiveWebView) add("cleanup_inactive_webview")
+            if (clearActiveWebViewCache) add("clear_active_webview_cache")
             if (keepActiveWebView) add("keep_active_webview")
         }
     }
@@ -48,7 +50,8 @@ internal fun resolveExamRuntimeMemoryAction(
         clearIntegrityCache = true,
         clearUnusedFullscreenContainer = !hasFullscreenCustomView,
         cleanupInactiveWebView = !examSessionStarted,
-        keepActiveWebView = examSessionStarted
+        keepActiveWebView = examSessionStarted,
+        clearActiveWebViewCache = examSessionStarted
     )
 }
 

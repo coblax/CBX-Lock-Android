@@ -162,116 +162,113 @@ internal fun SecurityChecklistItem(
         else -> Color(0xFFFFEAEA)
     }
 
-    Surface(
-        modifier = Modifier.fillMaxWidth(),
-        shape = RoundedCornerShape(18.dp),
-        color = Color.White,
-        border = BorderStroke(1.dp, accentColor.copy(alpha = 0.20f)),
-        shadowElevation = 1.dp
+    Row(
+        modifier = Modifier
+            .fillMaxWidth()
+            .clip(RoundedCornerShape(16.dp))
+            .background(Color.White)
+            .border(1.dp, accentColor.copy(alpha = 0.14f), RoundedCornerShape(16.dp))
+            .padding(horizontal = 12.dp, vertical = 10.dp),
+        horizontalArrangement = Arrangement.spacedBy(10.dp),
+        verticalAlignment = Alignment.CenterVertically
     ) {
-        Row(
-            modifier = Modifier
-                .fillMaxWidth()
-                .padding(horizontal = 12.dp, vertical = 11.dp),
-            horizontalArrangement = Arrangement.spacedBy(10.dp),
-            verticalAlignment = Alignment.CenterVertically
-        ) {
-            if (showSendButton) {
-                val sendButtonColor =
-                    if (sendEnabled || isSending) Color(0xFF2AABEE) else Color(0xFFB5DDF3)
-                Surface(
-                    modifier = Modifier
-                        .size(28.dp)
-                        .clip(CircleShape)
-                        .clickable(
-                            interactionSource = remember { MutableInteractionSource() },
-                            indication = null,
-                            role = Role.Button,
-                            enabled = sendEnabled && !isSending,
-                            onClick = onSendTelegram
-                        ),
-                    shape = CircleShape,
-                    color = sendButtonColor
-                ) {
-                    Box(contentAlignment = Alignment.Center) {
-                        if (isSending) {
-                            CircularProgressIndicator(
-                                modifier = Modifier.size(14.dp),
-                                strokeWidth = 2.dp,
-                                color = Color.White
-                            )
-                        } else {
-                            Icon(
-                                imageVector = Icons.AutoMirrored.Rounded.Send,
-                                contentDescription = tr(
-                                    "Send diagnostics to Telegram",
-                                    "Kirim diagnostik ke Telegram"
-                                ),
-                                tint = Color.White,
-                                modifier = Modifier.size(14.dp)
-                            )
-                        }
+        if (showSendButton) {
+            val sendButtonColor =
+                if (sendEnabled || isSending) Color(0xFF2AABEE) else Color(0xFFB5DDF3)
+            Surface(
+                modifier = Modifier
+                    .size(26.dp)
+                    .clip(CircleShape)
+                    .clickable(
+                        interactionSource = remember { MutableInteractionSource() },
+                        indication = null,
+                        role = Role.Button,
+                        enabled = sendEnabled && !isSending,
+                        onClick = onSendTelegram
+                    ),
+                shape = CircleShape,
+                color = sendButtonColor
+            ) {
+                Box(contentAlignment = Alignment.Center) {
+                    if (isSending) {
+                        CircularProgressIndicator(
+                            modifier = Modifier.size(12.dp),
+                            strokeWidth = 1.5.dp,
+                            color = Color.White
+                        )
+                    } else {
+                        Icon(
+                            imageVector = Icons.AutoMirrored.Rounded.Send,
+                            contentDescription = tr(
+                                "Send diagnostics to Telegram",
+                                "Kirim diagnostik ke Telegram"
+                            ),
+                            tint = Color.White,
+                            modifier = Modifier.size(12.dp)
+                        )
                     }
                 }
             }
-            Box(
-                modifier = Modifier
-                    .width(5.dp)
-                    .height(42.dp)
-                    .clip(RoundedCornerShape(999.dp))
-                    .background(accentColor.copy(alpha = 0.90f))
-            )
+        }
 
-            Column(
-                modifier = Modifier.weight(1f)
-            ) {
+        // Accent bar
+        Box(
+            modifier = Modifier
+                .width(4.dp)
+                .height(38.dp)
+                .clip(RoundedCornerShape(999.dp))
+                .background(accentColor.copy(alpha = 0.85f))
+        )
+
+        Column(
+            modifier = Modifier.weight(1f)
+        ) {
+            Text(
+                text = title,
+                color = LockTextPrimary,
+                fontSize = 12.sp,
+                fontWeight = FontWeight.Bold
+            )
+            Spacer(modifier = Modifier.height(2.dp))
+            Text(
+                text = value,
+                color = LockTextSecondary,
+                fontSize = 10.sp,
+                lineHeight = 14.sp,
+                maxLines = 3
+            )
+            if (!meta.isNullOrBlank()) {
+                Spacer(modifier = Modifier.height(2.dp))
                 Text(
-                    text = title,
-                    color = LockTextPrimary,
-                    fontSize = 12.sp,
-                    fontWeight = FontWeight.Bold
+                    text = meta,
+                    color = metaColor ?: accentColor,
+                    fontSize = 9.sp,
+                    lineHeight = 12.sp,
+                    maxLines = 4
                 )
+            }
+            if (!detail.isNullOrBlank()) {
                 Spacer(modifier = Modifier.height(3.dp))
                 Text(
-                    text = value,
-                    color = LockTextSecondary,
-                    fontSize = 10.sp,
-                    lineHeight = 14.sp,
-                    maxLines = 3
-                )
-                if (!meta.isNullOrBlank()) {
-                    Spacer(modifier = Modifier.height(3.dp))
-                    Text(
-                        text = meta,
-                        color = metaColor ?: accentColor,
-                        fontSize = 9.sp,
-                        lineHeight = 12.sp,
-                        maxLines = 4
-                    )
-                }
-                if (!detail.isNullOrBlank()) {
-                    Spacer(modifier = Modifier.height(4.dp))
-                    Text(
-                        text = detail,
-                        color = LockTextMuted,
-                        fontSize = 9.sp,
-                        lineHeight = 13.sp
-                    )
-                }
-            }
-
-            Surface(
-                shape = RoundedCornerShape(999.dp),
-                color = badgeBackground
-            ) {
-                Text(
-                    text = status,
-                    color = accentColor,
+                    text = detail,
+                    color = LockTextMuted,
                     fontSize = 9.sp,
-                    fontWeight = FontWeight.ExtraBold,
-                    modifier = Modifier.padding(horizontal = 9.dp, vertical = 6.dp)
+                    lineHeight = 13.sp
                 )
             }
+        }
+
+        Surface(
+            shape = RoundedCornerShape(999.dp),
+            color = badgeBackground
+        ) {
+            Text(
+                text = status,
+                color = accentColor,
+                fontSize = 9.sp,
+                fontWeight = FontWeight.ExtraBold,
+                modifier = Modifier.padding(horizontal = 8.dp, vertical = 5.dp)
+            )
         }
     }
 }
@@ -373,16 +370,16 @@ internal fun PreparationFloatingActionBar(
 ) {
     Surface(
         modifier = modifier,
-        shape = RoundedCornerShape(26.dp),
+        shape = RoundedCornerShape(22.dp),
         color = LockBlueDeep,
-        border = BorderStroke(1.dp, LockBlueDeep),
-        shadowElevation = 12.dp
+        border = BorderStroke(1.dp, LockBlueDeep.copy(alpha = 0.8f)),
+        shadowElevation = 8.dp
     ) {
         Row(
             modifier = Modifier
                 .fillMaxWidth()
-                .padding(horizontal = 8.dp, vertical = 8.dp),
-            horizontalArrangement = Arrangement.spacedBy(8.dp),
+                .padding(horizontal = 6.dp, vertical = 6.dp),
+            horizontalArrangement = Arrangement.spacedBy(6.dp),
             verticalAlignment = Alignment.CenterVertically
         ) {
             CompactPrepActionButton(
@@ -395,9 +392,9 @@ internal fun PreparationFloatingActionBar(
             val buttonBg = if (!lowRam.enabled && startEnabled) {
                 Modifier.background(
                     brush = Brush.verticalGradient(
-                        colors = listOf(startButtonColor.copy(alpha = 0.88f), startButtonColor)
+                        colors = listOf(startButtonColor.copy(alpha = 0.92f), startButtonColor)
                     ),
-                    shape = RoundedCornerShape(20.dp)
+                    shape = RoundedCornerShape(18.dp)
                 )
             } else {
                 Modifier
@@ -406,9 +403,9 @@ internal fun PreparationFloatingActionBar(
                 onClick = onStartExam,
                 modifier = Modifier
                     .weight(1f)
-                    .height(58.dp)
+                    .height(54.dp)
                     .then(buttonBg),
-                shape = RoundedCornerShape(20.dp),
+                shape = RoundedCornerShape(18.dp),
                 enabled = startEnabled,
                 colors = ButtonDefaults.buttonColors(
                     containerColor = startButtonColor,
@@ -419,14 +416,14 @@ internal fun PreparationFloatingActionBar(
             ) {
                 Text(
                     text = if (webViewSessionResetInFlight) {
-                        tr("PREPARING CLEAN SESSION...", "MENYIAPKAN SESI BERSIH...")
+                        tr("PREPARING...", "MENYIAPKAN...")
                     } else if (isStartingExam) {
-                        tr("STARTING / VALIDATING...", "MEMULAI / VALIDASI...")
+                        tr("STARTING...", "MEMULAI...")
                     } else {
-                        tr("START EXAM MODE", "MULAI UJIAN")
+                        tr("START EXAM", "MULAI UJIAN")
                     },
                     fontWeight = FontWeight.ExtraBold,
-                    fontSize = 16.sp,
+                    fontSize = 15.sp,
                     textAlign = TextAlign.Center,
                     modifier = Modifier.fillMaxWidth()
                 )

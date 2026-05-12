@@ -19,11 +19,12 @@ internal data class InstalledPackageRecord(
         get() = systemApp || updatedSystemApp
 }
 
-internal data class InstalledPackageInventory(
+internal class InstalledPackageInventory(
     val records: List<InstalledPackageRecord>
 ) {
-    val byPackageName: Map<String, InstalledPackageRecord> =
+    val byPackageName: Map<String, InstalledPackageRecord> by lazy {
         records.associateBy { record -> record.packageName }
+    }
 
     fun get(packageName: String): InstalledPackageRecord? = byPackageName[packageName]
 
@@ -36,6 +37,14 @@ internal data class InstalledPackageInventory(
     fun findPackages(packageNames: Iterable<String>): List<InstalledPackageRecord> {
         return packageNames.mapNotNull { packageName -> get(packageName) }
     }
+
+    override fun equals(other: Any?): Boolean {
+        if (this === other) return true
+        if (other !is InstalledPackageInventory) return false
+        return records == other.records
+    }
+
+    override fun hashCode(): Int = records.hashCode()
 }
 
 internal data class InstalledPackageMetadata(

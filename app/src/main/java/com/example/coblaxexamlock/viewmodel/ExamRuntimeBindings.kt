@@ -3,8 +3,6 @@ package com.example.coblaxexamlock.viewmodel
 import androidx.activity.ComponentActivity
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
-import androidx.compose.runtime.collectAsState
-import androidx.compose.runtime.getValue
 import androidx.compose.runtime.remember
 import androidx.lifecycle.ViewModelProvider
 import com.example.coblaxexamlock.AdbInspection
@@ -88,7 +86,6 @@ internal fun rememberBoundExamRuntimeViewModel(
     val examRuntimeViewModel = remember(activity) {
         ViewModelProvider(activity)[ExamRuntimeViewModel::class.java]
     }
-    val examRuntimeUiState by examRuntimeViewModel.uiState.collectAsState()
     val checklistUiSnapshot = buildPreparationChecklistUiState(
         bypassKeyboardPolicy = bypassKeyboardPolicy,
         isKeyboardAllowed = isKeyboardAllowed,
@@ -155,80 +152,54 @@ internal fun rememberBoundExamRuntimeViewModel(
         showExitConfirmation = showExitExamDialog
     )
 
-    LaunchedEffect(checklistUiSnapshot, examRuntimeUiState.checklist) {
-        if (examRuntimeUiState.checklist != checklistUiSnapshot) {
+    LaunchedEffect(
+        checklistUiSnapshot,
+        chromeUiSnapshot,
+        dialogsUiSnapshot,
+        examSessionStarted,
+        showOfflineWarningDialog,
+        showNetworkUnstableDialog,
+        showGeofenceViolationDialog,
+        showFakeLocationViolationDialog
+    ) {
+        val currentState = examRuntimeViewModel.uiState.value
+        if (currentState.checklist != checklistUiSnapshot) {
             examRuntimeViewModel.dispatch(ExamRuntimeUiAction.UpdateChecklist(checklistUiSnapshot))
         }
-    }
-
-    LaunchedEffect(chromeUiSnapshot, examRuntimeUiState.chrome) {
-        if (examRuntimeUiState.chrome != chromeUiSnapshot) {
+        if (currentState.chrome != chromeUiSnapshot) {
             examRuntimeViewModel.dispatch(ExamRuntimeUiAction.UpdateChrome(chromeUiSnapshot))
         }
-    }
-
-    LaunchedEffect(dialogsUiSnapshot, examRuntimeUiState.dialogs) {
-        if (examRuntimeUiState.dialogs != dialogsUiSnapshot) {
+        if (currentState.dialogs != dialogsUiSnapshot) {
             examRuntimeViewModel.dispatch(ExamRuntimeUiAction.UpdateDialogs(dialogsUiSnapshot))
         }
-    }
-
-    LaunchedEffect(examSessionStarted, examRuntimeUiState.examStarted) {
-        if (examSessionStarted != examRuntimeUiState.examStarted) {
+        if (examSessionStarted != currentState.examStarted) {
             examRuntimeViewModel.dispatch(
-                if (examSessionStarted) {
-                    ExamRuntimeUiAction.StartExamRequested
-                } else {
-                    ExamRuntimeUiAction.EndExamRequested
-                }
+                if (examSessionStarted) ExamRuntimeUiAction.StartExamRequested
+                else ExamRuntimeUiAction.EndExamRequested
             )
         }
-    }
-
-    LaunchedEffect(showOfflineWarningDialog, examRuntimeUiState.showOfflineWarning) {
-        if (showOfflineWarningDialog != examRuntimeUiState.showOfflineWarning) {
+        if (showOfflineWarningDialog != currentState.showOfflineWarning) {
             examRuntimeViewModel.dispatch(
-                if (showOfflineWarningDialog) {
-                    ExamRuntimeUiAction.ShowOfflineWarning
-                } else {
-                    ExamRuntimeUiAction.HideOfflineWarning
-                }
+                if (showOfflineWarningDialog) ExamRuntimeUiAction.ShowOfflineWarning
+                else ExamRuntimeUiAction.HideOfflineWarning
             )
         }
-    }
-
-    LaunchedEffect(showNetworkUnstableDialog, examRuntimeUiState.showNetworkUnstableWarning) {
-        if (showNetworkUnstableDialog != examRuntimeUiState.showNetworkUnstableWarning) {
+        if (showNetworkUnstableDialog != currentState.showNetworkUnstableWarning) {
             examRuntimeViewModel.dispatch(
-                if (showNetworkUnstableDialog) {
-                    ExamRuntimeUiAction.ShowNetworkUnstableWarning
-                } else {
-                    ExamRuntimeUiAction.HideNetworkUnstableWarning
-                }
+                if (showNetworkUnstableDialog) ExamRuntimeUiAction.ShowNetworkUnstableWarning
+                else ExamRuntimeUiAction.HideNetworkUnstableWarning
             )
         }
-    }
-
-    LaunchedEffect(showGeofenceViolationDialog, examRuntimeUiState.showGeofenceWarning) {
-        if (showGeofenceViolationDialog != examRuntimeUiState.showGeofenceWarning) {
+        if (showGeofenceViolationDialog != currentState.showGeofenceWarning) {
             examRuntimeViewModel.dispatch(
-                if (showGeofenceViolationDialog) {
-                    ExamRuntimeUiAction.ShowGeofenceWarning
-                } else {
-                    ExamRuntimeUiAction.HideGeofenceWarning
-                }
+                if (showGeofenceViolationDialog) ExamRuntimeUiAction.ShowGeofenceWarning
+                else ExamRuntimeUiAction.HideGeofenceWarning
             )
         }
-    }
-
-    LaunchedEffect(showFakeLocationViolationDialog, examRuntimeUiState.showFakeLocationWarning) {
-        if (showFakeLocationViolationDialog != examRuntimeUiState.showFakeLocationWarning) {
+        if (showFakeLocationViolationDialog != currentState.showFakeLocationWarning) {
             examRuntimeViewModel.dispatch(
-                if (showFakeLocationViolationDialog) {
-                    ExamRuntimeUiAction.ShowFakeLocationWarning
-                } else {
-                    ExamRuntimeUiAction.HideFakeLocationWarning
-                }
+                if (showFakeLocationViolationDialog) ExamRuntimeUiAction.ShowFakeLocationWarning
+                else ExamRuntimeUiAction.HideFakeLocationWarning
             )
         }
     }

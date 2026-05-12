@@ -16,6 +16,7 @@ import androidx.compose.foundation.layout.navigationBarsPadding
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.statusBarsPadding
+import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
@@ -27,6 +28,7 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.draw.drawWithContent
+import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.semantics.Role
 import androidx.compose.ui.text.TextStyle
@@ -47,7 +49,6 @@ import com.example.coblaxexamlock.ui.theme.LockGold
 import com.example.coblaxexamlock.ui.theme.LockOnDark
 import com.example.coblaxexamlock.ui.theme.LockOutline
 import com.example.coblaxexamlock.ui.theme.LockTextMuted
-import com.example.coblaxexamlock.ui.theme.LockTextPrimary
 import com.example.coblaxexamlock.ui.theme.LockTextSecondary
 import java.util.concurrent.atomic.AtomicBoolean
 
@@ -76,13 +77,26 @@ internal fun ExamLockLowRamHomeScreen(
             }
             .background(LockBackground)
     ) {
+        // Subtle top gradient accent — lightweight, no bitmap
+        Box(
+            modifier = Modifier
+                .fillMaxWidth()
+                .height(200.dp)
+                .background(
+                    brush = Brush.verticalGradient(
+                        0f to LockBlue.copy(alpha = 0.06f),
+                        1f to Color.Transparent
+                    )
+                )
+        )
+
         Column(
             modifier = Modifier
                 .fillMaxSize()
                 .statusBarsPadding()
                 .navigationBarsPadding()
                 .verticalScroll(rememberScrollState())
-                .padding(horizontal = 16.dp, vertical = 12.dp),
+                .padding(horizontal = 20.dp, vertical = 16.dp),
             horizontalAlignment = Alignment.CenterHorizontally
         ) {
             LowRamHero(
@@ -91,19 +105,20 @@ internal fun ExamLockLowRamHomeScreen(
                 onSecretTap = onSecretTap
             )
 
-            Spacer(modifier = Modifier.height(12.dp))
+            Spacer(modifier = Modifier.height(16.dp))
 
             LowRamHomeButton(
                 text = tr("SCAN EXAM QR", "SCAN QR UJIAN"),
                 subtitle = tr(
-                    "Scan the exam QR to start. Your settings are already verified.",
-                    "Pindai QR ujian untuk mulai. Pengaturan sudah diverifikasi."
+                    "Scan the exam QR to start",
+                    "Pindai QR ujian untuk mulai"
                 ),
                 badgeText = tr("RECOMMENDED", "REKOMENDASI"),
                 glyph = "QR",
                 containerColor = LockBlue,
                 contentColor = LockOnDark,
                 borderColor = LockBlue,
+                glyphContainerColor = Color.White.copy(alpha = 0.18f),
                 onClick = onScanExam
             )
 
@@ -112,14 +127,15 @@ internal fun ExamLockLowRamHomeScreen(
             LowRamHomeButton(
                 text = tr("CUSTOM QR (ADMIN)", "CUSTOM QR (ADMIN)"),
                 subtitle = tr(
-                    "Create a new exam QR for admin tasks like scheduling or trial checks.",
-                    "Buat QR ujian baru untuk kebutuhan admin seperti jadwal atau uji coba."
+                    "Create exam QR for admin tasks",
+                    "Buat QR ujian untuk kebutuhan admin"
                 ),
                 badgeText = "ADMIN",
                 glyph = "AD",
                 containerColor = Color.White,
-                contentColor = LockBlue,
+                contentColor = LockBlueDeep,
                 borderColor = LockOutline,
+                glyphContainerColor = LockBlue.copy(alpha = 0.08f),
                 onClick = onOpenAdmin
             )
 
@@ -128,42 +144,53 @@ internal fun ExamLockLowRamHomeScreen(
             LowRamHomeButton(
                 text = directLinkLabel,
                 subtitle = tr(
-                    "Open the exam quickly when you already have the link.",
-                    "Buka ujian cepat saat sudah punya link."
+                    "Open exam quickly with saved link",
+                    "Buka ujian cepat dengan link tersimpan"
                 ),
                 badgeText = tr("DIRECT LINK", "LINK LANGSUNG"),
                 glyph = "GO",
-                containerColor = LockGold.copy(alpha = 0.22f),
+                containerColor = LockGold.copy(alpha = 0.12f),
                 contentColor = LockBlueDeep,
-                borderColor = LockGold.copy(alpha = 0.55f),
+                borderColor = LockGold.copy(alpha = 0.40f),
+                glyphContainerColor = LockBlueDeep.copy(alpha = 0.08f),
                 onClick = onOpenFastExam
             )
 
             if (showDeferredChrome) {
-                Spacer(modifier = Modifier.height(12.dp))
-                LowRamText(
-                    text = "Developer: COBLAX",
-                    color = LockTextSecondary,
-                    fontSize = 13.sp,
-                    fontWeight = FontWeight.SemiBold,
-                    textAlign = TextAlign.Center
-                )
-                LowRamText(
-                    text = DeveloperGithubUrl,
-                    color = LockTextMuted,
-                    fontSize = 12.sp,
-                    textAlign = TextAlign.Center
-                )
-                Spacer(modifier = Modifier.height(8.dp))
-                LowRamText(
-                    text = tr(
-                        "Production build - Version ${BuildConfig.VERSION_NAME} (${BuildConfig.VERSION_CODE})",
-                        "Build produksi - Versi ${BuildConfig.VERSION_NAME} (${BuildConfig.VERSION_CODE})"
-                    ),
-                    color = LockTextMuted,
-                    fontSize = 12.sp,
-                    textAlign = TextAlign.Center
-                )
+                Spacer(modifier = Modifier.height(20.dp))
+
+                Box(
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .clip(RoundedCornerShape(14.dp))
+                        .background(Color(0xFFF8FAFD))
+                        .border(1.dp, LockOutline.copy(alpha = 0.6f), RoundedCornerShape(14.dp))
+                        .padding(horizontal = 16.dp, vertical = 12.dp),
+                    contentAlignment = Alignment.Center
+                ) {
+                    Column(horizontalAlignment = Alignment.CenterHorizontally) {
+                        LowRamText(
+                            text = "COBLAX",
+                            color = LockBlueDeep,
+                            fontSize = 12.sp,
+                            fontWeight = FontWeight.Black,
+                            letterSpacing = 1.sp
+                        )
+                        LowRamText(
+                            text = DeveloperGithubUrl,
+                            color = LockTextMuted,
+                            fontSize = 11.sp,
+                            textAlign = TextAlign.Center
+                        )
+                        Spacer(modifier = Modifier.height(4.dp))
+                        LowRamText(
+                            text = "v${BuildConfig.VERSION_NAME}",
+                            color = LockTextMuted.copy(alpha = 0.7f),
+                            fontSize = 11.sp,
+                            textAlign = TextAlign.Center
+                        )
+                    }
+                }
             }
 
             Spacer(modifier = Modifier.height(8.dp))
@@ -180,10 +207,10 @@ private fun LowRamHero(
     Column(
         modifier = Modifier
             .fillMaxWidth()
-            .clip(RoundedCornerShape(18.dp))
+            .clip(RoundedCornerShape(22.dp))
             .background(Color.White)
-            .border(1.dp, LockOutline.copy(alpha = 0.92f), RoundedCornerShape(18.dp))
-            .padding(horizontal = 16.dp, vertical = 14.dp),
+            .border(1.dp, LockOutline.copy(alpha = 0.7f), RoundedCornerShape(22.dp))
+            .padding(horizontal = 20.dp, vertical = 16.dp),
         horizontalAlignment = Alignment.CenterHorizontally
     ) {
         Row(
@@ -191,80 +218,118 @@ private fun LowRamHero(
             horizontalArrangement = Arrangement.SpaceBetween,
             verticalAlignment = Alignment.CenterVertically
         ) {
-            Row(
+            // Production badge
+            Box(
                 modifier = Modifier
                     .clip(RoundedCornerShape(999.dp))
-                    .background(LockBlueDeep)
-                    .border(1.dp, LockBlue.copy(alpha = 0.22f), RoundedCornerShape(999.dp))
+                    .background(
+                        brush = Brush.horizontalGradient(
+                            0f to LockBlueDeep,
+                            1f to LockBlue.copy(alpha = 0.85f)
+                        )
+                    )
                     .clickable(
                         interactionSource = remember { MutableInteractionSource() },
                         indication = null,
                         role = Role.Button,
                         onClick = onSecretTap
                     )
-                    .padding(horizontal = 12.dp, vertical = 8.dp),
-                verticalAlignment = Alignment.CenterVertically,
-                horizontalArrangement = Arrangement.spacedBy(6.dp)
+                    .padding(horizontal = 12.dp, vertical = 7.dp),
+                contentAlignment = Alignment.Center
             ) {
-                Box(
-                    modifier = Modifier
-                        .size(8.dp)
-                        .clip(CircleShape)
-                        .background(Color.White.copy(alpha = 0.94f))
-                )
-                LowRamText(
-                    text = tr("PRODUCTION", "PRODUKSI"),
-                    color = LockOnDark,
-                    fontSize = 11.sp,
-                    fontWeight = FontWeight.Black
-                )
+                Row(
+                    verticalAlignment = Alignment.CenterVertically,
+                    horizontalArrangement = Arrangement.spacedBy(5.dp)
+                ) {
+                    Box(
+                        modifier = Modifier
+                            .size(6.dp)
+                            .clip(CircleShape)
+                            .background(Color.White.copy(alpha = 0.9f))
+                    )
+                    LowRamText(
+                        text = "PROD",
+                        color = LockOnDark,
+                        fontSize = 10.sp,
+                        fontWeight = FontWeight.Black,
+                        letterSpacing = 0.8.sp
+                    )
+                }
             }
 
-            Row(horizontalArrangement = Arrangement.spacedBy(6.dp)) {
-                LowRamLanguageButton(
-                    text = "ID",
-                    selected = uiLanguage == UiLanguage.Indonesian,
-                    onClick = { onUiLanguageChange(UiLanguage.Indonesian) }
-                )
-                LowRamLanguageButton(
+            // Language toggle
+            Row(
+                modifier = Modifier
+                    .clip(RoundedCornerShape(999.dp))
+                    .background(Color(0xFFF4F7FB))
+                    .border(1.dp, LockOutline.copy(alpha = 0.6f), RoundedCornerShape(999.dp))
+                    .padding(horizontal = 4.dp, vertical = 4.dp),
+                horizontalArrangement = Arrangement.spacedBy(2.dp)
+            ) {
+                LowRamLanguageChip(
                     text = "EN",
                     selected = uiLanguage == UiLanguage.English,
                     onClick = { onUiLanguageChange(UiLanguage.English) }
                 )
+                LowRamLanguageChip(
+                    text = "ID",
+                    selected = uiLanguage == UiLanguage.Indonesian,
+                    onClick = { onUiLanguageChange(UiLanguage.Indonesian) }
+                )
             }
         }
 
-        Spacer(modifier = Modifier.height(14.dp))
+        Spacer(modifier = Modifier.height(18.dp))
+
+        // Brand mark
+        Box(
+            modifier = Modifier
+                .size(72.dp)
+                .clip(RoundedCornerShape(18.dp))
+                .background(
+                    brush = Brush.verticalGradient(
+                        0f to LockBlueDeep,
+                        1f to LockBlue
+                    )
+                ),
+            contentAlignment = Alignment.Center
+        ) {
+            LowRamText(
+                text = "CBX",
+                color = Color.White,
+                fontSize = 22.sp,
+                fontWeight = FontWeight.Black,
+                letterSpacing = 1.sp
+            )
+        }
+
+        Spacer(modifier = Modifier.height(10.dp))
 
         LowRamText(
-            text = "CBX",
-            color = LockBlueDeep,
-            fontSize = 28.sp,
-            fontWeight = FontWeight.Black,
-            textAlign = TextAlign.Center
-        )
-        LowRamText(
             text = "EXAM LOCK",
-            color = LockBlue,
-            fontSize = 16.sp,
+            color = LockBlueDeep,
+            fontSize = 18.sp,
             fontWeight = FontWeight.Black,
+            letterSpacing = 0.5.sp,
             textAlign = TextAlign.Center
         )
+
+        Spacer(modifier = Modifier.height(6.dp))
+
         LowRamText(
             text = tr(
-                "Secure exam entry for low-memory Android devices.",
-                "Akses ujian aman untuk perangkat Android low-memory."
+                "Secure exam browser for Android",
+                "Browser ujian aman untuk Android"
             ),
             color = LockTextSecondary,
-            fontSize = 13.sp,
-            textAlign = TextAlign.Center,
-            modifier = Modifier.padding(top = 6.dp)
+            fontSize = 12.sp,
+            textAlign = TextAlign.Center
         )
     }
 }
 
 @Composable
-private fun LowRamLanguageButton(
+private fun LowRamLanguageChip(
     text: String,
     selected: Boolean,
     onClick: () -> Unit
@@ -272,16 +337,16 @@ private fun LowRamLanguageButton(
     Box(
         modifier = Modifier
             .clip(RoundedCornerShape(999.dp))
-            .background(if (selected) LockBlueDeep else Color.Transparent)
+            .background(if (selected) LockBlue else Color.Transparent)
             .clickable(role = Role.Button, onClick = onClick)
-            .padding(horizontal = 12.dp, vertical = 8.dp),
+            .padding(horizontal = 12.dp, vertical = 6.dp),
         contentAlignment = Alignment.Center
     ) {
         LowRamText(
             text = text,
-            color = if (selected) LockOnDark else LockBlueDeep,
-            fontSize = 12.sp,
-            fontWeight = FontWeight.Black,
+            color = if (selected) LockOnDark else LockTextSecondary,
+            fontSize = 11.sp,
+            fontWeight = FontWeight.Bold,
             textAlign = TextAlign.Center
         )
     }
@@ -296,55 +361,59 @@ private fun LowRamHomeButton(
     containerColor: Color,
     contentColor: Color,
     borderColor: Color,
+    glyphContainerColor: Color,
     onClick: () -> Unit
 ) {
     Row(
         modifier = Modifier
             .fillMaxWidth()
-            .clip(RoundedCornerShape(16.dp))
+            .clip(RoundedCornerShape(18.dp))
             .background(containerColor)
-            .border(1.dp, borderColor, RoundedCornerShape(16.dp))
+            .border(1.dp, borderColor, RoundedCornerShape(18.dp))
             .clickable(role = Role.Button, onClick = onClick)
             .padding(horizontal = 16.dp, vertical = 14.dp),
-        horizontalArrangement = Arrangement.spacedBy(12.dp),
+        horizontalArrangement = Arrangement.spacedBy(14.dp),
         verticalAlignment = Alignment.CenterVertically
     ) {
+        // Icon glyph container
         Box(
             modifier = Modifier
+                .size(44.dp)
                 .clip(RoundedCornerShape(12.dp))
-                .background(contentColor.copy(alpha = 0.10f))
-                .border(1.dp, contentColor.copy(alpha = 0.16f), RoundedCornerShape(12.dp))
-                .padding(10.dp)
-                .size(26.dp),
+                .background(glyphContainerColor),
             contentAlignment = Alignment.Center
         ) {
             LowRamText(
                 text = glyph,
                 color = contentColor,
-                fontSize = 11.sp,
+                fontSize = 13.sp,
                 fontWeight = FontWeight.Black,
                 textAlign = TextAlign.Center
             )
         }
 
-        Column(modifier = Modifier.weight(1f)) {
+        Column(
+            modifier = Modifier.weight(1f),
+            verticalArrangement = Arrangement.spacedBy(3.dp)
+        ) {
             LowRamText(
                 text = badgeText,
-                color = contentColor.copy(alpha = 0.72f),
-                fontSize = 10.sp,
-                fontWeight = FontWeight.Black
+                color = contentColor.copy(alpha = 0.65f),
+                fontSize = 9.sp,
+                fontWeight = FontWeight.Bold,
+                letterSpacing = 0.6.sp
             )
             LowRamText(
                 text = text,
                 color = contentColor,
-                fontSize = 16.sp,
-                fontWeight = FontWeight.Black
+                fontSize = 15.sp,
+                fontWeight = FontWeight.Bold
             )
             LowRamText(
                 text = subtitle,
-                color = contentColor.copy(alpha = 0.76f),
-                fontSize = 12.sp,
-                lineHeight = 16.sp
+                color = contentColor.copy(alpha = 0.70f),
+                fontSize = 11.sp,
+                lineHeight = 15.sp
             )
         }
     }
@@ -358,7 +427,8 @@ private fun LowRamText(
     modifier: Modifier = Modifier,
     fontWeight: FontWeight = FontWeight.Normal,
     textAlign: TextAlign = TextAlign.Start,
-    lineHeight: TextUnit = TextUnit.Unspecified
+    lineHeight: TextUnit = TextUnit.Unspecified,
+    letterSpacing: TextUnit = TextUnit.Unspecified
 ) {
     BasicText(
         text = text,
@@ -368,7 +438,8 @@ private fun LowRamText(
             fontSize = fontSize,
             fontWeight = fontWeight,
             textAlign = textAlign,
-            lineHeight = lineHeight
+            lineHeight = lineHeight,
+            letterSpacing = letterSpacing
         )
     )
 }

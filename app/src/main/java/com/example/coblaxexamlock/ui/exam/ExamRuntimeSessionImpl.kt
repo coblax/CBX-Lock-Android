@@ -2439,6 +2439,10 @@ internal fun ExamRuntimeSessionScreenImpl(
             if (memoryAction.cleanupInactiveWebView) {
                 cleanupActiveExamWebViewInstance()
             }
+            if (memoryAction.clearActiveWebViewCache) {
+                runCatching { webViewInstance?.clearCache(false) }
+            }
+            SecurityDetectorCache.invalidateStaticSecurity()
             val actions = memoryAction.diagnosticActions().joinToString(",")
             val details = "trim_level=$level | exam_started=$examSessionStarted | " +
                 "low_ram=${lowRamProfile.enabled} | severe=${lowRamProfile.severe} | actions=$actions"

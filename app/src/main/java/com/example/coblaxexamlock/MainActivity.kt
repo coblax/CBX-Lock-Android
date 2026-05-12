@@ -96,15 +96,24 @@ class MainActivity : ComponentActivity() {
         val root = LinearLayout(this).apply {
             orientation = LinearLayout.VERTICAL
             gravity = Gravity.CENTER_HORIZONTAL
-            setPadding(dp(16), dp(28), dp(16), dp(16))
-            setBackgroundColor(Color.rgb(245, 247, 251))
+            setPadding(dp(20), dp(32), dp(20), dp(16))
+            setBackgroundColor(Color.WHITE)
         }
 
-        root.addView(
+        // Brand container
+        val brandCard = LinearLayout(this).apply {
+            orientation = LinearLayout.VERTICAL
+            gravity = Gravity.CENTER_HORIZONTAL
+            setPadding(dp(20), dp(16), dp(20), dp(16))
+            background = roundedBackground(Color.WHITE, Color.rgb(216, 225, 236))
+        }
+
+        // Production badge
+        brandCard.addView(
             TextView(this).apply {
-                text = "PRODUCTION"
+                text = "PROD"
                 setTextColor(Color.WHITE)
-                textSize = 12f
+                textSize = 10f
                 typeface = android.graphics.Typeface.DEFAULT_BOLD
                 gravity = Gravity.CENTER
                 setPadding(dp(12), dp(6), dp(12), dp(6))
@@ -117,24 +126,32 @@ class MainActivity : ComponentActivity() {
             )
         )
 
-        root.addView(space(dp(20)))
-        root.addView(
-            TextView(this).apply {
-                text = "CBX"
-                setTextColor(Color.rgb(12, 32, 72))
-                textSize = 36f
-                typeface = android.graphics.Typeface.DEFAULT_BOLD
-                gravity = Gravity.CENTER
-            },
+        brandCard.addView(space(dp(14)))
+
+        // Logo mark
+        val logoMark = TextView(this).apply {
+            text = "CBX"
+            setTextColor(Color.WHITE)
+            textSize = 20f
+            typeface = android.graphics.Typeface.DEFAULT_BOLD
+            gravity = Gravity.CENTER
+            setPadding(dp(20), dp(14), dp(20), dp(14))
+            background = roundedBackground(Color.rgb(12, 32, 72), Color.TRANSPARENT)
+        }
+        brandCard.addView(
+            logoMark,
             LinearLayout.LayoutParams(
-                LinearLayout.LayoutParams.MATCH_PARENT,
+                LinearLayout.LayoutParams.WRAP_CONTENT,
                 LinearLayout.LayoutParams.WRAP_CONTENT
-            )
+            ).apply { gravity = Gravity.CENTER_HORIZONTAL }
         )
-        root.addView(
+
+        brandCard.addView(space(dp(10)))
+
+        brandCard.addView(
             TextView(this).apply {
                 text = "EXAM LOCK"
-                setTextColor(Color.rgb(24, 90, 170))
+                setTextColor(Color.rgb(12, 32, 72))
                 textSize = 18f
                 typeface = android.graphics.Typeface.DEFAULT_BOLD
                 gravity = Gravity.CENTER
@@ -144,32 +161,87 @@ class MainActivity : ComponentActivity() {
                 LinearLayout.LayoutParams.WRAP_CONTENT
             )
         )
-        root.addView(space(dp(18)))
+
+        brandCard.addView(
+            TextView(this).apply {
+                text = "Secure exam browser"
+                setTextColor(Color.rgb(86, 96, 107))
+                textSize = 12f
+                gravity = Gravity.CENTER
+            },
+            LinearLayout.LayoutParams(
+                LinearLayout.LayoutParams.MATCH_PARENT,
+                LinearLayout.LayoutParams.WRAP_CONTENT
+            ).apply { topMargin = dp(4) }
+        )
+
+        root.addView(
+            brandCard,
+            LinearLayout.LayoutParams(
+                LinearLayout.LayoutParams.MATCH_PARENT,
+                LinearLayout.LayoutParams.WRAP_CONTENT
+            )
+        )
+
+        root.addView(space(dp(16)))
 
         val nativeActions = listOf(
-            "QR   SCAN QR UJIAN" to NativeActionScanExam,
-            "AD   CUSTOM QR (ADMIN)" to NativeActionCustomQrAdmin,
-            "GO   DIRECT LINK" to NativeActionDirectLink
+            Triple("QR", "SCAN QR UJIAN", NativeActionScanExam),
+            Triple("AD", "CUSTOM QR (ADMIN)", NativeActionCustomQrAdmin),
+            Triple("GO", "DIRECT LINK", NativeActionDirectLink)
         )
         var directLinkButton: TextView? = null
-        nativeActions.forEach { (label, action) ->
-            val button = TextView(this).apply {
-                text = label
-                setTextColor(Color.rgb(12, 32, 72))
-                textSize = 16f
-                typeface = android.graphics.Typeface.DEFAULT_BOLD
-                setPadding(dp(14), dp(12), dp(14), dp(12))
-                background = roundedBackground(Color.WHITE, Color.rgb(221, 228, 238))
+        nativeActions.forEach { (glyph, label, action) ->
+            val buttonRow = LinearLayout(this).apply {
+                orientation = LinearLayout.HORIZONTAL
+                gravity = Gravity.CENTER_VERTICAL
+                setPadding(dp(16), dp(14), dp(16), dp(14))
+                background = if (action == NativeActionScanExam) {
+                    roundedBackground(Color.rgb(68, 129, 243), Color.TRANSPARENT)
+                } else {
+                    roundedBackground(Color.WHITE, Color.rgb(216, 225, 236))
+                }
                 setOnClickListener { startComposeContent(action) }
             }
-            if (action == NativeActionDirectLink) {
-                directLinkButton = button
+
+            val glyphView = TextView(this).apply {
+                text = glyph
+                setTextColor(
+                    if (action == NativeActionScanExam) Color.WHITE
+                    else Color.rgb(12, 32, 72)
+                )
+                textSize = 12f
+                typeface = android.graphics.Typeface.DEFAULT_BOLD
+                gravity = Gravity.CENTER
+                setPadding(dp(10), dp(8), dp(10), dp(8))
+                background = roundedBackground(
+                    if (action == NativeActionScanExam) Color.argb(40, 255, 255, 255)
+                    else Color.argb(15, 68, 129, 243),
+                    Color.TRANSPARENT
+                )
             }
+            buttonRow.addView(glyphView)
+
+            val labelView = TextView(this).apply {
+                text = label
+                setTextColor(
+                    if (action == NativeActionScanExam) Color.WHITE
+                    else Color.rgb(12, 32, 72)
+                )
+                textSize = 15f
+                typeface = android.graphics.Typeface.DEFAULT_BOLD
+                setPadding(dp(12), 0, 0, 0)
+            }
+            if (action == NativeActionDirectLink) {
+                directLinkButton = labelView
+            }
+            buttonRow.addView(labelView)
+
             root.addView(
-                button,
+                buttonRow,
                 LinearLayout.LayoutParams(
                     LinearLayout.LayoutParams.MATCH_PARENT,
-                LinearLayout.LayoutParams.WRAP_CONTENT
+                    LinearLayout.LayoutParams.WRAP_CONTENT
                 ).apply {
                     topMargin = dp(10)
                 }
@@ -205,7 +277,7 @@ class MainActivity : ComponentActivity() {
                 ?.ifBlank { FastExamName }
                 ?: FastExamName
         }.getOrDefault(FastExamName)
-        button.text = "GO   $label"
+        button.text = label
         StartupTrace.mark("native_home_direct_link_label_loaded")
     }
 

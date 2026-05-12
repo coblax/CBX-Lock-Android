@@ -27,8 +27,9 @@ import com.example.coblaxexamlock.model.NetworkReadinessStatus
 import com.example.coblaxexamlock.runtime.readExamBatteryStatus
 import kotlinx.coroutines.delay
 
-internal const val NetworkReadinessPollingStableIntervalMillis = 10_000L
-internal const val NetworkReadinessPollingUnstableIntervalMillis = 3_000L
+internal const val NetworkReadinessPollingStableIntervalMillis = 30_000L
+internal const val NetworkReadinessPollingUnstableIntervalMillis = 5_000L
+internal const val NetworkReadinessPollingCallbackDebounceMillis = 800L
 
 internal class ExamRuntimeNetworkUiState(
     val networkUnstableEpisodeStartedAt: MutableState<String?>,
@@ -130,9 +131,24 @@ internal fun RuntimeConnectivityEffects(
 
     DisposableEffect(context, examSessionStarted) {
         val connectivityManager = context.getSystemService(ConnectivityManager::class.java)
+        var lastCallbackPostElapsedMs = 0L
         val pushNetworkStatusUpdate = { source: String ->
-            networkMainHandler.post {
-                updateNetworkReadiness(source)
+            val now = SystemClock.elapsedRealtime()
+            if (now - lastCallbackPostElapsedMs >= NetworkReadinessPollingCallbackDebounceMillis) {
+                lastCallbackPostElapsedMs = now
+                networkMainHandler.removeCallbacksAndMessages("network_debounce")
+                networkMainHandler.post {
+                    updateNetworkReadiness(source)
+                }
+            } else {
+                networkMainHandler.removeCallbacksAndMessages("network_debounce")
+                networkMainHandler.postDelayed(
+                    {
+                        lastCallbackPostElapsedMs = SystemClock.elapsedRealtime()
+                        updateNetworkReadiness(source)
+                    },
+                    NetworkReadinessPollingCallbackDebounceMillis
+                )
             }
         }
         val callback = object : ConnectivityManager.NetworkCallback() {
@@ -163,7 +179,7 @@ internal fun RuntimeConnectivityEffects(
             }
         }
 
-        pushNetworkStatusUpdate("initial")
+        networkMainHandler.post { updateNetworkReadiness("initial") }
         runCatching {
             connectivityManager?.registerDefaultNetworkCallback(callback)
         }
