@@ -972,28 +972,48 @@ internal fun SecretAdminScreen(
             .background(LockBackground)
             .statusBarsPadding()
             .navigationBarsPadding()
-            .padding(horizontal = 24.dp, vertical = 18.dp)
+            .padding(horizontal = 20.dp, vertical = 14.dp)
     ) {
-        BackPillButton(onClick = onBack)
+        Row(
+            modifier = Modifier.fillMaxWidth(),
+            horizontalArrangement = Arrangement.SpaceBetween,
+            verticalAlignment = Alignment.CenterVertically
+        ) {
+            BackPillButton(onClick = onBack)
 
-        Spacer(modifier = Modifier.height(16.dp))
+            Surface(
+                shape = RoundedCornerShape(999.dp),
+                color = LockBlueDeep
+            ) {
+                Text(
+                    text = "ADMIN",
+                    color = LockOnDark,
+                    fontSize = 10.sp,
+                    fontWeight = FontWeight.ExtraBold,
+                    letterSpacing = 0.8.sp,
+                    modifier = Modifier.padding(horizontal = 10.dp, vertical = 5.dp)
+                )
+            }
+        }
+
+        Spacer(modifier = Modifier.height(14.dp))
 
         Text(
             text = tr("Secret Admin", "Admin Rahasia"),
             color = LockTextPrimary,
-            fontSize = 28.sp,
-            fontWeight = FontWeight.Bold
+            fontSize = 24.sp,
+            fontWeight = FontWeight.Black
         )
 
-        Spacer(modifier = Modifier.height(8.dp))
+        Spacer(modifier = Modifier.height(4.dp))
 
         Text(
             text = tr(
-                "Manage the direct link and security overrides.",
-                "Atur direct link dan override keamanan."
+                "Direct link & security overrides",
+                "Direct link & override keamanan"
             ),
             color = LockTextSecondary,
-            fontSize = 15.sp
+            fontSize = 13.sp
         )
 
         if (settings.bypassMigrationResetNotice) {
@@ -1024,22 +1044,19 @@ internal fun SecretAdminScreen(
         ) {
             if (selectedSecretAdminTab == SecretAdminTab.Setup) {
 
-        Surface(
-            modifier = Modifier.fillMaxWidth(),
-            shape = RoundedCornerShape(22.dp),
-            color = Color.White,
-            border = BorderStroke(1.dp, LockOutline),
-            tonalElevation = 2.dp,
-            shadowElevation = 6.dp
+        Column(
+            modifier = Modifier
+                .fillMaxWidth()
+                .clip(RoundedCornerShape(20.dp))
+                .background(Color.White)
+                .border(1.dp, LockOutline.copy(alpha = 0.7f), RoundedCornerShape(20.dp))
+                .padding(horizontal = 16.dp, vertical = 16.dp),
+            verticalArrangement = Arrangement.spacedBy(12.dp)
         ) {
-            Column(
-                modifier = Modifier.padding(horizontal = 16.dp, vertical = 16.dp),
-                verticalArrangement = Arrangement.spacedBy(12.dp)
-            ) {
                 Text(
                     text = tr("Direct Link", "Direct Link"),
                     color = LockTextPrimary,
-                    fontSize = 18.sp,
+                    fontSize = 17.sp,
                     fontWeight = FontWeight.Bold
                 )
                 AdminInputField(
@@ -1154,7 +1171,6 @@ internal fun SecretAdminScreen(
                         Text(tr("Reset to default", "Reset ke default"), color = LockBlue)
                     }
                 }
-            }
         }
 
         Spacer(modifier = Modifier.height(18.dp))
@@ -1728,8 +1744,8 @@ private fun AdminReadinessSummaryCard(
         shape = RoundedCornerShape(22.dp),
         color = Color.White,
         border = BorderStroke(1.dp, statusColor.copy(alpha = 0.24f)),
-        tonalElevation = 1.dp,
-        shadowElevation = 2.dp
+        tonalElevation = 0.dp,
+        shadowElevation = 0.dp
     ) {
         Column(
             modifier = Modifier.padding(horizontal = 16.dp, vertical = 16.dp),
@@ -2267,41 +2283,39 @@ internal fun SecretAdminTabSelector(
         SecretAdminTab.Security to tr("Security", "Security")
     )
 
-    Surface(
-        modifier = Modifier.fillMaxWidth(),
-        shape = RoundedCornerShape(18.dp),
-        color = LockSurfaceSoft,
-        border = BorderStroke(1.dp, LockOutline)
+    Row(
+        modifier = Modifier
+            .fillMaxWidth()
+            .clip(RoundedCornerShape(14.dp))
+            .background(LockSurfaceSoft)
+            .border(1.dp, LockOutline.copy(alpha = 0.7f), RoundedCornerShape(14.dp))
+            .padding(3.dp),
+        horizontalArrangement = Arrangement.spacedBy(3.dp),
+        verticalAlignment = Alignment.CenterVertically
     ) {
-        Row(
-            modifier = Modifier.padding(4.dp),
-            horizontalArrangement = Arrangement.spacedBy(4.dp),
-            verticalAlignment = Alignment.CenterVertically
-        ) {
-            tabs.forEach { (tab, label) ->
-                val selected = tab == selectedTab
-                Surface(
-                    modifier = Modifier
-                        .weight(1f)
-                        .clip(RoundedCornerShape(14.dp))
-                        .clickable(
-                            interactionSource = remember { MutableInteractionSource() },
-                            indication = null,
-                            role = Role.Button,
-                            onClick = { onTabSelected(tab) }
-                        ),
-                    shape = RoundedCornerShape(14.dp),
-                    color = if (selected) LockBlue else Color.Transparent
-                ) {
-                    Text(
-                        text = label,
-                        color = if (selected) LockOnDark else LockTextSecondary,
-                        fontSize = 14.sp,
-                        fontWeight = FontWeight.Bold,
-                        textAlign = TextAlign.Center,
-                        modifier = Modifier.padding(horizontal = 12.dp, vertical = 11.dp)
+        tabs.forEach { (tab, label) ->
+            val selected = tab == selectedTab
+            Box(
+                modifier = Modifier
+                    .weight(1f)
+                    .clip(RoundedCornerShape(11.dp))
+                    .background(if (selected) LockBlue else Color.Transparent)
+                    .clickable(
+                        interactionSource = remember { MutableInteractionSource() },
+                        indication = null,
+                        role = Role.Button,
+                        onClick = { onTabSelected(tab) }
                     )
-                }
+                    .padding(horizontal = 12.dp, vertical = 10.dp),
+                contentAlignment = Alignment.Center
+            ) {
+                Text(
+                    text = label,
+                    color = if (selected) LockOnDark else LockTextSecondary,
+                    fontSize = 13.sp,
+                    fontWeight = FontWeight.Bold,
+                    textAlign = TextAlign.Center
+                )
             }
         }
     }

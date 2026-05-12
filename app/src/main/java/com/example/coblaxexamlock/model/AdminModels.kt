@@ -97,7 +97,10 @@ internal data class AdminSettings(
             bypassGeofence ||
             bypassFakeLocation ||
             bypassDeviceTime ||
-            bypassAppSwitch
+            bypassAppSwitch ||
+            bypassScreenRecorder ||
+            bypassDisplayMirror ||
+            bypassMultiWindow
     }
 
     fun overrideSummary(): String {
@@ -116,6 +119,9 @@ internal data class AdminSettings(
         if (bypassFakeLocation) overrides.add("fake location")
         if (bypassDeviceTime) overrides.add("device time")
         if (bypassAppSwitch) overrides.add("app switch")
+        if (bypassScreenRecorder) overrides.add("screen recorder")
+        if (bypassDisplayMirror) overrides.add("display mirror")
+        if (bypassMultiWindow) overrides.add("multi-window")
         return overrides.joinToString().ifBlank { "-" }
     }
 }

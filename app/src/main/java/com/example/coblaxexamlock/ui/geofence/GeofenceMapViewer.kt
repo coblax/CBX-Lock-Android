@@ -488,7 +488,7 @@ internal fun GeofenceMapViewerScreen(
     ) {
         Surface(
             color = Color.White,
-            shadowElevation = 6.dp
+            shadowElevation = 3.dp
         ) {
             Column(
                 modifier = Modifier
@@ -633,7 +633,7 @@ internal fun GeofenceMapViewerScreen(
 
         Surface(
             color = Color.White,
-            shadowElevation = 8.dp
+            shadowElevation = 3.dp
         ) {
             Column(
                 modifier = Modifier

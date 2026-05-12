@@ -92,10 +92,10 @@ internal fun ExamWebErrorOverlay(
 ) {
     Surface(
         modifier = modifier.padding(24.dp),
-        shape = RoundedCornerShape(20.dp),
+        shape = RoundedCornerShape(18.dp),
         color = Color.White,
-        tonalElevation = 8.dp,
-        shadowElevation = 14.dp,
+        tonalElevation = 2.dp,
+        shadowElevation = 4.dp,
         border = BorderStroke(1.dp, LockStatusDanger.copy(alpha = 0.25f))
     ) {
         // Subtle gradient background tint
@@ -113,7 +113,7 @@ internal fun ExamWebErrorOverlay(
                 modifier = Modifier
                     .width(4.dp)
                     .fillMaxHeight()
-                    .clip(RoundedCornerShape(topStart = 20.dp, bottomStart = 20.dp))
+                    .clip(RoundedCornerShape(topStart = 18.dp, bottomStart = 18.dp))
                     .background(LockStatusDanger)
             )
 
@@ -185,10 +185,10 @@ internal fun PinningActivationOverlay(modifier: Modifier = Modifier) {
             modifier = Modifier
                 .fillMaxWidth(0.88f)
                 .padding(vertical = 24.dp),
-            shape = RoundedCornerShape(24.dp),
+            shape = RoundedCornerShape(22.dp),
             color = Color(0xFF1A2332),
             border = BorderStroke(1.dp, LockGoldDark.copy(alpha = 0.30f)),
-            shadowElevation = 16.dp
+            shadowElevation = 6.dp
         ) {
             Column(
                 modifier = Modifier.padding(horizontal = 24.dp, vertical = 28.dp),

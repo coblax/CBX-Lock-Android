@@ -190,9 +190,9 @@ internal fun ExamWebViewBottomBar(
                 bottomStart = layoutSpec.cornerRadiusDp.dp,
                 bottomEnd = layoutSpec.cornerRadiusDp.dp
             ),
-            tonalElevation = if (lowRamProfile.enabled) 1.dp else 2.dp,
-            shadowElevation = if (lowRamProfile.enabled) 2.dp else 10.dp,
-            border = BorderStroke(1.dp, LockOutline.copy(alpha = 0.75f))
+            tonalElevation = if (lowRamProfile.enabled) 0.dp else 1.dp,
+            shadowElevation = if (lowRamProfile.enabled) 0.dp else 4.dp,
+            border = BorderStroke(1.dp, LockOutline.copy(alpha = 0.65f))
         ) {
             if (layoutSpec.layoutMode == ExamFooterLayoutMode.TwoRowCompact) {
                 Column(

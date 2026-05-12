@@ -49,8 +49,8 @@ internal fun PreparationChecklistHeader(
         shape = RoundedCornerShape(if (severeLowRamPreparation) 20.dp else 24.dp),
         color = Color.White,
         border = BorderStroke(1.dp, LockOutline.copy(alpha = 0.7f)),
-        tonalElevation = if (severeLowRamPreparation) 0.dp else 2.dp,
-        shadowElevation = if (severeLowRamPreparation) 0.dp else 6.dp
+        tonalElevation = if (severeLowRamPreparation) 0.dp else 0.dp,
+        shadowElevation = if (severeLowRamPreparation) 0.dp else 3.dp
     ) {
         Box(
             modifier = Modifier

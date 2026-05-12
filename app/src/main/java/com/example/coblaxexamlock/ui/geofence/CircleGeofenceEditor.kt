@@ -591,7 +591,7 @@ internal fun CircleGeofenceEditorScreen(
     ) {
         Surface(
             color = Color.White,
-            shadowElevation = 6.dp
+            shadowElevation = 3.dp
         ) {
             Column(
                 modifier = Modifier
@@ -887,7 +887,7 @@ internal fun CircleGeofenceEditorScreen(
 
         Surface(
             color = Color.White,
-            shadowElevation = 8.dp
+            shadowElevation = 3.dp
         ) {
             Column(
                 modifier = Modifier

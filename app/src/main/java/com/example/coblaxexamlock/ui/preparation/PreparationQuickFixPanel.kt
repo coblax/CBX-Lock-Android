@@ -93,11 +93,9 @@ internal fun PreparationQuickFixPanel(
     if (showQuickFixesCard) {
         Surface(
             modifier = modifier.fillMaxWidth(),
-            shape = RoundedCornerShape(22.dp),
+            shape = RoundedCornerShape(20.dp),
             color = Color.White,
-            border = BorderStroke(1.dp, quickFixBorderColor),
-            tonalElevation = 2.dp,
-            shadowElevation = 6.dp
+            border = BorderStroke(1.dp, quickFixBorderColor)
         ) {
             Box(modifier = Modifier.fillMaxWidth()) {
                 // Left accent stripe; no animation, safe for low-RAM / API 24.
@@ -105,7 +103,7 @@ internal fun PreparationQuickFixPanel(
                     modifier = Modifier
                         .width(4.dp)
                         .fillMaxHeight()
-                        .clip(RoundedCornerShape(topStart = 22.dp, bottomStart = 22.dp))
+                        .clip(RoundedCornerShape(topStart = 20.dp, bottomStart = 20.dp))
                         .background(quickFixAccentColor)
                 )
                 Column(

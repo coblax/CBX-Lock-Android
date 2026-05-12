@@ -219,10 +219,10 @@ private fun ExamSideArrowButton(
         modifier = modifier
             .width(42.dp)
             .height(70.dp),
-        shape = RoundedCornerShape(20.dp),
+        shape = RoundedCornerShape(18.dp),
         color = containerColor,
-        tonalElevation = if (enabled) 6.dp else 0.dp,
-        shadowElevation = if (enabled) 8.dp else 0.dp,
+        tonalElevation = if (enabled) 2.dp else 0.dp,
+        shadowElevation = if (enabled) 3.dp else 0.dp,
         border = BorderStroke(
             width = 1.dp,
             color = if (enabled) LockBlue.copy(alpha = 0.34f) else LockOutline.copy(alpha = 0.42f)

@@ -33,10 +33,9 @@ internal fun PreparationNoticeCard(
 ) {
     Surface(
         modifier = Modifier.fillMaxWidth(),
-        shape = RoundedCornerShape(18.dp),
+        shape = RoundedCornerShape(16.dp),
         color = backgroundColor,
-        border = BorderStroke(1.dp, accentColor.copy(alpha = 0.22f)),
-        shadowElevation = 2.dp
+        border = BorderStroke(1.dp, accentColor.copy(alpha = 0.20f))
     ) {
         Box(modifier = Modifier.fillMaxWidth()) {
             // Left accent stripe — no animation, safe for API 24 / low-RAM
@@ -44,7 +43,7 @@ internal fun PreparationNoticeCard(
                 modifier = Modifier
                     .width(4.dp)
                     .fillMaxHeight()
-                    .clip(RoundedCornerShape(topStart = 18.dp, bottomStart = 18.dp))
+                    .clip(RoundedCornerShape(topStart = 16.dp, bottomStart = 16.dp))
                     .background(accentColor)
             )
             Column(

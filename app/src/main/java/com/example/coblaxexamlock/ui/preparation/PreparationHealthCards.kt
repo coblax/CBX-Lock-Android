@@ -50,11 +50,9 @@ internal fun PreExamHealthCheckCard(
     }
     Surface(
         modifier = Modifier.fillMaxWidth(),
-        shape = RoundedCornerShape(22.dp),
+        shape = RoundedCornerShape(20.dp),
         color = Color.White,
-        border = BorderStroke(1.dp, LockOutline),
-        tonalElevation = 1.dp,
-        shadowElevation = 2.dp
+        border = BorderStroke(1.dp, LockOutline.copy(alpha = 0.7f))
     ) {
         Column(
             modifier = Modifier.padding(horizontal = 14.dp, vertical = 14.dp),
@@ -69,7 +67,7 @@ internal fun PreExamHealthCheckCard(
                     Text(
                         text = tr("Pre-Exam Health Check", "Health Check Sebelum Ujian"),
                         color = LockTextPrimary,
-                        fontSize = 16.sp,
+                        fontSize = 15.sp,
                         fontWeight = FontWeight.Bold
                     )
                     Text(
@@ -85,14 +83,14 @@ internal fun PreExamHealthCheckCard(
                 Button(
                     onClick = onRefresh,
                     enabled = !refreshing,
-                    shape = RoundedCornerShape(14.dp),
+                    shape = RoundedCornerShape(12.dp),
                     colors = ButtonDefaults.buttonColors(
                         containerColor = accentColor,
                         contentColor = Color.White
                     ),
                     contentPadding = androidx.compose.foundation.layout.PaddingValues(
                         horizontal = 12.dp,
-                        vertical = 8.dp
+                        vertical = 6.dp
                     )
                 ) {
                     Text(
@@ -101,7 +99,7 @@ internal fun PreExamHealthCheckCard(
                         } else {
                             tr("Refresh", "Refresh")
                         },
-                        fontSize = 12.sp,
+                        fontSize = 11.sp,
                         fontWeight = FontWeight.Bold
                     )
                 }
@@ -162,11 +160,9 @@ internal fun DeviceSurvivalPolicyCard(
     }
     Surface(
         modifier = Modifier.fillMaxWidth(),
-        shape = RoundedCornerShape(20.dp),
+        shape = RoundedCornerShape(18.dp),
         color = Color.White,
-        border = BorderStroke(1.dp, accentColor.copy(alpha = 0.22f)),
-        tonalElevation = 1.dp,
-        shadowElevation = 2.dp
+        border = BorderStroke(1.dp, accentColor.copy(alpha = 0.20f))
     ) {
         Column(
             modifier = Modifier.padding(horizontal = 14.dp, vertical = 12.dp),

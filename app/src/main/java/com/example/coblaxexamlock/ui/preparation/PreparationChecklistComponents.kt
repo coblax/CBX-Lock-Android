@@ -370,10 +370,10 @@ internal fun PreparationFloatingActionBar(
 ) {
     Surface(
         modifier = modifier,
-        shape = RoundedCornerShape(22.dp),
+        shape = RoundedCornerShape(20.dp),
         color = LockBlueDeep,
-        border = BorderStroke(1.dp, LockBlueDeep.copy(alpha = 0.8f)),
-        shadowElevation = 8.dp
+        border = BorderStroke(1.dp, LockBlueDeep.copy(alpha = 0.9f)),
+        shadowElevation = 4.dp
     ) {
         Row(
             modifier = Modifier

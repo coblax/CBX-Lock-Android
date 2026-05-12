@@ -316,17 +316,17 @@ import kotlinx.coroutines.withTimeoutOrNull
 internal fun BackPillButton(onClick: () -> Unit) {
     Row(
         modifier = Modifier
-            .clip(RoundedCornerShape(18.dp))
+            .clip(RoundedCornerShape(14.dp))
             .background(LockSurfaceSoft)
-            .border(1.dp, LockOutline, RoundedCornerShape(18.dp))
+            .border(1.dp, LockOutline.copy(alpha = 0.7f), RoundedCornerShape(14.dp))
             .clickable(onClick = onClick)
-            .padding(horizontal = 12.dp, vertical = 10.dp),
+            .padding(horizontal = 10.dp, vertical = 8.dp),
         verticalAlignment = Alignment.CenterVertically,
-        horizontalArrangement = Arrangement.spacedBy(10.dp)
+        horizontalArrangement = Arrangement.spacedBy(8.dp)
     ) {
         Box(
             modifier = Modifier
-                .size(28.dp)
+                .size(24.dp)
                 .clip(CircleShape)
                 .background(LockBlue),
             contentAlignment = Alignment.Center
@@ -335,15 +335,16 @@ internal fun BackPillButton(onClick: () -> Unit) {
                 imageVector = Icons.Rounded.Home,
                 contentDescription = tr("Main menu", "Menu utama"),
                 tint = LockOnDark,
-                modifier = Modifier.size(16.dp)
+                modifier = Modifier.size(14.dp)
             )
         }
 
         Text(
             text = "MENU",
             color = LockTextPrimary,
-            fontSize = 15.sp,
-            fontWeight = FontWeight.Bold
+            fontSize = 12.sp,
+            fontWeight = FontWeight.Bold,
+            letterSpacing = 0.5.sp
         )
     }
 }
@@ -441,45 +442,43 @@ internal fun AdminToggleRow(
     onCheckedChange: (Boolean) -> Unit,
     modifier: Modifier = Modifier
 ) {
-    Surface(
-        modifier = modifier.fillMaxWidth(),
-        shape = RoundedCornerShape(16.dp),
-        color = Color.White,
-        border = BorderStroke(1.dp, LockOutline.copy(alpha = 0.75f))
+    Row(
+        modifier = modifier
+            .fillMaxWidth()
+            .clip(RoundedCornerShape(14.dp))
+            .background(Color.White)
+            .border(1.dp, LockOutline.copy(alpha = 0.6f), RoundedCornerShape(14.dp))
+            .padding(horizontal = 14.dp, vertical = 11.dp),
+        horizontalArrangement = Arrangement.spacedBy(12.dp),
+        verticalAlignment = Alignment.CenterVertically
     ) {
-        Row(
-            modifier = Modifier.padding(horizontal = 14.dp, vertical = 12.dp),
-            horizontalArrangement = Arrangement.spacedBy(12.dp),
-            verticalAlignment = Alignment.CenterVertically
+        Column(
+            modifier = Modifier.weight(1f),
+            verticalArrangement = Arrangement.spacedBy(3.dp)
         ) {
-            Column(
-                modifier = Modifier.weight(1f),
-                verticalArrangement = Arrangement.spacedBy(4.dp)
-            ) {
-                Text(
-                    text = title,
-                    color = LockTextPrimary,
-                    fontSize = 14.sp,
-                    fontWeight = FontWeight.Bold
-                )
-                Text(
-                    text = description,
-                    color = LockTextSecondary,
-                    fontSize = 11.sp,
-                    lineHeight = 14.sp
-                )
-            }
-            Switch(
-                checked = checked,
-                onCheckedChange = onCheckedChange,
-                colors = SwitchDefaults.colors(
-                    checkedThumbColor = Color.White,
-                    checkedTrackColor = LockBlue,
-                    uncheckedThumbColor = LockBlue.copy(alpha = 0.6f),
-                    uncheckedTrackColor = LockOutline.copy(alpha = 0.6f)
-                )
+            Text(
+                text = title,
+                color = LockTextPrimary,
+                fontSize = 13.sp,
+                fontWeight = FontWeight.Bold
+            )
+            Text(
+                text = description,
+                color = LockTextSecondary,
+                fontSize = 11.sp,
+                lineHeight = 14.sp
             )
         }
+        Switch(
+            checked = checked,
+            onCheckedChange = onCheckedChange,
+            colors = SwitchDefaults.colors(
+                checkedThumbColor = Color.White,
+                checkedTrackColor = LockBlue,
+                uncheckedThumbColor = LockBlue.copy(alpha = 0.6f),
+                uncheckedTrackColor = LockOutline.copy(alpha = 0.6f)
+            )
+        )
     }
 }
 
@@ -496,15 +495,16 @@ internal fun StatusBanner(
     Box(
         modifier = Modifier
             .fillMaxWidth()
-            .clip(RoundedCornerShape(14.dp))
+            .clip(RoundedCornerShape(12.dp))
             .background(backgroundColor)
-            .border(1.dp, borderColor, RoundedCornerShape(14.dp))
-            .padding(horizontal = 14.dp, vertical = 12.dp)
+            .border(1.dp, borderColor.copy(alpha = 0.7f), RoundedCornerShape(12.dp))
+            .padding(horizontal = 14.dp, vertical = 10.dp)
     ) {
         Text(
             text = message,
             color = textColor,
-            fontSize = 14.sp
+            fontSize = 12.sp,
+            lineHeight = 16.sp
         )
     }
 }

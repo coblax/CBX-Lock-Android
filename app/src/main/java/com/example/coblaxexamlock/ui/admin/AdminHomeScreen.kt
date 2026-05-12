@@ -531,8 +531,8 @@ internal fun HomeHeroCard(
         modifier = Modifier.fillMaxWidth(),
         shape = RoundedCornerShape(if (compactHome) 22.dp else 30.dp),
         color = Color.White.copy(alpha = 0.96f),
-        shadowElevation = if (compactHome) 0.dp else 10.dp,
-        tonalElevation = if (compactHome) 0.dp else 4.dp,
+        shadowElevation = if (compactHome) 0.dp else 4.dp,
+        tonalElevation = if (compactHome) 0.dp else 2.dp,
         border = BorderStroke(1.dp, LockOutline.copy(alpha = 0.92f))
     ) {
         Column(
@@ -630,8 +630,8 @@ internal fun LanguageTogglePill(
         shape = RoundedCornerShape(999.dp),
         color = Color.White.copy(alpha = 0.98f),
         border = BorderStroke(1.dp, LockOutline.copy(alpha = 0.92f)),
-        tonalElevation = if (compactHome) 0.dp else 2.dp,
-        shadowElevation = if (compactHome) 0.dp else 3.dp
+        tonalElevation = if (compactHome) 0.dp else 1.dp,
+        shadowElevation = if (compactHome) 0.dp else 2.dp
     ) {
         Row(
             modifier = Modifier.padding(horizontal = 6.dp, vertical = 5.dp),

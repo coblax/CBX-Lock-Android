@@ -60,9 +60,9 @@ internal fun ExamBuiltInKeyboardPanel(
     Surface(
         modifier = modifier,
         color = Color(0xFFF2F5FA),
-        shape = RoundedCornerShape(topStart = 24.dp, topEnd = 24.dp),
-        tonalElevation = 8.dp,
-        shadowElevation = 10.dp,
+        shape = RoundedCornerShape(topStart = 22.dp, topEnd = 22.dp),
+        tonalElevation = 2.dp,
+        shadowElevation = 4.dp,
         border = BorderStroke(1.dp, LockOutline.copy(alpha = 0.70f))
     ) {
         Column(
