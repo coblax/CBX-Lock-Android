@@ -43,6 +43,41 @@ internal class CachedDetectorValue<T>(
     }
 }
 
+internal class CachedDetectorMap<K, V>(
+    private val ttlMillis: Long,
+    private val nowMillis: () -> Long = { SystemClock.elapsedRealtime() }
+) {
+    private data class Entry<V>(
+        val loadedAtMillis: Long,
+        val value: V
+    )
+
+    private val lock = Any()
+    private val cachedValues = mutableMapOf<K, Entry<V>>()
+
+    fun read(key: K, forceRefresh: Boolean = false, loader: () -> V): V {
+        synchronized(lock) {
+            val now = nowMillis()
+            val cached = cachedValues[key]
+            if (!forceRefresh && cached != null && now - cached.loadedAtMillis < ttlMillis) {
+                return cached.value
+            }
+            return loader().also { value ->
+                cachedValues[key] = Entry(
+                    loadedAtMillis = nowMillis(),
+                    value = value
+                )
+            }
+        }
+    }
+
+    fun invalidate() {
+        synchronized(lock) {
+            cachedValues.clear()
+        }
+    }
+}
+
 internal data class ExternalDisplaySnapshot(
     val count: Int,
     val infoList: List<ExternalDisplayInfo>
@@ -57,22 +92,98 @@ private data class SignatureIntegrityCacheEntry(
 )
 
 internal object SecurityDetectorCache {
+    private val packageInventory = CachedDetectorValue<InstalledPackageInventory>(SecurityDetectorCacheTtlMillis)
+    private val packageMetadata =
+        CachedDetectorMap<String, InstalledPackageMetadata?>(SecurityDetectorCacheTtlMillis)
     private val screenRecorderPackages = CachedDetectorValue<List<String>>(SecurityDetectorCacheTtlMillis)
     private val screenRecorderReports = CachedDetectorValue<List<ScreenRecorderAppReport>>(SecurityDetectorCacheTtlMillis)
+    private val fakeLocationPackages = CachedDetectorValue<List<String>>(SecurityDetectorCacheTtlMillis)
     private val externalDisplaySnapshot = CachedDetectorValue<ExternalDisplaySnapshot>(SecurityDetectorCacheTtlMillis)
     private val webViewCompatibility = CachedDetectorValue<WebViewCompatibilityStatus>(SecurityDetectorCacheTtlMillis)
     private val rootDetectionDetails = CachedDetectorValue<RootDetectionDetails>(SecurityDetectorCacheTtlMillis)
     private val signatureIntegrity = CachedDetectorValue<SignatureIntegrityCacheEntry>(SecurityDetectorCacheTtlMillis)
 
+    fun readPackageInventory(context: Context, forceRefresh: Boolean = false): InstalledPackageInventory {
+        return packageInventory.read(forceRefresh) {
+            readInstalledPackageInventory(context.applicationContext)
+        }
+    }
+
+    fun readPackageMetadata(
+        context: Context,
+        packageName: String,
+        forceRefresh: Boolean = false,
+        packageInventory: InstalledPackageInventory? = null
+    ): InstalledPackageMetadata? {
+        val normalizedPackageName = packageName.trim()
+        if (normalizedPackageName.isBlank()) {
+            return null
+        }
+        return packageMetadata.read(normalizedPackageName, forceRefresh) {
+            val appContext = context.applicationContext
+            resolveInstalledPackageMetadata(
+                context = appContext,
+                packageName = normalizedPackageName,
+                packageInventory = packageInventory ?: readPackageInventory(appContext, forceRefresh),
+                includeDisplayMetadata = true
+            )
+        }
+    }
+
     fun readScreenRecorderPackages(context: Context, forceRefresh: Boolean = false): List<String> {
         return screenRecorderPackages.read(forceRefresh) {
-            detectScreenRecorderPackages(context.applicationContext)
+            val appContext = context.applicationContext
+            val inventory = readPackageInventory(appContext, forceRefresh)
+            detectScreenRecorderPackagesFromInventory(
+                context = appContext,
+                inventory = inventory,
+                metadataResolver = { packageName ->
+                    readPackageMetadata(
+                        context = appContext,
+                        packageName = packageName,
+                        forceRefresh = forceRefresh,
+                        packageInventory = inventory
+                    )
+                }
+            )
         }
     }
 
     fun inspectScreenRecorderAppsCached(context: Context, forceRefresh: Boolean = false): List<ScreenRecorderAppReport> {
         return screenRecorderReports.read(forceRefresh) {
-            inspectScreenRecorderApps(context.applicationContext)
+            val appContext = context.applicationContext
+            val inventory = readPackageInventory(appContext, forceRefresh)
+            inspectScreenRecorderAppsFromInventory(
+                context = appContext,
+                inventory = inventory,
+                metadataResolver = { packageName ->
+                    readPackageMetadata(
+                        context = appContext,
+                        packageName = packageName,
+                        forceRefresh = forceRefresh,
+                        packageInventory = inventory
+                    )
+                }
+            )
+        }
+    }
+
+    fun readSuspiciousFakeLocationPackages(context: Context, forceRefresh: Boolean = false): List<String> {
+        return fakeLocationPackages.read(forceRefresh) {
+            val appContext = context.applicationContext
+            val inventory = readPackageInventory(appContext, forceRefresh)
+            detectSuspiciousFakeLocationPackagesFromInventory(
+                context = appContext,
+                inventory = inventory,
+                metadataResolver = { packageName ->
+                    readPackageMetadata(
+                        context = appContext,
+                        packageName = packageName,
+                        forceRefresh = forceRefresh,
+                        packageInventory = inventory
+                    )
+                }
+            )
         }
     }
 
@@ -94,9 +205,21 @@ internal object SecurityDetectorCache {
 
     fun readRootDetectionDetails(context: Context, forceRefresh: Boolean = false): RootDetectionDetails {
         return rootDetectionDetails.read(forceRefresh) {
-            getRootDetectionDetails(context.applicationContext)
+            val appContext = context.applicationContext
+            getRootDetectionDetails(
+                context = appContext,
+                packageInventory = readPackageInventory(appContext, forceRefresh)
+            )
         }
     }
+
+    fun readVirtualEnvironmentDiagnostics(
+        context: Context,
+        forceRefresh: Boolean = false
+    ) = getVirtualEnvironmentDiagnostics(
+        context = context.applicationContext,
+        forceRefresh = forceRefresh
+    )
 
     fun checkSignatureIntegrity(
         context: Context,
@@ -122,8 +245,13 @@ internal object SecurityDetectorCache {
     }
 
     fun invalidateStaticSecurity() {
+        packageInventory.invalidate()
+        packageMetadata.invalidate()
         screenRecorderPackages.invalidate()
         screenRecorderReports.invalidate()
+        fakeLocationPackages.invalidate()
         externalDisplaySnapshot.invalidate()
+        rootDetectionDetails.invalidate()
+        invalidateVirtualEnvironmentDiagnosticsCache()
     }
 }

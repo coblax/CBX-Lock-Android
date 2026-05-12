@@ -18,6 +18,7 @@ import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.remember
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.Modifier
@@ -25,6 +26,7 @@ import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
+import com.example.coblaxexamlock.i18n.LocalUiLanguage
 import com.example.coblaxexamlock.i18n.tr
 import com.example.coblaxexamlock.ui.theme.LockGoldDark
 import com.example.coblaxexamlock.ui.theme.LockTextPrimary
@@ -42,16 +44,39 @@ internal fun PreparationQuickFixPanel(
     runQuickFix: (QuickFixTarget?, String, () -> Unit) -> Unit,
     modifier: Modifier = Modifier
 ) {
-    val quickFixActions = buildPreparationQuickFixActions(
-        state = state,
-        actions = actions,
-        accessibilityGuardRequired = accessibilityGuardRequired,
-        accessibilityGuardEnabled = accessibilityGuardEnabled,
-        geofenceReady = geofenceReady,
-        fakeLocationReady = fakeLocationReady,
-        needsBluetoothPermission = needsBluetoothPermission,
-        runQuickFix = runQuickFix
-    )
+    val uiLanguage = LocalUiLanguage.current
+    val quickFixActions = remember(
+        state.network,
+        state.device,
+        state.location,
+        state.runtimeSecurity,
+        state.bypass,
+        state.diagnostics,
+        actions.session,
+        actions.network,
+        actions.device,
+        actions.location,
+        actions.runtimeSecurity,
+        uiLanguage,
+        accessibilityGuardRequired,
+        accessibilityGuardEnabled,
+        geofenceReady,
+        fakeLocationReady,
+        needsBluetoothPermission,
+        runQuickFix
+    ) {
+        buildPreparationQuickFixActions(
+            state = state,
+            actions = actions,
+            uiLanguage = uiLanguage,
+            accessibilityGuardRequired = accessibilityGuardRequired,
+            accessibilityGuardEnabled = accessibilityGuardEnabled,
+            geofenceReady = geofenceReady,
+            fakeLocationReady = fakeLocationReady,
+            needsBluetoothPermission = needsBluetoothPermission,
+            runQuickFix = runQuickFix
+        )
+    }
     val primaryQuickFixAction = quickFixActions.firstOrNull()
     val remainingQuickFixActions = quickFixActions.drop(1)
     val blockingQuickFixActions = remainingQuickFixActions.filter { it.severity == QuickFixSeverity.Blocking }

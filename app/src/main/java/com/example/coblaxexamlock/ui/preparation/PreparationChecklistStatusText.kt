@@ -1,6 +1,5 @@
 package com.example.coblaxexamlock.ui.preparation
 
-import androidx.compose.runtime.Composable
 import com.example.coblaxexamlock.AccessibilityInspectionResult
 import com.example.coblaxexamlock.AdbBypassState
 import com.example.coblaxexamlock.DeviceTimeBypassState
@@ -13,7 +12,8 @@ import com.example.coblaxexamlock.LocationSpoofSecurityVerdict
 import com.example.coblaxexamlock.RootBypassState
 import com.example.coblaxexamlock.diagnosticLabel
 import com.example.coblaxexamlock.format.formatLocationFixAge
-import com.example.coblaxexamlock.i18n.tr
+import com.example.coblaxexamlock.i18n.localized
+import com.example.coblaxexamlock.model.UiLanguage
 
 internal data class PreparationChecklistStatusText(
     val accessibilityStatusLabel: String,
@@ -35,38 +35,39 @@ internal data class PreparationChecklistStatusText(
     val appSwitchStatusLabel: String
 )
 
-@Composable
 internal fun buildPreparationChecklistStatusText(
     state: PreparationScreenState,
+    uiLanguage: UiLanguage,
     accessibilityInspection: AccessibilityInspectionResult,
     accessibilityGuardEnabled: Boolean,
     accessibilityGuardRequired: Boolean,
     needsBluetoothPermission: Boolean
 ): PreparationChecklistStatusText = with(state) {
+    fun t(english: String, indonesian: String): String = localized(uiLanguage, english, indonesian)
     val accessibilityStatusLabel = when {
-        bypassAccessibility -> tr("Bypassed", "Bypass")
-        accessibilityInspection.allowedOnlyActive -> tr("Allowed", "Diizinkan")
-        accessibilityServiceEnabled -> tr("Action needed", "Perlu aksi")
-        else -> tr("Safe", "Aman")
+        bypassAccessibility -> t("Bypassed", "Bypass")
+        accessibilityInspection.allowedOnlyActive -> t("Allowed", "Diizinkan")
+        accessibilityServiceEnabled -> t("Action needed", "Perlu aksi")
+        else -> t("Safe", "Aman")
     }
     val overlayStatusLabel = when {
-        bypassOverlay -> tr("Bypassed", "Bypass")
-        overlayRiskResult.confirmedInteractionDetected -> tr("Danger", "Bahaya")
-        overlayRiskResult.heuristicRisk -> tr("Warning", "Peringatan")
-        else -> tr("Safe", "Aman")
+        bypassOverlay -> t("Bypassed", "Bypass")
+        overlayRiskResult.confirmedInteractionDetected -> t("Danger", "Bahaya")
+        overlayRiskResult.heuristicRisk -> t("Warning", "Peringatan")
+        else -> t("Safe", "Aman")
     }
     val geofenceStatusLabel = when {
-        geofenceBypassState == GeofenceBypassState.Tampered -> tr("Tampered", "Tampered")
-        bypassGeofence -> tr("Bypassed", "Bypass")
-        !geofenceRuntimeStatus.evaluation.enabled -> tr("Policy Off", "Policy Nonaktif")
-        geofenceRuntimeStatus.securityStatus.finalVerdict == GeofenceSecurityVerdict.Inside -> tr("Inside Area", "Di Dalam Area")
-        geofenceRuntimeStatus.securityStatus.finalVerdict == GeofenceSecurityVerdict.Outside -> tr("Outside Area", "Di Luar Area")
-        geofenceRuntimeStatus.securityStatus.finalVerdict == GeofenceSecurityVerdict.StaleFix -> tr("Stale Fix", "Fix Kedaluwarsa")
-        geofenceRuntimeStatus.securityStatus.finalVerdict == GeofenceSecurityVerdict.LowAccuracy -> tr("Low Accuracy", "Akurasi Rendah")
-        geofenceRuntimeStatus.securityStatus.finalVerdict == GeofenceSecurityVerdict.MissingAccuracy -> tr("Missing Accuracy", "Akurasi Tidak Ada")
-        geofenceRuntimeStatus.securityStatus.finalVerdict == GeofenceSecurityVerdict.NoFix -> tr("No Fix", "Belum Ada Fix")
-        geofenceRuntimeStatus.securityStatus.finalVerdict == GeofenceSecurityVerdict.ConfigInvalid -> tr("Config Error", "Konfigurasi Salah")
-        else -> tr("Needs Fix", "Perlu Perbaikan")
+        geofenceBypassState == GeofenceBypassState.Tampered -> t("Tampered", "Tampered")
+        bypassGeofence -> t("Bypassed", "Bypass")
+        !geofenceRuntimeStatus.evaluation.enabled -> t("Policy Off", "Policy Nonaktif")
+        geofenceRuntimeStatus.securityStatus.finalVerdict == GeofenceSecurityVerdict.Inside -> t("Inside Area", "Di Dalam Area")
+        geofenceRuntimeStatus.securityStatus.finalVerdict == GeofenceSecurityVerdict.Outside -> t("Outside Area", "Di Luar Area")
+        geofenceRuntimeStatus.securityStatus.finalVerdict == GeofenceSecurityVerdict.StaleFix -> t("Stale Fix", "Fix Kedaluwarsa")
+        geofenceRuntimeStatus.securityStatus.finalVerdict == GeofenceSecurityVerdict.LowAccuracy -> t("Low Accuracy", "Akurasi Rendah")
+        geofenceRuntimeStatus.securityStatus.finalVerdict == GeofenceSecurityVerdict.MissingAccuracy -> t("Missing Accuracy", "Akurasi Tidak Ada")
+        geofenceRuntimeStatus.securityStatus.finalVerdict == GeofenceSecurityVerdict.NoFix -> t("No Fix", "Belum Ada Fix")
+        geofenceRuntimeStatus.securityStatus.finalVerdict == GeofenceSecurityVerdict.ConfigInvalid -> t("Config Error", "Konfigurasi Salah")
+        else -> t("Needs Fix", "Perlu Perbaikan")
     }
     val geofenceProviderSummary = geofenceRuntimeStatus.evaluation.locationSnapshot
         ?.provider
@@ -75,22 +76,22 @@ internal fun buildPreparationChecklistStatusText(
     val geofenceFixAgeSummary = formatLocationFixAge(geofenceRuntimeStatus.securityStatus.fixQualityStatus.ageMs)
     val geofenceFixResultSummary = geofenceRuntimeStatus.securityStatus.fixQualityStatus.verdict.diagnosticLabel()
     val geofenceRefreshAtSummary = lastGeofenceRefreshAt?.ifBlank { "-" } ?: "-"
-    val geofenceFixMetaLine = tr(
+    val geofenceFixMetaLine = t(
         "Fix: $geofenceProviderSummary | $geofenceFixAgeSummary | $geofenceFixResultSummary",
         "Fix: $geofenceProviderSummary | $geofenceFixAgeSummary | $geofenceFixResultSummary"
     )
     val geofenceRefreshMetaLine = if (isRefreshingGeofence) {
-        tr(
+        t(
             "Refresh: running...",
             "Refresh: berjalan..."
         )
     } else if (isWarmingLocation) {
-        tr(
+        t(
             "Refresh: warming fresh location...",
             "Refresh: menyiapkan lokasi segar..."
         )
     } else {
-        tr(
+        t(
             "Refresh: $geofenceRefreshAtSummary",
             "Refresh: $geofenceRefreshAtSummary"
         )
@@ -100,117 +101,117 @@ internal fun buildPreparationChecklistStatusText(
         else -> "$geofenceFixMetaLine\n$geofenceRefreshMetaLine"
     }
     val fakeLocationStatusLabel = when {
-        fakeLocationBypassState == FakeLocationBypassState.Tampered -> tr("Tampered", "Tampered")
-        bypassFakeLocation -> tr("Bypassed", "Bypass")
+        fakeLocationBypassState == FakeLocationBypassState.Tampered -> t("Tampered", "Tampered")
+        bypassFakeLocation -> t("Bypassed", "Bypass")
         fakeLocationRuntimeStatus.securityStatus.finalVerdict == LocationSpoofSecurityVerdict.PermissionRequired ->
-            tr("Needs Location Permission", "Butuh Izin Lokasi")
+            t("Needs Location Permission", "Butuh Izin Lokasi")
         fakeLocationRuntimeStatus.securityStatus.finalVerdict == LocationSpoofSecurityVerdict.LocationServicesDisabled ->
-            tr("Location Services Off", "Layanan Lokasi Off")
+            t("Location Services Off", "Layanan Lokasi Off")
         fakeLocationRuntimeStatus.securityStatus.finalVerdict == LocationSpoofSecurityVerdict.LocationUnavailable ->
-            tr("Waiting for Location", "Menunggu Lokasi")
-        !fakeLocationRuntimeStatus.securityStatus.monitoringEnabled -> tr("Policy Off", "Policy Nonaktif")
-        fakeLocationRuntimeStatus.securityStatus.confidenceTier == LocationSpoofConfidenceTier.Critical -> tr("Spoof Critical", "Spoof Kritis")
-        fakeLocationRuntimeStatus.securityStatus.confidenceTier == LocationSpoofConfidenceTier.Strong -> tr("Spoof Strong", "Spoof Kuat")
-        fakeLocationRuntimeStatus.securityStatus.confidenceTier == LocationSpoofConfidenceTier.Warning -> tr("Package Warning", "Peringatan Paket")
-        else -> tr("Clean", "Bersih")
+            t("Waiting for Location", "Menunggu Lokasi")
+        !fakeLocationRuntimeStatus.securityStatus.monitoringEnabled -> t("Policy Off", "Policy Nonaktif")
+        fakeLocationRuntimeStatus.securityStatus.confidenceTier == LocationSpoofConfidenceTier.Critical -> t("Spoof Critical", "Spoof Kritis")
+        fakeLocationRuntimeStatus.securityStatus.confidenceTier == LocationSpoofConfidenceTier.Strong -> t("Spoof Strong", "Spoof Kuat")
+        fakeLocationRuntimeStatus.securityStatus.confidenceTier == LocationSpoofConfidenceTier.Warning -> t("Package Warning", "Peringatan Paket")
+        else -> t("Clean", "Bersih")
     }
     val deviceTimeStatusLabel = when {
-        deviceTimeBypassState == DeviceTimeBypassState.Tampered -> tr("Tampered", "Tampered")
-        bypassDeviceTime -> tr("Bypassed", "Bypass")
-        deviceTimeSecurityStatus.finalVerdict == DeviceTimeSecurityVerdict.Safe -> tr("Safe", "Aman")
-        deviceTimeSecurityStatus.finalVerdict == DeviceTimeSecurityVerdict.AutoTimeDisabled -> tr("Auto Date/Time Off", "Tanggal/Waktu Otomatis Nonaktif")
-        deviceTimeSecurityStatus.finalVerdict == DeviceTimeSecurityVerdict.AutoTimeZoneDisabled -> tr("Auto Time Zone Off", "Zona Waktu Otomatis Nonaktif")
-        deviceTimeSecurityStatus.finalVerdict == DeviceTimeSecurityVerdict.ClockDriftDetected -> tr("Clock Change", "Perubahan Jam")
-        else -> tr("Action needed", "Perlu aksi")
+        deviceTimeBypassState == DeviceTimeBypassState.Tampered -> t("Tampered", "Tampered")
+        bypassDeviceTime -> t("Bypassed", "Bypass")
+        deviceTimeSecurityStatus.finalVerdict == DeviceTimeSecurityVerdict.Safe -> t("Safe", "Aman")
+        deviceTimeSecurityStatus.finalVerdict == DeviceTimeSecurityVerdict.AutoTimeDisabled -> t("Auto Date/Time Off", "Tanggal/Waktu Otomatis Nonaktif")
+        deviceTimeSecurityStatus.finalVerdict == DeviceTimeSecurityVerdict.AutoTimeZoneDisabled -> t("Auto Time Zone Off", "Zona Waktu Otomatis Nonaktif")
+        deviceTimeSecurityStatus.finalVerdict == DeviceTimeSecurityVerdict.ClockDriftDetected -> t("Clock Change", "Perubahan Jam")
+        else -> t("Action needed", "Perlu aksi")
     }
     val deviceTimeDetail = when {
-        deviceTimeBypassState == DeviceTimeBypassState.Tampered -> tr(
+        deviceTimeBypassState == DeviceTimeBypassState.Tampered -> t(
             "Open Admin Secret to review the bypass integrity.",
             "Buka Admin Secret untuk memeriksa integritas bypass."
         )
         bypassDeviceTime -> null
         deviceTimeSecurityStatus.finalVerdict == DeviceTimeSecurityVerdict.Safe -> null
-        deviceTimeSecurityStatus.finalVerdict == DeviceTimeSecurityVerdict.AutoTimeDisabled -> tr(
+        deviceTimeSecurityStatus.finalVerdict == DeviceTimeSecurityVerdict.AutoTimeDisabled -> t(
             "Enable automatic date & time, then tap Refresh.",
             "Aktifkan tanggal & waktu otomatis, lalu tekan Refresh."
         )
-        deviceTimeSecurityStatus.finalVerdict == DeviceTimeSecurityVerdict.AutoTimeZoneDisabled -> tr(
+        deviceTimeSecurityStatus.finalVerdict == DeviceTimeSecurityVerdict.AutoTimeZoneDisabled -> t(
             "Enable automatic time zone, then tap Refresh.",
             "Aktifkan zona waktu otomatis, lalu tekan Refresh."
         )
-        deviceTimeSecurityStatus.finalVerdict == DeviceTimeSecurityVerdict.ClockDriftDetected -> tr(
+        deviceTimeSecurityStatus.finalVerdict == DeviceTimeSecurityVerdict.ClockDriftDetected -> t(
             "Enable automatic time, then refresh the check before starting the exam.",
             "Aktifkan waktu otomatis, lalu refresh pemeriksaan sebelum mulai ujian."
         )
         else -> null
     }
     val bluetoothStatusLabel = when {
-        bypassBluetooth -> tr("Bypassed", "Bypass")
-        needsBluetoothPermission && !bluetoothPermissionGranted -> tr("Permission needed", "Butuh izin")
-        bluetoothEnabled -> tr("Action needed", "Perlu aksi")
-        else -> tr("Safe", "Aman")
+        bypassBluetooth -> t("Bypassed", "Bypass")
+        needsBluetoothPermission && !bluetoothPermissionGranted -> t("Permission needed", "Butuh izin")
+        bluetoothEnabled -> t("Action needed", "Perlu aksi")
+        else -> t("Safe", "Aman")
     }
     val developerStatusLabel = when {
-        adbBypassState == AdbBypassState.Tampered -> tr("Warning", "Peringatan")
-        bypassAdb -> tr("Bypassed", "Bypass")
-        adbInspection.blocking -> tr("Action needed", "Perlu aksi")
-        adbInspection.insecureSystemProperty -> tr("Warning", "Peringatan")
-        else -> tr("Safe", "Aman")
+        adbBypassState == AdbBypassState.Tampered -> t("Warning", "Peringatan")
+        bypassAdb -> t("Bypassed", "Bypass")
+        adbInspection.blocking -> t("Action needed", "Perlu aksi")
+        adbInspection.insecureSystemProperty -> t("Warning", "Peringatan")
+        else -> t("Safe", "Aman")
     }
     val keyboardStatusLabel = when {
-        bypassKeyboardPolicy -> tr("Bypassed", "Bypass")
-        keyboardAllowed -> tr("Ready", "Siap")
-        else -> tr("Built-in", "Bawaan")
+        bypassKeyboardPolicy -> t("Bypassed", "Bypass")
+        keyboardAllowed -> t("Ready", "Siap")
+        else -> t("Built-in", "Bawaan")
     }
     val rootStatusLabel = when {
-        rootBypassState == RootBypassState.Tampered -> tr("Warning", "Peringatan")
-        bypassRoot -> tr("Bypassed", "Bypass")
-        rootSecurityStatus.detected -> tr("Danger", "Bahaya")
-        rootSecurityStatus.selinuxPermissive -> tr("Warning", "Peringatan")
-        else -> tr("Safe", "Aman")
+        rootBypassState == RootBypassState.Tampered -> t("Warning", "Peringatan")
+        bypassRoot -> t("Bypassed", "Bypass")
+        rootSecurityStatus.detected -> t("Danger", "Bahaya")
+        rootSecurityStatus.selinuxPermissive -> t("Warning", "Peringatan")
+        else -> t("Safe", "Aman")
     }
     val signatureStatusLabel = when {
-        signatureMismatchDetected -> tr("Danger", "Bahaya")
-        else -> tr("Safe", "Aman")
+        signatureMismatchDetected -> t("Danger", "Bahaya")
+        else -> t("Safe", "Aman")
     }
     val signatureValue = when {
-        signatureMismatchDetected && reinstallApkFixNeeded -> tr(
+        signatureMismatchDetected && reinstallApkFixNeeded -> t(
             "Signature mismatch. Reinstall official APK.",
             "Signature tidak cocok. Instal ulang APK resmi."
         )
-        signatureMismatchDetected -> tr(
+        signatureMismatchDetected -> t(
             "Signature mismatch detected.",
             "Signature tidak cocok terdeteksi."
         )
-        else -> tr(
+        else -> t(
             "Signature matches the official release.",
             "Signature cocok dengan rilis resmi."
         )
     }
     val virtualEnvironmentStatusLabel = when {
-        bypassVirtualEnvironment -> tr("Bypassed", "Bypass")
-        virtualEnvironmentDetected -> tr("Danger", "Bahaya")
-        else -> tr("Safe", "Aman")
+        bypassVirtualEnvironment -> t("Bypassed", "Bypass")
+        virtualEnvironmentDetected -> t("Danger", "Bahaya")
+        else -> t("Safe", "Aman")
     }
     val screenPinningStatusLabel = when {
-        bypassScreenPinning -> tr("Bypassed", "Bypass")
-        isScreenPinningActive -> tr("Active", "Aktif")
-        screenPinningFixNeeded -> tr("Start Required", "Perlu Start")
-        screenPinningAvailable -> tr("Start Required", "Perlu Start")
-        else -> tr("Unavailable", "Tidak tersedia")
+        bypassScreenPinning -> t("Bypassed", "Bypass")
+        isScreenPinningActive -> t("Active", "Aktif")
+        screenPinningFixNeeded -> t("Start Required", "Perlu Start")
+        screenPinningAvailable -> t("Start Required", "Perlu Start")
+        else -> t("Unavailable", "Tidak tersedia")
     }
     val accessibilityGuardStatusLabel = when {
-        bypassScreenPinning -> tr("Not required", "Tidak wajib")
-        accessibilityGuardRequired && accessibilityGuardEnabled -> tr("Required Active", "Wajib Aktif")
-        accessibilityGuardRequired -> tr("Action needed", "Perlu aksi")
-        accessibilityGuardEnabled -> tr("Optional Active", "Opsional Aktif")
-        else -> tr("Optional", "Opsional")
+        bypassScreenPinning -> t("Not required", "Tidak wajib")
+        accessibilityGuardRequired && accessibilityGuardEnabled -> t("Required Active", "Wajib Aktif")
+        accessibilityGuardRequired -> t("Action needed", "Perlu aksi")
+        accessibilityGuardEnabled -> t("Optional Active", "Opsional Aktif")
+        else -> t("Optional", "Opsional")
     }
     val appSwitchStatusLabel = when {
-        bypassAppSwitch -> tr("Bypassed", "Bypass")
-        appSwitchStatus.hasViolations -> tr("Warning", "Peringatan")
-        appSwitchStatus.fallbackGuardActive -> tr("Fallback", "Fallback")
-        else -> tr("Ready", "Siap")
+        bypassAppSwitch -> t("Bypassed", "Bypass")
+        appSwitchStatus.hasViolations -> t("Warning", "Peringatan")
+        appSwitchStatus.fallbackGuardActive -> t("Fallback", "Fallback")
+        else -> t("Ready", "Siap")
     }
 
     PreparationChecklistStatusText(

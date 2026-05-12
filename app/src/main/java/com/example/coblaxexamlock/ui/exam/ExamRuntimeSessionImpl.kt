@@ -176,13 +176,10 @@ import com.example.coblaxexamlock.RootBypassState
 import com.example.coblaxexamlock.RootSecurityStatus
 import com.example.coblaxexamlock.runtime.acquireBestEffortLocationSnapshot
 import com.example.coblaxexamlock.runtime.buildRootIssueMessage
-import com.example.coblaxexamlock.runtime.detectScreenRecorderPackages
-import com.example.coblaxexamlock.runtime.detectSuspiciousFakeLocationPackages
 import com.example.coblaxexamlock.runtime.getExternalDisplayCount
 import com.example.coblaxexamlock.runtime.getBluetoothConnectPermission
 import com.example.coblaxexamlock.runtime.getCachedVirtualEnvironmentDiagnostics
 import com.example.coblaxexamlock.runtime.getCurrentInputMethodPackage
-import com.example.coblaxexamlock.runtime.getRootDetectionDetails
 import com.example.coblaxexamlock.runtime.getVirtualEnvironmentDiagnosticsOnIo
 import com.example.coblaxexamlock.runtime.hasBluetoothExamPermission
 import com.example.coblaxexamlock.runtime.hasFineLocationPermission
@@ -194,6 +191,7 @@ import com.example.coblaxexamlock.runtime.isLocationServicesEnabled
 import com.example.coblaxexamlock.runtime.readExamBatteryStatus
 import com.example.coblaxexamlock.runtime.readNetworkReadinessStatus
 import com.example.coblaxexamlock.runtime.readNetworkReadinessStatusWithProbe
+import com.example.coblaxexamlock.runtime.registerPackageInventoryInvalidationReceiver
 import com.example.coblaxexamlock.runtime.requiresBluetoothExamPermission
 import com.example.coblaxexamlock.runtime.resolveKeyboardAppLabel
 import com.example.coblaxexamlock.runtime.SecurityDetectorCache
@@ -583,8 +581,17 @@ internal fun ExamRuntimeSessionScreenImpl(
     var selinuxPermissiveWarning by securityUiState.selinuxPermissiveWarning
     var signatureMismatchDetected by securityUiState.signatureMismatchDetected
     var virtualEnvironmentDetected by securityUiState.virtualEnvironmentDetected
+    var packageInventoryChangeNonce by rememberSaveable { mutableIntStateOf(0) }
     LaunchedEffect(context) {
         virtualEnvironmentDetected = getVirtualEnvironmentDiagnosticsOnIo(context).detected
+    }
+    DisposableEffect(context) {
+        val unregisterPackageInventoryInvalidation =
+            registerPackageInventoryInvalidationReceiver(context) {
+                SecurityDetectorCache.invalidateStaticSecurity()
+                packageInventoryChangeNonce += 1
+            }
+        onDispose { unregisterPackageInventoryInvalidation() }
     }
     var tamperDetected by securityUiState.tamperDetected
     var tamperSummary by securityUiState.tamperSummary
@@ -599,6 +606,21 @@ internal fun ExamRuntimeSessionScreenImpl(
     var geofenceEvaluation by securityUiState.geofenceEvaluation
     var geofenceSecurityStatus by securityUiState.geofenceSecurityStatus
     var fakeLocationSecurityStatus by securityUiState.fakeLocationSecurityStatus
+    LaunchedEffect(context, fakeLocationBypassState) {
+        val snapshot = readInitialStaticSecuritySnapshotOnIo(
+            context = context,
+            forceRefresh = false
+        )
+        applyInitialStaticSecuritySnapshot(
+            snapshot = snapshot,
+            securityUiState = securityUiState,
+            permissionGranted = hasLocationPermissionForWifi(context),
+            locationServicesEnabled = isLocationServicesEnabled(context),
+            fixQualityStatus = geofenceSecurityStatus.fixQualityStatus,
+            developerOptionsEnabled = developerOptionsEnabled,
+            fakeLocationBypassState = fakeLocationBypassState
+        )
+    }
     var deviceTimeSecurityStatus by remember(
         deviceTimeBaseline,
         deviceTimeBypassState
@@ -1350,7 +1372,8 @@ internal fun ExamRuntimeSessionScreenImpl(
                 locationSnapshot = locationSnapshot,
                 fixQualityStatus = latestGeofenceStatus.fixQualityStatus,
                 developerOptionsEnabled = developerOptionsForLocation,
-                suspiciousFakeLocationPackages = detectSuspiciousFakeLocationPackages(context),
+                suspiciousFakeLocationPackages =
+                    SecurityDetectorCache.readSuspiciousFakeLocationPackages(context),
                 bypassState = fakeLocationBypassState
             )
             geofenceEvaluation = latestGeofenceStatus.geofenceEvaluation
@@ -2747,7 +2770,10 @@ internal fun ExamRuntimeSessionScreenImpl(
                 applyVirtualEnvironmentDiagnostics(cachedVirtualEnvironmentDiagnostics, triggerViolation)
             } else {
                 coroutineScope.launch {
-                    val diagnostics = getVirtualEnvironmentDiagnosticsOnIo(context)
+                    val diagnostics = getVirtualEnvironmentDiagnosticsOnIo(
+                        context = context,
+                        forceRefresh = triggerViolation
+                    )
                     applyVirtualEnvironmentDiagnostics(diagnostics, triggerViolation)
                 }
             }
@@ -2770,7 +2796,12 @@ internal fun ExamRuntimeSessionScreenImpl(
                 lastContext = lastOverlayContext
             )
             val latestAdbInspection = inspectAdb(context)
-            val latestRootSecurityStatus = buildRootSecurityStatus(getRootDetectionDetails(context))
+            val latestRootSecurityStatus = buildRootSecurityStatus(
+                SecurityDetectorCache.readRootDetectionDetails(
+                    context = context,
+                    forceRefresh = section == DiagnosticSection.Root
+                )
+            )
             val latestAppSwitchStatus = AppSwitchMonitor.statusOf(
                 bypassState = appSwitchBypassState,
                 runtimeMonitoringActive = AppSwitchMonitor.shouldMonitor(
@@ -3209,7 +3240,10 @@ internal fun ExamRuntimeSessionScreenImpl(
             examRuntimeRecoveryState = ExamRuntimeRecoveryState.Idle
             webViewSessionResetError = null
             recordAction(code = "START_EXAM_PRESSED")
-            val startVirtualEnvironmentDiagnostics = getVirtualEnvironmentDiagnosticsOnIo(context)
+            val startVirtualEnvironmentDiagnostics = getVirtualEnvironmentDiagnosticsOnIo(
+                context = context,
+                forceRefresh = true
+            )
             runtimeSecurityOps.applyVirtualEnvironmentDiagnostics(
                 diagnostics = startVirtualEnvironmentDiagnostics,
                 triggerViolation = false
@@ -3383,7 +3417,10 @@ internal fun ExamRuntimeSessionScreenImpl(
                 bypassRoot = bypassRoot,
                 rootSecurityStatus = rootSecurityStatus,
                 bypassScreenRecorder = bypassScreenRecorder,
-                screenRecorderPackages = detectScreenRecorderPackages(context),
+                screenRecorderPackages = SecurityDetectorCache.readScreenRecorderPackages(
+                    context = context,
+                    forceRefresh = true
+                ),
                 bypassDisplayMirror = bypassDisplayMirror,
                 externalDisplayDetected = getExternalDisplayCount(context) > 0,
                 bypassMultiWindow = bypassMultiWindow,
@@ -3472,7 +3509,11 @@ internal fun ExamRuntimeSessionScreenImpl(
                     locationSnapshot = null,
                     fixQualityStatus = evaluateLocationFixQuality(null),
                     developerOptionsEnabled = developerOptionsEnabled,
-                    suspiciousFakeLocationPackages = detectSuspiciousFakeLocationPackages(context),
+                    suspiciousFakeLocationPackages =
+                        SecurityDetectorCache.readSuspiciousFakeLocationPackages(
+                            context = context,
+                            forceRefresh = true
+                        ),
                     bypassState = fakeLocationBypassState
                 )
                 applyStartExamBlockMessage(
@@ -3832,6 +3873,7 @@ internal fun ExamRuntimeSessionScreenImpl(
         bypassScreenRecorder = bypassScreenRecorder,
         bypassDisplayMirror = bypassDisplayMirror,
         bypassMultiWindow = bypassMultiWindow,
+        packageInventoryChangeNonce = packageInventoryChangeNonce,
         securityUiState = securityUiState,
         recordAction = ::recordAction,
         startAlarm = examAlarmController::start

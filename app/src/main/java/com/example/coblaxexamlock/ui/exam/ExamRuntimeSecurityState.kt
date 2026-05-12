@@ -25,8 +25,6 @@ import com.example.coblaxexamlock.LocationSpoofSecurityStatus
 import com.example.coblaxexamlock.RootSecurityStatus
 import com.example.coblaxexamlock.runtime.ExternalDisplayInfo
 import com.example.coblaxexamlock.runtime.MultiWindowModeInfo
-import com.example.coblaxexamlock.runtime.SecurityDetectorCache
-import com.example.coblaxexamlock.runtime.detectSuspiciousFakeLocationPackages
 import com.example.coblaxexamlock.runtime.getCachedVirtualEnvironmentDiagnostics
 import com.example.coblaxexamlock.runtime.hasBluetoothExamPermission
 import com.example.coblaxexamlock.runtime.hasFineLocationPermission
@@ -34,6 +32,7 @@ import com.example.coblaxexamlock.runtime.hasLocationPermissionForWifi
 import com.example.coblaxexamlock.runtime.isBluetoothEnabledForExam
 import com.example.coblaxexamlock.runtime.isLocationServicesEnabled
 import com.example.coblaxexamlock.runtime.readMultiWindowModeInfo
+import com.example.coblaxexamlock.model.RootDetectionDetails
 
 internal class ExamRuntimeSecurityUiState(
     val forcedExitViolationCount: MutableIntState,
@@ -68,6 +67,7 @@ internal class ExamRuntimeSecurityUiState(
     val tamperDetected: MutableState<Boolean>,
     val tamperSummary: MutableState<String>,
     val tamperLastLoggedSummary: MutableState<String?>,
+    val staticSecurityInitialScanComplete: MutableState<Boolean>,
     val integrityTamperDetected: MutableState<Boolean>,
     val integritySummary: MutableState<String>,
     val integrityPublicSummary: MutableState<String>,
@@ -135,9 +135,7 @@ internal fun rememberExamRuntimeSecurityUiState(
     val adbEnabled = rememberSaveable {
         mutableStateOf(initialAdbInspection.adbEnabled)
     }
-    val initialRootStatus = remember(context) {
-        buildRootSecurityStatus(SecurityDetectorCache.readRootDetectionDetails(context))
-    }
+    val initialRootStatus = remember { buildRootSecurityStatus(emptyRootDetectionDetails()) }
     val rootSecurityStatus = remember { mutableStateOf(initialRootStatus) }
     val rootDetected = rememberSaveable {
         mutableStateOf(initialRootStatus.detected)
@@ -152,6 +150,7 @@ internal fun rememberExamRuntimeSecurityUiState(
     val tamperDetected = rememberSaveable { mutableStateOf(false) }
     val tamperSummary = rememberSaveable { mutableStateOf("-") }
     val tamperLastLoggedSummary = rememberSaveable { mutableStateOf<String?>(null) }
+    val staticSecurityInitialScanComplete = rememberSaveable { mutableStateOf(false) }
     val integrityTamperDetected = rememberSaveable { mutableStateOf(false) }
     val integritySummary = rememberSaveable { mutableStateOf("-") }
     val integrityPublicSummary = rememberSaveable { mutableStateOf("OK") }
@@ -159,26 +158,12 @@ internal fun rememberExamRuntimeSecurityUiState(
     val integrityBaselineFingerprint = rememberSaveable { mutableStateOf<String?>(null) }
     val bluetoothViolationCount = rememberSaveable { mutableIntStateOf(0) }
     val showBluetoothViolationDialog = rememberSaveable { mutableStateOf(false) }
-    val initialScreenRecorderPackages = remember(context) {
-        SecurityDetectorCache.readScreenRecorderPackages(context)
-    }
-    val screenRecorderPackages = remember {
-        mutableStateOf(initialScreenRecorderPackages)
-    }
+    val screenRecorderPackages = remember { mutableStateOf(emptyList<String>()) }
     val screenRecorderViolationCount = rememberSaveable { mutableIntStateOf(0) }
     val showScreenRecorderViolationDialog = rememberSaveable { mutableStateOf(false) }
-    val initialExternalDisplaySnapshot = remember(context) {
-        SecurityDetectorCache.readExternalDisplaySnapshot(context)
-    }
-    val externalDisplayDetected = rememberSaveable {
-        mutableStateOf(initialExternalDisplaySnapshot.detected)
-    }
-    val externalDisplayCount = rememberSaveable {
-        mutableIntStateOf(initialExternalDisplaySnapshot.count)
-    }
-    val externalDisplayInfoList = remember {
-        mutableStateOf(initialExternalDisplaySnapshot.infoList)
-    }
+    val externalDisplayDetected = rememberSaveable { mutableStateOf(false) }
+    val externalDisplayCount = rememberSaveable { mutableIntStateOf(0) }
+    val externalDisplayInfoList = remember { mutableStateOf(emptyList<ExternalDisplayInfo>()) }
     val displayMirrorViolationCount = rememberSaveable { mutableIntStateOf(0) }
     val showDisplayMirrorViolationDialog = rememberSaveable { mutableStateOf(false) }
     val initialMultiWindowModeInfo = remember(context) {
@@ -238,7 +223,8 @@ internal fun rememberExamRuntimeSecurityUiState(
             locationSnapshot = null,
             fixQualityStatus = initialGeofenceSecurityStatus.fixQualityStatus,
             developerOptionsEnabled = inspectAdb(context).developerOptionsEnabled,
-            suspiciousFakeLocationPackages = detectSuspiciousFakeLocationPackages(context),
+            suspiciousFakeLocationPackages =
+                emptyList(),
             bypassState = fakeLocationBypassState
         )
     }
@@ -281,6 +267,7 @@ internal fun rememberExamRuntimeSecurityUiState(
         tamperDetected = tamperDetected,
         tamperSummary = tamperSummary,
         tamperLastLoggedSummary = tamperLastLoggedSummary,
+        staticSecurityInitialScanComplete = staticSecurityInitialScanComplete,
         integrityTamperDetected = integrityTamperDetected,
         integritySummary = integritySummary,
         integrityPublicSummary = integrityPublicSummary,
@@ -303,5 +290,28 @@ internal fun rememberExamRuntimeSecurityUiState(
         geofenceEvaluation = geofenceEvaluation,
         geofenceSecurityStatus = geofenceSecurityStatus,
         fakeLocationSecurityStatus = fakeLocationSecurityStatus
+    )
+}
+
+private fun emptyRootDetectionDetails(): RootDetectionDetails {
+    return RootDetectionDetails(
+        hasTestKeys = false,
+        hasSuBinary = false,
+        foundRootPackages = emptyList(),
+        rootBinaryPaths = emptyList(),
+        magiskPaths = emptyList(),
+        zygiskDetected = false,
+        xposedBridgeDetected = false,
+        verifiedBootState = "",
+        vbmetaDeviceState = "",
+        flashLocked = "",
+        bootloaderUnlocked = false,
+        selinuxEnabled = null,
+        selinuxEnforced = null,
+        dangerousSystemProperties = emptyList(),
+        roDebuggable = "",
+        roSecure = "",
+        roAdbSecure = "",
+        roBuildType = ""
     )
 }

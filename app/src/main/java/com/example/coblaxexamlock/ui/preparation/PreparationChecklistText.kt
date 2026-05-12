@@ -1,6 +1,5 @@
 package com.example.coblaxexamlock.ui.preparation
 
-import androidx.compose.runtime.Composable
 import com.example.coblaxexamlock.AccessibilityInspectionResult
 import com.example.coblaxexamlock.model.UiLanguage
 
@@ -48,7 +47,6 @@ internal data class PreparationChecklistText(
     val appSwitchDetail: String?
 )
 
-@Composable
 internal fun buildPreparationChecklistText(
     state: PreparationScreenState,
     uiLanguage: UiLanguage,
@@ -60,6 +58,7 @@ internal fun buildPreparationChecklistText(
 ): PreparationChecklistText {
     val statusText = buildPreparationChecklistStatusText(
         state = state,
+        uiLanguage = uiLanguage,
         accessibilityInspection = accessibilityInspection,
         accessibilityGuardEnabled = accessibilityGuardEnabled,
         accessibilityGuardRequired = accessibilityGuardRequired,

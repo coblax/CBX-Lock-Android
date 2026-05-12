@@ -20,7 +20,12 @@ import com.example.coblaxexamlock.PreviousExamSessionBreadcrumbCodes
 import com.example.coblaxexamlock.RootSecurityStatus
 import com.example.coblaxexamlock.runtime.requiresBluetoothExamPermission
 import com.example.coblaxexamlock.ui.dialog.ExamRuntimeDialogsState
+import com.example.coblaxexamlock.ui.preparation.PreparationDeviceActions
+import com.example.coblaxexamlock.ui.preparation.PreparationLocationActions
+import com.example.coblaxexamlock.ui.preparation.PreparationNetworkActions
+import com.example.coblaxexamlock.ui.preparation.PreparationRuntimeSecurityActions
 import com.example.coblaxexamlock.ui.preparation.PreparationScreenActions
+import com.example.coblaxexamlock.ui.preparation.PreparationSessionActions
 import com.example.coblaxexamlock.WebViewCompatibilityStatus
 import com.example.coblaxexamlock.WebViewHealthSeverity
 
@@ -356,41 +361,56 @@ internal fun buildPreparationScreenActions(
     onBackHome: () -> Unit
 ): PreparationScreenActions {
     return PreparationScreenActions(
-        onChooseKeyboard = onChooseKeyboard,
-        onOpenKeyboardSettings = onOpenKeyboardSettings,
-        onGrantBluetoothPermission = onGrantBluetoothPermission,
-        onOpenBluetoothSettings = onOpenBluetoothSettings,
-        onOpenAccessibilitySettings = onOpenAccessibilitySettings,
-        onOpenOverlayAccessibilitySettings = onOpenOverlayAccessibilitySettings,
-        onOpenDeveloperOptionsSettings = onOpenDeveloperOptionsSettings,
-        onRequestLocationPermission = onRequestLocationPermission,
-        onOpenLocationServicesSettings = onOpenLocationServicesSettings,
-        onRefreshGeofenceLocation = onRefreshGeofenceLocation,
-        onOpenGeofenceMapViewer = onOpenGeofenceMapViewer,
-        onOpenInternetSettings = onOpenInternetSettings,
-        onOpenVpnSettings = onOpenVpnSettings,
-        onOpenWifiSettings = onOpenWifiSettings,
-        onOpenCellularSettings = onOpenCellularSettings,
-        onOpenAirplaneModeSettings = onOpenAirplaneModeSettings,
-        onRefreshNetworkStatus = onRefreshNetworkStatus,
-        onOpenDateTimeSettings = onOpenDateTimeSettings,
-        onOpenFakeLocationDeveloperOptionsSettings = onOpenFakeLocationDeveloperOptionsSettings,
-        onOpenScreenPinningSettings = onOpenScreenPinningSettings,
-        onStartScreenPinning = onStartScreenPinning,
-        onOpenOverlaySettings = onOpenOverlaySettings,
-        onOpenAppSettings = onOpenAppSettings,
-        onOpenCastSettings = onOpenCastSettings,
-        onOpenWebViewProviderSettings = onOpenWebViewProviderSettings,
-        onReinstallOfficialApk = onReinstallOfficialApk,
-        onRefreshStatus = onRefreshStatus,
-        onRefreshAllSecurityChecks = onRefreshAllSecurityChecks,
-        onRefreshHealthCheck = onRefreshHealthCheck,
-        onRequestSectionReport = onRequestSectionReport,
-        onExportDiagnostics = onExportDiagnostics,
-        onAutoFixShown = onAutoFixShown,
-        onPreviousSessionRecoveryHintShown = onPreviousSessionRecoveryHintShown,
-        onAutoFixActionOpened = onAutoFixActionOpened,
-        onStartExam = onStartExam,
-        onBackHome = onBackHome
+        session = PreparationSessionActions(
+            onRefreshStatus = onRefreshStatus,
+            onRefreshAllSecurityChecks = onRefreshAllSecurityChecks,
+            onRefreshHealthCheck = onRefreshHealthCheck,
+            onRequestSectionReport = onRequestSectionReport,
+            onExportDiagnostics = onExportDiagnostics,
+            onAutoFixShown = onAutoFixShown,
+            onPreviousSessionRecoveryHintShown = onPreviousSessionRecoveryHintShown,
+            onAutoFixActionOpened = onAutoFixActionOpened,
+            onStartExam = onStartExam,
+            onBackHome = onBackHome
+        ),
+        network = PreparationNetworkActions(
+            onOpenInternetSettings = onOpenInternetSettings,
+            onOpenVpnSettings = onOpenVpnSettings,
+            onOpenWifiSettings = onOpenWifiSettings,
+            onOpenCellularSettings = onOpenCellularSettings,
+            onOpenAirplaneModeSettings = onOpenAirplaneModeSettings,
+            onRefreshNetworkStatus = onRefreshNetworkStatus
+        ),
+        device = PreparationDeviceActions(
+            onChooseKeyboard = onChooseKeyboard,
+            onOpenKeyboardSettings = onOpenKeyboardSettings,
+            onGrantBluetoothPermission = onGrantBluetoothPermission,
+            onOpenBluetoothSettings = onOpenBluetoothSettings,
+            onOpenAccessibilitySettings = onOpenAccessibilitySettings,
+            onOpenOverlayAccessibilitySettings = onOpenOverlayAccessibilitySettings,
+            onOpenDeveloperOptionsSettings = onOpenDeveloperOptionsSettings,
+            onOpenDateTimeSettings = onOpenDateTimeSettings,
+            onOpenScreenPinningSettings = onOpenScreenPinningSettings,
+            onStartScreenPinning = onStartScreenPinning,
+            onOpenOverlaySettings = onOpenOverlaySettings,
+            onOpenAppSettings = onOpenAppSettings,
+            onOpenCastSettings = onOpenCastSettings,
+            onOpenWebViewProviderSettings = onOpenWebViewProviderSettings,
+            onReinstallOfficialApk = onReinstallOfficialApk
+        ),
+        location = PreparationLocationActions(
+            onRequestLocationPermission = onRequestLocationPermission,
+            onOpenLocationServicesSettings = onOpenLocationServicesSettings,
+            onRefreshGeofenceLocation = onRefreshGeofenceLocation,
+            onOpenGeofenceMapViewer = onOpenGeofenceMapViewer,
+            onOpenFakeLocationDeveloperOptionsSettings = onOpenFakeLocationDeveloperOptionsSettings
+        ),
+        runtimeSecurity = PreparationRuntimeSecurityActions(
+            onOpenAccessibilitySettings = onOpenAccessibilitySettings,
+            onOpenOverlayAccessibilitySettings = onOpenOverlayAccessibilitySettings,
+            onOpenOverlaySettings = onOpenOverlaySettings,
+            onOpenAppSettings = onOpenAppSettings,
+            onOpenCastSettings = onOpenCastSettings
+        )
     )
 }

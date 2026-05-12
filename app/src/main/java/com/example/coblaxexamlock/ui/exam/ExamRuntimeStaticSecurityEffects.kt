@@ -4,20 +4,51 @@ import android.content.Context
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.DisposableEffect
 import androidx.compose.runtime.LaunchedEffect
+import com.example.coblaxexamlock.FakeLocationBypassState
+import com.example.coblaxexamlock.LocationFixQualityStatus
 import com.example.coblaxexamlock.MainActivity
+import com.example.coblaxexamlock.RootSecurityStatus
+import com.example.coblaxexamlock.buildRootSecurityStatus
+import com.example.coblaxexamlock.evaluateFakeLocationSecurity
 import com.example.coblaxexamlock.model.DiagnosticEventLevel
 import com.example.coblaxexamlock.runtime.ExternalDisplayInfo
+import com.example.coblaxexamlock.runtime.ExternalDisplaySnapshot
 import com.example.coblaxexamlock.runtime.MultiWindowModeInfo
 import com.example.coblaxexamlock.runtime.SecurityDetectorCache
 import com.example.coblaxexamlock.runtime.readMultiWindowModeInfo
+import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.delay
+import kotlinx.coroutines.withContext
 
-private const val RuntimeStaticSecurityPollIntervalMillis = 2_000L
+private const val RuntimeFastStaticSecurityPollIntervalMillis = 2_000L
+private const val RuntimeScreenRecorderPollIntervalMillis = 15_000L
 
 internal data class RuntimeStaticSecurityUiMessage(
     val key: String,
     val title: String,
     val message: String
+)
+
+internal data class InitialStaticSecuritySnapshot(
+    val rootSecurityStatus: RootSecurityStatus,
+    val screenRecorderPackages: List<String>,
+    val externalDisplaySnapshot: ExternalDisplaySnapshot,
+    val suspiciousFakeLocationPackages: List<String>
+)
+
+internal data class RuntimeFastStaticSecuritySnapshot(
+    val externalDisplayCount: Int,
+    val externalDisplayInfoList: List<ExternalDisplayInfo>,
+    val multiWindowModeInfo: MultiWindowModeInfo
+) {
+    val externalDisplayDetected: Boolean
+        get() = externalDisplayCount > 0
+    val multiWindowDetected: Boolean
+        get() = multiWindowModeInfo.inAnySplitMode
+}
+
+internal data class RuntimeScreenRecorderSnapshot(
+    val screenRecorderPackages: List<String>
 )
 
 internal data class RuntimeStaticSecuritySnapshot(
@@ -32,22 +63,130 @@ internal data class RuntimeStaticSecuritySnapshot(
         get() = multiWindowModeInfo.inAnySplitMode
 }
 
+internal suspend fun readInitialStaticSecuritySnapshotOnIo(
+    context: Context,
+    forceRefresh: Boolean = false
+): InitialStaticSecuritySnapshot = withContext(Dispatchers.IO) {
+    val appContext = context.applicationContext
+    InitialStaticSecuritySnapshot(
+        rootSecurityStatus = buildRootSecurityStatus(
+            SecurityDetectorCache.readRootDetectionDetails(
+                context = appContext,
+                forceRefresh = forceRefresh
+            )
+        ),
+        screenRecorderPackages = SecurityDetectorCache.readScreenRecorderPackages(
+            context = appContext,
+            forceRefresh = forceRefresh
+        ),
+        externalDisplaySnapshot = SecurityDetectorCache.readExternalDisplaySnapshot(
+            context = appContext,
+            forceRefresh = forceRefresh
+        ),
+        suspiciousFakeLocationPackages = SecurityDetectorCache.readSuspiciousFakeLocationPackages(
+            context = appContext,
+            forceRefresh = forceRefresh
+        )
+    )
+}
+
+internal fun applyInitialStaticSecuritySnapshot(
+    snapshot: InitialStaticSecuritySnapshot,
+    securityUiState: ExamRuntimeSecurityUiState,
+    permissionGranted: Boolean,
+    locationServicesEnabled: Boolean,
+    fixQualityStatus: LocationFixQualityStatus,
+    developerOptionsEnabled: Boolean,
+    fakeLocationBypassState: FakeLocationBypassState
+) {
+    securityUiState.rootSecurityStatus.setIfChanged(snapshot.rootSecurityStatus)
+    securityUiState.rootDetected.setIfChanged(snapshot.rootSecurityStatus.detected)
+    securityUiState.selinuxPermissiveWarning.setIfChanged(snapshot.rootSecurityStatus.selinuxPermissive)
+    securityUiState.screenRecorderPackages.setIfChanged(snapshot.screenRecorderPackages)
+    securityUiState.externalDisplayCount.setIfChanged(snapshot.externalDisplaySnapshot.count)
+    securityUiState.externalDisplayInfoList.setIfChanged(snapshot.externalDisplaySnapshot.infoList)
+    securityUiState.externalDisplayDetected.setIfChanged(snapshot.externalDisplaySnapshot.detected)
+    securityUiState.fakeLocationSecurityStatus.setIfChanged(
+        evaluateFakeLocationSecurity(
+            monitoringEnabled = true,
+            permissionGranted = permissionGranted,
+            locationServicesEnabled = locationServicesEnabled,
+            locationSnapshot = fixQualityStatus.snapshot,
+            fixQualityStatus = fixQualityStatus,
+            developerOptionsEnabled = developerOptionsEnabled,
+            suspiciousFakeLocationPackages = snapshot.suspiciousFakeLocationPackages,
+            bypassState = fakeLocationBypassState
+        )
+    )
+    securityUiState.staticSecurityInitialScanComplete.setIfChanged(true)
+}
+
+internal fun readRuntimeFastStaticSecuritySnapshot(
+    displaySnapshotReader: () -> ExternalDisplaySnapshot,
+    multiWindowInfoReader: () -> MultiWindowModeInfo
+): RuntimeFastStaticSecuritySnapshot {
+    val displaySnapshot = displaySnapshotReader()
+    return RuntimeFastStaticSecuritySnapshot(
+        externalDisplayCount = displaySnapshot.count,
+        externalDisplayInfoList = displaySnapshot.infoList,
+        multiWindowModeInfo = multiWindowInfoReader()
+    )
+}
+
+internal fun readRuntimeFastStaticSecuritySnapshot(
+    context: Context,
+    forceRefresh: Boolean = false
+): RuntimeFastStaticSecuritySnapshot {
+    return readRuntimeFastStaticSecuritySnapshot(
+        displaySnapshotReader = {
+            SecurityDetectorCache.readExternalDisplaySnapshot(
+                context = context,
+                forceRefresh = forceRefresh
+            )
+        },
+        multiWindowInfoReader = { readMultiWindowModeInfo(context) }
+    )
+}
+
+internal fun readRuntimeScreenRecorderSnapshot(
+    screenRecorderPackagesReader: () -> List<String>
+): RuntimeScreenRecorderSnapshot {
+    return RuntimeScreenRecorderSnapshot(
+        screenRecorderPackages = screenRecorderPackagesReader()
+    )
+}
+
+internal fun readRuntimeScreenRecorderSnapshot(
+    context: Context,
+    forceRefresh: Boolean = false
+): RuntimeScreenRecorderSnapshot {
+    return readRuntimeScreenRecorderSnapshot(
+        screenRecorderPackagesReader = {
+            SecurityDetectorCache.readScreenRecorderPackages(
+                context = context,
+                forceRefresh = forceRefresh
+            )
+        }
+    )
+}
+
 internal fun readRuntimeStaticSecuritySnapshot(
     context: Context,
     forceRefresh: Boolean = false
 ): RuntimeStaticSecuritySnapshot {
-    val displaySnapshot = SecurityDetectorCache.readExternalDisplaySnapshot(
+    val fastSnapshot = readRuntimeFastStaticSecuritySnapshot(
+        context = context,
+        forceRefresh = forceRefresh
+    )
+    val screenRecorderSnapshot = readRuntimeScreenRecorderSnapshot(
         context = context,
         forceRefresh = forceRefresh
     )
     return RuntimeStaticSecuritySnapshot(
-        screenRecorderPackages = SecurityDetectorCache.readScreenRecorderPackages(
-            context = context,
-            forceRefresh = forceRefresh
-        ),
-        externalDisplayCount = displaySnapshot.count,
-        externalDisplayInfoList = displaySnapshot.infoList,
-        multiWindowModeInfo = readMultiWindowModeInfo(context)
+        screenRecorderPackages = screenRecorderSnapshot.screenRecorderPackages,
+        externalDisplayCount = fastSnapshot.externalDisplayCount,
+        externalDisplayInfoList = fastSnapshot.externalDisplayInfoList,
+        multiWindowModeInfo = fastSnapshot.multiWindowModeInfo
     )
 }
 
@@ -59,38 +198,83 @@ internal fun RuntimeStaticSecurityEffects(
     bypassScreenRecorder: Boolean,
     bypassDisplayMirror: Boolean,
     bypassMultiWindow: Boolean,
+    packageInventoryChangeNonce: Int,
     securityUiState: ExamRuntimeSecurityUiState,
     recordAction: (String, String, DiagnosticEventLevel) -> Unit,
     startAlarm: () -> Unit
 ) {
-    fun refreshRuntimeStaticSecurity(trigger: String) {
-        refreshRuntimeStaticSecurityForSession(
+    val initialScanComplete = securityUiState.staticSecurityInitialScanComplete.value
+
+    fun refreshRuntimeFastStaticSecurity(trigger: String, forceRefresh: Boolean = false) {
+        refreshRuntimeFastStaticSecurityState(
             context = context,
             examSessionStarted = examSessionStarted,
-            bypassScreenRecorder = bypassScreenRecorder,
             bypassDisplayMirror = bypassDisplayMirror,
             bypassMultiWindow = bypassMultiWindow,
             securityUiState = securityUiState,
             trigger = trigger,
             recordAction = recordAction,
             startAlarm = startAlarm,
-            forceRefresh = false
+            forceRefresh = forceRefresh
+        )
+    }
+
+    fun refreshRuntimeScreenRecorder(trigger: String, forceRefresh: Boolean = false) {
+        refreshRuntimeScreenRecorderState(
+            context = context,
+            examSessionStarted = examSessionStarted,
+            bypassScreenRecorder = bypassScreenRecorder,
+            securityUiState = securityUiState,
+            trigger = trigger,
+            recordAction = recordAction,
+            startAlarm = startAlarm,
+            forceRefresh = forceRefresh
         )
     }
 
     LaunchedEffect(
         examSessionStarted,
-        bypassScreenRecorder,
         bypassDisplayMirror,
-        bypassMultiWindow
+        bypassMultiWindow,
+        initialScanComplete
     ) {
-        refreshRuntimeStaticSecurity("static_security_effect_start")
+        if (!initialScanComplete) {
+            return@LaunchedEffect
+        }
+        refreshRuntimeFastStaticSecurity("static_security_fast_effect_start")
         if (!examSessionStarted) {
             return@LaunchedEffect
         }
         while (true) {
-            delay(RuntimeStaticSecurityPollIntervalMillis)
-            refreshRuntimeStaticSecurity("runtime_static_security_poll")
+            delay(RuntimeFastStaticSecurityPollIntervalMillis)
+            refreshRuntimeFastStaticSecurity("runtime_static_security_fast_poll")
+        }
+    }
+
+    LaunchedEffect(
+        examSessionStarted,
+        bypassScreenRecorder,
+        initialScanComplete
+    ) {
+        if (!initialScanComplete) {
+            return@LaunchedEffect
+        }
+        refreshRuntimeScreenRecorder("screen_recorder_effect_start")
+        if (!examSessionStarted) {
+            return@LaunchedEffect
+        }
+        while (true) {
+            delay(RuntimeScreenRecorderPollIntervalMillis)
+            refreshRuntimeScreenRecorder("runtime_screen_recorder_poll")
+        }
+    }
+
+    LaunchedEffect(packageInventoryChangeNonce, bypassScreenRecorder, initialScanComplete) {
+        if (packageInventoryChangeNonce > 0 && initialScanComplete) {
+            refreshRuntimeScreenRecorder(
+                trigger = "package_inventory_changed",
+                forceRefresh = true
+            )
         }
     }
 
@@ -101,7 +285,9 @@ internal fun RuntimeStaticSecurityEffects(
             onDispose { hostActivity?.setOnExamMultiWindowModeChangedHandler(null) }
         } else {
             hostActivity.setOnExamMultiWindowModeChangedHandler {
-                refreshRuntimeStaticSecurity("multi_window_mode_changed")
+                if (securityUiState.staticSecurityInitialScanComplete.value) {
+                    refreshRuntimeFastStaticSecurity("multi_window_mode_changed")
+                }
             }
             onDispose {
                 hostActivity.setOnExamMultiWindowModeChangedHandler(null)
@@ -148,20 +334,51 @@ internal fun refreshRuntimeStaticSecurityState(
     startAlarm: () -> Unit,
     forceRefresh: Boolean = false
 ) {
-    val previousScreenRecorderDetected = securityUiState.screenRecorderPackages.value.isNotEmpty()
+    refreshRuntimeFastStaticSecurityState(
+        context = context,
+        examSessionStarted = examSessionStarted,
+        bypassDisplayMirror = bypassDisplayMirror,
+        bypassMultiWindow = bypassMultiWindow,
+        securityUiState = securityUiState,
+        trigger = trigger,
+        recordAction = recordAction,
+        startAlarm = startAlarm,
+        forceRefresh = forceRefresh
+    )
+    refreshRuntimeScreenRecorderState(
+        context = context,
+        examSessionStarted = examSessionStarted,
+        bypassScreenRecorder = bypassScreenRecorder,
+        securityUiState = securityUiState,
+        trigger = trigger,
+        recordAction = recordAction,
+        startAlarm = startAlarm,
+        forceRefresh = forceRefresh
+    )
+}
+
+internal fun refreshRuntimeFastStaticSecurityState(
+    context: Context,
+    examSessionStarted: Boolean,
+    bypassDisplayMirror: Boolean,
+    bypassMultiWindow: Boolean,
+    securityUiState: ExamRuntimeSecurityUiState,
+    trigger: String,
+    recordAction: (String, String, DiagnosticEventLevel) -> Unit,
+    startAlarm: () -> Unit,
+    forceRefresh: Boolean = false
+) {
     val previousDisplayMirrorDetected = securityUiState.externalDisplayDetected.value
     val previousMultiWindowDetected = securityUiState.multiWindowDetected.value
 
-    val latestSnapshot = readRuntimeStaticSecuritySnapshot(
+    val latestSnapshot = readRuntimeFastStaticSecuritySnapshot(
         context = context,
         forceRefresh = forceRefresh
     )
-    val latestScreenRecorderPackages = latestSnapshot.screenRecorderPackages
     val latestExternalDisplayCount = latestSnapshot.externalDisplayCount
     val latestExternalDisplayDetected = latestSnapshot.externalDisplayDetected
     val latestMultiWindowDetected = latestSnapshot.multiWindowDetected
 
-    securityUiState.screenRecorderPackages.setIfChanged(latestScreenRecorderPackages)
     securityUiState.externalDisplayCount.setIfChanged(latestExternalDisplayCount)
     securityUiState.externalDisplayInfoList.setIfChanged(latestSnapshot.externalDisplayInfoList)
     securityUiState.externalDisplayDetected.setIfChanged(latestExternalDisplayDetected)
@@ -169,10 +386,6 @@ internal fun refreshRuntimeStaticSecurityState(
     securityUiState.multiWindowDetected.setIfChanged(latestMultiWindowDetected)
 
     fun boolLabel(value: Boolean): String = if (value) "yes" else "no"
-    fun screenRecorderDetails(): String =
-        "trigger=$trigger | count=${latestScreenRecorderPackages.size} | " +
-            "packages=${latestScreenRecorderPackages.joinToString().ifBlank { "-" }} | " +
-            "bypass=${boolLabel(bypassScreenRecorder)}"
     fun displayMirrorDetails(): String =
         "trigger=$trigger | external_display_count=$latestExternalDisplayCount | " +
             "bypass=${boolLabel(bypassDisplayMirror)}"
@@ -193,37 +406,9 @@ internal fun refreshRuntimeStaticSecurityState(
     }
 
     if (!examSessionStarted) {
-        securityUiState.showScreenRecorderViolationDialog.value = false
         securityUiState.showDisplayMirrorViolationDialog.value = false
         securityUiState.showMultiWindowViolationDialog.value = false
         return
-    }
-
-    val screenRecorderDetected = latestScreenRecorderPackages.isNotEmpty()
-    when {
-        screenRecorderDetected && !bypassScreenRecorder -> {
-            if (!securityUiState.showScreenRecorderViolationDialog.value) {
-                securityUiState.screenRecorderViolationCount.intValue += 1
-                recordAction(
-                    ExamRuntimeHardeningDiagnostics.ScreenRecorderDetected,
-                    screenRecorderDetails(),
-                    DiagnosticEventLevel.SECURITY
-                )
-            }
-            securityUiState.showScreenRecorderViolationDialog.value = true
-            if (!previousScreenRecorderDetected) {
-                startAlarm()
-            }
-        }
-        previousScreenRecorderDetected && !screenRecorderDetected -> {
-            recordAction(
-                ExamRuntimeHardeningDiagnostics.ScreenRecorderCleared,
-                screenRecorderDetails(),
-                DiagnosticEventLevel.INFO
-            )
-            securityUiState.showScreenRecorderViolationDialog.value = false
-        }
-        else -> securityUiState.showScreenRecorderViolationDialog.value = false
     }
 
     when {
@@ -276,6 +461,64 @@ internal fun refreshRuntimeStaticSecurityState(
             securityUiState.showMultiWindowViolationDialog.value = false
         }
         else -> securityUiState.showMultiWindowViolationDialog.value = false
+    }
+}
+
+internal fun refreshRuntimeScreenRecorderState(
+    context: Context,
+    examSessionStarted: Boolean,
+    bypassScreenRecorder: Boolean,
+    securityUiState: ExamRuntimeSecurityUiState,
+    trigger: String,
+    recordAction: (String, String, DiagnosticEventLevel) -> Unit,
+    startAlarm: () -> Unit,
+    forceRefresh: Boolean = false
+) {
+    val previousScreenRecorderDetected = securityUiState.screenRecorderPackages.value.isNotEmpty()
+    val latestSnapshot = readRuntimeScreenRecorderSnapshot(
+        context = context,
+        forceRefresh = forceRefresh
+    )
+    val latestScreenRecorderPackages = latestSnapshot.screenRecorderPackages
+
+    securityUiState.screenRecorderPackages.setIfChanged(latestScreenRecorderPackages)
+
+    fun boolLabel(value: Boolean): String = if (value) "yes" else "no"
+    fun screenRecorderDetails(): String =
+        "trigger=$trigger | count=${latestScreenRecorderPackages.size} | " +
+            "packages=${latestScreenRecorderPackages.joinToString().ifBlank { "-" }} | " +
+            "bypass=${boolLabel(bypassScreenRecorder)}"
+
+    if (!examSessionStarted) {
+        securityUiState.showScreenRecorderViolationDialog.value = false
+        return
+    }
+
+    val screenRecorderDetected = latestScreenRecorderPackages.isNotEmpty()
+    when {
+        screenRecorderDetected && !bypassScreenRecorder -> {
+            if (!securityUiState.showScreenRecorderViolationDialog.value) {
+                securityUiState.screenRecorderViolationCount.intValue += 1
+                recordAction(
+                    ExamRuntimeHardeningDiagnostics.ScreenRecorderDetected,
+                    screenRecorderDetails(),
+                    DiagnosticEventLevel.SECURITY
+                )
+            }
+            securityUiState.showScreenRecorderViolationDialog.value = true
+            if (!previousScreenRecorderDetected) {
+                startAlarm()
+            }
+        }
+        previousScreenRecorderDetected && !screenRecorderDetected -> {
+            recordAction(
+                ExamRuntimeHardeningDiagnostics.ScreenRecorderCleared,
+                screenRecorderDetails(),
+                DiagnosticEventLevel.INFO
+            )
+            securityUiState.showScreenRecorderViolationDialog.value = false
+        }
+        else -> securityUiState.showScreenRecorderViolationDialog.value = false
     }
 }
 

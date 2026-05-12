@@ -62,6 +62,16 @@ internal data class ScreenRecorderAppReport(
         get() = formatScreenRecorderLabel(label, packageName)
 }
 
+internal data class ScreenRecorderPackageMatch(
+    val packageName: String,
+    val flags: Int,
+    val enabled: Boolean,
+    val source: ScreenRecorderDetectionSource
+) {
+    val systemApp: Boolean
+        get() = flags and ApplicationInfo.FLAG_SYSTEM != 0
+}
+
 private val ScreenRecorderKeywords = listOf(
     "screenrecorder",
     "screen.recorder",
@@ -79,39 +89,87 @@ internal fun detectScreenRecorderPackages(context: Context): List<String> {
 }
 
 internal fun inspectScreenRecorderApps(context: Context): List<ScreenRecorderAppReport> {
+    return inspectScreenRecorderAppsFromInventory(
+        context = context,
+        inventory = readInstalledPackageInventory(context)
+    )
+}
+
+internal fun detectScreenRecorderPackagesFromInventory(
+    context: Context,
+    inventory: InstalledPackageInventory,
+    metadataResolver: (String) -> InstalledPackageMetadata? = { packageName ->
+        resolveInstalledPackageMetadata(
+            context = context,
+            packageName = packageName,
+            packageInventory = inventory,
+            includeDisplayMetadata = true
+        )
+    }
+): List<String> {
+    return inspectScreenRecorderAppsFromInventory(
+        context = context,
+        inventory = inventory,
+        metadataResolver = metadataResolver
+    )
+        .map { report -> report.displayLabel }
+}
+
+internal fun inspectScreenRecorderAppsFromInventory(
+    context: Context,
+    inventory: InstalledPackageInventory,
+    metadataResolver: (String) -> InstalledPackageMetadata? = { packageName ->
+        resolveInstalledPackageMetadata(
+            context = context,
+            packageName = packageName,
+            packageInventory = inventory,
+            includeDisplayMetadata = true
+        )
+    }
+): List<ScreenRecorderAppReport> {
     val packageManager = context.packageManager
-    val results = linkedMapOf<String, ScreenRecorderAppReport>()
+    return findScreenRecorderMatchesFromInventory(
+        inventory = inventory,
+        fallbackRecordProvider = { packageName ->
+            packageManager.loadInstalledPackageRecord(packageName)
+        }
+    ).map { match ->
+        buildScreenRecorderAppReport(
+            match = match,
+            metadata = metadataResolver(match.packageName)
+        )
+    }
+}
+
+internal fun findScreenRecorderMatchesFromInventory(
+    inventory: InstalledPackageInventory,
+    fallbackRecordProvider: (String) -> InstalledPackageRecord? = { null }
+): List<ScreenRecorderPackageMatch> {
+    val results = linkedMapOf<String, ScreenRecorderPackageMatch>()
 
     // Phase 1: Check known package names (fast exact-match lookup).
     for (packageName in KnownScreenRecorderPackages) {
-        val appInfo = runCatching {
-            @Suppress("DEPRECATION")
-            packageManager.getApplicationInfo(packageName, 0)
-        }.getOrNull() ?: continue
-        results[packageName] = buildScreenRecorderAppReport(
-            packageManager = packageManager,
-            appInfo = appInfo,
+        val record = inventory.get(packageName) ?: fallbackRecordProvider(packageName) ?: continue
+        results[packageName] = ScreenRecorderPackageMatch(
             packageName = packageName,
+            flags = record.flags,
+            enabled = record.enabled,
             source = ScreenRecorderDetectionSource.KnownPackage
         )
     }
 
     // Phase 2: Keyword-based scan of all installed user (non-system) packages.
-    val installedPackages = runCatching {
-        @Suppress("DEPRECATION", "QueryPermissionsNeeded")
-        packageManager.getInstalledApplications(0)
-    }.getOrDefault(emptyList())
-    for (appInfo in installedPackages) {
+    for (record in inventory.records) {
         // Only user-installed apps are suspicious in keyword scan.
-        if (appInfo.flags and ApplicationInfo.FLAG_SYSTEM != 0) continue
-        val pkg = appInfo.packageName.lowercase()
+        if (record.systemApp) continue
+        val pkg = record.packageName.lowercase()
         if (ScreenRecorderKeywords.any { keyword -> pkg.contains(keyword) }) {
             results.putIfAbsent(
-                appInfo.packageName,
-                buildScreenRecorderAppReport(
-                    packageManager = packageManager,
-                    appInfo = appInfo,
-                    packageName = appInfo.packageName,
+                record.packageName,
+                ScreenRecorderPackageMatch(
+                    packageName = record.packageName,
+                    flags = record.flags,
+                    enabled = record.enabled,
                     source = ScreenRecorderDetectionSource.KeywordScan
                 )
             )
@@ -122,29 +180,31 @@ internal fun inspectScreenRecorderApps(context: Context): List<ScreenRecorderApp
 }
 
 private fun buildScreenRecorderAppReport(
-    packageManager: PackageManager,
-    appInfo: ApplicationInfo,
-    packageName: String,
-    source: ScreenRecorderDetectionSource
+    match: ScreenRecorderPackageMatch,
+    metadata: InstalledPackageMetadata?
 ): ScreenRecorderAppReport {
-    val label = runCatching {
-        packageManager.getApplicationLabel(appInfo).toString().trim()
-    }.getOrDefault("")
-    val versionName = runCatching {
-        @Suppress("DEPRECATION")
-        packageManager.getPackageInfo(packageName, 0).versionName
-    }.getOrNull().orEmpty()
-    val isSystemApp =
-        appInfo.flags and ApplicationInfo.FLAG_SYSTEM != 0 ||
-            appInfo.flags and ApplicationInfo.FLAG_UPDATED_SYSTEM_APP != 0
     return ScreenRecorderAppReport(
-        label = label.ifBlank { packageName },
-        packageName = packageName,
-        versionName = versionName.ifBlank { "-" },
-        systemApp = isSystemApp,
-        enabled = appInfo.enabled,
-        source = source
+        label = metadata?.label?.ifBlank { match.packageName } ?: match.packageName,
+        packageName = match.packageName,
+        versionName = metadata?.versionName?.ifBlank { "-" } ?: "-",
+        systemApp = metadata?.systemOrUpdatedSystemApp ?: (
+            match.systemApp ||
+                (match.flags and ApplicationInfo.FLAG_UPDATED_SYSTEM_APP) != 0
+            ),
+        enabled = metadata?.enabled ?: match.enabled,
+        source = match.source
     )
+}
+
+private fun PackageManager.loadInstalledPackageRecord(packageName: String): InstalledPackageRecord? {
+    return loadApplicationInfo(packageName)?.toInstalledPackageRecord()
+}
+
+private fun PackageManager.loadApplicationInfo(packageName: String): ApplicationInfo? {
+    return runCatching {
+        @Suppress("DEPRECATION")
+        getApplicationInfo(packageName, 0)
+    }.getOrNull()
 }
 
 private fun formatScreenRecorderLabel(

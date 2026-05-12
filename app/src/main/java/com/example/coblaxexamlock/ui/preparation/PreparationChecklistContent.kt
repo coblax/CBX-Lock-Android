@@ -3,16 +3,17 @@ package com.example.coblaxexamlock.ui.preparation
 import android.os.SystemClock
 import android.util.Log
 import androidx.compose.foundation.background
+import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
-import androidx.compose.foundation.layout.Column
+import androidx.compose.foundation.layout.PaddingValues
 import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.navigationBarsPadding
 import androidx.compose.foundation.layout.padding
-import androidx.compose.foundation.rememberScrollState
-import androidx.compose.foundation.verticalScroll
+import androidx.compose.foundation.lazy.LazyColumn
+import androidx.compose.foundation.lazy.rememberLazyListState
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.DisposableEffect
 import androidx.compose.runtime.LaunchedEffect
@@ -79,7 +80,7 @@ internal fun ExamSecurityPreparationScreenContent(
             inspectAccessibility(context)
         }
     }
-    val scrollState = rememberScrollState()
+    val listState = rememberLazyListState()
     @Suppress("DEPRECATION")
     val lifecycleOwner = LocalLifecycleOwner.current
     var pendingQuickFixTarget by rememberSaveable { mutableStateOf<QuickFixTarget?>(null) }
@@ -157,24 +158,50 @@ internal fun ExamSecurityPreparationScreenContent(
     }
     val accessibilityGuardRequired =
         !screenPinningAvailable && !bypassScreenPinning && accessibilityGuardAvailable
-    val checklistText = buildPreparationChecklistText(
-        state = state,
-        uiLanguage = uiLanguage,
-        accessibilityInspection = accessibilityInspection,
-        accessibilityGuardEnabled = accessibilityGuardEnabled,
-        accessibilityGuardAvailable = accessibilityGuardAvailable,
-        accessibilityGuardRequired = accessibilityGuardRequired,
-        needsBluetoothPermission = needsBluetoothPermission
-    )
+    val checklistText = remember(
+        state.session,
+        state.network,
+        state.device,
+        state.location,
+        state.runtimeSecurity,
+        state.bypass,
+        state.diagnostics,
+        uiLanguage,
+        accessibilityInspection,
+        accessibilityGuardEnabled,
+        accessibilityGuardAvailable,
+        accessibilityGuardRequired,
+        needsBluetoothPermission
+    ) {
+        debugMeasurePreparationWork("buildPreparationChecklistText") {
+            buildPreparationChecklistText(
+                state = state,
+                uiLanguage = uiLanguage,
+                accessibilityInspection = accessibilityInspection,
+                accessibilityGuardEnabled = accessibilityGuardEnabled,
+                accessibilityGuardAvailable = accessibilityGuardAvailable,
+                accessibilityGuardRequired = accessibilityGuardRequired,
+                needsBluetoothPermission = needsBluetoothPermission
+            )
+        }
+    }
     val readiness = remember(
-        state,
+        state.network,
+        state.device,
+        state.location,
+        state.runtimeSecurity,
+        state.bypass,
         needsBluetoothPermission,
         accessibilityGuardRequired,
         accessibilityGuardAvailable,
         accessibilityGuardEnabled
     ) {
         buildPreparationChecklistReadiness(
-            state = state,
+            network = state.network,
+            device = state.device,
+            location = state.location,
+            runtimeSecurity = state.runtimeSecurity,
+            bypass = state.bypass,
             needsBluetoothPermission = needsBluetoothPermission,
             accessibilityGuardRequired = accessibilityGuardRequired,
             accessibilityGuardAvailable = accessibilityGuardAvailable,
@@ -198,67 +225,156 @@ internal fun ExamSecurityPreparationScreenContent(
             .fillMaxSize()
             .background(LockBackground)
     ) {
-        Column(
+        LazyColumn(
+            state = listState,
             modifier = Modifier
-                .fillMaxSize()
-                .verticalScroll(scrollState)
-                .padding(horizontal = 16.dp, vertical = 14.dp)
-                .padding(bottom = 118.dp),
-            horizontalAlignment = Alignment.CenterHorizontally
+                .fillMaxSize(),
+            contentPadding = PaddingValues(
+                start = 16.dp,
+                top = 14.dp,
+                end = 16.dp,
+                bottom = 118.dp
+            ),
+            horizontalAlignment = Alignment.CenterHorizontally,
+            verticalArrangement = Arrangement.spacedBy(14.dp)
         ) {
-        PreparationChecklistHeader(
-            examTitle = examTitle,
-            severeLowRamPreparation = severeLowRamPreparation,
-            onBackHome = onBackHome
-        )
-        Spacer(modifier = Modifier.height(14.dp))
+            item(key = "preparation_header") {
+                PreparationChecklistHeader(
+                    examTitle = examTitle,
+                    severeLowRamPreparation = severeLowRamPreparation,
+                    onBackHome = onBackHome
+                )
+            }
+            item(key = "checklist_intro") {
+                PreparationChecklistIntroItem(
+                    checklistTitle = checklistTitle,
+                    checklistSubtitle = checklistSubtitle,
+                    telegramHelperText = telegramHelperText
+                )
+            }
+            item(key = "checklist_device_setup") {
+                PreparationDeviceSetupSection(
+                    device = state.device,
+                    bypass = state.bypass,
+                    text = checklistText,
+                    sendingSection = state.session.sendingSection,
+                    needsBluetoothPermission = needsBluetoothPermission,
+                    onRequestSectionReport = actions.session.onRequestSectionReport
+                )
+            }
+            item(key = "checklist_connectivity") {
+                PreparationConnectivitySection(
+                    text = checklistText,
+                    sendingSection = state.session.sendingSection,
+                    onRequestSectionReport = actions.session.onRequestSectionReport
+                )
+            }
+            item(key = "checklist_device_health") {
+                PreparationDeviceHealthSection(
+                    device = state.device,
+                    bypass = state.bypass,
+                    text = checklistText,
+                    sendingSection = state.session.sendingSection,
+                    onRequestSectionReport = actions.session.onRequestSectionReport
+                )
+            }
+            item(key = "checklist_runtime_interaction") {
+                PreparationRuntimeInteractionSection(
+                    runtimeSecurity = state.runtimeSecurity,
+                    bypass = state.bypass,
+                    text = checklistText,
+                    sendingSection = state.session.sendingSection,
+                    accessibilityInspection = accessibilityInspection,
+                    onRequestSectionReport = actions.session.onRequestSectionReport
+                )
+            }
+            item(key = "checklist_device_integrity") {
+                PreparationDeviceIntegritySection(
+                    device = state.device,
+                    bypass = state.bypass,
+                    text = checklistText,
+                    sendingSection = state.session.sendingSection,
+                    onRequestSectionReport = actions.session.onRequestSectionReport
+                )
+            }
+            item(key = "checklist_runtime_clipboard") {
+                PreparationRuntimeClipboardSection(
+                    runtimeSecurity = state.runtimeSecurity,
+                    bypass = state.bypass,
+                    text = checklistText,
+                    sendingSection = state.session.sendingSection,
+                    onRequestSectionReport = actions.session.onRequestSectionReport
+                )
+            }
+            item(key = "checklist_location") {
+                PreparationLocationSection(
+                    location = state.location,
+                    bypass = state.bypass,
+                    text = checklistText,
+                    sendingSection = state.session.sendingSection,
+                    onRequestSectionReport = actions.session.onRequestSectionReport
+                )
+            }
+            item(key = "checklist_device_lock") {
+                PreparationDeviceLockSection(
+                    device = state.device,
+                    bypass = state.bypass,
+                    text = checklistText,
+                    sendingSection = state.session.sendingSection,
+                    accessibilityGuardAvailable = accessibilityGuardAvailable,
+                    accessibilityGuardRequired = accessibilityGuardRequired,
+                    accessibilityGuardEnabled = accessibilityGuardEnabled,
+                    onRequestSectionReport = actions.session.onRequestSectionReport
+                )
+            }
+            item(key = "checklist_runtime_static_security") {
+                PreparationRuntimeStaticSecuritySection(
+                    runtimeSecurity = state.runtimeSecurity,
+                    bypass = state.bypass,
+                    text = checklistText,
+                    sendingSection = state.session.sendingSection,
+                    onRequestSectionReport = actions.session.onRequestSectionReport
+                )
+            }
 
-        PreparationChecklistItemsCard(
-            state = state,
-            actions = actions,
-            text = checklistText,
-            needsBluetoothPermission = needsBluetoothPermission,
-            accessibilityInspection = accessibilityInspection,
-            accessibilityGuardAvailable = accessibilityGuardAvailable,
-            accessibilityGuardRequired = accessibilityGuardRequired,
-            accessibilityGuardEnabled = accessibilityGuardEnabled,
-            checklistTitle = checklistTitle,
-            checklistSubtitle = checklistSubtitle,
-            telegramHelperText = telegramHelperText
-        )
-        Spacer(modifier = Modifier.height(14.dp))
+            if (tamperDetected) {
+                item(key = "tamper_notice") {
+                    PreparationNoticeCard(
+                        title = tr("Security Check Failed", "Pemeriksaan Keamanan Gagal"),
+                        message = tr(
+                            "Security checks failed. Close debugging or hooking tools and reopen the app.",
+                            "Pemeriksaan keamanan gagal. Tutup tool debugging/hooking lalu buka ulang aplikasi."
+                        ),
+                        accentColor = Color(0xFFB34A4A),
+                        backgroundColor = Color(0xFFFFEFEF)
+                    )
+                }
+            }
 
-        if (tamperDetected) {
-            PreparationNoticeCard(
-                title = tr("Security Check Failed", "Pemeriksaan Keamanan Gagal"),
-                message = tr(
-                    "Security checks failed. Close debugging or hooking tools and reopen the app.",
-                    "Pemeriksaan keamanan gagal. Tutup tool debugging/hooking lalu buka ulang aplikasi."
-                ),
-                accentColor = Color(0xFFB34A4A),
-                backgroundColor = Color(0xFFFFEFEF)
-            )
-            Spacer(modifier = Modifier.height(10.dp))
-        }
+            item(key = "notice_stack") {
+                PreparationNoticeStack(
+                    state = state,
+                    actions = actions,
+                    runQuickFix = ::runQuickFix
+                )
+            }
 
-        PreparationNoticeStack(
-            state = state,
-            actions = actions,
-            runQuickFix = ::runQuickFix
-        )
+            item(key = "quick_fix_panel") {
+                PreparationQuickFixPanel(
+                    state = state,
+                    actions = actions,
+                    accessibilityGuardRequired = accessibilityGuardRequired,
+                    accessibilityGuardEnabled = accessibilityGuardEnabled,
+                    geofenceReady = geofenceReady,
+                    fakeLocationReady = fakeLocationReady,
+                    needsBluetoothPermission = needsBluetoothPermission,
+                    runQuickFix = ::runQuickFix
+                )
+            }
 
-        PreparationQuickFixPanel(
-            state = state,
-            actions = actions,
-            accessibilityGuardRequired = accessibilityGuardRequired,
-            accessibilityGuardEnabled = accessibilityGuardEnabled,
-            geofenceReady = geofenceReady,
-            fakeLocationReady = fakeLocationReady,
-            needsBluetoothPermission = needsBluetoothPermission,
-            runQuickFix = ::runQuickFix
-        )
-
-            Spacer(modifier = Modifier.height(6.dp))
+            item(key = "preparation_bottom_spacer") {
+                Spacer(modifier = Modifier.height(6.dp))
+            }
         }
 
         PreparationFloatingActionBar(
@@ -275,7 +391,7 @@ internal fun ExamSecurityPreparationScreenContent(
                 .fillMaxWidth()
                 .navigationBarsPadding()
                 .padding(horizontal = 16.dp, vertical = 10.dp)
-        )
+            )
     }
         }
     }

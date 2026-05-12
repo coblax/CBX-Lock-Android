@@ -1,17 +1,17 @@
 package com.example.coblaxexamlock.ui.preparation
 
-import androidx.compose.runtime.Composable
 import com.example.coblaxexamlock.GeofenceSecurityVerdict
 import com.example.coblaxexamlock.LocationSpoofConfidenceTier
 import com.example.coblaxexamlock.LocationSpoofSecurityVerdict
 import com.example.coblaxexamlock.OverlayQuickFixTarget
-import com.example.coblaxexamlock.i18n.tr
+import com.example.coblaxexamlock.i18n.localized
 import com.example.coblaxexamlock.model.NetworkReadinessVerdict
+import com.example.coblaxexamlock.model.UiLanguage
 
-@Composable
 internal fun buildPreparationQuickFixActions(
     state: PreparationScreenState,
     actions: PreparationScreenActions,
+    uiLanguage: UiLanguage,
     accessibilityGuardRequired: Boolean,
     accessibilityGuardEnabled: Boolean,
     geofenceReady: Boolean,
@@ -21,6 +21,8 @@ internal fun buildPreparationQuickFixActions(
 ): List<PreparationQuickFixAction> {
     with(state) {
         with(actions) {
+            fun t(english: String, indonesian: String): String =
+                localized(uiLanguage, english, indonesian)
             val showKeyboardFix = usingBuiltInExamKeyboard && !bypassKeyboardPolicy
             val showBluetoothPermissionFix =
                 !bypassBluetooth && needsBluetoothPermission && !bluetoothPermissionGranted
@@ -153,7 +155,7 @@ internal fun buildPreparationQuickFixActions(
 
                 if (showDeviceTimeFix) {
                     addQuickFix(
-                        text = tr("Enable Automatic Date & Time", "Aktifkan Tanggal & Waktu Otomatis"),
+                        text = t("Enable Automatic Date & Time", "Aktifkan Tanggal & Waktu Otomatis"),
                         severity = QuickFixSeverity.Blocking,
                         target = QuickFixTarget.DeviceTime,
                         priority = 10,
@@ -163,7 +165,7 @@ internal fun buildPreparationQuickFixActions(
                 }
                 if (reinstallApkFixNeeded) {
                     addQuickFix(
-                        text = tr("Install Official APK Again", "Instal Ulang APK Resmi"),
+                        text = t("Install Official APK Again", "Instal Ulang APK Resmi"),
                         severity = QuickFixSeverity.Blocking,
                         target = null,
                         priority = 15,
@@ -173,7 +175,7 @@ internal fun buildPreparationQuickFixActions(
                 }
                 if (showAdbFix) {
                     addQuickFix(
-                        text = tr("Turn Off USB Debugging", "Matikan USB Debugging"),
+                        text = t("Turn Off USB Debugging", "Matikan USB Debugging"),
                         severity = QuickFixSeverity.Blocking,
                         target = QuickFixTarget.All,
                         priority = 20,
@@ -183,7 +185,7 @@ internal fun buildPreparationQuickFixActions(
                 if (showAdbInsecurePropertyFix) {
                     addQuickFix(
                         code = "adb_insecure_property",
-                        text = tr(
+                        text = t(
                             "ADB system property insecure — contact your admin or check Developer Options",
                             "Properti sistem ADB tidak aman — hubungi admin atau periksa Developer Options"
                         ),
@@ -196,7 +198,7 @@ internal fun buildPreparationQuickFixActions(
                 if (showRootBlockingFix) {
                     addQuickFix(
                         code = "root_detected",
-                        text = tr(
+                        text = t(
                             "Root detected — contact your administrator or refresh checks",
                             "Root terdeteksi — hubungi administrator atau refresh pemeriksaan"
                         ),
@@ -209,7 +211,7 @@ internal fun buildPreparationQuickFixActions(
                 if (showRootSelinuxFix) {
                     addQuickFix(
                         code = "selinux_permissive",
-                        text = tr(
+                        text = t(
                             "SELinux is permissive — contact your administrator",
                             "SELinux permissive — hubungi administrator Anda"
                         ),
@@ -222,7 +224,7 @@ internal fun buildPreparationQuickFixActions(
                 if (showVirtualEnvFix) {
                     addQuickFix(
                         code = "virtual_env_detected",
-                        text = tr(
+                        text = t(
                             "Emulator detected — exam must be on a physical device",
                             "Emulator terdeteksi — ujian harus dijalankan di perangkat fisik"
                         ),
@@ -235,7 +237,7 @@ internal fun buildPreparationQuickFixActions(
                 if (showAppSwitchViolationFix) {
                     addQuickFix(
                         code = "app_switch_violations",
-                        text = tr(
+                        text = t(
                             "App switch violation recorded — refresh to clear",
                             "Pelanggaran app switch tercatat — refresh untuk menghapus"
                         ),
@@ -247,7 +249,7 @@ internal fun buildPreparationQuickFixActions(
                 }
                 if (showFakeLocationDeveloperOptionsFix) {
                     addQuickFix(
-                        text = tr("Turn Off Mock Location App", "Matikan Aplikasi Lokasi Palsu"),
+                        text = t("Turn Off Mock Location App", "Matikan Aplikasi Lokasi Palsu"),
                         severity = if (fakeLocationReady) QuickFixSeverity.Warning else QuickFixSeverity.Blocking,
                         target = QuickFixTarget.Location,
                         priority = 30,
@@ -256,7 +258,7 @@ internal fun buildPreparationQuickFixActions(
                 }
                 if (showAccessibilityFix) {
                     addQuickFix(
-                        text = tr("Disable Risky Accessibility Services", "Nonaktifkan Layanan Aksesibilitas Berisiko"),
+                        text = t("Disable Risky Accessibility Services", "Nonaktifkan Layanan Aksesibilitas Berisiko"),
                         severity = QuickFixSeverity.Blocking,
                         target = QuickFixTarget.All,
                         priority = 35,
@@ -265,7 +267,7 @@ internal fun buildPreparationQuickFixActions(
                 }
                 if (showAccessibilityGuardFix) {
                     addQuickFix(
-                        text = tr("Enable CBX Lock Exam Guard", "Aktifkan CBX Lock Exam Guard"),
+                        text = t("Enable CBX Lock Exam Guard", "Aktifkan CBX Lock Exam Guard"),
                         severity = QuickFixSeverity.Blocking,
                         target = QuickFixTarget.All,
                         priority = 36,
@@ -276,9 +278,9 @@ internal fun buildPreparationQuickFixActions(
                 if (showLocationPermissionFix) {
                     addQuickFix(
                         text = if (showGeofenceRequestPermissionFix) {
-                            tr("Allow Precise Location", "Izinkan Lokasi Presisi")
+                            t("Allow Precise Location", "Izinkan Lokasi Presisi")
                         } else {
-                            tr("Allow Location Permission", "Izinkan Akses Lokasi")
+                            t("Allow Location Permission", "Izinkan Akses Lokasi")
                         },
                         severity = QuickFixSeverity.Blocking,
                         target = null,
@@ -289,7 +291,7 @@ internal fun buildPreparationQuickFixActions(
                 }
                 if (showLocationServicesFix) {
                     addQuickFix(
-                        text = tr("Turn On Location Services", "Aktifkan Layanan Lokasi"),
+                        text = t("Turn On Location Services", "Aktifkan Layanan Lokasi"),
                         severity = QuickFixSeverity.Blocking,
                         target = QuickFixTarget.Location,
                         priority = 45,
@@ -299,9 +301,9 @@ internal fun buildPreparationQuickFixActions(
                 if (showLocationRefreshFix) {
                     addQuickFix(
                         text = if (isRefreshingGeofence) {
-                            tr("Refreshing Location...", "Sedang Refresh Lokasi...")
+                            t("Refreshing Location...", "Sedang Refresh Lokasi...")
                         } else {
-                            tr("Refresh Location Now", "Refresh Lokasi Sekarang")
+                            t("Refresh Location Now", "Refresh Lokasi Sekarang")
                         },
                         severity = if (geofenceReady && fakeLocationReady) QuickFixSeverity.Warning else QuickFixSeverity.Blocking,
                         target = null,
@@ -313,7 +315,7 @@ internal fun buildPreparationQuickFixActions(
                 }
                 if (showGeofenceMapFix) {
                     addQuickFix(
-                        text = tr("Open Geofence Map", "Buka Peta Geofence"),
+                        text = t("Open Geofence Map", "Buka Peta Geofence"),
                         severity = if (geofenceReady) QuickFixSeverity.Warning else QuickFixSeverity.Blocking,
                         target = null,
                         priority = 55,
@@ -322,7 +324,7 @@ internal fun buildPreparationQuickFixActions(
                 }
                 if (showBluetoothPermissionFix) {
                     addQuickFix(
-                        text = tr("Allow Bluetooth Access", "Izinkan Akses Bluetooth"),
+                        text = t("Allow Bluetooth Access", "Izinkan Akses Bluetooth"),
                         severity = QuickFixSeverity.Blocking,
                         target = null,
                         priority = 60,
@@ -332,7 +334,7 @@ internal fun buildPreparationQuickFixActions(
                 }
                 if (showBluetoothFix) {
                     addQuickFix(
-                        text = tr("Turn Off Bluetooth", "Matikan Bluetooth"),
+                        text = t("Turn Off Bluetooth", "Matikan Bluetooth"),
                         severity = QuickFixSeverity.Blocking,
                         target = QuickFixTarget.All,
                         priority = 65,
@@ -343,7 +345,7 @@ internal fun buildPreparationQuickFixActions(
                 val networkPrimaryIsRefresh = networkReadinessStatus.verdict == NetworkReadinessVerdict.Unstable
                 if (showNetworkAirplaneModeSettingsFix) {
                     addQuickFix(
-                        text = tr("Turn Off Airplane Mode", "Matikan Mode Pesawat"),
+                        text = t("Turn Off Airplane Mode", "Matikan Mode Pesawat"),
                         severity = QuickFixSeverity.Warning,
                         target = QuickFixTarget.Network,
                         priority = 70,
@@ -352,7 +354,7 @@ internal fun buildPreparationQuickFixActions(
                 } else if (showNetworkVpnSettingsFix) {
                     addQuickFix(
                         code = "vpn_settings_opened",
-                        text = tr("Open VPN Settings", "Buka Setelan VPN"),
+                        text = t("Open VPN Settings", "Buka Setelan VPN"),
                         severity = QuickFixSeverity.Blocking,
                         target = QuickFixTarget.Network,
                         priority = 70,
@@ -362,9 +364,9 @@ internal fun buildPreparationQuickFixActions(
                 } else if (networkPrimaryIsRefresh && showNetworkRefreshFix) {
                     addQuickFix(
                         text = if (isRefreshingNetwork) {
-                            tr("Refreshing Network...", "Sedang Refresh Network...")
+                            t("Refreshing Network...", "Sedang Refresh Network...")
                         } else {
-                            tr("Refresh Network Status", "Refresh Status Network")
+                            t("Refresh Network Status", "Refresh Status Network")
                         },
                         severity = QuickFixSeverity.Warning,
                         target = null,
@@ -375,7 +377,7 @@ internal fun buildPreparationQuickFixActions(
                     )
                 } else if (showNetworkInternetSettingsFix) {
                     addQuickFix(
-                        text = tr("Open Internet Settings", "Buka Setelan Internet"),
+                        text = t("Open Internet Settings", "Buka Setelan Internet"),
                         severity = QuickFixSeverity.Warning,
                         target = QuickFixTarget.Network,
                         priority = 70,
@@ -384,7 +386,7 @@ internal fun buildPreparationQuickFixActions(
                 }
                 if (showNetworkWifiSettingsFix && !showNetworkAirplaneModeSettingsFix) {
                     addQuickFix(
-                        text = tr("Open Wi-Fi Settings", "Buka Setelan Wi-Fi"),
+                        text = t("Open Wi-Fi Settings", "Buka Setelan Wi-Fi"),
                         severity = QuickFixSeverity.Warning,
                         target = QuickFixTarget.Network,
                         priority = 75,
@@ -393,7 +395,7 @@ internal fun buildPreparationQuickFixActions(
                 }
                 if (showNetworkCellularSettingsFix && !showNetworkAirplaneModeSettingsFix) {
                     addQuickFix(
-                        text = tr("Open Cellular Settings", "Buka Setelan Seluler"),
+                        text = t("Open Cellular Settings", "Buka Setelan Seluler"),
                         severity = QuickFixSeverity.Warning,
                         target = QuickFixTarget.Network,
                         priority = 76,
@@ -403,9 +405,9 @@ internal fun buildPreparationQuickFixActions(
                 if (showNetworkRefreshFix && !networkPrimaryIsRefresh) {
                     addQuickFix(
                         text = if (isRefreshingNetwork) {
-                            tr("Refreshing Network...", "Sedang Refresh Network...")
+                            t("Refreshing Network...", "Sedang Refresh Network...")
                         } else {
-                            tr("Refresh Network Status", "Refresh Status Network")
+                            t("Refresh Network Status", "Refresh Status Network")
                         },
                         severity = QuickFixSeverity.Warning,
                         target = null,
@@ -423,7 +425,7 @@ internal fun buildPreparationQuickFixActions(
                 if (webViewHealthItem != null) {
                     addQuickFix(
                         code = "webview_provider_settings",
-                        text = tr("Open WebView Settings", "Buka Setelan WebView"),
+                        text = t("Open WebView Settings", "Buka Setelan WebView"),
                         severity = if (webViewHealthItem.verdict == PreExamHealthVerdict.Blocking) {
                             QuickFixSeverity.Blocking
                         } else {
@@ -438,7 +440,7 @@ internal fun buildPreparationQuickFixActions(
 
                 if (showKeyboardFix) {
                     addQuickFix(
-                        text = tr("Choose System Keyboard", "Pilih Keyboard Sistem"),
+                        text = t("Choose System Keyboard", "Pilih Keyboard Sistem"),
                         severity = QuickFixSeverity.Warning,
                         target = null,
                         priority = 200,
@@ -446,7 +448,7 @@ internal fun buildPreparationQuickFixActions(
                         onClick = onChooseKeyboard
                     )
                     addQuickFix(
-                        text = tr("Open Keyboard Settings", "Buka Pengaturan Keyboard"),
+                        text = t("Open Keyboard Settings", "Buka Pengaturan Keyboard"),
                         severity = QuickFixSeverity.Warning,
                         target = QuickFixTarget.All,
                         priority = 205,
@@ -456,7 +458,7 @@ internal fun buildPreparationQuickFixActions(
                 if (!bypassScreenPinning && screenPinningAvailable && !isScreenPinningActive) {
                     addQuickFix(
                         code = "start_screen_pinning",
-                        text = tr("Start Screen Pinning", "Start Screen Pinning"),
+                        text = t("Start Screen Pinning", "Start Screen Pinning"),
                         severity = QuickFixSeverity.Blocking,
                         target = QuickFixTarget.ScreenPinning,
                         priority = 210,
@@ -466,7 +468,7 @@ internal fun buildPreparationQuickFixActions(
                 }
                 if (screenRecorderPackages.isNotEmpty() && !bypassScreenRecorder) {
                     addQuickFix(
-                        text = tr("Open App Settings", "Buka Setelan App"),
+                        text = t("Open App Settings", "Buka Setelan App"),
                         severity = QuickFixSeverity.Blocking,
                         target = QuickFixTarget.ScreenRecorder,
                         priority = 50,
@@ -475,7 +477,7 @@ internal fun buildPreparationQuickFixActions(
                 }
                 if (externalDisplayDetected && !bypassDisplayMirror) {
                     addQuickFix(
-                        text = tr("Open Cast Settings", "Buka Setelan Cast"),
+                        text = t("Open Cast Settings", "Buka Setelan Cast"),
                         severity = QuickFixSeverity.Blocking,
                         target = QuickFixTarget.DisplayMirror,
                         priority = 45,
@@ -484,7 +486,7 @@ internal fun buildPreparationQuickFixActions(
                 }
                 if (multiWindowDetected && !bypassMultiWindow) {
                     addQuickFix(
-                        text = tr("Refresh Status", "Refresh Status"),
+                        text = t("Refresh Status", "Refresh Status"),
                         severity = QuickFixSeverity.Blocking,
                         target = QuickFixTarget.MultiWindow,
                         priority = 40,
@@ -493,7 +495,7 @@ internal fun buildPreparationQuickFixActions(
                 }
                 if (showOverlayAccessibilityFix) {
                     addQuickFix(
-                        text = tr("Review Accessibility for Overlay Risk", "Tinjau Aksesibilitas untuk Risiko Overlay"),
+                        text = t("Review Accessibility for Overlay Risk", "Tinjau Aksesibilitas untuk Risiko Overlay"),
                         severity = QuickFixSeverity.Warning,
                         target = QuickFixTarget.All,
                         priority = 220,
@@ -502,7 +504,7 @@ internal fun buildPreparationQuickFixActions(
                 }
                 if (showOverlaySettingsFix) {
                     addQuickFix(
-                        text = tr("Open Overlay Settings", "Buka Izin Overlay"),
+                        text = t("Open Overlay Settings", "Buka Izin Overlay"),
                         severity = QuickFixSeverity.Warning,
                         target = QuickFixTarget.All,
                         priority = 225,
@@ -516,9 +518,9 @@ internal fun buildPreparationQuickFixActions(
                 quickFixIssueActions + PreparationQuickFixAction(
                     code = "refresh_all_security_checks",
                     text = if (isRefreshingGeofence || isRefreshingNetwork) {
-                        tr("Refreshing Checks...", "Sedang Refresh Pemeriksaan...")
+                        t("Refreshing Checks...", "Sedang Refresh Pemeriksaan...")
                     } else {
-                        tr("Refresh All Security Checks", "Refresh Semua Pemeriksaan Keamanan")
+                        t("Refresh All Security Checks", "Refresh Semua Pemeriksaan Keamanan")
                     },
                     severity = QuickFixSeverity.Warning,
                     target = null,

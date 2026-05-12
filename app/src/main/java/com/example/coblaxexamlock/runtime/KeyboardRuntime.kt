@@ -1,7 +1,6 @@
 package com.example.coblaxexamlock.runtime
 
 import android.content.Context
-import android.content.pm.ApplicationInfo
 import android.os.Build
 import android.provider.Settings
 import android.view.inputmethod.InputMethodManager
@@ -60,15 +59,44 @@ internal fun getEnabledInputMethodPackages(context: Context): List<String> {
 }
 
 internal fun isSystemAppPackage(context: Context, packageName: String): Boolean {
+    val appContext = context.applicationContext
+    val packageInventory = SecurityDetectorCache.readPackageInventory(appContext)
+    return isSystemAppPackage(
+        context = appContext,
+        packageName = packageName,
+        packageInventory = packageInventory
+    )
+}
+
+internal fun isSystemAppPackage(
+    context: Context,
+    packageName: String,
+    packageInventory: InstalledPackageInventory
+): Boolean {
+    return isSystemAppPackage(
+        packageName = packageName,
+        packageInventory = packageInventory,
+        fallbackMetadataProvider = { requestedPackage ->
+            resolveInstalledPackageMetadata(
+                context = context,
+                packageName = requestedPackage,
+                packageInventory = packageInventory
+            )
+        }
+    )
+}
+
+internal fun isSystemAppPackage(
+    packageName: String,
+    packageInventory: InstalledPackageInventory,
+    fallbackMetadataProvider: (String) -> InstalledPackageMetadata? = { null }
+): Boolean {
     if (packageName.isBlank()) {
         return false
     }
-    val appInfo = runCatching {
-        context.packageManager.getApplicationInfo(packageName, 0)
-    }.getOrNull() ?: return false
-
-    return appInfo.flags and ApplicationInfo.FLAG_SYSTEM != 0 ||
-        appInfo.flags and ApplicationInfo.FLAG_UPDATED_SYSTEM_APP != 0
+    val metadata = packageInventory.get(packageName)?.toInstalledPackageMetadata()
+        ?: fallbackMetadataProvider(packageName)
+    return metadata?.systemOrUpdatedSystemApp == true
 }
 
 internal fun normalizeDeviceVendor(value: String?): String {
@@ -100,6 +128,19 @@ internal fun isAllowedExamKeyboard(
     context: Context,
     packageName: String
 ): Boolean {
+    val appContext = context.applicationContext
+    return isAllowedExamKeyboard(
+        context = appContext,
+        packageName = packageName,
+        packageInventory = SecurityDetectorCache.readPackageInventory(appContext)
+    )
+}
+
+internal fun isAllowedExamKeyboard(
+    context: Context,
+    packageName: String,
+    packageInventory: InstalledPackageInventory
+): Boolean {
     if (packageName.isBlank()) {
         return false
     }
@@ -116,15 +157,41 @@ internal fun isAllowedExamKeyboard(
         return false
     }
 
-    val isSystemKeyboard = isSystemAppPackage(context, packageName)
+    val isSystemKeyboard = isSystemAppPackage(
+        context = context,
+        packageName = packageName,
+        packageInventory = packageInventory
+    )
 
+    return isAllowedExamKeyboardPackage(
+        packageName = packageName,
+        isSystemKeyboard = isSystemKeyboard
+    )
+}
+
+internal fun isAllowedExamKeyboardPackage(
+    packageName: String,
+    isSystemKeyboard: Boolean,
+    trustedOemDevice: Boolean = isTrustedOemKeyboardDevice()
+): Boolean {
+    if (packageName.isBlank()) {
+        return false
+    }
+    if (packageName in BlockedExamKeyboardPackages) {
+        return false
+    }
+    if (packageName in AllowedExamKeyboardPackages) {
+        return true
+    }
+    if (hasSuspiciousKeyboardToken(packageName)) {
+        return false
+    }
     if (!isSystemKeyboard) {
         return false
     }
-
     if (matchesAllowedSystemKeyboardPrefix(packageName)) {
         return true
     }
 
-    return isTrustedOemKeyboardDevice()
+    return trustedOemDevice
 }

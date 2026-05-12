@@ -3,6 +3,7 @@ package com.example.coblaxexamlock.runtime
 import android.Manifest
 import android.annotation.SuppressLint
 import android.content.Context
+import android.content.pm.ApplicationInfo
 import android.content.pm.PackageManager
 import android.location.Location
 import android.location.LocationManager
@@ -89,48 +90,84 @@ private val FakeLocationPackageKeywords = listOf(
 )
 
 internal fun detectSuspiciousFakeLocationPackages(context: Context): List<String> {
+    return detectSuspiciousFakeLocationPackagesFromInventory(
+        context = context,
+        inventory = readInstalledPackageInventory(context)
+    )
+}
+
+internal fun detectSuspiciousFakeLocationPackagesFromInventory(
+    context: Context,
+    inventory: InstalledPackageInventory,
+    metadataResolver: (String) -> InstalledPackageMetadata? = { packageName ->
+        resolveInstalledPackageMetadata(
+            context = context,
+            packageName = packageName,
+            packageInventory = inventory,
+            includeDisplayMetadata = true
+        )
+    }
+): List<String> {
     val packageManager = context.packageManager
-    val results = mutableSetOf<String>()
+    return findSuspiciousFakeLocationPackageRecordsFromInventory(
+        inventory = inventory,
+        fallbackRecordProvider = { packageName ->
+            packageManager.loadInstalledPackageRecord(packageName)
+        }
+    ).map { match ->
+        formatPackageLabel(
+            packageName = match.packageName,
+            metadata = metadataResolver(match.packageName)
+        )
+    }
+}
+
+internal fun findSuspiciousFakeLocationPackageRecordsFromInventory(
+    inventory: InstalledPackageInventory,
+    fallbackRecordProvider: (String) -> InstalledPackageRecord? = { null }
+): List<InstalledPackageRecord> {
+    val results = linkedMapOf<String, InstalledPackageRecord>()
 
     // Phase 1: Check known package names (fast exact-match lookup)
     for (packageName in KnownFakeLocationPackageNames) {
-        val appInfo = runCatching {
-            @Suppress("DEPRECATION")
-            packageManager.getApplicationInfo(packageName, 0)
-        }.getOrNull() ?: continue
-        results.add(formatPackageLabel(packageManager, appInfo, packageName))
+        val record = inventory.get(packageName) ?: fallbackRecordProvider(packageName) ?: continue
+        results[packageName] = record
     }
 
     // Phase 2: Keyword-based scan of all installed user (non-system) packages
-    val installedPackages = runCatching {
-        @Suppress("DEPRECATION", "QueryPermissionsNeeded")
-        packageManager.getInstalledApplications(0)
-    }.getOrDefault(emptyList())
-    for (appInfo in installedPackages) {
+    for (record in inventory.records) {
         // Skip system apps — only user-installed apps are suspicious
-        if (appInfo.flags and android.content.pm.ApplicationInfo.FLAG_SYSTEM != 0) continue
-        val pkg = appInfo.packageName.lowercase()
+        if (record.flags and ApplicationInfo.FLAG_SYSTEM != 0) continue
+        val pkg = record.packageName.lowercase()
         if (FakeLocationPackageKeywords.any { keyword -> pkg.contains(keyword) }) {
-            results.add(formatPackageLabel(packageManager, appInfo, appInfo.packageName))
+            results.putIfAbsent(record.packageName, record)
         }
     }
 
-    return results.toList()
+    return results.values.toList()
 }
 
 private fun formatPackageLabel(
-    packageManager: PackageManager,
-    appInfo: android.content.pm.ApplicationInfo,
-    packageName: String
+    packageName: String,
+    metadata: InstalledPackageMetadata?
 ): String {
-    val label = runCatching {
-        packageManager.getApplicationLabel(appInfo).toString().trim()
-    }.getOrDefault("")
+    val label = metadata?.label.orEmpty()
     return if (label.isNotBlank() && !label.equals(packageName, ignoreCase = true)) {
         "$label ($packageName)"
     } else {
         packageName
     }
+}
+
+private fun PackageManager.loadInstalledPackageRecord(packageName: String): InstalledPackageRecord? {
+    return loadApplicationInfo(packageName)?.toInstalledPackageRecord()
+}
+
+private fun PackageManager.loadApplicationInfo(packageName: String): ApplicationInfo? {
+    return runCatching {
+        @Suppress("DEPRECATION")
+        getApplicationInfo(packageName, 0)
+    }.getOrNull()
 }
 
 @SuppressLint("MissingPermission")

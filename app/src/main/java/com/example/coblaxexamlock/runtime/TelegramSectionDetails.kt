@@ -859,7 +859,8 @@ internal fun StringBuilder.appendTelegramSectionDetails(details: TelegramSection
                     appendLine("Debug build: ${if (BuildConfig.DEBUG) "true" else "false"}")
                 }
                 DiagnosticSection.VirtualEnvironment -> {
-                    val diagnostics = virtualEnvironmentDiagnostics ?: getVirtualEnvironmentDiagnostics(context)
+                    val diagnostics = virtualEnvironmentDiagnostics
+                        ?: getVirtualEnvironmentDiagnostics(context, forceRefresh = true)
                     val fingerprint = Build.FINGERPRINT.orEmpty()
                     val model = Build.MODEL.orEmpty()
                     val manufacturer = Build.MANUFACTURER.orEmpty()
@@ -1048,7 +1049,10 @@ internal fun StringBuilder.appendTelegramSectionDetails(details: TelegramSection
                     )
                 }
                 DiagnosticSection.ScreenRecorder -> {
-                    val detectedApps = inspectScreenRecorderApps(context)
+                    val detectedApps = SecurityDetectorCache.inspectScreenRecorderAppsCached(
+                        context = context,
+                        forceRefresh = true
+                    )
                     buildScreenRecorderTelegramDetails(
                         detectedApps = detectedApps,
                         runtimePackageCount = screenRecorderPackages.size,

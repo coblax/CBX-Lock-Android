@@ -99,11 +99,25 @@ internal fun getAdbRawValue(context: Context): String {
 }
 
 internal fun getRootDetectionDetails(context: Context): RootDetectionDetails {
+    val appContext = context.applicationContext
+    return getRootDetectionDetails(
+        context = appContext,
+        packageInventory = SecurityDetectorCache.readPackageInventory(appContext)
+    )
+}
+
+internal fun getRootDetectionDetails(
+    context: Context,
+    packageInventory: InstalledPackageInventory
+): RootDetectionDetails {
     val hasTestKeys = Build.TAGS?.contains("test-keys") == true
     val rootBinaryPaths = RootBinaryIndicatorPaths.distinct().filter(::safeFileExists)
     val hasSuBinary = rootBinaryPaths.any { path -> path.endsWith("/su") }
-    val foundRootPackages = RootPackageNames.filter { packageName ->
-        runCatching { context.packageManager.getApplicationInfo(packageName, 0) }.isSuccess
+    val foundRootPackages = findRootPackagesFromInventory(packageInventory) { packageName ->
+        runCatching {
+            @Suppress("DEPRECATION")
+            context.packageManager.getApplicationInfo(packageName, 0)
+        }.isSuccess
     }
     val magiskPaths = MagiskIndicatorPaths.distinct().filter(::safeFileExists)
     val zygiskDetected = safeFileExists("/data/adb/zygisk") || scanProcSelfMapsForZygisk()
@@ -337,13 +351,26 @@ internal fun getSystemProperty(key: String): String {
     }.getOrDefault("")
 }
 
-internal fun getVirtualEnvironmentDiagnostics(context: Context): VirtualEnvironmentDiagnostics {
-    getCachedVirtualEnvironmentDiagnostics()?.let { return it }
+internal fun getVirtualEnvironmentDiagnostics(
+    context: Context,
+    forceRefresh: Boolean = false
+): VirtualEnvironmentDiagnostics {
+    if (!forceRefresh) {
+        getCachedVirtualEnvironmentDiagnostics()?.let { return it }
+    }
 
-    val result = computeVirtualEnvironmentDiagnostics(context.applicationContext)
-    return if (virtualEnvDiagnosticsCache.compareAndSet(null, result)) {
+    val appContext = context.applicationContext
+    val result = computeVirtualEnvironmentDiagnostics(
+        packageInventory = SecurityDetectorCache.readPackageInventory(
+            context = appContext,
+            forceRefresh = forceRefresh
+        )
+    )
+    if (forceRefresh) {
+        virtualEnvDiagnosticsCache.set(result)
         result
-    } else {
+    }
+    return if (virtualEnvDiagnosticsCache.compareAndSet(null, result)) result else {
         virtualEnvDiagnosticsCache.get() ?: result
     }
 }
@@ -352,14 +379,46 @@ internal fun getCachedVirtualEnvironmentDiagnostics(): VirtualEnvironmentDiagnos
     return virtualEnvDiagnosticsCache.get()
 }
 
-internal suspend fun getVirtualEnvironmentDiagnosticsOnIo(
-    context: Context
-): VirtualEnvironmentDiagnostics = withContext(Dispatchers.IO) {
-    getVirtualEnvironmentDiagnostics(context.applicationContext)
+internal fun invalidateVirtualEnvironmentDiagnosticsCache() {
+    virtualEnvDiagnosticsCache.set(null)
 }
 
-@SuppressLint("QueryPermissionsNeeded")
-private fun computeVirtualEnvironmentDiagnostics(context: Context): VirtualEnvironmentDiagnostics {
+internal suspend fun getVirtualEnvironmentDiagnosticsOnIo(
+    context: Context,
+    forceRefresh: Boolean = false
+): VirtualEnvironmentDiagnostics = withContext(Dispatchers.IO) {
+    getVirtualEnvironmentDiagnostics(
+        context = context.applicationContext,
+        forceRefresh = forceRefresh
+    )
+}
+
+internal fun findRootPackagesFromInventory(
+    packageInventory: InstalledPackageInventory,
+    fallbackPackageExists: (String) -> Boolean = { false }
+): List<String> {
+    return RootPackageNames.filter { packageName ->
+        packageInventory.hasPackage(packageName) || fallbackPackageExists(packageName)
+    }
+}
+
+internal fun findEmulatorPackagesFromInventory(
+    inventory: InstalledPackageInventory
+): List<String> {
+    return inventory.records
+        .asSequence()
+        .map { record -> record.packageName }
+        .filter { packageName ->
+            EmulatorPackagePrefixes.any { prefix ->
+                packageName.startsWith(prefix, ignoreCase = true)
+            }
+        }
+        .toList()
+}
+
+private fun computeVirtualEnvironmentDiagnostics(
+    packageInventory: InstalledPackageInventory
+): VirtualEnvironmentDiagnostics {
     val indicators = mutableListOf<String>()
     val fingerprint = Build.FINGERPRINT.orEmpty()
     if (VirtualFingerprintTokens.any { token ->
@@ -426,18 +485,7 @@ private fun computeVirtualEnvironmentDiagnostics(context: Context): VirtualEnvir
         indicators.add("qemu_files:${qemuFiles.joinToString()}")
     }
 
-    val emulatorPackages = runCatching {
-        context.packageManager
-            .getInstalledApplications(0)
-            .asSequence()
-            .map { it.packageName }
-            .filter { packageName ->
-                EmulatorPackagePrefixes.any { prefix ->
-                    packageName.startsWith(prefix, ignoreCase = true)
-                }
-            }
-            .toList()
-    }.getOrDefault(emptyList())
+    val emulatorPackages = findEmulatorPackagesFromInventory(packageInventory)
     if (emulatorPackages.isNotEmpty()) {
         indicators.add("packages:${emulatorPackages.joinToString()}")
     }

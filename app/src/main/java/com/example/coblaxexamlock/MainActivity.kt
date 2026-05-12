@@ -260,6 +260,7 @@ class MainActivity : ComponentActivity() {
         onExamWindowFocusChangedHandler?.get()?.invoke(hasFocus)
     }
 
+    @Suppress("DEPRECATION", "OVERRIDE_DEPRECATION")
     override fun onMultiWindowModeChanged(isInMultiWindowMode: Boolean) {
         super.onMultiWindowModeChanged(isInMultiWindowMode)
         dispatchExamWindowModeChanged()
@@ -270,6 +271,7 @@ class MainActivity : ComponentActivity() {
         dispatchExamWindowModeChanged()
     }
 
+    @Suppress("DEPRECATION", "OVERRIDE_DEPRECATION")
     override fun onPictureInPictureModeChanged(isInPictureInPictureMode: Boolean) {
         super.onPictureInPictureModeChanged(isInPictureInPictureMode)
         dispatchExamWindowModeChanged()

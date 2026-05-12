@@ -152,9 +152,23 @@ internal suspend fun sendTelegramSectionReport(
         val deviceLabel = "${Build.BRAND} ${Build.MODEL}".trim()
         val osLabel = "Android ${Build.VERSION.RELEASE} (SDK ${Build.VERSION.SDK_INT})"
         val keyboardRawInputMethod = getCurrentInputMethodRawValue(context)
-        val keyboardVersion = getAppVersionName(context, keyboardPackage)
+        val packageInventory = SecurityDetectorCache.readPackageInventory(
+            context = context,
+            forceRefresh = section == DiagnosticSection.Keyboard
+        )
+        val keyboardMetadata = SecurityDetectorCache.readPackageMetadata(
+            context = context,
+            packageName = keyboardPackage,
+            forceRefresh = section == DiagnosticSection.Keyboard,
+            packageInventory = packageInventory
+        )
+        val keyboardVersion = keyboardMetadata?.versionName ?: getAppVersionName(context, keyboardPackage)
         val enabledKeyboardPackages = getEnabledInputMethodPackages(context)
-        val keyboardSystemApp = isSystemAppPackage(context, keyboardPackage)
+        val keyboardSystemApp = keyboardMetadata?.systemOrUpdatedSystemApp ?: isSystemAppPackage(
+            context = context,
+            packageName = keyboardPackage,
+            packageInventory = packageInventory
+        )
         val bluetoothAdapterState = getBluetoothAdapterStateLabel(context)
         val bluetoothConnectedDevicesCount = getBluetoothConnectedDevicesCount(context)
         val bluetoothHeadsetConnected = isBluetoothA2dpOrHeadsetConnected(context)
@@ -172,7 +186,7 @@ internal suspend fun sendTelegramSectionReport(
         val appDebuggable = isAppDebuggable(context)
         val virtualEnvironmentDiagnostics =
             if (section == DiagnosticSection.VirtualEnvironment) {
-                getVirtualEnvironmentDiagnostics(context)
+                getVirtualEnvironmentDiagnostics(context, forceRefresh = true)
             } else {
                 null
             }
