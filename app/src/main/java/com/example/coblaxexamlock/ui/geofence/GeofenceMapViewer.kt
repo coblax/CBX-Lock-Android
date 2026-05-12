@@ -488,7 +488,8 @@ internal fun GeofenceMapViewerScreen(
     ) {
         Surface(
             color = Color.White,
-            shadowElevation = 3.dp
+            border = BorderStroke(1.dp, LockOutline.copy(alpha = 0.5f)),
+            shape = RoundedCornerShape(bottomStart = 14.dp, bottomEnd = 14.dp)
         ) {
             Column(
                 modifier = Modifier
@@ -633,7 +634,8 @@ internal fun GeofenceMapViewerScreen(
 
         Surface(
             color = Color.White,
-            shadowElevation = 3.dp
+            border = BorderStroke(1.dp, LockOutline.copy(alpha = 0.5f)),
+            shape = RoundedCornerShape(topStart = 14.dp, topEnd = 14.dp)
         ) {
             Column(
                 modifier = Modifier

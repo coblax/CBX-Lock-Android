@@ -591,7 +591,8 @@ internal fun CircleGeofenceEditorScreen(
     ) {
         Surface(
             color = Color.White,
-            shadowElevation = 3.dp
+            border = BorderStroke(1.dp, LockOutline.copy(alpha = 0.5f)),
+            shape = RoundedCornerShape(bottomStart = 14.dp, bottomEnd = 14.dp)
         ) {
             Column(
                 modifier = Modifier
@@ -835,6 +836,8 @@ internal fun CircleGeofenceEditorScreen(
 
         LaunchedEffect(googleMap, draftCenters, draftRadiusMeters, selectedIndex, searchedLatLng, selectedSearchResult, precisePermissionGranted) {
             val map = googleMap ?: return@LaunchedEffect
+            // Debounce rapid updates (e.g. typing radius/coordinates) to avoid excessive map redraws
+            delay(150)
             map.clear()
             map.mapType = mapTypeSelection.googleMapType
             if (precisePermissionGranted) {
@@ -887,7 +890,8 @@ internal fun CircleGeofenceEditorScreen(
 
         Surface(
             color = Color.White,
-            shadowElevation = 3.dp
+            border = BorderStroke(1.dp, LockOutline.copy(alpha = 0.5f)),
+            shape = RoundedCornerShape(topStart = 14.dp, topEnd = 14.dp)
         ) {
             Column(
                 modifier = Modifier
@@ -1044,10 +1048,23 @@ internal fun CircleGeofenceEditorScreen(
                         )
                     }
                     Button(
-                        onClick = { onSave(draftCenters.take(5), draftRadiusMeters) },
+                        onClick = {
+                            val validCenters = draftCenters.filter { vertex ->
+                                val lat = vertex.latitude.trim().toDoubleOrNull()
+                                val lng = vertex.longitude.trim().toDoubleOrNull()
+                                lat != null && lng != null &&
+                                    lat in -90.0..90.0 && lng in -180.0..180.0
+                            }
+                            if (validCenters.isEmpty()) {
+                                infoMessage = "Add at least one valid coordinate point."
+                            } else {
+                                onSave(validCenters.take(5), draftRadiusMeters)
+                            }
+                        },
                         modifier = Modifier
                             .weight(1f)
                             .height(34.dp),
+                        enabled = draftCenters.isNotEmpty() && draftRadiusMeters.trim().toDoubleOrNull()?.let { it > 0.0 } == true,
                         colors = ButtonDefaults.buttonColors(
                             containerColor = LockGold,
                             contentColor = LockTextPrimary

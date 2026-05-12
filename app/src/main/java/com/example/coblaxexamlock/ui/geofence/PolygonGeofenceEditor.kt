@@ -181,6 +181,7 @@ import com.example.coblaxexamlock.GeofenceShapeType
 import com.example.coblaxexamlock.GeofenceVertex
 import com.example.coblaxexamlock.LocalLowRamProfile
 import com.example.coblaxexamlock.SecureStrings
+import com.example.coblaxexamlock.validatePolygonVertices
 import com.example.coblaxexamlock.diagnosticLabel
 import com.example.coblaxexamlock.format.formatGeofenceDistance
 import com.example.coblaxexamlock.formatCoordinates
@@ -269,6 +270,7 @@ internal fun PolygonGeofenceEditor(
     var googleMap by remember { mutableStateOf<GoogleMap?>(null) }
     var mapVisible by remember { mutableStateOf(!lowRamProfile.deferHeavyUi) }
     var draftVertices by remember(initialVertices) { mutableStateOf(initialVertices.take(50)) }
+    var saveValidationError by remember { mutableStateOf<String?>(null) }
     var searchedLatLng by remember { mutableStateOf<LatLng?>(null) }
     var searchQuery by remember { mutableStateOf("") }
     var searchResults by remember { mutableStateOf(emptyList<MapSearchResult>()) }
@@ -457,7 +459,8 @@ internal fun PolygonGeofenceEditor(
     ) {
         Surface(
             color = Color.White,
-            shadowElevation = 3.dp
+            border = BorderStroke(1.dp, LockOutline.copy(alpha = 0.5f)),
+            shape = RoundedCornerShape(bottomStart = 14.dp, bottomEnd = 14.dp)
         ) {
             Column(
                 modifier = Modifier
@@ -687,6 +690,8 @@ internal fun PolygonGeofenceEditor(
 
         LaunchedEffect(googleMap, draftVertices, searchedLatLng, selectedSearchResult) {
             val map = googleMap ?: return@LaunchedEffect
+            // Debounce rapid updates (e.g. typing coordinates) to avoid excessive map redraws
+            delay(150)
             map.clear()
             map.mapType = mapTypeSelection.googleMapType
             searchedLatLng?.let {
@@ -738,7 +743,8 @@ internal fun PolygonGeofenceEditor(
 
         Surface(
             color = Color.White,
-            shadowElevation = 3.dp
+            border = BorderStroke(1.dp, LockOutline.copy(alpha = 0.5f)),
+            shape = RoundedCornerShape(topStart = 14.dp, topEnd = 14.dp)
         ) {
             Column(
                 modifier = Modifier
@@ -792,6 +798,7 @@ internal fun PolygonGeofenceEditor(
                         onClick = {
                             if (draftVertices.size < 50) {
                                 draftVertices = draftVertices + GeofenceVertex("", "")
+                                saveValidationError = null
                             }
                         },
                         modifier = Modifier
@@ -812,7 +819,10 @@ internal fun PolygonGeofenceEditor(
                         )
                     }
                     Button(
-                        onClick = { draftVertices = draftVertices.dropLast(1) },
+                        onClick = {
+                            draftVertices = draftVertices.dropLast(1)
+                            saveValidationError = null
+                        },
                         modifier = Modifier
                             .weight(1f)
                             .height(34.dp),
@@ -830,7 +840,10 @@ internal fun PolygonGeofenceEditor(
                         )
                     }
                     Button(
-                        onClick = { draftVertices = emptyList() },
+                        onClick = {
+                            draftVertices = emptyList()
+                            saveValidationError = null
+                        },
                         modifier = Modifier
                             .weight(1f)
                             .height(34.dp),
@@ -848,10 +861,24 @@ internal fun PolygonGeofenceEditor(
                         )
                     }
                     Button(
-                        onClick = { onSave(draftVertices) },
+                        onClick = {
+                            val error = validatePolygonVertices(draftVertices)
+                            if (error != null) {
+                                saveValidationError = when (error) {
+                                    "polygon_min_3_vertices" -> "Need at least 3 valid points."
+                                    "polygon_degenerate" -> "Polygon area is too small."
+                                    "polygon_self_intersecting" -> "Lines must not cross each other."
+                                    else -> "Invalid polygon: $error"
+                                }
+                            } else {
+                                saveValidationError = null
+                                onSave(draftVertices)
+                            }
+                        },
                         modifier = Modifier
                             .weight(1f)
                             .height(34.dp),
+                        enabled = draftVertices.size >= 3,
                         colors = ButtonDefaults.buttonColors(
                             containerColor = LockGold,
                             contentColor = LockTextPrimary
@@ -864,6 +891,15 @@ internal fun PolygonGeofenceEditor(
                             maxLines = 1
                         )
                     }
+                }
+
+                saveValidationError?.let { errorMsg ->
+                    Text(
+                        text = "⚠ $errorMsg",
+                        color = Color(0xFFB42318),
+                        fontSize = 10.sp,
+                        lineHeight = 13.sp
+                    )
                 }
             }
         }

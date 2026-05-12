@@ -426,7 +426,7 @@ internal fun MapTypeSelectorOverlay(
         shape = RoundedCornerShape(14.dp),
         color = Color.White.copy(alpha = 0.96f),
         border = BorderStroke(1.dp, LockOutline.copy(alpha = 0.75f)),
-        shadowElevation = 3.dp
+        shadowElevation = 0.dp
     ) {
         Row(
             modifier = Modifier.padding(horizontal = 6.dp, vertical = 6.dp),

@@ -461,62 +461,81 @@ internal fun CustomQrAdminScreen(
             .background(LockBackground)
             .statusBarsPadding()
             .navigationBarsPadding()
-            .padding(horizontal = 24.dp, vertical = 18.dp)
+            .padding(horizontal = 20.dp, vertical = 14.dp)
     ) {
-        BackPillButton(onClick = onBack)
+        Row(
+            modifier = Modifier.fillMaxWidth(),
+            horizontalArrangement = Arrangement.SpaceBetween,
+            verticalAlignment = Alignment.CenterVertically
+        ) {
+            BackPillButton(onClick = onBack)
 
-        Spacer(modifier = Modifier.height(16.dp))
+            Surface(
+                shape = RoundedCornerShape(999.dp),
+                color = LockBlue.copy(alpha = 0.10f)
+            ) {
+                Text(
+                    text = "CUSTOM QR",
+                    color = LockBlueDeep,
+                    fontSize = 10.sp,
+                    fontWeight = FontWeight.ExtraBold,
+                    letterSpacing = 0.8.sp,
+                    modifier = Modifier.padding(horizontal = 10.dp, vertical = 5.dp)
+                )
+            }
+        }
+
+        Spacer(modifier = Modifier.height(14.dp))
 
         Text(
-            text = tr("Create Custom Exam QR", "Buat Custom QR Ujian"),
+            text = tr("Create Exam QR", "Buat QR Ujian"),
             color = LockTextPrimary,
-            fontSize = 28.sp,
-            fontWeight = FontWeight.Bold
+            fontSize = 24.sp,
+            fontWeight = FontWeight.Black
         )
 
-        Spacer(modifier = Modifier.height(8.dp))
+        Spacer(modifier = Modifier.height(4.dp))
 
         Text(
             text = tr(
-                "Fill in the exam data quickly with a cleaner layout.",
-                "Isi data ujian dengan cepat menggunakan tampilan yang lebih bersih."
+                "Fill exam data, set location, then generate.",
+                "Isi data ujian, atur lokasi, lalu generate."
             ),
             color = LockTextSecondary,
-            fontSize = 15.sp
+            fontSize = 13.sp
         )
 
-        Spacer(modifier = Modifier.height(16.dp))
+        Spacer(modifier = Modifier.height(14.dp))
 
         CustomQrAdminTabSelector(
             selectedTab = selectedCustomQrAdminTab,
             onTabSelected = { onSelectedTabNameChange(it.name) }
         )
 
-        Spacer(modifier = Modifier.height(16.dp))
+        Spacer(modifier = Modifier.height(14.dp))
 
         Column(
             modifier = Modifier
                 .fillMaxWidth()
                 .weight(1f)
                 .verticalScroll(rememberScrollState()),
-            verticalArrangement = Arrangement.spacedBy(18.dp)
+            verticalArrangement = Arrangement.spacedBy(14.dp)
         ) {
             when (selectedCustomQrAdminTab) {
                 CustomQrAdminTab.Exam -> {
-                    Surface(
-                        modifier = Modifier.fillMaxWidth(),
-                        shape = RoundedCornerShape(18.dp),
-                        color = Color.White,
-                        border = BorderStroke(1.dp, LockOutline.copy(alpha = 0.75f))
+                    Column(
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .clip(RoundedCornerShape(18.dp))
+                            .background(Color.White)
+                            .border(1.dp, LockOutline.copy(alpha = 0.65f), RoundedCornerShape(18.dp))
+                            .padding(horizontal = 14.dp, vertical = 14.dp),
+                        verticalArrangement = Arrangement.spacedBy(12.dp)
                     ) {
-                        Column(
-                            modifier = Modifier.padding(horizontal = 14.dp, vertical = 14.dp),
-                            verticalArrangement = Arrangement.spacedBy(12.dp)
-                        ) {
                             Text(
                                 text = tr("Exam Data", "Data Ujian"),
                                 color = LockTextPrimary,
-                                fontSize = 18.sp,
+                                fontSize = 16.sp,
                                 fontWeight = FontWeight.Bold
                             )
                             AdminInputField(
@@ -559,20 +578,18 @@ internal fun CustomQrAdminScreen(
                                 }
                             )
                         }
-                    }
                 }
 
                 CustomQrAdminTab.Location -> {
-                    Surface(
-                        modifier = Modifier.fillMaxWidth(),
-                        shape = RoundedCornerShape(18.dp),
-                        color = Color.White,
-                        border = BorderStroke(1.dp, LockOutline.copy(alpha = 0.75f))
+                    Column(
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .clip(RoundedCornerShape(18.dp))
+                            .background(Color.White)
+                            .border(1.dp, LockOutline.copy(alpha = 0.65f), RoundedCornerShape(18.dp))
+                            .padding(horizontal = 14.dp, vertical = 14.dp),
+                        verticalArrangement = Arrangement.spacedBy(12.dp)
                     ) {
-                        Column(
-                            modifier = Modifier.padding(horizontal = 14.dp, vertical = 14.dp),
-                            verticalArrangement = Arrangement.spacedBy(12.dp)
-                        ) {
                             Row(
                                 verticalAlignment = Alignment.CenterVertically,
                                 horizontalArrangement = Arrangement.spacedBy(8.dp)
@@ -955,7 +972,6 @@ internal fun CustomQrAdminScreen(
                             }
                         }
                     }
-                }
 
                 CustomQrAdminTab.Generate -> {
                     if (showSaveToDirectLinkOption) {

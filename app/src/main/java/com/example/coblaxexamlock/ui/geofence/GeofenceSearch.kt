@@ -624,7 +624,7 @@ internal fun InlineMapSearchResults(
         shape = RoundedCornerShape(12.dp),
         color = Color.White,
         border = BorderStroke(1.dp, LockOutline.copy(alpha = 0.75f)),
-        shadowElevation = 3.dp
+        shadowElevation = 0.dp
     ) {
         Column(
             modifier = Modifier
