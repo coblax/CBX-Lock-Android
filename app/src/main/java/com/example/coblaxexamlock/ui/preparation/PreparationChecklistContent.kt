@@ -166,13 +166,21 @@ internal fun ExamSecurityPreparationScreenContent(
         accessibilityGuardRequired = accessibilityGuardRequired,
         needsBluetoothPermission = needsBluetoothPermission
     )
-    val readiness = buildPreparationChecklistReadiness(
-        state = state,
-        needsBluetoothPermission = needsBluetoothPermission,
-        accessibilityGuardRequired = accessibilityGuardRequired,
-        accessibilityGuardAvailable = accessibilityGuardAvailable,
-        accessibilityGuardEnabled = accessibilityGuardEnabled
-    )
+    val readiness = remember(
+        state,
+        needsBluetoothPermission,
+        accessibilityGuardRequired,
+        accessibilityGuardAvailable,
+        accessibilityGuardEnabled
+    ) {
+        buildPreparationChecklistReadiness(
+            state = state,
+            needsBluetoothPermission = needsBluetoothPermission,
+            accessibilityGuardRequired = accessibilityGuardRequired,
+            accessibilityGuardAvailable = accessibilityGuardAvailable,
+            accessibilityGuardEnabled = accessibilityGuardEnabled
+        )
+    }
     val geofenceReady = readiness.geofenceReady
     val fakeLocationReady = readiness.fakeLocationReady
     val canStartExam = readiness.canStartExam

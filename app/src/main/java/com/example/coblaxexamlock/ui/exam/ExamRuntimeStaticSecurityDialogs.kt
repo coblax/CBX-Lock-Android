@@ -27,6 +27,7 @@ internal fun RuntimeStaticSecurityDialogsHost(
     if (securityUiState.showDisplayMirrorViolationDialog.value) {
         DisplayMirrorRuntimeViolationDialog(
             externalDisplayCount = securityUiState.externalDisplayCount.intValue,
+            externalDisplayInfoList = securityUiState.externalDisplayInfoList.value,
             violationCount = securityUiState.displayMirrorViolationCount.intValue,
             onOpenCastSettings = onOpenCastSettings,
             onRefreshStatus = onRefreshStatus,
@@ -36,6 +37,9 @@ internal fun RuntimeStaticSecurityDialogsHost(
 
     if (securityUiState.showMultiWindowViolationDialog.value) {
         MultiWindowRuntimeViolationDialog(
+            modeInfo = securityUiState.multiWindowModeInfo.value,
+            runtimeDetected = securityUiState.multiWindowDetected.value ||
+                securityUiState.multiWindowModeInfo.value.inAnySplitMode,
             violationCount = securityUiState.multiWindowViolationCount.intValue,
             onRefreshStatus = onRefreshStatus,
             onSendReport = { onSendReport(DiagnosticSection.MultiWindow) }

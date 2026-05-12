@@ -6,9 +6,10 @@ import androidx.compose.runtime.DisposableEffect
 import androidx.compose.runtime.LaunchedEffect
 import com.example.coblaxexamlock.MainActivity
 import com.example.coblaxexamlock.model.DiagnosticEventLevel
-import com.example.coblaxexamlock.runtime.detectScreenRecorderPackages
-import com.example.coblaxexamlock.runtime.getExternalDisplayCount
-import com.example.coblaxexamlock.runtime.isInAnySplitMode
+import com.example.coblaxexamlock.runtime.ExternalDisplayInfo
+import com.example.coblaxexamlock.runtime.MultiWindowModeInfo
+import com.example.coblaxexamlock.runtime.SecurityDetectorCache
+import com.example.coblaxexamlock.runtime.readMultiWindowModeInfo
 import kotlinx.coroutines.delay
 
 private const val RuntimeStaticSecurityPollIntervalMillis = 2_000L
@@ -18,6 +19,37 @@ internal data class RuntimeStaticSecurityUiMessage(
     val title: String,
     val message: String
 )
+
+internal data class RuntimeStaticSecuritySnapshot(
+    val screenRecorderPackages: List<String>,
+    val externalDisplayCount: Int,
+    val externalDisplayInfoList: List<ExternalDisplayInfo>,
+    val multiWindowModeInfo: MultiWindowModeInfo
+) {
+    val externalDisplayDetected: Boolean
+        get() = externalDisplayCount > 0
+    val multiWindowDetected: Boolean
+        get() = multiWindowModeInfo.inAnySplitMode
+}
+
+internal fun readRuntimeStaticSecuritySnapshot(
+    context: Context,
+    forceRefresh: Boolean = false
+): RuntimeStaticSecuritySnapshot {
+    val displaySnapshot = SecurityDetectorCache.readExternalDisplaySnapshot(
+        context = context,
+        forceRefresh = forceRefresh
+    )
+    return RuntimeStaticSecuritySnapshot(
+        screenRecorderPackages = SecurityDetectorCache.readScreenRecorderPackages(
+            context = context,
+            forceRefresh = forceRefresh
+        ),
+        externalDisplayCount = displaySnapshot.count,
+        externalDisplayInfoList = displaySnapshot.infoList,
+        multiWindowModeInfo = readMultiWindowModeInfo(context)
+    )
+}
 
 @Composable
 internal fun RuntimeStaticSecurityEffects(
@@ -41,7 +73,8 @@ internal fun RuntimeStaticSecurityEffects(
             securityUiState = securityUiState,
             trigger = trigger,
             recordAction = recordAction,
-            startAlarm = startAlarm
+            startAlarm = startAlarm,
+            forceRefresh = false
         )
     }
 
@@ -86,7 +119,8 @@ internal fun refreshRuntimeStaticSecurityForSession(
     securityUiState: ExamRuntimeSecurityUiState,
     trigger: String,
     recordAction: (String, String, DiagnosticEventLevel) -> Unit,
-    startAlarm: () -> Unit
+    startAlarm: () -> Unit,
+    forceRefresh: Boolean = false
 ) {
     refreshRuntimeStaticSecurityState(
         context = context,
@@ -97,7 +131,8 @@ internal fun refreshRuntimeStaticSecurityForSession(
         securityUiState = securityUiState,
         trigger = trigger,
         recordAction = recordAction,
-        startAlarm = startAlarm
+        startAlarm = startAlarm,
+        forceRefresh = forceRefresh
     )
 }
 
@@ -110,21 +145,28 @@ internal fun refreshRuntimeStaticSecurityState(
     securityUiState: ExamRuntimeSecurityUiState,
     trigger: String,
     recordAction: (String, String, DiagnosticEventLevel) -> Unit,
-    startAlarm: () -> Unit
+    startAlarm: () -> Unit,
+    forceRefresh: Boolean = false
 ) {
     val previousScreenRecorderDetected = securityUiState.screenRecorderPackages.value.isNotEmpty()
     val previousDisplayMirrorDetected = securityUiState.externalDisplayDetected.value
     val previousMultiWindowDetected = securityUiState.multiWindowDetected.value
 
-    val latestScreenRecorderPackages = detectScreenRecorderPackages(context)
-    val latestExternalDisplayCount = getExternalDisplayCount(context)
-    val latestExternalDisplayDetected = latestExternalDisplayCount > 0
-    val latestMultiWindowDetected = isInAnySplitMode(context)
+    val latestSnapshot = readRuntimeStaticSecuritySnapshot(
+        context = context,
+        forceRefresh = forceRefresh
+    )
+    val latestScreenRecorderPackages = latestSnapshot.screenRecorderPackages
+    val latestExternalDisplayCount = latestSnapshot.externalDisplayCount
+    val latestExternalDisplayDetected = latestSnapshot.externalDisplayDetected
+    val latestMultiWindowDetected = latestSnapshot.multiWindowDetected
 
-    securityUiState.screenRecorderPackages.value = latestScreenRecorderPackages
-    securityUiState.externalDisplayCount.intValue = latestExternalDisplayCount
-    securityUiState.externalDisplayDetected.value = latestExternalDisplayDetected
-    securityUiState.multiWindowDetected.value = latestMultiWindowDetected
+    securityUiState.screenRecorderPackages.setIfChanged(latestScreenRecorderPackages)
+    securityUiState.externalDisplayCount.setIfChanged(latestExternalDisplayCount)
+    securityUiState.externalDisplayInfoList.setIfChanged(latestSnapshot.externalDisplayInfoList)
+    securityUiState.externalDisplayDetected.setIfChanged(latestExternalDisplayDetected)
+    securityUiState.multiWindowModeInfo.setIfChanged(latestSnapshot.multiWindowModeInfo)
+    securityUiState.multiWindowDetected.setIfChanged(latestMultiWindowDetected)
 
     fun boolLabel(value: Boolean): String = if (value) "yes" else "no"
     fun screenRecorderDetails(): String =
@@ -169,7 +211,9 @@ internal fun refreshRuntimeStaticSecurityState(
                 )
             }
             securityUiState.showScreenRecorderViolationDialog.value = true
-            startAlarm()
+            if (!previousScreenRecorderDetected) {
+                startAlarm()
+            }
         }
         previousScreenRecorderDetected && !screenRecorderDetected -> {
             recordAction(
@@ -193,7 +237,9 @@ internal fun refreshRuntimeStaticSecurityState(
                 )
             }
             securityUiState.showDisplayMirrorViolationDialog.value = true
-            startAlarm()
+            if (!previousDisplayMirrorDetected) {
+                startAlarm()
+            }
         }
         previousDisplayMirrorDetected && !latestExternalDisplayDetected -> {
             recordAction(
@@ -217,7 +263,9 @@ internal fun refreshRuntimeStaticSecurityState(
                 )
             }
             securityUiState.showMultiWindowViolationDialog.value = true
-            startAlarm()
+            if (!previousMultiWindowDetected) {
+                startAlarm()
+            }
         }
         previousMultiWindowDetected && !latestMultiWindowDetected -> {
             recordAction(

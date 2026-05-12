@@ -375,7 +375,7 @@ internal fun buildPreparationQuickFixActions(
                     )
                 } else if (showNetworkInternetSettingsFix) {
                     addQuickFix(
-                        text = tr("Open Internet Settings", "Buka Pengaturan Internet"),
+                        text = tr("Open Internet Settings", "Buka Setelan Internet"),
                         severity = QuickFixSeverity.Warning,
                         target = QuickFixTarget.Network,
                         priority = 70,
@@ -384,7 +384,7 @@ internal fun buildPreparationQuickFixActions(
                 }
                 if (showNetworkWifiSettingsFix && !showNetworkAirplaneModeSettingsFix) {
                     addQuickFix(
-                        text = tr("Open Wi-Fi Settings", "Buka Pengaturan Wi-Fi"),
+                        text = tr("Open Wi-Fi Settings", "Buka Setelan Wi-Fi"),
                         severity = QuickFixSeverity.Warning,
                         target = QuickFixTarget.Network,
                         priority = 75,
@@ -393,7 +393,7 @@ internal fun buildPreparationQuickFixActions(
                 }
                 if (showNetworkCellularSettingsFix && !showNetworkAirplaneModeSettingsFix) {
                     addQuickFix(
-                        text = tr("Open Cellular Settings", "Buka Pengaturan Seluler"),
+                        text = tr("Open Cellular Settings", "Buka Setelan Seluler"),
                         severity = QuickFixSeverity.Warning,
                         target = QuickFixTarget.Network,
                         priority = 76,
@@ -423,11 +423,7 @@ internal fun buildPreparationQuickFixActions(
                 if (webViewHealthItem != null) {
                     addQuickFix(
                         code = "webview_provider_settings",
-                        text = if (webViewHealthItem.verdict == PreExamHealthVerdict.Blocking) {
-                            tr("Enable Android WebView", "Aktifkan Android WebView")
-                        } else {
-                            tr("Check WebView / Chrome", "Cek WebView / Chrome")
-                        },
+                        text = tr("Open WebView Settings", "Buka Setelan WebView"),
                         severity = if (webViewHealthItem.verdict == PreExamHealthVerdict.Blocking) {
                             QuickFixSeverity.Blocking
                         } else {
@@ -470,10 +466,7 @@ internal fun buildPreparationQuickFixActions(
                 }
                 if (screenRecorderPackages.isNotEmpty() && !bypassScreenRecorder) {
                     addQuickFix(
-                        text = tr(
-                            "Uninstall screen recorder apps to continue",
-                            "Hapus app screen recorder untuk melanjutkan"
-                        ),
+                        text = tr("Open App Settings", "Buka Setelan App"),
                         severity = QuickFixSeverity.Blocking,
                         target = QuickFixTarget.ScreenRecorder,
                         priority = 50,
@@ -482,10 +475,7 @@ internal fun buildPreparationQuickFixActions(
                 }
                 if (externalDisplayDetected && !bypassDisplayMirror) {
                     addQuickFix(
-                        text = tr(
-                            "Disconnect external display / screen casting to continue",
-                            "Putuskan display eksternal / screen casting untuk melanjutkan"
-                        ),
+                        text = tr("Open Cast Settings", "Buka Setelan Cast"),
                         severity = QuickFixSeverity.Blocking,
                         target = QuickFixTarget.DisplayMirror,
                         priority = 45,
@@ -494,10 +484,7 @@ internal fun buildPreparationQuickFixActions(
                 }
                 if (multiWindowDetected && !bypassMultiWindow) {
                     addQuickFix(
-                        text = tr(
-                            "Exit split-screen mode to continue",
-                            "Keluar dari mode split-screen untuk melanjutkan"
-                        ),
+                        text = tr("Refresh Status", "Refresh Status"),
                         severity = QuickFixSeverity.Blocking,
                         target = QuickFixTarget.MultiWindow,
                         priority = 40,

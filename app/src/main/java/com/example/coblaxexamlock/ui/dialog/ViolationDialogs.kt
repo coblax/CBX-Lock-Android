@@ -185,6 +185,12 @@ import com.example.coblaxexamlock.diagnosticLabel
 import com.example.coblaxexamlock.format.formatLocationFixAge
 import com.example.coblaxexamlock.formatCoordinates
 import com.example.coblaxexamlock.i18n.tr
+import com.example.coblaxexamlock.runtime.ExternalDisplayInfo
+import com.example.coblaxexamlock.runtime.MultiWindowModeInfo
+import com.example.coblaxexamlock.runtime.buildDisplayMirrorRuntimeEvidence
+import com.example.coblaxexamlock.runtime.buildMultiWindowRuntimeEvidence
+import com.example.coblaxexamlock.runtime.buildScreenRecorderRuntimeEvidence
+import com.example.coblaxexamlock.runtime.buildVpnRuntimeEvidence
 import com.example.coblaxexamlock.ui.geofence.summarizeCircleCenters
 import com.example.coblaxexamlock.ui.theme.COBLAXEXAMLOCKTheme
 import com.example.coblaxexamlock.ui.theme.LockBackground
@@ -650,6 +656,8 @@ internal fun NetworkUnstableDialog(
 internal fun VpnDetectedDialog(
     transportLabel: String,
     interfaceName: String,
+    bypassActive: Boolean,
+    bypassTampered: Boolean,
     onOpenVpnSettings: () -> Unit,
     onRefreshStatus: () -> Unit,
     onSendReport: () -> Unit
@@ -679,28 +687,32 @@ internal fun VpnDetectedDialog(
         },
         text = {
             Column {
-                Text(
-                    text = tr(
-                        "A VPN connection is active while the exam is running. Turn off VPN, then refresh status to continue.",
-                        "Koneksi VPN aktif saat ujian berjalan. Matikan VPN, lalu refresh status untuk melanjutkan."
-                    ),
-                    color = LockTextPrimary
+                RuntimeDialogSection(
+                    title = tr("Problem", "Masalah"),
+                    body = tr(
+                        "A VPN connection is active while the exam is running.",
+                        "Koneksi VPN aktif saat ujian berjalan."
+                    )
                 )
-                Spacer(modifier = Modifier.height(10.dp))
-                Text(
-                    text = tr(
-                        "Transport: ${transportLabel.ifBlank { "-" }}",
-                        "Transport: ${transportLabel.ifBlank { "-" }}"
+                Spacer(modifier = Modifier.height(8.dp))
+                RuntimeDialogSection(
+                    title = tr("Evidence", "Evidence"),
+                    body = buildVpnRuntimeEvidence(
+                        transportLabel = transportLabel,
+                        interfaceName = interfaceName,
+                        bypassActive = bypassActive,
+                        bypassTampered = bypassTampered
                     ),
-                    color = Color(0xFFB42318),
-                    fontWeight = FontWeight.Bold
+                    bodyColor = Color(0xFFB42318),
+                    bodyWeight = FontWeight.SemiBold
                 )
-                Text(
-                    text = tr(
-                        "Interface: ${interfaceName.ifBlank { "-" }}",
-                        "Interface: ${interfaceName.ifBlank { "-" }}"
-                    ),
-                    color = LockTextSecondary
+                Spacer(modifier = Modifier.height(8.dp))
+                RuntimeDialogSection(
+                    title = tr("Next Step", "Langkah Berikutnya"),
+                    body = tr(
+                        "Open VPN Settings if needed, turn off VPN, then tap Refresh Status. Send Network Report if admin needs evidence.",
+                        "Buka Setelan VPN bila perlu, matikan VPN, lalu tekan Refresh Status. Kirim Report Network jika admin membutuhkan bukti."
+                    )
                 )
             }
         },
@@ -1162,11 +1174,33 @@ internal fun ClipboardViolationDialog(
 }
 
 @Composable
+private fun RuntimeDialogSection(
+    title: String,
+    body: String,
+    bodyColor: Color = LockTextSecondary,
+    bodyWeight: FontWeight? = null
+) {
+    Column {
+        Text(
+            text = title,
+            color = LockTextPrimary,
+            fontWeight = FontWeight.Bold
+        )
+        Spacer(modifier = Modifier.height(3.dp))
+        Text(
+            text = body.ifBlank { "-" },
+            color = bodyColor,
+            fontWeight = bodyWeight
+        )
+    }
+}
+
+@Composable
 private fun RuntimeStaticSecurityDialog(
     title: String,
     message: String,
     detail: String,
-    violationCount: Int,
+    nextStep: String,
     primaryActionLabel: String?,
     onPrimaryAction: (() -> Unit)?,
     onRefreshStatus: () -> Unit,
@@ -1197,15 +1231,22 @@ private fun RuntimeStaticSecurityDialog(
         },
         text = {
             Column {
-                Text(text = message, color = LockTextPrimary)
-                Spacer(modifier = Modifier.height(10.dp))
-                Text(
-                    text = tr("Violations: $violationCount", "Jumlah pelanggaran: $violationCount"),
-                    color = Color(0xFFB42318),
-                    fontWeight = FontWeight.Bold
+                RuntimeDialogSection(
+                    title = tr("Problem", "Masalah"),
+                    body = message,
+                    bodyColor = LockTextPrimary
                 )
                 Spacer(modifier = Modifier.height(8.dp))
-                Text(text = detail.ifBlank { "-" }, color = LockTextSecondary)
+                RuntimeDialogSection(
+                    title = tr("Evidence", "Evidence"),
+                    body = detail.ifBlank { "-" }
+                )
+                Spacer(modifier = Modifier.height(8.dp))
+                RuntimeDialogSection(
+                    title = tr("Next Step", "Langkah Berikutnya"),
+                    body = nextStep,
+                    bodyColor = LockTextPrimary
+                )
             }
         },
         confirmButton = {
@@ -1242,8 +1283,14 @@ internal fun ScreenRecorderRuntimeViolationDialog(
             "A screen recorder app is present while the exam is running. Remove or disable it, then refresh status.",
             "Aplikasi screen recorder terdeteksi saat ujian berjalan. Hapus atau nonaktifkan, lalu refresh status."
         ),
-        detail = packages.joinToString("\n").ifBlank { "-" },
-        violationCount = violationCount,
+        detail = buildScreenRecorderRuntimeEvidence(
+            packages = packages,
+            violationCount = violationCount
+        ),
+        nextStep = tr(
+            "Open App Settings, disable or uninstall the recorder app, then tap Refresh Status. Send Report if admin needs evidence.",
+            "Buka Setelan App, nonaktifkan atau hapus aplikasi recorder, lalu tekan Refresh Status. Kirim Report jika admin membutuhkan bukti."
+        ),
         primaryActionLabel = tr("Open App Settings", "Buka Setelan App"),
         onPrimaryAction = onOpenAppSettings,
         onRefreshStatus = onRefreshStatus,
@@ -1254,6 +1301,7 @@ internal fun ScreenRecorderRuntimeViolationDialog(
 @Composable
 internal fun DisplayMirrorRuntimeViolationDialog(
     externalDisplayCount: Int,
+    externalDisplayInfoList: List<ExternalDisplayInfo>,
     violationCount: Int,
     onOpenCastSettings: () -> Unit,
     onRefreshStatus: () -> Unit,
@@ -1265,11 +1313,15 @@ internal fun DisplayMirrorRuntimeViolationDialog(
             "An external display or casting route is active while the exam is running. Disconnect it, then refresh status.",
             "Display eksternal atau casting aktif saat ujian berjalan. Putuskan koneksinya, lalu refresh status."
         ),
-        detail = tr(
-            "External display count: $externalDisplayCount",
-            "Jumlah display eksternal: $externalDisplayCount"
+        detail = buildDisplayMirrorRuntimeEvidence(
+            externalDisplayCount = externalDisplayCount,
+            externalDisplayInfoList = externalDisplayInfoList,
+            violationCount = violationCount
         ),
-        violationCount = violationCount,
+        nextStep = tr(
+            "Open Cast Settings if needed, disconnect the external display or casting route, then tap Refresh Status. Send Report if admin needs evidence.",
+            "Buka Setelan Cast bila perlu, putuskan display eksternal atau casting, lalu tekan Refresh Status. Kirim Report jika admin membutuhkan bukti."
+        ),
         primaryActionLabel = tr("Open Cast Settings", "Buka Setelan Cast"),
         onPrimaryAction = onOpenCastSettings,
         onRefreshStatus = onRefreshStatus,
@@ -1279,6 +1331,8 @@ internal fun DisplayMirrorRuntimeViolationDialog(
 
 @Composable
 internal fun MultiWindowRuntimeViolationDialog(
+    modeInfo: MultiWindowModeInfo,
+    runtimeDetected: Boolean,
     violationCount: Int,
     onRefreshStatus: () -> Unit,
     onSendReport: () -> Unit
@@ -1289,8 +1343,15 @@ internal fun MultiWindowRuntimeViolationDialog(
             "The exam app is in split-screen or picture-in-picture mode. Return to normal single-app mode, then refresh status.",
             "Aplikasi ujian berada di mode split-screen atau picture-in-picture. Kembali ke mode satu aplikasi, lalu refresh status."
         ),
-        detail = tr("Multi-window mode: active", "Mode multi-window: aktif"),
-        violationCount = violationCount,
+        detail = buildMultiWindowRuntimeEvidence(
+            modeInfo = modeInfo,
+            runtimeDetected = runtimeDetected,
+            violationCount = violationCount
+        ),
+        nextStep = tr(
+            "Return to normal single-app mode, then tap Refresh Status. Send Report if admin needs evidence.",
+            "Kembali ke mode satu aplikasi, lalu tekan Refresh Status. Kirim Report jika admin membutuhkan bukti."
+        ),
         primaryActionLabel = null,
         onPrimaryAction = null,
         onRefreshStatus = onRefreshStatus,
@@ -1313,6 +1374,8 @@ internal data class ExamRuntimeDialogsState(
     val showVpnDetectedDialog: Boolean,
     val vpnTransportLabel: String,
     val vpnInterfaceName: String,
+    val vpnBypassActive: Boolean,
+    val vpnBypassTampered: Boolean,
     val showNetworkUnstableDialog: Boolean,
     val networkTransportLabel: String,
     val networkUnstableFlapCount: Int,
@@ -1394,6 +1457,8 @@ internal fun ExamRuntimeDialogsHost(
         VpnDetectedDialog(
             transportLabel = state.vpnTransportLabel,
             interfaceName = state.vpnInterfaceName,
+            bypassActive = state.vpnBypassActive,
+            bypassTampered = state.vpnBypassTampered,
             onOpenVpnSettings = actions.onOpenVpnSettings,
             onRefreshStatus = actions.onRefreshVpnStatus,
             onSendReport = actions.onSendVpnReport

@@ -169,7 +169,6 @@ import com.example.coblaxexamlock.PreviousExamSessionBreadcrumbCodes
 import com.example.coblaxexamlock.PreviousExamSessionBreadcrumbStore
 import com.example.coblaxexamlock.readClipboardSnapshotFull
 import com.example.coblaxexamlock.readClipboardSnapshotLite
-import com.example.coblaxexamlock.readWebViewCompatibilityStatus
 import com.example.coblaxexamlock.resolveExpectedSigningFingerprints
 import com.example.coblaxexamlock.ReverseEngineeringGuard
 import com.example.coblaxexamlock.RootBypassResolver
@@ -180,7 +179,6 @@ import com.example.coblaxexamlock.runtime.buildRootIssueMessage
 import com.example.coblaxexamlock.runtime.detectScreenRecorderPackages
 import com.example.coblaxexamlock.runtime.detectSuspiciousFakeLocationPackages
 import com.example.coblaxexamlock.runtime.getExternalDisplayCount
-import com.example.coblaxexamlock.runtime.getExternalDisplayInfoList
 import com.example.coblaxexamlock.runtime.getBluetoothConnectPermission
 import com.example.coblaxexamlock.runtime.getCachedVirtualEnvironmentDiagnostics
 import com.example.coblaxexamlock.runtime.getCurrentInputMethodPackage
@@ -193,12 +191,12 @@ import com.example.coblaxexamlock.runtime.isAllowedExamKeyboard
 import com.example.coblaxexamlock.runtime.isBluetoothEnabledForExam
 import com.example.coblaxexamlock.runtime.isInAnySplitMode
 import com.example.coblaxexamlock.runtime.isLocationServicesEnabled
-import com.example.coblaxexamlock.runtime.readMultiWindowModeInfo
 import com.example.coblaxexamlock.runtime.readExamBatteryStatus
 import com.example.coblaxexamlock.runtime.readNetworkReadinessStatus
 import com.example.coblaxexamlock.runtime.readNetworkReadinessStatusWithProbe
 import com.example.coblaxexamlock.runtime.requiresBluetoothExamPermission
 import com.example.coblaxexamlock.runtime.resolveKeyboardAppLabel
+import com.example.coblaxexamlock.runtime.SecurityDetectorCache
 import com.example.coblaxexamlock.runtime.sendTelegramAlarmAcknowledge
 import com.example.coblaxexamlock.runtime.sendTelegramSectionReport
 import com.example.coblaxexamlock.ScreenPinningBypassResolver
@@ -209,7 +207,6 @@ import com.example.coblaxexamlock.ScreenPinningSignals
 import com.example.coblaxexamlock.SecureStrings
 import com.example.coblaxexamlock.shouldSuppressPinningTransitionViolation
 import com.example.coblaxexamlock.showKeyboardPicker
-import com.example.coblaxexamlock.SignatureIntegrity
 import com.example.coblaxexamlock.SignatureIntegrityResult
 import com.example.coblaxexamlock.SplitLocationSecurityStatus
 import com.example.coblaxexamlock.TrustedNetworkTimeCoordinator
@@ -256,7 +253,10 @@ internal fun ExamRuntimeSessionScreenImpl(
     val deviceCompatibilityProfile = LocalDeviceCompatibilityProfile.current
     var webViewCompatibilityRefreshKey by rememberSaveable { mutableIntStateOf(0) }
     val webViewCompatibilityStatus = remember(context, webViewCompatibilityRefreshKey) {
-        readWebViewCompatibilityStatus(context.applicationContext)
+        SecurityDetectorCache.readWebViewCompatibilityStatus(
+            context = context.applicationContext,
+            forceRefresh = webViewCompatibilityRefreshKey > 0
+        )
     }
     val deviceQuirkProfile = remember(deviceCompatibilityProfile) {
         deviceCompatibilityProfile.toExamRuntimeDeviceQuirkProfile()
@@ -1153,6 +1153,9 @@ internal fun ExamRuntimeSessionScreenImpl(
                     previousStatus.verdict != refreshedStatus.verdict ||
                     previousStatus.userFacingVerdict != refreshedStatus.userFacingVerdict ||
                     previousStatus.dnsProbeStatus.verdict != refreshedStatus.dnsProbeStatus.verdict
+            if (!coreStateChanged) {
+                return
+            }
             baseNetworkReadiness = refreshedStatus
 
             if (refreshedStatus.examStatus.isConnected) {
@@ -2623,7 +2626,11 @@ internal fun ExamRuntimeSessionScreenImpl(
                 releaseFingerprint = SecureStrings.signingFingerprintRelease,
                 debugFingerprint = SecureStrings.signingFingerprintDebug
             )
-            val result = SignatureIntegrity.check(context, expectedFingerprints)
+            val result = SecurityDetectorCache.checkSignatureIntegrity(
+                context = context,
+                expectedFingerprints = expectedFingerprints,
+                forceRefresh = triggerViolation
+            )
             signatureMismatchDetected = !result.isMatch
             if (!result.isMatch && triggerViolation) {
                 recordAction(
@@ -2674,7 +2681,10 @@ internal fun ExamRuntimeSessionScreenImpl(
             val latestAccessibilityInspection = inspectAccessibility(context)
             val latestAccessibilityServiceEnabled = latestAccessibilityInspection.blockingServiceActive
             val latestAdbInspection = inspectAdb(context)
-            val rootDetectionDetails = getRootDetectionDetails(context)
+            val rootDetectionDetails = SecurityDetectorCache.readRootDetectionDetails(
+                context = context,
+                forceRefresh = triggerViolation
+            )
             val latestRootSecurityStatus = buildRootSecurityStatus(rootDetectionDetails)
             val cachedVirtualEnvironmentDiagnostics = getCachedVirtualEnvironmentDiagnostics()
             checkSignatureIntegrity(triggerViolation)
@@ -2804,7 +2814,8 @@ internal fun ExamRuntimeSessionScreenImpl(
                 securityUiState = securityUiState,
                 trigger = "diagnostic_request",
                 recordAction = ::recordAction,
-                startAlarm = examAlarmController::start
+                startAlarm = examAlarmController::start,
+                forceRefresh = true
             )
             val latestDeviceTimeStatus = refreshDeviceTimeSecurity(
                 trigger = "diagnostic_request",
@@ -4313,7 +4324,8 @@ internal fun ExamRuntimeSessionScreenImpl(
             securityUiState = securityUiState,
             trigger = "checklist_refresh",
             recordAction = ::recordAction,
-            startAlarm = examAlarmController::start
+            startAlarm = examAlarmController::start,
+            forceRefresh = true
         )
         debugLogExamStart(
             "refreshPreparationStatusChecks scheduled in ${SystemClock.elapsedRealtime() - startedAt} ms"
@@ -4564,6 +4576,8 @@ internal fun ExamRuntimeSessionScreenImpl(
         currentOfflineDurationMs = currentOfflineDurationMs,
         uiLanguage = uiLanguage,
         showVpnDetectedDialog = examSessionStarted && networkReadinessStatus.diagnostics.isVpnActive && !bypassVpn,
+        vpnBypassActive = bypassVpn,
+        vpnBypassTampered = vpnBypassState == VpnBypassState.Tampered,
         showNetworkUnstableDialog = showNetworkUnstableDialog,
         networkReadinessStatus = networkReadinessStatus,
         networkUnstableRuntimeStatus = networkUnstableRuntimeStatus,
@@ -4681,9 +4695,9 @@ internal fun ExamRuntimeSessionScreenImpl(
         bypassAppSwitch = bypassAppSwitch,
         bypassScreenRecorder = bypassScreenRecorder,
         bypassDisplayMirror = bypassDisplayMirror,
-        externalDisplayInfoList = getExternalDisplayInfoList(context),
+        externalDisplayInfoList = securityUiState.externalDisplayInfoList.value,
         bypassMultiWindow = bypassMultiWindow,
-        multiWindowModeInfo = readMultiWindowModeInfo(context),
+        multiWindowModeInfo = securityUiState.multiWindowModeInfo.value,
         preExamHealthCheckSnapshot = preExamHealthCheckSnapshot,
         deviceSurvivalPolicy = deviceSurvivalPolicy,
         previousExamSessionBreadcrumb = previousExamSessionBreadcrumb

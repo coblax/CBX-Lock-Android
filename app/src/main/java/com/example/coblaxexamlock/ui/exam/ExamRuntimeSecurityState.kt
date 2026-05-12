@@ -23,17 +23,17 @@ import com.example.coblaxexamlock.inspectAccessibility
 import com.example.coblaxexamlock.inspectAdb
 import com.example.coblaxexamlock.LocationSpoofSecurityStatus
 import com.example.coblaxexamlock.RootSecurityStatus
+import com.example.coblaxexamlock.runtime.ExternalDisplayInfo
+import com.example.coblaxexamlock.runtime.MultiWindowModeInfo
+import com.example.coblaxexamlock.runtime.SecurityDetectorCache
 import com.example.coblaxexamlock.runtime.detectSuspiciousFakeLocationPackages
-import com.example.coblaxexamlock.runtime.detectScreenRecorderPackages
-import com.example.coblaxexamlock.runtime.getExternalDisplayCount
 import com.example.coblaxexamlock.runtime.getCachedVirtualEnvironmentDiagnostics
-import com.example.coblaxexamlock.runtime.getRootDetectionDetails
 import com.example.coblaxexamlock.runtime.hasBluetoothExamPermission
 import com.example.coblaxexamlock.runtime.hasFineLocationPermission
 import com.example.coblaxexamlock.runtime.hasLocationPermissionForWifi
-import com.example.coblaxexamlock.runtime.isInAnySplitMode
 import com.example.coblaxexamlock.runtime.isBluetoothEnabledForExam
 import com.example.coblaxexamlock.runtime.isLocationServicesEnabled
+import com.example.coblaxexamlock.runtime.readMultiWindowModeInfo
 
 internal class ExamRuntimeSecurityUiState(
     val forcedExitViolationCount: MutableIntState,
@@ -80,9 +80,11 @@ internal class ExamRuntimeSecurityUiState(
     val showScreenRecorderViolationDialog: MutableState<Boolean>,
     val externalDisplayDetected: MutableState<Boolean>,
     val externalDisplayCount: MutableIntState,
+    val externalDisplayInfoList: MutableState<List<ExternalDisplayInfo>>,
     val displayMirrorViolationCount: MutableIntState,
     val showDisplayMirrorViolationDialog: MutableState<Boolean>,
     val multiWindowDetected: MutableState<Boolean>,
+    val multiWindowModeInfo: MutableState<MultiWindowModeInfo>,
     val multiWindowViolationCount: MutableIntState,
     val showMultiWindowViolationDialog: MutableState<Boolean>,
     val geofenceEvaluation: MutableState<GeofenceEvaluation>,
@@ -134,7 +136,7 @@ internal fun rememberExamRuntimeSecurityUiState(
         mutableStateOf(initialAdbInspection.adbEnabled)
     }
     val initialRootStatus = remember(context) {
-        buildRootSecurityStatus(getRootDetectionDetails(context))
+        buildRootSecurityStatus(SecurityDetectorCache.readRootDetectionDetails(context))
     }
     val rootSecurityStatus = remember { mutableStateOf(initialRootStatus) }
     val rootDetected = rememberSaveable {
@@ -158,26 +160,35 @@ internal fun rememberExamRuntimeSecurityUiState(
     val bluetoothViolationCount = rememberSaveable { mutableIntStateOf(0) }
     val showBluetoothViolationDialog = rememberSaveable { mutableStateOf(false) }
     val initialScreenRecorderPackages = remember(context) {
-        detectScreenRecorderPackages(context)
+        SecurityDetectorCache.readScreenRecorderPackages(context)
     }
     val screenRecorderPackages = remember {
         mutableStateOf(initialScreenRecorderPackages)
     }
     val screenRecorderViolationCount = rememberSaveable { mutableIntStateOf(0) }
     val showScreenRecorderViolationDialog = rememberSaveable { mutableStateOf(false) }
-    val initialExternalDisplayCount = remember(context) {
-        getExternalDisplayCount(context)
+    val initialExternalDisplaySnapshot = remember(context) {
+        SecurityDetectorCache.readExternalDisplaySnapshot(context)
     }
     val externalDisplayDetected = rememberSaveable {
-        mutableStateOf(initialExternalDisplayCount > 0)
+        mutableStateOf(initialExternalDisplaySnapshot.detected)
     }
     val externalDisplayCount = rememberSaveable {
-        mutableIntStateOf(initialExternalDisplayCount)
+        mutableIntStateOf(initialExternalDisplaySnapshot.count)
+    }
+    val externalDisplayInfoList = remember {
+        mutableStateOf(initialExternalDisplaySnapshot.infoList)
     }
     val displayMirrorViolationCount = rememberSaveable { mutableIntStateOf(0) }
     val showDisplayMirrorViolationDialog = rememberSaveable { mutableStateOf(false) }
+    val initialMultiWindowModeInfo = remember(context) {
+        readMultiWindowModeInfo(context)
+    }
     val multiWindowDetected = rememberSaveable {
-        mutableStateOf(isInAnySplitMode(context))
+        mutableStateOf(initialMultiWindowModeInfo.inAnySplitMode)
+    }
+    val multiWindowModeInfo = remember {
+        mutableStateOf(initialMultiWindowModeInfo)
     }
     val multiWindowViolationCount = rememberSaveable { mutableIntStateOf(0) }
     val showMultiWindowViolationDialog = rememberSaveable { mutableStateOf(false) }
@@ -282,9 +293,11 @@ internal fun rememberExamRuntimeSecurityUiState(
         showScreenRecorderViolationDialog = showScreenRecorderViolationDialog,
         externalDisplayDetected = externalDisplayDetected,
         externalDisplayCount = externalDisplayCount,
+        externalDisplayInfoList = externalDisplayInfoList,
         displayMirrorViolationCount = displayMirrorViolationCount,
         showDisplayMirrorViolationDialog = showDisplayMirrorViolationDialog,
         multiWindowDetected = multiWindowDetected,
+        multiWindowModeInfo = multiWindowModeInfo,
         multiWindowViolationCount = multiWindowViolationCount,
         showMultiWindowViolationDialog = showMultiWindowViolationDialog,
         geofenceEvaluation = geofenceEvaluation,
