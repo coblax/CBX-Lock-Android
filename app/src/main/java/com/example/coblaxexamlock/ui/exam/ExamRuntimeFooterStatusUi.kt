@@ -29,7 +29,6 @@ import androidx.compose.material.icons.rounded.BatteryChargingFull
 import androidx.compose.material.icons.rounded.BatteryFull
 import androidx.compose.material.icons.rounded.Security
 import androidx.compose.material3.Icon
-import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.getValue
@@ -137,35 +136,32 @@ private fun ConnectivityInfoPill(
             .width(width)
             .height(height)
     ) {
-        Surface(
-            modifier = Modifier.fillMaxSize(),
-            shape = RoundedCornerShape(12.dp),
-            color = pillFill,
-            border = BorderStroke(1.dp, pillBorder)
+        Box(
+            modifier = Modifier
+                .fillMaxSize()
+                .clip(RoundedCornerShape(12.dp))
+                .background(pillFill)
+                .border(1.dp, pillBorder, RoundedCornerShape(12.dp)),
+            contentAlignment = Alignment.Center
         ) {
-            Box(
-                modifier = Modifier.fillMaxSize(),
-                contentAlignment = Alignment.Center
+            Row(
+                verticalAlignment = Alignment.Bottom,
+                horizontalArrangement = Arrangement.spacedBy(2.dp, Alignment.CenterHorizontally)
             ) {
-                Row(
-                    verticalAlignment = Alignment.Bottom,
-                    horizontalArrangement = Arrangement.spacedBy(2.dp, Alignment.CenterHorizontally)
-                ) {
-                    SignalBars(
-                        level = visual.signalLevel,
-                        statusColor = statusColor,
-                        danger = visual.severity == ExamFooterConnectivitySeverity.Danger
+                SignalBars(
+                    level = visual.signalLevel,
+                    statusColor = statusColor,
+                    danger = visual.severity == ExamFooterConnectivitySeverity.Danger
+                )
+                visual.cellularLabel?.let { label ->
+                    Text(
+                        text = label,
+                        color = statusColor,
+                        fontSize = 8.sp,
+                        fontWeight = FontWeight.Bold,
+                        maxLines = 1,
+                        modifier = Modifier.offset(y = 1.dp)
                     )
-                    visual.cellularLabel?.let { label ->
-                        Text(
-                            text = label,
-                            color = statusColor,
-                            fontSize = 8.sp,
-                            fontWeight = FontWeight.Bold,
-                            maxLines = 1,
-                            modifier = Modifier.offset(y = 1.dp)
-                        )
-                    }
                 }
             }
         }
@@ -256,37 +252,32 @@ private fun SecurityShieldPill(
         androidx.compose.runtime.remember { androidx.compose.runtime.mutableFloatStateOf(1f) }
     }
 
-    Surface(
+    Row(
         modifier = Modifier
             .width(width)
             .height(height)
-            .scale(pulseScale),
-        shape = RoundedCornerShape(12.dp),
-        color = pillFill,
-        border = BorderStroke(1.dp, pillBorder)
+            .scale(pulseScale)
+            .clip(RoundedCornerShape(12.dp))
+            .background(pillFill)
+            .border(1.dp, pillBorder, RoundedCornerShape(12.dp))
+            .padding(horizontal = 4.dp),
+        verticalAlignment = Alignment.CenterVertically,
+        horizontalArrangement = Arrangement.spacedBy(3.dp, Alignment.CenterHorizontally)
     ) {
-        Row(
-            modifier = Modifier
-                .fillMaxSize()
-                .padding(horizontal = 4.dp),
-            verticalAlignment = Alignment.CenterVertically,
-            horizontalArrangement = Arrangement.spacedBy(3.dp, Alignment.CenterHorizontally)
-        ) {
-            Icon(
-                imageVector = Icons.Rounded.Security,
-                contentDescription = contentDescription,
-                tint = statusColor,
-                modifier = Modifier.size((iconSize.value - 3).coerceAtLeast(12f).dp)
-            )
-            Text(
-                text = label,
-                color = statusColor,
-                fontSize = 9.sp,
-                fontWeight = FontWeight.Bold,
-                maxLines = 1,
-                overflow = TextOverflow.Clip
-            )
-        }
+        Icon(
+            imageVector = Icons.Rounded.Security,
+            contentDescription = contentDescription,
+            tint = statusColor,
+            modifier = Modifier.size((iconSize.value - 3).coerceAtLeast(12f).dp)
+        )
+        Text(
+            text = label,
+            color = statusColor,
+            fontSize = 9.sp,
+            fontWeight = FontWeight.Bold,
+            maxLines = 1,
+            overflow = TextOverflow.Clip
+        )
     }
 }
 
@@ -336,38 +327,33 @@ private fun BatteryInfoPill(
         androidx.compose.runtime.remember { androidx.compose.runtime.mutableFloatStateOf(1f) }
     }
 
-    Surface(
+    Row(
         modifier = Modifier
             .height(height)
-            .width(width),
-        shape = RoundedCornerShape(12.dp),
-        color = pillFill,
-        border = BorderStroke(1.dp, pillBorder)
+            .width(width)
+            .clip(RoundedCornerShape(12.dp))
+            .background(pillFill)
+            .border(1.dp, pillBorder, RoundedCornerShape(12.dp))
+            .padding(horizontal = 5.dp),
+        verticalAlignment = Alignment.CenterVertically,
+        horizontalArrangement = Arrangement.Center
     ) {
-        Row(
+        Icon(
+            imageVector = batteryStatusIcon(batteryStatus),
+            contentDescription = contentDescription,
+            tint = statusColor,
             modifier = Modifier
-                .fillMaxWidth()
-                .padding(horizontal = 5.dp),
-            verticalAlignment = Alignment.CenterVertically,
-            horizontalArrangement = Arrangement.Center
-        ) {
-            Icon(
-                imageVector = batteryStatusIcon(batteryStatus),
-                contentDescription = contentDescription,
-                tint = statusColor,
-                modifier = Modifier
-                    .size(iconSize)
-                    .graphicsLayer { alpha = chargingAlpha }
+                .size(iconSize)
+                .graphicsLayer { alpha = chargingAlpha }
+        )
+        if (showPercent) {
+            Text(
+                text = "$percent%",
+                color = LockTextPrimary,
+                fontSize = 10.sp,
+                fontWeight = FontWeight.SemiBold,
+                maxLines = 1
             )
-            if (showPercent) {
-                Text(
-                    text = "$percent%",
-                    color = LockTextPrimary,
-                    fontSize = 10.sp,
-                    fontWeight = FontWeight.SemiBold,
-                    maxLines = 1
-                )
-            }
         }
     }
 }

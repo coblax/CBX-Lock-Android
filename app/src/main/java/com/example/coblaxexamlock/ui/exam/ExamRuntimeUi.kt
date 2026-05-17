@@ -1,7 +1,7 @@
 package com.example.coblaxexamlock.ui.exam
 
 import androidx.compose.foundation.background
-import androidx.compose.foundation.BorderStroke
+import androidx.compose.foundation.border
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
@@ -24,7 +24,6 @@ import androidx.compose.material.icons.rounded.TouchApp
 import androidx.compose.material3.Button
 import androidx.compose.material3.ButtonDefaults
 import androidx.compose.material3.Icon
-import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.ui.Alignment
@@ -90,13 +89,12 @@ internal fun ExamWebErrorOverlay(
     onRetry: () -> Unit,
     modifier: Modifier = Modifier
 ) {
-    Surface(
-        modifier = modifier.padding(24.dp),
-        shape = RoundedCornerShape(18.dp),
-        color = Color.White,
-        tonalElevation = 2.dp,
-        shadowElevation = 4.dp,
-        border = BorderStroke(1.dp, LockStatusDanger.copy(alpha = 0.25f))
+    Box(
+        modifier = modifier
+            .padding(24.dp)
+            .clip(RoundedCornerShape(18.dp))
+            .background(Color.White)
+            .border(1.dp, LockStatusDanger.copy(alpha = 0.25f), RoundedCornerShape(18.dp))
     ) {
         // Subtle gradient background tint
         Box(
@@ -181,21 +179,24 @@ internal fun PinningActivationOverlay(modifier: Modifier = Modifier) {
             .background(Color(0xE6101827)),
         contentAlignment = Alignment.Center
     ) {
-        Surface(
+        Box(
             modifier = Modifier
                 .fillMaxWidth(0.88f)
-                .padding(vertical = 24.dp),
-            shape = RoundedCornerShape(22.dp),
-            color = Color(0xFF1A2332),
-            border = BorderStroke(1.dp, LockGoldDark.copy(alpha = 0.30f)),
-            shadowElevation = 6.dp
+                .padding(vertical = 24.dp)
+                .clip(RoundedCornerShape(22.dp))
+                .background(Color(0xFF1A2332))
+                .border(1.dp, LockGoldDark.copy(alpha = 0.30f), RoundedCornerShape(22.dp))
         ) {
             Column(
                 modifier = Modifier.padding(horizontal = 24.dp, vertical = 28.dp),
                 horizontalAlignment = Alignment.CenterHorizontally,
                 verticalArrangement = Arrangement.spacedBy(16.dp)
             ) {
-                Surface(shape = CircleShape, color = LockGoldDark.copy(alpha = 0.16f)) {
+                Box(
+                    modifier = Modifier
+                        .clip(CircleShape)
+                        .background(LockGoldDark.copy(alpha = 0.16f))
+                ) {
                     Icon(
                         imageVector = Icons.Rounded.Lock,
                         contentDescription = null,
@@ -248,33 +249,31 @@ internal fun PinningActivationOverlay(modifier: Modifier = Modifier) {
                         "Tetap di sini. Mulai Ujian tersedia setelah pinning terkonfirmasi."
                     )
                 )
-                Surface(
-                    shape = RoundedCornerShape(12.dp),
-                    color = LockStatusDanger.copy(alpha = 0.16f),
-                    border = BorderStroke(1.dp, LockStatusDanger.copy(alpha = 0.25f))
+                Row(
+                    modifier = Modifier
+                        .clip(RoundedCornerShape(12.dp))
+                        .background(LockStatusDanger.copy(alpha = 0.16f))
+                        .border(1.dp, LockStatusDanger.copy(alpha = 0.25f), RoundedCornerShape(12.dp))
+                        .padding(horizontal = 14.dp, vertical = 10.dp),
+                    horizontalArrangement = Arrangement.spacedBy(8.dp),
+                    verticalAlignment = Alignment.CenterVertically
                 ) {
-                    Row(
-                        modifier = Modifier.padding(horizontal = 14.dp, vertical = 10.dp),
-                        horizontalArrangement = Arrangement.spacedBy(8.dp),
-                        verticalAlignment = Alignment.CenterVertically
-                    ) {
-                        Icon(
-                            imageVector = Icons.Rounded.PanTool,
-                            contentDescription = null,
-                            tint = LockStatusDanger,
-                            modifier = Modifier.size(16.dp)
-                        )
-                        Text(
-                            text = tr(
-                                "Do not touch Home or Recent during this process",
-                                "Jangan sentuh Home atau Recent selama proses ini"
-                            ),
-                            color = LockStatusDanger,
-                            fontSize = 12.sp,
-                            fontWeight = FontWeight.Bold,
-                            lineHeight = 17.sp
-                        )
-                    }
+                    Icon(
+                        imageVector = Icons.Rounded.PanTool,
+                        contentDescription = null,
+                        tint = LockStatusDanger,
+                        modifier = Modifier.size(16.dp)
+                    )
+                    Text(
+                        text = tr(
+                            "Do not touch Home or Recent during this process",
+                            "Jangan sentuh Home atau Recent selama proses ini"
+                        ),
+                        color = LockStatusDanger,
+                        fontSize = 12.sp,
+                        fontWeight = FontWeight.Bold,
+                        lineHeight = 17.sp
+                    )
                 }
             }
         }
@@ -293,10 +292,14 @@ private fun PinningStep(
         horizontalArrangement = Arrangement.spacedBy(12.dp),
         verticalAlignment = Alignment.Top
     ) {
-        Surface(shape = CircleShape, color = accentColor.copy(alpha = 0.18f)) {
-            Box(modifier = Modifier.size(32.dp), contentAlignment = Alignment.Center) {
-                Text(text = step, color = accentColor, fontSize = 14.sp, fontWeight = FontWeight.ExtraBold)
-            }
+        Box(
+            modifier = Modifier
+                .size(32.dp)
+                .clip(CircleShape)
+                .background(accentColor.copy(alpha = 0.18f)),
+            contentAlignment = Alignment.Center
+        ) {
+            Text(text = step, color = accentColor, fontSize = 14.sp, fontWeight = FontWeight.ExtraBold)
         }
         Column(modifier = Modifier.weight(1f), verticalArrangement = Arrangement.spacedBy(2.dp)) {
             Row(

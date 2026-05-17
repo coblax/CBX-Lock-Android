@@ -1,7 +1,7 @@
 package com.example.coblaxexamlock.ui.preparation
 
 import androidx.compose.foundation.background
-import androidx.compose.foundation.BorderStroke
+import androidx.compose.foundation.border
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
@@ -15,7 +15,6 @@ import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
-import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.remember
@@ -91,11 +90,12 @@ internal fun PreparationQuickFixPanel(
     val showQuickFixesCard = quickFixActions.isNotEmpty()
 
     if (showQuickFixesCard) {
-        Surface(
-            modifier = modifier.fillMaxWidth(),
-            shape = RoundedCornerShape(20.dp),
-            color = Color.White,
-            border = BorderStroke(1.dp, quickFixBorderColor)
+        Box(
+            modifier = modifier
+                .fillMaxWidth()
+                .clip(RoundedCornerShape(20.dp))
+                .background(Color.White)
+                .border(1.dp, quickFixBorderColor, RoundedCornerShape(20.dp))
         ) {
             Box(modifier = Modifier.fillMaxWidth()) {
                 // Left accent stripe; no animation, safe for low-RAM / API 24.

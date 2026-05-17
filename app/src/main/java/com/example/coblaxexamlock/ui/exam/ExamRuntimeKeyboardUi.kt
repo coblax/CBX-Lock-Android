@@ -21,7 +21,6 @@ import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.rounded.ArrowUpward
 import androidx.compose.material.icons.rounded.SpaceBar
 import androidx.compose.material3.Icon
-import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.ui.Alignment
@@ -57,13 +56,11 @@ internal fun ExamBuiltInKeyboardPanel(
         listOf("a", "s", "d", "f", "g", "h", "j", "k", "l")
     )
 
-    Surface(
-        modifier = modifier,
-        color = Color(0xFFF2F5FA),
-        shape = RoundedCornerShape(topStart = 22.dp, topEnd = 22.dp),
-        tonalElevation = 2.dp,
-        shadowElevation = 4.dp,
-        border = BorderStroke(1.dp, LockOutline.copy(alpha = 0.70f))
+    Box(
+        modifier = modifier
+            .clip(RoundedCornerShape(topStart = 22.dp, topEnd = 22.dp))
+            .background(Color(0xFFF2F5FA))
+            .border(1.dp, LockOutline.copy(alpha = 0.70f), RoundedCornerShape(topStart = 22.dp, topEnd = 22.dp))
     ) {
         Column(
             modifier = Modifier.padding(horizontal = 8.dp, vertical = 8.dp),
@@ -165,13 +162,13 @@ internal fun ExamBuiltInKeyboardKey(
     }
     val contentColor = if (isAccent) LockOnDark else LockTextPrimary
 
-    Surface(
+    Box(
         modifier = modifier
             .heightIn(min = 34.dp)
-            .clickable(onClick = onClick),
-        color = backgroundColor,
-        shape = RoundedCornerShape(12.dp),
-        border = BorderStroke(1.dp, LockOutline.copy(alpha = 0.65f))
+            .clip(RoundedCornerShape(12.dp))
+            .background(backgroundColor)
+            .border(1.dp, LockOutline.copy(alpha = 0.65f), RoundedCornerShape(12.dp))
+            .clickable(onClick = onClick)
     ) {
         Box(
             modifier = Modifier

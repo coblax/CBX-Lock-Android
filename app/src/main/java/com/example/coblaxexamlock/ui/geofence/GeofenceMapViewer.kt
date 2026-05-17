@@ -118,7 +118,6 @@ import androidx.compose.material3.LinearProgressIndicator
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.OutlinedTextField
 import androidx.compose.material3.OutlinedTextFieldDefaults
-import androidx.compose.material3.Surface
 import androidx.compose.material3.Switch
 import androidx.compose.material3.SwitchDefaults
 import androidx.compose.material3.Text
@@ -486,10 +485,11 @@ internal fun GeofenceMapViewerScreen(
             .fillMaxSize()
             .background(LockBackground)
     ) {
-        Surface(
-            color = Color.White,
-            border = BorderStroke(1.dp, LockOutline.copy(alpha = 0.5f)),
-            shape = RoundedCornerShape(bottomStart = 14.dp, bottomEnd = 14.dp)
+        Box(
+            modifier = Modifier
+                .clip(RoundedCornerShape(bottomStart = 14.dp, bottomEnd = 14.dp))
+                .background(Color.White)
+                .border(1.dp, LockOutline.copy(alpha = 0.5f), RoundedCornerShape(bottomStart = 14.dp, bottomEnd = 14.dp))
         ) {
             Column(
                 modifier = Modifier
@@ -632,10 +632,11 @@ internal fun GeofenceMapViewerScreen(
             }
         }
 
-        Surface(
-            color = Color.White,
-            border = BorderStroke(1.dp, LockOutline.copy(alpha = 0.5f)),
-            shape = RoundedCornerShape(topStart = 14.dp, topEnd = 14.dp)
+        Box(
+            modifier = Modifier
+                .clip(RoundedCornerShape(topStart = 14.dp, topEnd = 14.dp))
+                .background(Color.White)
+                .border(1.dp, LockOutline.copy(alpha = 0.5f), RoundedCornerShape(topStart = 14.dp, topEnd = 14.dp))
         ) {
             Column(
                 modifier = Modifier
@@ -784,10 +785,10 @@ internal fun GeofenceViewerBadge(
     textColor: Color,
     modifier: Modifier = Modifier
 ) {
-    Surface(
-        modifier = modifier,
-        color = backgroundColor,
-        shape = RoundedCornerShape(999.dp)
+    Box(
+        modifier = modifier
+            .clip(RoundedCornerShape(999.dp))
+            .background(backgroundColor)
     ) {
         Text(
             text = text,
@@ -832,11 +833,11 @@ internal fun GeofenceViewerMetricCard(
     value: String,
     modifier: Modifier = Modifier
 ) {
-    Surface(
-        modifier = modifier,
-        color = Color(0xFFF2F5FA),
-        shape = RoundedCornerShape(14.dp),
-        border = BorderStroke(1.dp, LockOutline)
+    Box(
+        modifier = modifier
+            .clip(RoundedCornerShape(14.dp))
+            .background(Color(0xFFF2F5FA))
+            .border(1.dp, LockOutline, RoundedCornerShape(14.dp))
     ) {
         Column(
             modifier = Modifier.padding(horizontal = 8.dp, vertical = 7.dp),

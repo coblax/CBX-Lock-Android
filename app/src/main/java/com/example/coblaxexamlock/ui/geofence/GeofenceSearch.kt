@@ -118,7 +118,6 @@ import androidx.compose.material3.LinearProgressIndicator
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.OutlinedTextField
 import androidx.compose.material3.OutlinedTextFieldDefaults
-import androidx.compose.material3.Surface
 import androidx.compose.material3.Switch
 import androidx.compose.material3.SwitchDefaults
 import androidx.compose.material3.Text
@@ -549,11 +548,12 @@ internal fun InlineMapSearchBar(
         verticalAlignment = Alignment.CenterVertically,
         horizontalArrangement = Arrangement.spacedBy(8.dp)
     ) {
-        Surface(
-            modifier = Modifier.weight(1f),
-            shape = RoundedCornerShape(12.dp),
-            color = LockSurfaceSoft,
-            border = BorderStroke(1.dp, LockOutline.copy(alpha = 0.7f))
+        Box(
+            modifier = Modifier
+                .weight(1f)
+                .clip(RoundedCornerShape(12.dp))
+                .background(LockSurfaceSoft)
+                .border(1.dp, LockOutline.copy(alpha = 0.7f), RoundedCornerShape(12.dp))
         ) {
             BasicTextField(
                 value = query,
@@ -617,14 +617,13 @@ internal fun InlineMapSearchResults(
     if (results.isEmpty() && error.isNullOrBlank()) {
         return
     }
-    Surface(
+    Box(
         modifier = Modifier
             .fillMaxWidth()
-            .heightIn(max = 180.dp),
-        shape = RoundedCornerShape(12.dp),
-        color = Color.White,
-        border = BorderStroke(1.dp, LockOutline.copy(alpha = 0.75f)),
-        shadowElevation = 0.dp
+            .heightIn(max = 180.dp)
+            .clip(RoundedCornerShape(12.dp))
+            .background(Color.White)
+            .border(1.dp, LockOutline.copy(alpha = 0.75f), RoundedCornerShape(12.dp))
     ) {
         Column(
             modifier = Modifier

@@ -118,7 +118,6 @@ import androidx.compose.material3.LinearProgressIndicator
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.OutlinedTextField
 import androidx.compose.material3.OutlinedTextFieldDefaults
-import androidx.compose.material3.Surface
 import androidx.compose.material3.Switch
 import androidx.compose.material3.SwitchDefaults
 import androidx.compose.material3.Text
@@ -280,11 +279,11 @@ internal fun CompactInfoMetricCard(
     label: String,
     value: String
 ) {
-    Surface(
-        modifier = modifier,
-        shape = RoundedCornerShape(12.dp),
-        color = LockSurfaceSoft,
-        border = BorderStroke(1.dp, LockOutline.copy(alpha = 0.7f))
+    Box(
+        modifier = modifier
+            .clip(RoundedCornerShape(12.dp))
+            .background(LockSurfaceSoft)
+            .border(1.dp, LockOutline.copy(alpha = 0.7f), RoundedCornerShape(12.dp))
     ) {
         Column(
             modifier = Modifier.padding(horizontal = 7.dp, vertical = 6.dp),
@@ -315,11 +314,11 @@ internal fun CompactCoordinateMetricCard(
     value: String,
     onValueChange: (String) -> Unit
 ) {
-    Surface(
-        modifier = modifier,
-        shape = RoundedCornerShape(12.dp),
-        color = LockSurfaceSoft,
-        border = BorderStroke(1.dp, LockOutline.copy(alpha = 0.7f))
+    Box(
+        modifier = modifier
+            .clip(RoundedCornerShape(12.dp))
+            .background(LockSurfaceSoft)
+            .border(1.dp, LockOutline.copy(alpha = 0.7f), RoundedCornerShape(12.dp))
     ) {
         Column(
             modifier = Modifier.padding(horizontal = 7.dp, vertical = 6.dp),
@@ -367,11 +366,11 @@ internal fun CompactRadiusMetricCard(
     value: String,
     onValueChange: (String) -> Unit
 ) {
-    Surface(
-        modifier = modifier,
-        shape = RoundedCornerShape(12.dp),
-        color = LockSurfaceSoft,
-        border = BorderStroke(1.dp, LockOutline.copy(alpha = 0.7f))
+    Box(
+        modifier = modifier
+            .clip(RoundedCornerShape(12.dp))
+            .background(LockSurfaceSoft)
+            .border(1.dp, LockOutline.copy(alpha = 0.7f), RoundedCornerShape(12.dp))
     ) {
         Column(
             modifier = Modifier.padding(horizontal = 7.dp, vertical = 6.dp),
@@ -421,12 +420,11 @@ internal fun MapTypeSelectorOverlay(
     onTypeSelected: (GeofenceMapType) -> Unit,
     modifier: Modifier = Modifier
 ) {
-    Surface(
-        modifier = modifier,
-        shape = RoundedCornerShape(14.dp),
-        color = Color.White.copy(alpha = 0.96f),
-        border = BorderStroke(1.dp, LockOutline.copy(alpha = 0.75f)),
-        shadowElevation = 0.dp
+    Box(
+        modifier = modifier
+            .clip(RoundedCornerShape(14.dp))
+            .background(Color.White.copy(alpha = 0.96f))
+            .border(1.dp, LockOutline.copy(alpha = 0.75f), RoundedCornerShape(14.dp))
     ) {
         Row(
             modifier = Modifier.padding(horizontal = 6.dp, vertical = 6.dp),
@@ -435,14 +433,12 @@ internal fun MapTypeSelectorOverlay(
         ) {
             GeofenceMapType.entries.forEach { mapType ->
                 val selected = mapType == selectedType
-                Surface(
-                    shape = RoundedCornerShape(10.dp),
-                    color = if (selected) LockBlue else LockSurfaceSoft,
-                    border = BorderStroke(
-                        1.dp,
-                        if (selected) LockBlue else LockOutline.copy(alpha = 0.7f)
-                    ),
-                    modifier = Modifier.clickable { onTypeSelected(mapType) }
+                Box(
+                    modifier = Modifier
+                        .clip(RoundedCornerShape(10.dp))
+                        .background(if (selected) LockBlue else LockSurfaceSoft)
+                        .border(1.dp, if (selected) LockBlue else LockOutline.copy(alpha = 0.7f), RoundedCornerShape(10.dp))
+                        .clickable { onTypeSelected(mapType) }
                 ) {
                     Text(
                         text = when (mapType) {

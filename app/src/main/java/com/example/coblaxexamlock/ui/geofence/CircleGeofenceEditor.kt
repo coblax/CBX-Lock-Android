@@ -118,7 +118,6 @@ import androidx.compose.material3.LinearProgressIndicator
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.OutlinedTextField
 import androidx.compose.material3.OutlinedTextFieldDefaults
-import androidx.compose.material3.Surface
 import androidx.compose.material3.Switch
 import androidx.compose.material3.SwitchDefaults
 import androidx.compose.material3.Text
@@ -589,10 +588,11 @@ internal fun CircleGeofenceEditorScreen(
             .statusBarsPadding()
             .navigationBarsPadding()
     ) {
-        Surface(
-            color = Color.White,
-            border = BorderStroke(1.dp, LockOutline.copy(alpha = 0.5f)),
-            shape = RoundedCornerShape(bottomStart = 14.dp, bottomEnd = 14.dp)
+        Box(
+            modifier = Modifier
+                .clip(RoundedCornerShape(bottomStart = 14.dp, bottomEnd = 14.dp))
+                .background(Color.White)
+                .border(1.dp, LockOutline.copy(alpha = 0.5f), RoundedCornerShape(bottomStart = 14.dp, bottomEnd = 14.dp))
         ) {
             Column(
                 modifier = Modifier
@@ -686,10 +686,11 @@ internal fun CircleGeofenceEditorScreen(
                     .padding(16.dp),
                 contentAlignment = Alignment.Center
             ) {
-                Surface(
-                    shape = RoundedCornerShape(18.dp),
-                    color = Color.White,
-                    border = BorderStroke(1.dp, LockOutline.copy(alpha = 0.8f))
+                Box(
+                    modifier = Modifier
+                        .clip(RoundedCornerShape(18.dp))
+                        .background(Color.White)
+                        .border(1.dp, LockOutline.copy(alpha = 0.8f), RoundedCornerShape(18.dp))
                 ) {
                     Column(
                         modifier = Modifier.padding(16.dp),
@@ -888,10 +889,11 @@ internal fun CircleGeofenceEditorScreen(
             }
         }
 
-        Surface(
-            color = Color.White,
-            border = BorderStroke(1.dp, LockOutline.copy(alpha = 0.5f)),
-            shape = RoundedCornerShape(topStart = 14.dp, topEnd = 14.dp)
+        Box(
+            modifier = Modifier
+                .clip(RoundedCornerShape(topStart = 14.dp, topEnd = 14.dp))
+                .background(Color.White)
+                .border(1.dp, LockOutline.copy(alpha = 0.5f), RoundedCornerShape(topStart = 14.dp, topEnd = 14.dp))
         ) {
             Column(
                 modifier = Modifier
