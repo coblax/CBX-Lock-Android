@@ -1,7 +1,7 @@
 package com.example.coblaxexamlock.ui.preparation
 
-import androidx.compose.foundation.BorderStroke
 import androidx.compose.foundation.background
+import androidx.compose.foundation.border
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
@@ -17,7 +17,6 @@ import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.rounded.Home
 import androidx.compose.material3.Icon
-import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.ui.Alignment
@@ -26,7 +25,6 @@ import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.text.font.FontWeight
-import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import com.example.coblaxexamlock.i18n.tr
@@ -44,13 +42,13 @@ internal fun PreparationChecklistHeader(
     severeLowRamPreparation: Boolean,
     onBackHome: () -> Unit
 ) {
-    Surface(
-        modifier = Modifier.fillMaxWidth(),
-        shape = RoundedCornerShape(if (severeLowRamPreparation) 20.dp else 24.dp),
-        color = Color.White,
-        border = BorderStroke(1.dp, LockOutline.copy(alpha = 0.7f)),
-        tonalElevation = if (severeLowRamPreparation) 0.dp else 0.dp,
-        shadowElevation = if (severeLowRamPreparation) 0.dp else 3.dp
+    val shape = RoundedCornerShape(if (severeLowRamPreparation) 20.dp else 24.dp)
+    Box(
+        modifier = Modifier
+            .fillMaxWidth()
+            .clip(shape)
+            .background(Color.White)
+            .border(1.dp, LockOutline.copy(alpha = 0.60f), shape)
     ) {
         Box(
             modifier = Modifier
@@ -59,8 +57,8 @@ internal fun PreparationChecklistHeader(
                         Brush.verticalGradient(listOf(Color.White, Color.White))
                     } else {
                         Brush.verticalGradient(
-                            0f to LockBlue.copy(alpha = 0.08f),
-                            0.6f to LockBlueSoft.copy(alpha = 0.04f),
+                            0f to LockBlue.copy(alpha = 0.07f),
+                            0.6f to LockBlueSoft.copy(alpha = 0.03f),
                             1f to Color.Transparent
                         )
                     }
@@ -74,38 +72,36 @@ internal fun PreparationChecklistHeader(
                     verticalAlignment = Alignment.CenterVertically
                 ) {
                     // Home button
-                    Surface(
-                        shape = CircleShape,
-                        color = LockSurfaceSoft,
-                        border = BorderStroke(1.dp, LockOutline.copy(alpha = 0.7f))
+                    Box(
+                        modifier = Modifier
+                            .clip(CircleShape)
+                            .background(LockSurfaceSoft)
+                            .border(1.dp, LockOutline.copy(alpha = 0.60f), CircleShape)
+                            .clickable(onClick = onBackHome)
+                            .padding(8.dp),
+                        contentAlignment = Alignment.Center
                     ) {
-                        Box(
-                            modifier = Modifier
-                                .clickable(onClick = onBackHome)
-                                .padding(8.dp),
-                            contentAlignment = Alignment.Center
-                        ) {
-                            Icon(
-                                imageVector = Icons.Rounded.Home,
-                                contentDescription = tr("Back to home", "Kembali ke menu utama"),
-                                tint = LockBlueDeep,
-                                modifier = Modifier.size(16.dp)
-                            )
-                        }
+                        Icon(
+                            imageVector = Icons.Rounded.Home,
+                            contentDescription = tr("Back to home", "Kembali ke menu utama"),
+                            tint = LockBlueDeep,
+                            modifier = Modifier.size(16.dp)
+                        )
                     }
 
                     // Mode badge
-                    Surface(
-                        shape = RoundedCornerShape(999.dp),
-                        color = LockBlueDeep
+                    Box(
+                        modifier = Modifier
+                            .clip(RoundedCornerShape(999.dp))
+                            .background(LockBlueDeep)
+                            .padding(horizontal = 10.dp, vertical = 5.dp)
                     ) {
                         Text(
                             text = tr("PREPARATION", "PERSIAPAN"),
                             color = LockOnDark,
                             fontSize = 10.sp,
                             fontWeight = FontWeight.ExtraBold,
-                            letterSpacing = 0.8.sp,
-                            modifier = Modifier.padding(horizontal = 10.dp, vertical = 6.dp)
+                            letterSpacing = 0.8.sp
                         )
                     }
                 }

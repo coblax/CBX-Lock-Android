@@ -9,11 +9,16 @@ private val LightColorScheme = lightColorScheme(
     primary = LockBlue,
     secondary = LockBlueDark,
     background = LockBackground,
-    surface = LockSurface,
+    surface = LockCardBg,
+    surfaceVariant = LockSurfaceSoft,
     outline = LockOutline,
+    outlineVariant = LockDivider,
     onPrimary = LockOnDark,
     onBackground = LockTextPrimary,
-    onSurface = LockOnDark
+    onSurface = LockTextPrimary,
+    onSurfaceVariant = LockTextSecondary,
+    error = LockStatusDanger,
+    onError = LockOnDark
 )
 
 @Composable

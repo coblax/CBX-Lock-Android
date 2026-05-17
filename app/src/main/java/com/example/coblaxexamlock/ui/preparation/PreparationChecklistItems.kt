@@ -2,6 +2,8 @@ package com.example.coblaxexamlock.ui.preparation
 
 import android.util.Log
 import androidx.compose.foundation.BorderStroke
+import androidx.compose.foundation.background
+import androidx.compose.foundation.border
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.ColumnScope
@@ -15,6 +17,7 @@ import androidx.compose.runtime.Composable
 import androidx.compose.runtime.SideEffect
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
@@ -59,20 +62,16 @@ private fun PreparationChecklistSectionSurface(
     content: @Composable ColumnScope.() -> Unit
 ) {
     PreparationSectionRecompositionMarker(sectionName)
-    Surface(
-        modifier = modifier.fillMaxWidth(),
-        shape = RoundedCornerShape(24.dp),
-        color = LockSurfaceSoft,
-        border = BorderStroke(1.dp, LockOutline)
-    ) {
-        Column(
-            modifier = Modifier
-                .fillMaxWidth()
-                .padding(horizontal = 14.dp, vertical = 14.dp),
-            verticalArrangement = Arrangement.spacedBy(10.dp),
-            content = content
-        )
-    }
+    Column(
+        modifier = modifier
+            .fillMaxWidth()
+            .clip(RoundedCornerShape(22.dp))
+            .background(LockSurfaceSoft)
+            .border(1.dp, LockOutline.copy(alpha = 0.55f), RoundedCornerShape(22.dp))
+            .padding(horizontal = 14.dp, vertical = 14.dp),
+        verticalArrangement = Arrangement.spacedBy(10.dp),
+        content = content
+    )
 }
 
 @Composable
@@ -109,17 +108,19 @@ internal fun PreparationChecklistIntroItem(
             }
         }
 
-        Surface(
-            shape = RoundedCornerShape(16.dp),
-            color = Color.White,
-            border = BorderStroke(1.dp, LockOutline.copy(alpha = 0.75f))
+        Column(
+            modifier = Modifier
+                .fillMaxWidth()
+                .clip(RoundedCornerShape(16.dp))
+                .background(Color.White)
+                .border(1.dp, LockOutline.copy(alpha = 0.60f), RoundedCornerShape(16.dp))
+                .padding(horizontal = 12.dp, vertical = 10.dp)
         ) {
             Text(
                 text = telegramHelperText,
                 color = LockTextMuted,
                 fontSize = 10.sp,
-                lineHeight = 14.sp,
-                modifier = Modifier.padding(horizontal = 12.dp, vertical = 10.dp)
+                lineHeight = 14.sp
             )
         }
     }

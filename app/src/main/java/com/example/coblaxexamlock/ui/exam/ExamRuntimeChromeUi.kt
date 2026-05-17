@@ -1,6 +1,9 @@
 package com.example.coblaxexamlock.ui.exam
 
 import androidx.compose.foundation.BorderStroke
+import androidx.compose.foundation.background
+import androidx.compose.foundation.border
+import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.BoxScope
 import androidx.compose.foundation.layout.Column
@@ -21,10 +24,12 @@ import androidx.compose.material3.LinearProgressIndicator
 import androidx.compose.material3.Surface
 import androidx.compose.runtime.Composable
 import androidx.compose.ui.Alignment
+import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.StrokeCap
 import androidx.compose.ui.graphics.vector.ImageVector
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.semantics.Role
 import androidx.compose.ui.unit.Dp
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.IntOffset
@@ -212,29 +217,23 @@ private fun ExamSideArrowButton(
     } else {
         LockTextMuted.copy(alpha = 0.78f)
     }
-    // Use Surface(onClick=...) for proper ripple feedback instead of Surface + clickable
-    Surface(
-        onClick = onClick,
-        enabled = enabled,
+    val borderColor = if (enabled) LockBlue.copy(alpha = 0.30f) else LockOutline.copy(alpha = 0.38f)
+    val shape = RoundedCornerShape(18.dp)
+    Box(
         modifier = modifier
             .width(42.dp)
-            .height(70.dp),
-        shape = RoundedCornerShape(18.dp),
-        color = containerColor,
-        tonalElevation = if (enabled) 2.dp else 0.dp,
-        shadowElevation = if (enabled) 3.dp else 0.dp,
-        border = BorderStroke(
-            width = 1.dp,
-            color = if (enabled) LockBlue.copy(alpha = 0.34f) else LockOutline.copy(alpha = 0.42f)
-        )
+            .height(70.dp)
+            .clip(shape)
+            .background(containerColor)
+            .border(1.dp, borderColor, shape)
+            .clickable(enabled = enabled, role = Role.Button, onClick = onClick),
+        contentAlignment = Alignment.Center
     ) {
-        Box(contentAlignment = Alignment.Center) {
-            Icon(
-                imageVector = icon,
-                contentDescription = contentDescription,
-                tint = contentColor,
-                modifier = Modifier.size(24.dp)
-            )
-        }
+        Icon(
+            imageVector = icon,
+            contentDescription = contentDescription,
+            tint = contentColor,
+            modifier = Modifier.size(24.dp)
+        )
     }
 }

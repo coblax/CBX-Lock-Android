@@ -48,6 +48,7 @@ import com.example.coblaxexamlock.ui.theme.LockBlueDeep
 import com.example.coblaxexamlock.ui.theme.LockGold
 import com.example.coblaxexamlock.ui.theme.LockOnDark
 import com.example.coblaxexamlock.ui.theme.LockOutline
+import com.example.coblaxexamlock.ui.theme.LockSurfaceSoft
 import com.example.coblaxexamlock.ui.theme.LockTextMuted
 import com.example.coblaxexamlock.ui.theme.LockTextSecondary
 import java.util.concurrent.atomic.AtomicBoolean
@@ -81,10 +82,10 @@ internal fun ExamLockLowRamHomeScreen(
         Box(
             modifier = Modifier
                 .fillMaxWidth()
-                .height(200.dp)
+                .height(180.dp)
                 .background(
                     brush = Brush.verticalGradient(
-                        0f to LockBlue.copy(alpha = 0.06f),
+                        0f to LockBlue.copy(alpha = 0.05f),
                         1f to Color.Transparent
                     )
                 )
@@ -162,9 +163,9 @@ internal fun ExamLockLowRamHomeScreen(
                 Box(
                     modifier = Modifier
                         .fillMaxWidth()
-                        .clip(RoundedCornerShape(14.dp))
-                        .background(Color(0xFFF8FAFD))
-                        .border(1.dp, LockOutline.copy(alpha = 0.6f), RoundedCornerShape(14.dp))
+                        .clip(RoundedCornerShape(16.dp))
+                        .background(LockSurfaceSoft)
+                        .border(1.dp, LockOutline.copy(alpha = 0.50f), RoundedCornerShape(16.dp))
                         .padding(horizontal = 16.dp, vertical = 12.dp),
                     contentAlignment = Alignment.Center
                 ) {
@@ -207,9 +208,9 @@ private fun LowRamHero(
     Column(
         modifier = Modifier
             .fillMaxWidth()
-            .clip(RoundedCornerShape(22.dp))
+            .clip(RoundedCornerShape(20.dp))
             .background(Color.White)
-            .border(1.dp, LockOutline.copy(alpha = 0.7f), RoundedCornerShape(22.dp))
+            .border(1.dp, LockOutline.copy(alpha = 0.55f), RoundedCornerShape(20.dp))
             .padding(horizontal = 20.dp, vertical = 16.dp),
         horizontalAlignment = Alignment.CenterHorizontally
     ) {
@@ -369,7 +370,7 @@ private fun LowRamHomeButton(
             .fillMaxWidth()
             .clip(RoundedCornerShape(18.dp))
             .background(containerColor)
-            .border(1.dp, borderColor, RoundedCornerShape(18.dp))
+            .border(1.dp, borderColor.copy(alpha = 0.65f), RoundedCornerShape(18.dp))
             .clickable(role = Role.Button, onClick = onClick)
             .padding(horizontal = 16.dp, vertical = 14.dp),
         horizontalArrangement = Arrangement.spacedBy(14.dp),

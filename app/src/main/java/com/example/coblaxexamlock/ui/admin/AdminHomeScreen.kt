@@ -261,6 +261,10 @@ import com.example.coblaxexamlock.ui.theme.LockSurfaceSoft
 import com.example.coblaxexamlock.ui.theme.LockTextMuted
 import com.example.coblaxexamlock.ui.theme.LockTextPrimary
 import com.example.coblaxexamlock.ui.theme.LockTextSecondary
+import com.example.coblaxexamlock.ui.theme.LockCardBg
+import com.example.coblaxexamlock.ui.theme.flatCard
+import com.example.coblaxexamlock.ui.theme.flatCardElevated
+import com.example.coblaxexamlock.ui.theme.flatPill
 import com.example.coblaxexamlock.viewmodel.CustomQrDraftState
 import com.google.android.gms.common.api.ApiException
 import com.google.android.gms.maps.CameraUpdateFactory
@@ -346,11 +350,11 @@ internal fun ExamLockHomeScreen(
             Box(
                 modifier = Modifier
                     .fillMaxWidth()
-                    .height(280.dp)
+                    .height(260.dp)
                     .background(
                         brush = Brush.verticalGradient(
-                            0f to LockBlue.copy(alpha = 0.18f),
-                            0.45f to LockBlueSoft.copy(alpha = 0.10f),
+                            0f to LockBlue.copy(alpha = 0.10f),
+                            0.5f to LockBlueSoft.copy(alpha = 0.05f),
                             1f to Color.Transparent
                         )
                     )
@@ -527,41 +531,38 @@ internal fun HomeHeroCard(
     val lowRamProfile = LocalLowRamProfile.current
     val compactHome = lowRamProfile.deferHeavyUi
 
-    Surface(
-        modifier = Modifier.fillMaxWidth(),
-        shape = RoundedCornerShape(if (compactHome) 22.dp else 30.dp),
-        color = Color.White.copy(alpha = 0.96f),
-        shadowElevation = if (compactHome) 0.dp else 4.dp,
-        tonalElevation = if (compactHome) 0.dp else 2.dp,
-        border = BorderStroke(1.dp, LockOutline.copy(alpha = 0.92f))
-    ) {
-        Column(
-            modifier = Modifier.padding(
+    Column(
+        modifier = Modifier
+            .fillMaxWidth()
+            .then(
+                if (compactHome) Modifier.flatCard(radius = 22.dp)
+                else Modifier.flatCardElevated(radius = 26.dp)
+            )
+            .padding(
                 horizontal = if (compactHome) 16.dp else 20.dp,
                 vertical = if (compactHome) 14.dp else 18.dp
             ),
-            horizontalAlignment = Alignment.CenterHorizontally
+        horizontalAlignment = Alignment.CenterHorizontally
+    ) {
+        Row(
+            modifier = Modifier.fillMaxWidth(),
+            horizontalArrangement = Arrangement.SpaceBetween,
+            verticalAlignment = Alignment.CenterVertically
         ) {
-            Row(
-                modifier = Modifier.fillMaxWidth(),
-                horizontalArrangement = Arrangement.SpaceBetween,
-                verticalAlignment = Alignment.CenterVertically
-            ) {
-                ProductionBuildBadge(
-                    uiLanguage = uiLanguage,
-                    onSecretTap = onSecretTap
-                )
+            ProductionBuildBadge(
+                uiLanguage = uiLanguage,
+                onSecretTap = onSecretTap
+            )
 
-                LanguageTogglePill(
-                    currentLanguage = uiLanguage,
-                    onLanguageChange = onUiLanguageChange
-                )
-            }
-
-            Spacer(modifier = Modifier.height(if (compactHome) 12.dp else 18.dp))
-
-            CoblaxFrontBrand(uiLanguage = uiLanguage)
+            LanguageTogglePill(
+                currentLanguage = uiLanguage,
+                onLanguageChange = onUiLanguageChange
+            )
         }
+
+        Spacer(modifier = Modifier.height(if (compactHome) 12.dp else 18.dp))
+
+        CoblaxFrontBrand(uiLanguage = uiLanguage)
     }
 }
 
@@ -583,38 +584,33 @@ internal fun ProductionBuildBadge(
         )
     }
 
-    Surface(
-        shape = RoundedCornerShape(999.dp),
-        color = Color.Transparent,
-        border = BorderStroke(1.dp, LockBlue.copy(alpha = 0.22f))
+    Row(
+        modifier = Modifier
+            .then(backgroundModifier)
+            .flatPill(containerColor = Color.Transparent, borderColor = LockBlue, borderAlpha = 0.18f)
+            .clickable(
+                interactionSource = remember { MutableInteractionSource() },
+                indication = null,
+                role = Role.Button,
+                onClick = onSecretTap
+            )
+            .padding(horizontal = 12.dp, vertical = 7.dp),
+        verticalAlignment = Alignment.CenterVertically,
+        horizontalArrangement = Arrangement.spacedBy(6.dp)
     ) {
-        Row(
+        Box(
             modifier = Modifier
-                .then(backgroundModifier)
-                .clickable(
-                    interactionSource = remember { MutableInteractionSource() },
-                    indication = null,
-                    role = Role.Button,
-                    onClick = onSecretTap
-                )
-                .padding(horizontal = 12.dp, vertical = 8.dp),
-            verticalAlignment = Alignment.CenterVertically,
-            horizontalArrangement = Arrangement.spacedBy(6.dp)
-        ) {
-            Box(
-                modifier = Modifier
-                    .size(8.dp)
-                    .clip(CircleShape)
-                    .background(Color.White.copy(alpha = 0.94f))
-            )
-            Text(
-                text = localized(uiLanguage, "PROD", "PROD"),
-                color = LockOnDark,
-                fontSize = 10.sp,
-                fontWeight = FontWeight.ExtraBold,
-                letterSpacing = 0.7.sp
-            )
-        }
+                .size(7.dp)
+                .clip(CircleShape)
+                .background(Color.White.copy(alpha = 0.92f))
+        )
+        Text(
+            text = localized(uiLanguage, "PROD", "PROD"),
+            color = LockOnDark,
+            fontSize = 10.sp,
+            fontWeight = FontWeight.ExtraBold,
+            letterSpacing = 0.7.sp
+        )
     }
 }
 
@@ -626,60 +622,56 @@ internal fun LanguageTogglePill(
     val lowRamProfile = LocalLowRamProfile.current
     val compactHome = lowRamProfile.deferHeavyUi
 
-    Surface(
-        shape = RoundedCornerShape(999.dp),
-        color = Color.White.copy(alpha = 0.98f),
-        border = BorderStroke(1.dp, LockOutline.copy(alpha = 0.92f)),
-        tonalElevation = if (compactHome) 0.dp else 1.dp,
-        shadowElevation = if (compactHome) 0.dp else 2.dp
+    Row(
+        modifier = Modifier
+            .flatPill(
+                containerColor = LockCardBg.copy(alpha = 0.98f),
+                borderColor = LockOutline,
+                borderAlpha = 0.70f
+            )
+            .padding(horizontal = 5.dp, vertical = 4.dp),
+        verticalAlignment = Alignment.CenterVertically,
+        horizontalArrangement = Arrangement.spacedBy(6.dp)
     ) {
         Row(
-            modifier = Modifier.padding(horizontal = 6.dp, vertical = 5.dp),
+            modifier = Modifier
+                .clip(CircleShape)
+                .background(LockBlue.copy(alpha = 0.08f))
+                .padding(horizontal = 8.dp, vertical = 6.dp),
             verticalAlignment = Alignment.CenterVertically,
-            horizontalArrangement = Arrangement.spacedBy(8.dp)
+            horizontalArrangement = Arrangement.spacedBy(5.dp)
         ) {
-            Surface(
-                shape = CircleShape,
-                color = LockBlue.copy(alpha = 0.10f)
-            ) {
-                Row(
-                    modifier = Modifier.padding(horizontal = 8.dp, vertical = 7.dp),
-                    verticalAlignment = Alignment.CenterVertically,
-                    horizontalArrangement = Arrangement.spacedBy(5.dp)
-                ) {
-                    if (!compactHome) {
-                        Icon(
-                            imageVector = Icons.Rounded.Language,
-                            contentDescription = tr("Change language", "Ubah bahasa"),
-                            tint = LockBlueDeep,
-                            modifier = Modifier.size(14.dp)
-                        )
-                    }
-                    Text(
-                        text = "LANG",
-                        color = LockBlueDeep,
-                        fontSize = 10.sp,
-                        fontWeight = FontWeight.ExtraBold,
-                        letterSpacing = 0.5.sp
-                    )
-                }
+            if (!compactHome) {
+                Icon(
+                    imageVector = Icons.Rounded.Language,
+                    contentDescription = tr("Change language", "Ubah bahasa"),
+                    tint = LockBlueDeep,
+                    modifier = Modifier.size(13.dp)
+                )
             }
+            Text(
+                text = "LANG",
+                color = LockBlueDeep,
+                fontSize = 10.sp,
+                fontWeight = FontWeight.ExtraBold,
+                letterSpacing = 0.5.sp
+            )
+        }
 
-            Row(
-                horizontalArrangement = Arrangement.spacedBy(6.dp),
-                verticalAlignment = Alignment.CenterVertically
-            ) {
-                LanguageOptionChip(
-                    label = "EN",
-                    selected = currentLanguage == UiLanguage.English,
-                    onClick = { onLanguageChange(UiLanguage.English) }
-                )
-                LanguageOptionChip(
-                    label = "ID",
-                    selected = currentLanguage == UiLanguage.Indonesian,
-                    onClick = { onLanguageChange(UiLanguage.Indonesian) }
-                )
-            }
+        Row(
+            horizontalArrangement = Arrangement.spacedBy(4.dp),
+            verticalAlignment = Alignment.CenterVertically
+        ) {
+            LanguageOptionChip(
+                label = "EN",
+                selected = currentLanguage == UiLanguage.English,
+                onClick = { onLanguageChange(UiLanguage.English) }
+            )
+            LanguageOptionChip(
+                label = "ID",
+                selected = currentLanguage == UiLanguage.Indonesian,
+                onClick = { onLanguageChange(UiLanguage.Indonesian) }
+            )
         }
     }
 }
@@ -690,28 +682,25 @@ internal fun LanguageOptionChip(
     selected: Boolean,
     onClick: () -> Unit
 ) {
-    Surface(
-        shape = RoundedCornerShape(999.dp),
-        color = if (selected) LockBlue else LockSurfaceSoft,
-        border = BorderStroke(
-            1.dp,
-            if (selected) LockOnDark.copy(alpha = 0.88f) else LockOutline.copy(alpha = 0.8f)
-        ),
-        modifier = Modifier.clickable(
-            interactionSource = remember { MutableInteractionSource() },
-            indication = null,
-            role = Role.Button,
-            onClick = onClick
-        )
+    Box(
+        modifier = Modifier
+            .clip(RoundedCornerShape(999.dp))
+            .background(if (selected) LockBlue else LockSurfaceSoft)
+            .clickable(
+                interactionSource = remember { MutableInteractionSource() },
+                indication = null,
+                role = Role.Button,
+                onClick = onClick
+            )
+            .padding(horizontal = 10.dp, vertical = 6.dp),
+        contentAlignment = Alignment.Center
     ) {
         Text(
             text = label,
             color = if (selected) LockOnDark else LockTextSecondary,
             fontSize = 11.sp,
             fontWeight = FontWeight.ExtraBold,
-            textAlign = TextAlign.Center,
-            modifier = Modifier
-                .padding(horizontal = 10.dp, vertical = 7.dp)
+            textAlign = TextAlign.Center
         )
     }
 }
@@ -801,58 +790,48 @@ internal fun CoblaxLogoMark(modifier: Modifier = Modifier) {
 internal fun DeveloperInfo() {
     val context = LocalContext.current
 
-    Button(
-        onClick = { openExternalUrl(context, DeveloperGithubUrl) },
+    Row(
         modifier = Modifier
-            .fillMaxWidth(),
-        shape = RoundedCornerShape(20.dp),
-        colors = ButtonDefaults.buttonColors(
-            containerColor = Color.White,
-            contentColor = LockBlueDeep
-        ),
-        border = BorderStroke(1.dp, LockOutline),
-        contentPadding = androidx.compose.foundation.layout.PaddingValues(
-            horizontal = 18.dp,
-            vertical = 14.dp
-        )
+            .fillMaxWidth()
+            .clip(RoundedCornerShape(20.dp))
+            .background(LockCardBg)
+            .border(1.dp, LockOutline.copy(alpha = 0.60f), RoundedCornerShape(20.dp))
+            .clickable { openExternalUrl(context, DeveloperGithubUrl) }
+            .padding(horizontal = 18.dp, vertical = 14.dp),
+        horizontalArrangement = Arrangement.spacedBy(12.dp),
+        verticalAlignment = Alignment.CenterVertically
     ) {
-        Row(
-            modifier = Modifier.fillMaxWidth(),
-            horizontalArrangement = Arrangement.spacedBy(12.dp),
-            verticalAlignment = Alignment.CenterVertically
+        Column(
+            modifier = Modifier.weight(1f)
         ) {
-            Column(
-                modifier = Modifier.weight(1f)
-            ) {
-                Text(
-                    text = tr("Developer", "Pengembang"),
-                    color = LockTextMuted,
-                    fontSize = 11.sp,
-                    fontWeight = FontWeight.SemiBold,
-                    letterSpacing = 0.8.sp
-                )
-                Spacer(modifier = Modifier.height(2.dp))
-                Text(
-                    text = "github.com/coblax",
-                    color = LockBlueDeep,
-                    fontSize = 15.sp,
-                    fontWeight = FontWeight.Bold
-                )
-            }
+            Text(
+                text = tr("Developer", "Pengembang"),
+                color = LockTextMuted,
+                fontSize = 11.sp,
+                fontWeight = FontWeight.SemiBold,
+                letterSpacing = 0.8.sp
+            )
+            Spacer(modifier = Modifier.height(2.dp))
+            Text(
+                text = "github.com/coblax",
+                color = LockBlueDeep,
+                fontSize = 15.sp,
+                fontWeight = FontWeight.Bold
+            )
+        }
 
-            Surface(
-                shape = RoundedCornerShape(999.dp),
-                color = LockBlue.copy(alpha = 0.10f),
-                border = BorderStroke(1.dp, LockBlue.copy(alpha = 0.16f))
-            ) {
-                Text(
-                    text = tr("OPEN", "BUKA"),
-                    color = LockBlueDeep,
-                    fontSize = 11.sp,
-                    fontWeight = FontWeight.Bold,
-                    modifier = Modifier.padding(horizontal = 12.dp, vertical = 8.dp)
-                )
-            }
+        Box(
+            modifier = Modifier
+                .clip(RoundedCornerShape(999.dp))
+                .background(LockBlue.copy(alpha = 0.08f))
+                .padding(horizontal = 12.dp, vertical = 7.dp)
+        ) {
+            Text(
+                text = tr("OPEN", "BUKA"),
+                color = LockBlueDeep,
+                fontSize = 11.sp,
+                fontWeight = FontWeight.Bold
+            )
         }
     }
 }

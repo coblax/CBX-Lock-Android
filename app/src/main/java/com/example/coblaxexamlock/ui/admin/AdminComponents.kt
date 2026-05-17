@@ -835,92 +835,87 @@ internal fun ActionButton(
     iconContainerColor: Color = contentColor.copy(alpha = 0.12f),
     onClick: () -> Unit
 ) {
-    Button(
-        onClick = onClick,
+    Row(
         modifier = Modifier
             .fillMaxWidth()
-            .heightIn(min = if (subtitle.isNullOrBlank()) 72.dp else 94.dp),
-        shape = RoundedCornerShape(22.dp),
-        colors = ButtonDefaults.buttonColors(
-            containerColor = containerColor,
-            contentColor = contentColor
-        ),
-        border = BorderStroke(1.dp, borderColor),
-        contentPadding = androidx.compose.foundation.layout.PaddingValues(
-            horizontal = 18.dp,
-            vertical = 16.dp
-        )
+            .heightIn(min = if (subtitle.isNullOrBlank()) 72.dp else 90.dp)
+            .clip(RoundedCornerShape(20.dp))
+            .background(containerColor)
+            .border(1.dp, borderColor.copy(alpha = 0.70f), RoundedCornerShape(20.dp))
+            .clickable(role = Role.Button, onClick = onClick)
+            .padding(horizontal = 18.dp, vertical = 16.dp),
+        horizontalArrangement = Arrangement.spacedBy(14.dp),
+        verticalAlignment = Alignment.CenterVertically
     ) {
-        Row(
-            modifier = Modifier.fillMaxWidth(),
-            horizontalArrangement = Arrangement.spacedBy(14.dp),
-            verticalAlignment = Alignment.CenterVertically
+        Column(
+            modifier = Modifier.weight(1f),
+            verticalArrangement = Arrangement.spacedBy(5.dp)
         ) {
-            Column(
-                modifier = Modifier
-                    .weight(1f),
-                verticalArrangement = Arrangement.spacedBy(5.dp)
-            ) {
-                if (!badgeText.isNullOrBlank()) {
-                    Surface(
-                        shape = RoundedCornerShape(999.dp),
-                        color = if (contentColor == LockOnDark) {
-                            Color.White.copy(alpha = 0.16f)
-                        } else {
-                            LockBlue.copy(alpha = 0.08f)
-                        }
-                    ) {
-                        Text(
-                            text = badgeText,
-                            color = contentColor,
-                            fontSize = 10.sp,
-                            fontWeight = FontWeight.Bold,
-                            letterSpacing = 0.8.sp,
-                            modifier = Modifier.padding(horizontal = 10.dp, vertical = 5.dp)
+            if (!badgeText.isNullOrBlank()) {
+                Box(
+                    modifier = Modifier
+                        .clip(RoundedCornerShape(999.dp))
+                        .background(
+                            if (contentColor == LockOnDark) {
+                                Color.White.copy(alpha = 0.14f)
+                            } else {
+                                LockBlue.copy(alpha = 0.07f)
+                            }
                         )
-                    }
-                }
-
-                Text(
-                    text = text,
-                    fontSize = 18.sp,
-                    fontWeight = FontWeight.ExtraBold,
-                    letterSpacing = 0.8.sp,
-                    lineHeight = 22.sp
-                )
-
-                if (!subtitle.isNullOrBlank()) {
+                        .padding(horizontal = 10.dp, vertical = 4.dp)
+                ) {
                     Text(
-                        text = subtitle,
-                        color = if (contentColor == LockOnDark) {
-                            Color.White.copy(alpha = 0.84f)
-                        } else {
-                            LockTextSecondary
-                        },
-                        fontSize = 12.sp,
-                        lineHeight = 17.sp,
-                        textAlign = TextAlign.Justify,
-                        modifier = Modifier.fillMaxWidth()
+                        text = badgeText,
+                        color = contentColor,
+                        fontSize = 10.sp,
+                        fontWeight = FontWeight.Bold,
+                        letterSpacing = 0.8.sp
                     )
                 }
             }
 
-            Surface(
-                shape = CircleShape,
-                color = iconContainerColor
-            ) {
-                when {
-                    iconContent != null -> iconContent()
-                    icon != null -> Icon(
-                        imageVector = icon,
-                        contentDescription = null,
-                        tint = contentColor,
-                        modifier = Modifier
-                            .padding(12.dp)
-                            .size(24.dp)
-                    )
-                }
+            Text(
+                text = text,
+                color = contentColor,
+                fontSize = 17.sp,
+                fontWeight = FontWeight.ExtraBold,
+                letterSpacing = 0.5.sp,
+                lineHeight = 22.sp
+            )
+
+            if (!subtitle.isNullOrBlank()) {
+                Text(
+                    text = subtitle,
+                    color = if (contentColor == LockOnDark) {
+                        Color.White.copy(alpha = 0.80f)
+                    } else {
+                        LockTextSecondary
+                    },
+                    fontSize = 12.sp,
+                    lineHeight = 17.sp,
+                    textAlign = TextAlign.Start,
+                    modifier = Modifier.fillMaxWidth()
+                )
+            }
+        }
+
+        Box(
+            modifier = Modifier
+                .size(46.dp)
+                .clip(CircleShape)
+                .background(iconContainerColor),
+            contentAlignment = Alignment.Center
+        ) {
+            when {
+                iconContent != null -> iconContent()
+                icon != null -> Icon(
+                    imageVector = icon,
+                    contentDescription = null,
+                    tint = contentColor,
+                    modifier = Modifier.size(22.dp)
+                )
             }
         }
     }
 }
+

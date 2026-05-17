@@ -175,10 +175,11 @@ internal fun SecurityChecklistItem(
         if (showSendButton) {
             val sendButtonColor =
                 if (sendEnabled || isSending) Color(0xFF2AABEE) else Color(0xFFB5DDF3)
-            Surface(
+            Box(
                 modifier = Modifier
                     .size(26.dp)
                     .clip(CircleShape)
+                    .background(sendButtonColor)
                     .clickable(
                         interactionSource = remember { MutableInteractionSource() },
                         indication = null,
@@ -186,27 +187,24 @@ internal fun SecurityChecklistItem(
                         enabled = sendEnabled && !isSending,
                         onClick = onSendTelegram
                     ),
-                shape = CircleShape,
-                color = sendButtonColor
+                contentAlignment = Alignment.Center
             ) {
-                Box(contentAlignment = Alignment.Center) {
-                    if (isSending) {
-                        CircularProgressIndicator(
-                            modifier = Modifier.size(12.dp),
-                            strokeWidth = 1.5.dp,
-                            color = Color.White
-                        )
-                    } else {
-                        Icon(
-                            imageVector = Icons.AutoMirrored.Rounded.Send,
-                            contentDescription = tr(
-                                "Send diagnostics to Telegram",
-                                "Kirim diagnostik ke Telegram"
-                            ),
-                            tint = Color.White,
-                            modifier = Modifier.size(12.dp)
-                        )
-                    }
+                if (isSending) {
+                    CircularProgressIndicator(
+                        modifier = Modifier.size(12.dp),
+                        strokeWidth = 1.5.dp,
+                        color = Color.White
+                    )
+                } else {
+                    Icon(
+                        imageVector = Icons.AutoMirrored.Rounded.Send,
+                        contentDescription = tr(
+                            "Send diagnostics to Telegram",
+                            "Kirim diagnostik ke Telegram"
+                        ),
+                        tint = Color.White,
+                        modifier = Modifier.size(12.dp)
+                    )
                 }
             }
         }
@@ -258,16 +256,17 @@ internal fun SecurityChecklistItem(
             }
         }
 
-        Surface(
-            shape = RoundedCornerShape(999.dp),
-            color = badgeBackground
+        Box(
+            modifier = Modifier
+                .clip(RoundedCornerShape(999.dp))
+                .background(badgeBackground)
+                .padding(horizontal = 8.dp, vertical = 4.dp)
         ) {
             Text(
                 text = status,
                 color = accentColor,
                 fontSize = 9.sp,
-                fontWeight = FontWeight.ExtraBold,
-                modifier = Modifier.padding(horizontal = 8.dp, vertical = 5.dp)
+                fontWeight = FontWeight.ExtraBold
             )
         }
     }
@@ -280,42 +279,39 @@ internal fun PreparationSummaryChip(
     modifier: Modifier = Modifier,
     accentColor: Color = Color.White
 ) {
-    Surface(
-        modifier = modifier,
-        shape = RoundedCornerShape(18.dp),
-        color = Color.White.copy(alpha = 0.86f),
-        border = BorderStroke(1.dp, LockOutline.copy(alpha = 0.75f))
+    Column(
+        modifier = modifier
+            .clip(RoundedCornerShape(18.dp))
+            .background(Color.White.copy(alpha = 0.88f))
+            .border(1.dp, LockOutline.copy(alpha = 0.60f), RoundedCornerShape(18.dp))
+            .padding(horizontal = 10.dp, vertical = 8.dp),
+        verticalArrangement = Arrangement.spacedBy(4.dp)
     ) {
-        Column(
-            modifier = Modifier.padding(horizontal = 10.dp, vertical = 8.dp),
-            verticalArrangement = Arrangement.spacedBy(4.dp)
+        Row(
+            horizontalArrangement = Arrangement.spacedBy(6.dp),
+            verticalAlignment = Alignment.CenterVertically
         ) {
-            Row(
-                horizontalArrangement = Arrangement.spacedBy(6.dp),
-                verticalAlignment = Alignment.CenterVertically
-            ) {
-                Box(
-                    modifier = Modifier
-                        .size(7.dp)
-                        .clip(CircleShape)
-                        .background(accentColor.copy(alpha = 0.90f))
-                )
-                Text(
-                    text = label.uppercase(Locale.US),
-                    color = LockTextMuted,
-                    fontSize = 8.sp,
-                    fontWeight = FontWeight.Bold,
-                    letterSpacing = 0.6.sp
-                )
-            }
+            Box(
+                modifier = Modifier
+                    .size(7.dp)
+                    .clip(CircleShape)
+                    .background(accentColor.copy(alpha = 0.90f))
+            )
             Text(
-                text = value,
-                color = LockTextPrimary,
-                fontSize = 13.sp,
-                fontWeight = FontWeight.ExtraBold,
-                lineHeight = 16.sp
+                text = label.uppercase(Locale.US),
+                color = LockTextMuted,
+                fontSize = 8.sp,
+                fontWeight = FontWeight.Bold,
+                letterSpacing = 0.6.sp
             )
         }
+        Text(
+            text = value,
+            color = LockTextPrimary,
+            fontSize = 13.sp,
+            fontWeight = FontWeight.ExtraBold,
+            lineHeight = 16.sp
+        )
     }
 }
 
@@ -368,20 +364,16 @@ internal fun PreparationFloatingActionBar(
     onBackHome: () -> Unit,
     modifier: Modifier = Modifier
 ) {
-    Surface(
-        modifier = modifier,
-        shape = RoundedCornerShape(20.dp),
-        color = LockBlueDeep,
-        border = BorderStroke(1.dp, LockBlueDeep.copy(alpha = 0.9f)),
-        shadowElevation = 4.dp
+    Row(
+        modifier = modifier
+            .clip(RoundedCornerShape(20.dp))
+            .background(LockBlueDeep)
+            .border(1.dp, LockBlueDeep.copy(alpha = 0.85f), RoundedCornerShape(20.dp))
+            .fillMaxWidth()
+            .padding(horizontal = 6.dp, vertical = 6.dp),
+        horizontalArrangement = Arrangement.spacedBy(6.dp),
+        verticalAlignment = Alignment.CenterVertically
     ) {
-        Row(
-            modifier = Modifier
-                .fillMaxWidth()
-                .padding(horizontal = 6.dp, vertical = 6.dp),
-            horizontalArrangement = Arrangement.spacedBy(6.dp),
-            verticalAlignment = Alignment.CenterVertically
-        ) {
             CompactPrepActionButton(
                 icon = Icons.Rounded.Refresh,
                 label = "Refresh",
@@ -433,6 +425,5 @@ internal fun PreparationFloatingActionBar(
                 label = "Menu",
                 onClick = onBackHome
             )
-        }
     }
 }

@@ -23,25 +23,28 @@ internal object UiTokens {
     // Corner radii — standardized scale
     val RadiusXs: Dp = 8.dp
     val RadiusSm: Dp = 12.dp
-    val RadiusMd: Dp = 14.dp
-    val RadiusLg: Dp = 18.dp
-    val RadiusXl: Dp = 22.dp
+    val RadiusMd: Dp = 16.dp
+    val RadiusLg: Dp = 20.dp
+    val RadiusXl: Dp = 24.dp
+    val RadiusCard: Dp = 22.dp
     val RadiusPill: Dp = 999.dp
 
     // Spacing scale
+    val SpaceXxs: Dp = 2.dp
     val SpaceXs: Dp = 4.dp
     val SpaceSm: Dp = 8.dp
     val SpaceMd: Dp = 12.dp
     val SpaceLg: Dp = 16.dp
     val SpaceXl: Dp = 20.dp
+    val SpaceXxl: Dp = 28.dp
 
     // Border widths
     val BorderThin: Dp = 1.dp
 
     // Border alpha presets — used to give visual separation without shadows
-    const val BorderAlphaSubtle: Float = 0.55f
-    const val BorderAlphaDefault: Float = 0.70f
-    const val BorderAlphaStrong: Float = 0.90f
+    const val BorderAlphaSubtle: Float = 0.40f
+    const val BorderAlphaDefault: Float = 0.60f
+    const val BorderAlphaStrong: Float = 0.85f
 }
 
 /**
@@ -50,16 +53,33 @@ internal object UiTokens {
  * rendering pass. Use this as the default card container across the app.
  */
 internal fun Modifier.flatCard(
-    containerColor: Color = Color.White,
+    containerColor: Color = LockCardBg,
     borderColor: Color = LockOutline,
     borderAlpha: Float = UiTokens.BorderAlphaDefault,
-    shape: RoundedCornerShape = RoundedCornerShape(UiTokens.RadiusLg)
+    radius: Dp = UiTokens.RadiusCard,
+    shape: RoundedCornerShape = RoundedCornerShape(radius)
 ): Modifier {
     val resolvedBorder = borderColor.copy(alpha = borderAlpha)
     return this
         .clip(shape)
         .background(containerColor)
         .border(UiTokens.BorderThin, resolvedBorder, shape)
+}
+
+/**
+ * A flat card with a slightly stronger border for emphasized containers like
+ * hero sections and primary action cards.
+ */
+internal fun Modifier.flatCardElevated(
+    containerColor: Color = LockCardBg,
+    borderColor: Color = LockOutline,
+    radius: Dp = UiTokens.RadiusCard,
+    shape: RoundedCornerShape = RoundedCornerShape(radius)
+): Modifier {
+    return this
+        .clip(shape)
+        .background(containerColor)
+        .border(UiTokens.BorderThin, borderColor.copy(alpha = UiTokens.BorderAlphaStrong), shape)
 }
 
 /**
@@ -88,6 +108,6 @@ internal fun Modifier.flatPill(
  */
 @Composable
 internal fun Modifier.flatHorizontalDivider(
-    color: Color = LockOutline,
-    alpha: Float = 0.5f
+    color: Color = LockDivider,
+    alpha: Float = 0.6f
 ): Modifier = this.background(color.copy(alpha = alpha))

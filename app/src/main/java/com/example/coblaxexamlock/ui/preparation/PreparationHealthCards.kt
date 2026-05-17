@@ -1,7 +1,7 @@
 package com.example.coblaxexamlock.ui.preparation
 
-import androidx.compose.foundation.BorderStroke
 import androidx.compose.foundation.background
+import androidx.compose.foundation.border
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
@@ -13,7 +13,6 @@ import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material3.Button
 import androidx.compose.material3.ButtonDefaults
-import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
 import androidx.compose.runtime.Composable
@@ -48,100 +47,98 @@ internal fun PreExamHealthCheckCard(
         snapshot.warningCount > 0 -> LockGoldDark
         else -> Color(0xFF1F7A4D)
     }
-    Surface(
-        modifier = Modifier.fillMaxWidth(),
-        shape = RoundedCornerShape(20.dp),
-        color = Color.White,
-        border = BorderStroke(1.dp, LockOutline.copy(alpha = 0.7f))
+    Column(
+        modifier = Modifier
+            .fillMaxWidth()
+            .clip(RoundedCornerShape(20.dp))
+            .background(Color.White)
+            .border(1.dp, LockOutline.copy(alpha = 0.60f), RoundedCornerShape(20.dp))
+            .padding(horizontal = 14.dp, vertical = 14.dp),
+        verticalArrangement = Arrangement.spacedBy(10.dp)
     ) {
-        Column(
-            modifier = Modifier.padding(horizontal = 14.dp, vertical = 14.dp),
-            verticalArrangement = Arrangement.spacedBy(10.dp)
+        Row(
+            modifier = Modifier.fillMaxWidth(),
+            horizontalArrangement = Arrangement.spacedBy(10.dp),
+            verticalAlignment = Alignment.CenterVertically
         ) {
-            Row(
-                modifier = Modifier.fillMaxWidth(),
-                horizontalArrangement = Arrangement.spacedBy(10.dp),
-                verticalAlignment = Alignment.CenterVertically
-            ) {
-                Column(modifier = Modifier.weight(1f)) {
-                    Text(
-                        text = tr("Pre-Exam Health Check", "Health Check Sebelum Ujian"),
-                        color = LockTextPrimary,
-                        fontSize = 15.sp,
-                        fontWeight = FontWeight.Bold
-                    )
-                    Text(
-                        text = tr(
-                            "Device profile: ${snapshot.compatibilityLabel}",
-                            "Profil perangkat: ${snapshot.compatibilityLabel}"
-                        ),
-                        color = LockTextSecondary,
-                        fontSize = 11.sp,
-                        lineHeight = 15.sp
-                    )
-                }
-                Button(
-                    onClick = onRefresh,
-                    enabled = !refreshing,
-                    shape = RoundedCornerShape(12.dp),
-                    colors = ButtonDefaults.buttonColors(
-                        containerColor = accentColor,
-                        contentColor = Color.White
+            Column(modifier = Modifier.weight(1f)) {
+                Text(
+                    text = tr("Pre-Exam Health Check", "Health Check Sebelum Ujian"),
+                    color = LockTextPrimary,
+                    fontSize = 15.sp,
+                    fontWeight = FontWeight.Bold
+                )
+                Text(
+                    text = tr(
+                        "Device profile: ${snapshot.compatibilityLabel}",
+                        "Profil perangkat: ${snapshot.compatibilityLabel}"
                     ),
-                    contentPadding = androidx.compose.foundation.layout.PaddingValues(
-                        horizontal = 12.dp,
-                        vertical = 6.dp
-                    )
-                ) {
-                    Text(
-                        text = if (refreshing) {
-                            tr("Checking", "Cek")
-                        } else {
-                            tr("Refresh", "Refresh")
-                        },
-                        fontSize = 11.sp,
-                        fontWeight = FontWeight.Bold
-                    )
-                }
+                    color = LockTextSecondary,
+                    fontSize = 11.sp,
+                    lineHeight = 15.sp
+                )
             }
-
-            Row(
-                modifier = Modifier.fillMaxWidth(),
-                horizontalArrangement = Arrangement.spacedBy(8.dp)
+            Button(
+                onClick = onRefresh,
+                enabled = !refreshing,
+                shape = RoundedCornerShape(12.dp),
+                colors = ButtonDefaults.buttonColors(
+                    containerColor = accentColor,
+                    contentColor = Color.White
+                ),
+                contentPadding = androidx.compose.foundation.layout.PaddingValues(
+                    horizontal = 12.dp,
+                    vertical = 6.dp
+                )
             ) {
-                PreExamHealthCountChip(
-                    label = tr("Block", "Blok"),
-                    count = snapshot.blockingCount,
-                    color = Color(0xFFB34A4A),
-                    modifier = Modifier.weight(1f)
-                )
-                PreExamHealthCountChip(
-                    label = tr("Warn", "Warn"),
-                    count = snapshot.warningCount,
-                    color = LockGoldDark,
-                    modifier = Modifier.weight(1f)
-                )
-                PreExamHealthCountChip(
-                    label = tr("Ready", "Siap"),
-                    count = snapshot.stableCount,
-                    color = Color(0xFF1F7A4D),
-                    modifier = Modifier.weight(1f)
-                )
-            }
-
-            snapshot.items.forEach { item ->
-                PreExamHealthRow(
-                    item = item,
-                    onFix = if (
-                        item.category == PreExamHealthCategory.WebView &&
-                        item.verdict != PreExamHealthVerdict.Stable
-                    ) {
-                        onFixWebViewProvider
+                Text(
+                    text = if (refreshing) {
+                        tr("Checking", "Cek")
                     } else {
-                        null
-                    }
+                        tr("Refresh", "Refresh")
+                    },
+                    fontSize = 11.sp,
+                    fontWeight = FontWeight.Bold
                 )
             }
+        }
+
+        Row(
+            modifier = Modifier.fillMaxWidth(),
+            horizontalArrangement = Arrangement.spacedBy(8.dp)
+        ) {
+            PreExamHealthCountChip(
+                label = tr("Block", "Blok"),
+                count = snapshot.blockingCount,
+                color = Color(0xFFB34A4A),
+                modifier = Modifier.weight(1f)
+            )
+            PreExamHealthCountChip(
+                label = tr("Warn", "Warn"),
+                count = snapshot.warningCount,
+                color = LockGoldDark,
+                modifier = Modifier.weight(1f)
+            )
+            PreExamHealthCountChip(
+                label = tr("Ready", "Siap"),
+                count = snapshot.stableCount,
+                color = Color(0xFF1F7A4D),
+                modifier = Modifier.weight(1f)
+            )
+        }
+
+        snapshot.items.forEach { item ->
+            PreExamHealthRow(
+                item = item,
+                onFix = if (
+                    item.category == PreExamHealthCategory.WebView &&
+                    item.verdict != PreExamHealthVerdict.Stable
+                ) {
+                    onFixWebViewProvider
+                } else {
+                    null
+                }
+            )
         }
     }
 }
@@ -158,121 +155,116 @@ internal fun DeviceSurvivalPolicyCard(
         CompatibilityScore.NeedsSetup -> LockGoldDark
         CompatibilityScore.NotRecommended -> Color(0xFFB34A4A)
     }
-    Surface(
-        modifier = Modifier.fillMaxWidth(),
-        shape = RoundedCornerShape(18.dp),
-        color = Color.White,
-        border = BorderStroke(1.dp, accentColor.copy(alpha = 0.20f))
+    Column(
+        modifier = Modifier
+            .fillMaxWidth()
+            .clip(RoundedCornerShape(18.dp))
+            .background(Color.White)
+            .border(1.dp, accentColor.copy(alpha = 0.18f), RoundedCornerShape(18.dp))
+            .padding(horizontal = 14.dp, vertical = 12.dp),
+        verticalArrangement = Arrangement.spacedBy(8.dp)
     ) {
-        Column(
-            modifier = Modifier.padding(horizontal = 14.dp, vertical = 12.dp),
-            verticalArrangement = Arrangement.spacedBy(8.dp)
+        Row(
+            modifier = Modifier.fillMaxWidth(),
+            horizontalArrangement = Arrangement.SpaceBetween,
+            verticalAlignment = Alignment.CenterVertically
         ) {
-            Row(
-                modifier = Modifier.fillMaxWidth(),
-                horizontalArrangement = Arrangement.SpaceBetween,
-                verticalAlignment = Alignment.CenterVertically
+            Column(modifier = Modifier.weight(1f)) {
+                Text(
+                    text = tr("Device Readiness", "Kesiapan Perangkat"),
+                    color = LockTextPrimary,
+                    fontSize = 15.sp,
+                    fontWeight = FontWeight.Bold
+                )
+                Text(
+                    text = "${policy.vendorRiskLabel} • ${policy.webViewRiskLabel}",
+                    color = LockTextSecondary,
+                    fontSize = 11.sp,
+                    lineHeight = 15.sp
+                )
+            }
+            Box(
+                modifier = Modifier
+                    .clip(RoundedCornerShape(999.dp))
+                    .background(accentColor.copy(alpha = 0.11f))
+                    .border(1.dp, accentColor.copy(alpha = 0.18f), RoundedCornerShape(999.dp))
+                    .padding(horizontal = 9.dp, vertical = 4.dp)
             ) {
-                Column(modifier = Modifier.weight(1f)) {
+                Text(
+                    text = policy.score.name,
+                    color = accentColor,
+                    fontSize = 10.sp,
+                    fontWeight = FontWeight.ExtraBold
+                )
+            }
+        }
+        Row(
+            modifier = Modifier.fillMaxWidth(),
+            horizontalArrangement = Arrangement.spacedBy(8.dp)
+        ) {
+            PreExamHealthCountChip(
+                label = tr("Block", "Blok"),
+                count = policy.healthBlockingCount,
+                color = Color(0xFFB34A4A),
+                modifier = Modifier.weight(1f)
+            )
+            PreExamHealthCountChip(
+                label = tr("Warn", "Warn"),
+                count = policy.healthWarningCount,
+                color = LockGoldDark,
+                modifier = Modifier.weight(1f)
+            )
+            Column(
+                modifier = Modifier
+                    .weight(1f)
+                    .clip(RoundedCornerShape(14.dp))
+                    .background(accentColor.copy(alpha = 0.08f))
+                    .border(1.dp, accentColor.copy(alpha = 0.15f), RoundedCornerShape(14.dp))
+                    .padding(horizontal = 8.dp, vertical = 7.dp),
+                horizontalAlignment = Alignment.CenterHorizontally
+            ) {
+                Text(
+                    text = policy.runtimeTier.name,
+                    color = accentColor,
+                    fontSize = 10.sp,
+                    fontWeight = FontWeight.ExtraBold,
+                    textAlign = TextAlign.Center
+                )
+                Text(
+                    text = tr("Runtime", "Runtime"),
+                    color = LockTextSecondary,
+                    fontSize = 9.sp,
+                    fontWeight = FontWeight.Bold
+                )
+            }
+        }
+        previousSessionBreadcrumb.latestRecoveryHint?.let { hint ->
+            Column(
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .clip(RoundedCornerShape(14.dp))
+                    .background(Color(0xFFFFF8E8))
+                    .border(1.dp, LockGoldDark.copy(alpha = 0.15f), RoundedCornerShape(14.dp))
+                    .padding(10.dp),
+                verticalArrangement = Arrangement.spacedBy(7.dp)
+            ) {
+                Text(
+                    text = tr("Previous Session Recovery", "Recovery Sesi Sebelumnya"),
+                    color = LockGoldDark,
+                    fontSize = 12.sp,
+                    fontWeight = FontWeight.Bold
+                )
+                Text(
+                    text = hint,
+                    color = LockTextSecondary,
+                    fontSize = 11.sp,
+                    lineHeight = 15.sp
+                )
+                TextButton(onClick = onExportDiagnostics) {
                     Text(
-                        text = tr("Device Readiness", "Kesiapan Perangkat"),
-                        color = LockTextPrimary,
-                        fontSize = 15.sp,
+                        text = tr("Export Diagnostics", "Export Diagnostik"),
                         fontWeight = FontWeight.Bold
                     )
-                    Text(
-                        text = "${policy.vendorRiskLabel} â€¢ ${policy.webViewRiskLabel}",
-                        color = LockTextSecondary,
-                        fontSize = 11.sp,
-                        lineHeight = 15.sp
-                    )
-                }
-                Surface(
-                    shape = RoundedCornerShape(999.dp),
-                    color = accentColor.copy(alpha = 0.13f),
-                    border = BorderStroke(1.dp, accentColor.copy(alpha = 0.20f))
-                ) {
-                    Text(
-                        text = policy.score.name,
-                        color = accentColor,
-                        fontSize = 10.sp,
-                        fontWeight = FontWeight.ExtraBold,
-                        modifier = Modifier.padding(horizontal = 9.dp, vertical = 5.dp)
-                    )
-                }
-            }
-            Row(
-                modifier = Modifier.fillMaxWidth(),
-                horizontalArrangement = Arrangement.spacedBy(8.dp)
-            ) {
-                PreExamHealthCountChip(
-                    label = tr("Block", "Blok"),
-                    count = policy.healthBlockingCount,
-                    color = Color(0xFFB34A4A),
-                    modifier = Modifier.weight(1f)
-                )
-                PreExamHealthCountChip(
-                    label = tr("Warn", "Warn"),
-                    count = policy.healthWarningCount,
-                    color = LockGoldDark,
-                    modifier = Modifier.weight(1f)
-                )
-                Surface(
-                    modifier = Modifier.weight(1f),
-                    shape = RoundedCornerShape(14.dp),
-                    color = accentColor.copy(alpha = 0.10f),
-                    border = BorderStroke(1.dp, accentColor.copy(alpha = 0.18f))
-                ) {
-                    Column(
-                        modifier = Modifier.padding(horizontal = 8.dp, vertical = 7.dp),
-                        horizontalAlignment = Alignment.CenterHorizontally
-                    ) {
-                        Text(
-                            text = policy.runtimeTier.name,
-                            color = accentColor,
-                            fontSize = 10.sp,
-                            fontWeight = FontWeight.ExtraBold,
-                            textAlign = TextAlign.Center
-                        )
-                        Text(
-                            text = tr("Runtime", "Runtime"),
-                            color = LockTextSecondary,
-                            fontSize = 9.sp,
-                            fontWeight = FontWeight.Bold
-                        )
-                    }
-                }
-            }
-            previousSessionBreadcrumb.latestRecoveryHint?.let { hint ->
-                Surface(
-                    modifier = Modifier.fillMaxWidth(),
-                    shape = RoundedCornerShape(14.dp),
-                    color = Color(0xFFFFF8E8),
-                    border = BorderStroke(1.dp, LockGoldDark.copy(alpha = 0.18f))
-                ) {
-                    Column(
-                        modifier = Modifier.padding(10.dp),
-                        verticalArrangement = Arrangement.spacedBy(7.dp)
-                    ) {
-                        Text(
-                            text = tr("Previous Session Recovery", "Recovery Sesi Sebelumnya"),
-                            color = LockGoldDark,
-                            fontSize = 12.sp,
-                            fontWeight = FontWeight.Bold
-                        )
-                        Text(
-                            text = hint,
-                            color = LockTextSecondary,
-                            fontSize = 11.sp,
-                            lineHeight = 15.sp
-                        )
-                        TextButton(onClick = onExportDiagnostics) {
-                            Text(
-                                text = tr("Export Diagnostics", "Export Diagnostik"),
-                                fontWeight = FontWeight.Bold
-                            )
-                        }
-                    }
                 }
             }
         }
@@ -286,29 +278,26 @@ private fun PreExamHealthCountChip(
     color: Color,
     modifier: Modifier = Modifier
 ) {
-    Surface(
-        modifier = modifier,
-        shape = RoundedCornerShape(14.dp),
-        color = color.copy(alpha = 0.10f),
-        border = BorderStroke(1.dp, color.copy(alpha = 0.18f))
+    Column(
+        modifier = modifier
+            .clip(RoundedCornerShape(14.dp))
+            .background(color.copy(alpha = 0.08f))
+            .border(1.dp, color.copy(alpha = 0.15f), RoundedCornerShape(14.dp))
+            .padding(horizontal = 8.dp, vertical = 7.dp),
+        horizontalAlignment = Alignment.CenterHorizontally
     ) {
-        Column(
-            modifier = Modifier.padding(horizontal = 8.dp, vertical = 7.dp),
-            horizontalAlignment = Alignment.CenterHorizontally
-        ) {
-            Text(
-                text = "$count",
-                color = color,
-                fontSize = 15.sp,
-                fontWeight = FontWeight.ExtraBold
-            )
-            Text(
-                text = label,
-                color = LockTextSecondary,
-                fontSize = 9.sp,
-                fontWeight = FontWeight.Bold
-            )
-        }
+        Text(
+            text = "$count",
+            color = color,
+            fontSize = 15.sp,
+            fontWeight = FontWeight.ExtraBold
+        )
+        Text(
+            text = label,
+            color = LockTextSecondary,
+            fontSize = 9.sp,
+            fontWeight = FontWeight.Bold
+        )
     }
 }
 
@@ -350,17 +339,18 @@ private fun PreExamHealthRow(
                     fontWeight = FontWeight.Bold,
                     modifier = Modifier.weight(1f)
                 )
-                Surface(
-                    shape = RoundedCornerShape(999.dp),
-                    color = color.copy(alpha = 0.12f),
-                    border = BorderStroke(1.dp, color.copy(alpha = 0.20f))
+                Box(
+                    modifier = Modifier
+                        .clip(RoundedCornerShape(999.dp))
+                        .background(color.copy(alpha = 0.10f))
+                        .border(1.dp, color.copy(alpha = 0.18f), RoundedCornerShape(999.dp))
+                        .padding(horizontal = 8.dp, vertical = 3.dp)
                 ) {
                     Text(
                         text = item.verdict.name,
                         color = color,
                         fontSize = 9.sp,
-                        fontWeight = FontWeight.ExtraBold,
-                        modifier = Modifier.padding(horizontal = 8.dp, vertical = 4.dp)
+                        fontWeight = FontWeight.ExtraBold
                     )
                 }
             }

@@ -98,7 +98,7 @@ class MainActivity : ComponentActivity() {
             orientation = LinearLayout.VERTICAL
             gravity = Gravity.CENTER_HORIZONTAL
             setPadding(dp(20), dp(32), dp(20), dp(16))
-            setBackgroundColor(Color.WHITE)
+            setBackgroundColor(Color.rgb(246, 248, 252))
         }
 
         // Brand container
@@ -106,7 +106,7 @@ class MainActivity : ComponentActivity() {
             orientation = LinearLayout.VERTICAL
             gravity = Gravity.CENTER_HORIZONTAL
             setPadding(dp(20), dp(16), dp(20), dp(16))
-            background = roundedBackground(Color.WHITE, Color.rgb(216, 225, 236))
+            background = roundedBackground(Color.WHITE, Color.rgb(212, 222, 233))
         }
 
         // Production badge
@@ -118,7 +118,7 @@ class MainActivity : ComponentActivity() {
                 typeface = android.graphics.Typeface.DEFAULT_BOLD
                 gravity = Gravity.CENTER
                 setPadding(dp(12), dp(6), dp(12), dp(6))
-                background = roundedBackground(Color.rgb(12, 32, 72), Color.TRANSPARENT)
+                background = roundedBackground(Color.rgb(16, 46, 106), Color.TRANSPARENT)
                 setOnClickListener { startComposeContent(NativeActionRuntimeHome) }
             },
             LinearLayout.LayoutParams(
@@ -137,7 +137,7 @@ class MainActivity : ComponentActivity() {
             typeface = android.graphics.Typeface.DEFAULT_BOLD
             gravity = Gravity.CENTER
             setPadding(dp(20), dp(14), dp(20), dp(14))
-            background = roundedBackground(Color.rgb(12, 32, 72), Color.TRANSPARENT)
+            background = roundedBackground(Color.rgb(16, 46, 106), Color.TRANSPARENT)
         }
         brandCard.addView(
             logoMark,
@@ -152,7 +152,7 @@ class MainActivity : ComponentActivity() {
         brandCard.addView(
             TextView(this).apply {
                 text = "EXAM LOCK"
-                setTextColor(Color.rgb(12, 32, 72))
+                setTextColor(Color.rgb(16, 46, 106))
                 textSize = 18f
                 typeface = android.graphics.Typeface.DEFAULT_BOLD
                 gravity = Gravity.CENTER
@@ -198,9 +198,9 @@ class MainActivity : ComponentActivity() {
                 gravity = Gravity.CENTER_VERTICAL
                 setPadding(dp(16), dp(14), dp(16), dp(14))
                 background = if (action == NativeActionScanExam) {
-                    roundedBackground(Color.rgb(68, 129, 243), Color.TRANSPARENT)
+                    roundedBackground(Color.rgb(61, 122, 245), Color.TRANSPARENT)
                 } else {
-                    roundedBackground(Color.WHITE, Color.rgb(216, 225, 236))
+                    roundedBackground(Color.WHITE, Color.rgb(212, 222, 233))
                 }
                 setOnClickListener { startComposeContent(action) }
             }
@@ -209,15 +209,15 @@ class MainActivity : ComponentActivity() {
                 text = glyph
                 setTextColor(
                     if (action == NativeActionScanExam) Color.WHITE
-                    else Color.rgb(12, 32, 72)
+                    else Color.rgb(16, 46, 106)
                 )
                 textSize = 12f
                 typeface = android.graphics.Typeface.DEFAULT_BOLD
                 gravity = Gravity.CENTER
                 setPadding(dp(10), dp(8), dp(10), dp(8))
                 background = roundedBackground(
-                    if (action == NativeActionScanExam) Color.argb(40, 255, 255, 255)
-                    else Color.argb(15, 68, 129, 243),
+                    if (action == NativeActionScanExam) Color.argb(35, 255, 255, 255)
+                    else Color.argb(12, 61, 122, 245),
                     Color.TRANSPARENT
                 )
             }
@@ -227,7 +227,7 @@ class MainActivity : ComponentActivity() {
                 text = label
                 setTextColor(
                     if (action == NativeActionScanExam) Color.WHITE
-                    else Color.rgb(12, 32, 72)
+                    else Color.rgb(16, 46, 106)
                 )
                 textSize = 15f
                 typeface = android.graphics.Typeface.DEFAULT_BOLD

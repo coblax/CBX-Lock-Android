@@ -4,6 +4,7 @@ import android.util.Log
 import androidx.compose.animation.core.FastOutSlowInEasing
 import androidx.compose.animation.core.animateFloatAsState
 import androidx.compose.animation.core.tween
+import androidx.compose.foundation.background
 import androidx.compose.foundation.border
 import androidx.compose.foundation.BorderStroke
 import androidx.compose.foundation.clickable
@@ -181,18 +182,18 @@ internal fun ExamWebViewBottomBar(
             )
         }
 
-        Surface(
-            modifier = Modifier.fillMaxWidth(),
-            color = LockFooterBg,
-            shape = RoundedCornerShape(
+        val footerShape = RoundedCornerShape(
                 topStart = 20.dp,
                 topEnd = 20.dp,
                 bottomStart = layoutSpec.cornerRadiusDp.dp,
                 bottomEnd = layoutSpec.cornerRadiusDp.dp
-            ),
-            tonalElevation = if (lowRamProfile.enabled) 0.dp else 1.dp,
-            shadowElevation = if (lowRamProfile.enabled) 0.dp else 4.dp,
-            border = BorderStroke(1.dp, LockOutline.copy(alpha = 0.65f))
+            )
+        Box(
+            modifier = Modifier
+                .fillMaxWidth()
+                .clip(footerShape)
+                .background(LockFooterBg)
+                .border(1.dp, LockOutline.copy(alpha = 0.55f), footerShape)
         ) {
             if (layoutSpec.layoutMode == ExamFooterLayoutMode.TwoRowCompact) {
                 Column(
@@ -375,18 +376,18 @@ private fun ArrowVisibilityTogglePill(
             .clickable(onClick = onClick),
         contentAlignment = Alignment.Center
     ) {
-        Surface(
+        Box(
             modifier = Modifier
                 .width(buttonWidth)
                 .height(buttonSize)
+                .clip(RoundedCornerShape(12.dp))
+                .background(containerColor)
                 .border(
                     width = 1.dp,
-                    color = if (visible) LockBlue.copy(alpha = 0.55f) else LockOutline.copy(alpha = 0.65f),
+                    color = if (visible) LockBlue.copy(alpha = 0.50f) else LockOutline.copy(alpha = 0.55f),
                     shape = RoundedCornerShape(12.dp)
                 ),
-            shape = RoundedCornerShape(12.dp),
-            color = containerColor,
-            contentColor = contentColor
+            contentAlignment = Alignment.Center
         ) {
             Row(
                 verticalAlignment = Alignment.CenterVertically,
@@ -432,26 +433,22 @@ private fun ExamFooterIconButton(
             .clickable(onClick = onClick),
         contentAlignment = Alignment.Center
     ) {
-        Surface(
-            modifier = Modifier.size(size),
-            shape = RoundedCornerShape(12.dp),
-            color = containerColor,
-            contentColor = contentColor,
-            border = BorderStroke(1.dp, LockOutline.copy(alpha = 0.32f))
+        Box(
+            modifier = Modifier
+                .size(size)
+                .clip(RoundedCornerShape(12.dp))
+                .background(containerColor)
+                .border(1.dp, LockOutline.copy(alpha = 0.28f), RoundedCornerShape(12.dp)),
+            contentAlignment = Alignment.Center
         ) {
-            Box(
-                modifier = Modifier.fillMaxSize(),
-                contentAlignment = Alignment.Center
-            ) {
-                Icon(
-                    imageVector = icon,
-                    contentDescription = contentDescription,
-                    tint = contentColor,
-                    modifier = Modifier
-                        .size(iconSize)
-                        .graphicsLayer { rotationZ = iconRotation }
-                )
-            }
+            Icon(
+                imageVector = icon,
+                contentDescription = contentDescription,
+                tint = contentColor,
+                modifier = Modifier
+                    .size(iconSize)
+                    .graphicsLayer { rotationZ = iconRotation }
+            )
         }
     }
 }
