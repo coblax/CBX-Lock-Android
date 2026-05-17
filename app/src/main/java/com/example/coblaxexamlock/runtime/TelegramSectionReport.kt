@@ -329,8 +329,9 @@ internal suspend fun sendTelegramSectionReport(
             }
         }
 
+        val queue = TelegramMessageQueueHolder.instance
         buildTelegramMessageChunks(message).forEach { chunk ->
-            sendTelegramTextMessage(
+            queue.send(
                 token = token,
                 chatId = chatId,
                 message = chunk

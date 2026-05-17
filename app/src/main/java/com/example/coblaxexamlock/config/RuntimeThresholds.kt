@@ -16,3 +16,12 @@ internal const val GeofenceRuntimeRecheckIntervalMillis = 30000L
 internal const val GeofenceCurrentLocationTimeoutMillis = 3500L
 internal const val MaxDiagnosticActionLogEntries = 20
 internal const val TelegramMessageChunkLimit = 3400
+
+// Telegram retry + offline queue
+internal const val TelegramRetryMaxAttempts = 3
+internal const val TelegramRetryBaseDelayMs = 1000L
+internal const val TelegramRetryMultiplier = 3.0
+internal const val TelegramRetryJitterFraction = 0.2
+internal const val TelegramRateLimitMaxTokens = 5
+internal const val TelegramRateLimitRefillPeriodMs = 10_000L
+internal const val TelegramOfflineQueueMaxSize = 50

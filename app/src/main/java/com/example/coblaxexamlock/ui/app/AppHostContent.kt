@@ -169,7 +169,6 @@ import androidx.compose.ui.window.Dialog
 import androidx.compose.ui.window.DialogProperties
 import androidx.core.content.ContextCompat
 import androidx.core.content.edit
-import androidx.core.net.toUri
 import androidx.core.view.WindowCompat
 import androidx.core.view.WindowInsetsCompat
 import androidx.core.view.WindowInsetsControllerCompat
@@ -191,6 +190,8 @@ import com.example.coblaxexamlock.ExamQrLocationPolicy
 import com.example.coblaxexamlock.ExamQrPayload
 import com.example.coblaxexamlock.ExamScheduleValidationResult
 import com.example.coblaxexamlock.ExamScheduleValidator
+import com.example.coblaxexamlock.ExamUrlValidationError
+import com.example.coblaxexamlock.GeofenceShapeType
 import com.example.coblaxexamlock.BuildConfig
 import com.example.coblaxexamlock.LocalDeviceCompatibilityProfile
 import com.example.coblaxexamlock.LocalLowRamProfile
@@ -204,6 +205,7 @@ import com.example.coblaxexamlock.TrustedNetworkTimeCoordinator
 import com.example.coblaxexamlock.captureDeviceTimeBaseline
 import com.example.coblaxexamlock.currentDeviceCompatibilityProfile
 import com.example.coblaxexamlock.inspectDeviceTimeSecurity
+import com.example.coblaxexamlock.validateExamUrl
 import com.example.coblaxexamlock.config.FastExamName
 import com.example.coblaxexamlock.config.QrImageReadErrorDecode
 import com.example.coblaxexamlock.config.QrImageReadErrorOpen
@@ -453,6 +455,9 @@ internal fun AppHostRuntimeContent(
     var activeExamPayload by rememberSaveable(stateSaver = ExamQrPayloadSaver) {
         mutableStateOf(null as ExamQrPayload?)
     }
+    var pendingScanConfirmPayload by remember { mutableStateOf<ExamQrPayload?>(null) }
+    var pendingScanConfirmError by remember { mutableStateOf<String?>(null) }
+    var pendingScanConfirmInFlight by remember { mutableStateOf(false) }
     var pendingDirectLinkSaveLog by rememberSaveable { mutableStateOf<String?>(null) }
     var pendingRecoveryEventDetails by rememberSaveable { mutableStateOf<String?>(null) }
     var pendingRecoveryNoticeTitle by rememberSaveable { mutableStateOf<String?>(null) }
@@ -520,6 +525,111 @@ internal fun AppHostRuntimeContent(
         val sendResult = adminSettingsSaveRequests.trySend(normalized)
         if (BuildConfig.DEBUG && sendResult.isFailure) {
             Log.d(AdminSettingsPerfTag, "Admin settings save request was dropped before enqueue.")
+        }
+    }
+
+    suspend fun persistAdminSettingsImmediately(updated: AdminSettings): AdminSettings {
+        val normalized = updated.copy(examUserAgent = updated.effectiveExamUserAgent())
+        val refreshed = withContext(Dispatchers.IO) {
+            context.saveAdminSettings(normalized)
+            context.readAdminSettings()
+        }
+        return cacheAdminSettings(refreshed)
+    }
+
+    fun invalidExamUrlMessage(error: ExamUrlValidationError?): String {
+        return when (error) {
+            ExamUrlValidationError.Blank -> localized(
+                uiLanguage,
+                "Exam URL is required.",
+                "URL ujian wajib diisi."
+            )
+
+            ExamUrlValidationError.Invalid,
+            null -> localized(
+                uiLanguage,
+                "Exam URL must start with http:// or https:// and include a domain.",
+                "URL ujian harus diawali http:// atau https:// dan memiliki domain."
+            )
+        }
+    }
+
+    fun directLinkSavedFromQrLog(
+        payload: ExamQrPayload,
+        normalizedExamUrl: String,
+        updatedLabel: String,
+        savedLocationPolicy: ExamQrLocationPolicy
+    ): String {
+        return "url=$normalizedExamUrl | label=$updatedLabel | geofence_shape=${
+            savedLocationPolicy.shapeType.name.lowercase(Locale.US)
+        } | polygon_points=${savedLocationPolicy.vertices.size} | circle_centers=${
+            savedLocationPolicy.effectiveCircleCenters.size
+        } | center=${
+            savedLocationPolicy.effectiveCircleCenters.firstOrNull()?.let { center ->
+                "${center.latitude.ifBlank { "-" }},${center.longitude.ifBlank { "-" }}"
+            } ?: "${savedLocationPolicy.centerLat.ifBlank { "-" }},${savedLocationPolicy.centerLng.ifBlank { "-" }}"
+        } | radius_m=${
+            savedLocationPolicy.radiusMeters.ifBlank { "-" }
+        } | exam=${payload.examName.trim().ifBlank { FastExamName }}"
+    }
+
+    suspend fun saveDirectLinkFromConfirmedQr(
+        payload: ExamQrPayload,
+        normalizedExamUrl: String
+    ): String {
+        val activeSettings = loadCurrentAdminSettings()
+        val updatedLabel = payload.examName.trim().ifBlank { FastExamName }
+        val savedLocationPolicy = payload.locationPolicy ?: ExamQrLocationPolicy()
+        persistAdminSettingsImmediately(
+            activeSettings.copy(
+                fastExamUrl = normalizedExamUrl,
+                fastExamLabel = updatedLabel
+            ).withDirectLinkLocationPolicy(savedLocationPolicy)
+        )
+        return directLinkSavedFromQrLog(
+            payload = payload,
+            normalizedExamUrl = normalizedExamUrl,
+            updatedLabel = updatedLabel,
+            savedLocationPolicy = savedLocationPolicy
+        )
+    }
+
+    fun confirmPendingScanPayload(payload: ExamQrPayload) {
+        if (pendingScanConfirmInFlight) {
+            return
+        }
+        coroutineScope.launch {
+            val examUrlValidation = validateExamUrl(payload.examUrl)
+            val normalizedExamUrl = examUrlValidation.normalizedUrl
+            if (normalizedExamUrl == null) {
+                pendingScanConfirmError = invalidExamUrlMessage(examUrlValidation.error)
+                return@launch
+            }
+
+            pendingScanConfirmInFlight = true
+            pendingScanConfirmError = null
+            try {
+                val normalizedPayload = payload.copy(examUrl = normalizedExamUrl)
+                if (normalizedPayload.saveToDirectLink) {
+                    pendingDirectLinkSaveLog = saveDirectLinkFromConfirmedQr(
+                        payload = normalizedPayload,
+                        normalizedExamUrl = normalizedExamUrl
+                    )
+                }
+                activeExamPayload = normalizedPayload
+                pendingScanConfirmPayload = null
+                pendingScanConfirmError = null
+                savedRouteSnapshotRaw = AppRecoveryRoute.ExamFlowPreparation.name
+                adminFlowViewModel.dispatch(AdminFlowUiAction.SetCurrentScreen(AppScreen.ExamWebView))
+            } catch (throwable: Throwable) {
+                pendingScanConfirmError = throwable.message ?: localized(
+                    uiLanguage,
+                    "The QR could not be opened.",
+                    "QR tidak dapat dibuka."
+                )
+            } finally {
+                pendingScanConfirmInFlight = false
+            }
         }
     }
 
@@ -795,30 +905,8 @@ internal fun AppHostRuntimeContent(
                     )
                 ) {
                     ExamScheduleValidationResult.Valid -> {
-                        if (payload.saveToDirectLink) {
-                            val updatedLabel = payload.examName.trim().ifBlank { FastExamName }
-                            val savedLocationPolicy = payload.locationPolicy ?: ExamQrLocationPolicy()
-                            updateAdminSettings(
-                                activeSettings.copy(
-                                    fastExamUrl = payload.examUrl.trim(),
-                                    fastExamLabel = updatedLabel
-                                ).withDirectLinkLocationPolicy(savedLocationPolicy)
-                            )
-                            pendingDirectLinkSaveLog =
-                                "url=${payload.examUrl.trim()} | label=$updatedLabel | geofence_shape=${
-                                    savedLocationPolicy.shapeType.name.lowercase(Locale.US)
-                                } | polygon_points=${savedLocationPolicy.vertices.size} | circle_centers=${
-                                    savedLocationPolicy.effectiveCircleCenters.size
-                                } | center=${
-                                    savedLocationPolicy.effectiveCircleCenters.firstOrNull()?.let { center ->
-                                        "${center.latitude.ifBlank { "-" }},${center.longitude.ifBlank { "-" }}"
-                                    } ?: "${savedLocationPolicy.centerLat.ifBlank { "-" }},${savedLocationPolicy.centerLng.ifBlank { "-" }}"
-                                } | radius_m=${
-                                    savedLocationPolicy.radiusMeters.ifBlank { "-" }
-                                }"
-                        }
-                        activeExamPayload = payload
-                        adminFlowViewModel.dispatch(AdminFlowUiAction.SetCurrentScreen(AppScreen.ExamWebView))
+                        pendingScanConfirmError = null
+                        pendingScanConfirmPayload = payload
                     }
 
                     ExamScheduleValidationResult.NotStarted -> {
@@ -889,18 +977,17 @@ internal fun AppHostRuntimeContent(
             try {
                 val activeSettings = loadCurrentAdminSettings()
                 val activeDirectLinkLabel = activeSettings.fastExamLabel.trim().ifBlank { FastExamName }
-                val normalizedDirectLinkUrl = activeSettings.fastExamUrl.trim().ifBlank {
+                val configuredDirectLinkUrl = activeSettings.fastExamUrl.trim().ifBlank {
                     SecureStrings.fastExamUrl
                 }
-                val parsedDirectLinkUri = normalizedDirectLinkUrl.toUri()
-                val directLinkScheme = parsedDirectLinkUri.scheme.orEmpty().lowercase(Locale.US)
-                val directLinkHost = parsedDirectLinkUri.host.orEmpty()
-                if (directLinkScheme !in setOf("http", "https") || directLinkHost.isBlank()) {
+                val directLinkUrlValidation = validateExamUrl(configuredDirectLinkUrl)
+                val normalizedDirectLinkUrl = directLinkUrlValidation.normalizedUrl
+                if (normalizedDirectLinkUrl == null) {
                     error(
                         localized(
                             uiLanguage,
-                            "Direct Link URL is invalid. Update it from Secret Admin.",
-                            "URL Direct Link tidak valid. Perbarui dari Secret Admin."
+                            "Direct Link URL must start with http:// or https:// and include a domain. Update it from Secret Admin.",
+                            "URL Direct Link harus diawali http:// atau https:// dan memiliki domain. Perbarui dari Secret Admin."
                         )
                     )
                 }
@@ -1118,6 +1205,261 @@ internal fun AppHostRuntimeContent(
                 title = tr("QR Scan", "Scan QR"),
                 message = message,
                 onDismiss = { adminFlowViewModel.dispatch(AdminFlowUiAction.SetScanErrorMessage(null)) }
+            )
+        }
+
+        pendingScanConfirmPayload?.let { payload ->
+            val geofenceInfo = when (payload.locationPolicy?.shapeType) {
+                GeofenceShapeType.Circle -> "Circle | ${payload.locationPolicy.effectiveCircleCenters.size} centers | ${payload.locationPolicy.radiusMeters} m"
+                GeofenceShapeType.Polygon -> "Polygon | ${payload.locationPolicy.vertices.size} points"
+                else -> "Disabled"
+            }
+            AlertDialog(
+                onDismissRequest = {},
+                properties = DialogProperties(
+                    dismissOnBackPress = false,
+                    dismissOnClickOutside = false
+                ),
+                shape = RoundedCornerShape(24.dp),
+                containerColor = Color.White,
+                title = {
+                    Row(
+                        verticalAlignment = Alignment.CenterVertically,
+                        horizontalArrangement = Arrangement.spacedBy(12.dp)
+                    ) {
+                        Box(
+                            modifier = Modifier
+                                .size(40.dp)
+                                .clip(CircleShape)
+                                .background(LockBlue.copy(alpha = 0.12f)),
+                            contentAlignment = Alignment.Center
+                        ) {
+                            Text(
+                                text = "QR",
+                                color = LockBlueDeep,
+                                fontSize = 12.sp,
+                                fontWeight = FontWeight.Black
+                            )
+                        }
+                        Column(verticalArrangement = Arrangement.spacedBy(2.dp)) {
+                            Text(
+                                text = tr("Review Exam QR", "Review QR Ujian"),
+                                color = LockTextPrimary,
+                                fontSize = 18.sp,
+                                fontWeight = FontWeight.Black
+                            )
+                            Text(
+                                text = tr(
+                                    "Check details before opening preparation.",
+                                    "Cek detail sebelum membuka preparation."
+                                ),
+                                color = LockTextSecondary,
+                                fontSize = 12.sp,
+                                lineHeight = 16.sp
+                            )
+                        }
+                    }
+                },
+                text = {
+                    Column(verticalArrangement = Arrangement.spacedBy(12.dp)) {
+                        Surface(
+                            modifier = Modifier.fillMaxWidth(),
+                            shape = RoundedCornerShape(18.dp),
+                            color = LockSurfaceSoft,
+                            border = BorderStroke(1.dp, LockOutline.copy(alpha = 0.65f))
+                        ) {
+                            Column(
+                                modifier = Modifier.padding(horizontal = 14.dp, vertical = 12.dp),
+                                verticalArrangement = Arrangement.spacedBy(10.dp)
+                            ) {
+                                Column(verticalArrangement = Arrangement.spacedBy(2.dp)) {
+                                    Text(
+                                        text = tr("Exam", "Ujian"),
+                                        color = LockTextMuted,
+                                        fontSize = 10.sp,
+                                        fontWeight = FontWeight.Bold
+                                    )
+                                    Text(
+                                        text = payload.examName.trim().ifBlank { "-" },
+                                        color = LockTextPrimary,
+                                        fontSize = 14.sp,
+                                        fontWeight = FontWeight.Bold,
+                                        lineHeight = 18.sp
+                                    )
+                                }
+                                Row(
+                                    modifier = Modifier.fillMaxWidth(),
+                                    horizontalArrangement = Arrangement.spacedBy(10.dp)
+                                ) {
+                                    Column(
+                                        modifier = Modifier.weight(1f),
+                                        verticalArrangement = Arrangement.spacedBy(2.dp)
+                                    ) {
+                                        Text(
+                                            text = tr("Start", "Mulai"),
+                                            color = LockTextMuted,
+                                            fontSize = 10.sp,
+                                            fontWeight = FontWeight.Bold
+                                        )
+                                        Text(
+                                            text = payload.startDateTime,
+                                            color = LockTextPrimary,
+                                            fontSize = 12.sp,
+                                            lineHeight = 16.sp
+                                        )
+                                    }
+                                    Column(
+                                        modifier = Modifier.weight(1f),
+                                        verticalArrangement = Arrangement.spacedBy(2.dp)
+                                    ) {
+                                        Text(
+                                            text = tr("End", "Selesai"),
+                                            color = LockTextMuted,
+                                            fontSize = 10.sp,
+                                            fontWeight = FontWeight.Bold
+                                        )
+                                        Text(
+                                            text = payload.endDateTime,
+                                            color = LockTextPrimary,
+                                            fontSize = 12.sp,
+                                            lineHeight = 16.sp
+                                        )
+                                    }
+                                }
+                                Column(verticalArrangement = Arrangement.spacedBy(2.dp)) {
+                                    Text(
+                                        text = tr("Geofence", "Geofence"),
+                                        color = LockTextMuted,
+                                        fontSize = 10.sp,
+                                        fontWeight = FontWeight.Bold
+                                    )
+                                    Text(
+                                        text = geofenceInfo,
+                                        color = LockTextPrimary,
+                                        fontSize = 12.sp,
+                                        lineHeight = 16.sp
+                                    )
+                                }
+                            }
+                        }
+                        Surface(
+                            modifier = Modifier.fillMaxWidth(),
+                            shape = RoundedCornerShape(16.dp),
+                            color = if (payload.saveToDirectLink) {
+                                Color(0xFFEAF7EF)
+                            } else {
+                                LockBlue.copy(alpha = 0.07f)
+                            },
+                            border = BorderStroke(
+                                1.dp,
+                                if (payload.saveToDirectLink) {
+                                    Color(0xFF1F7A4D).copy(alpha = 0.22f)
+                                } else {
+                                    LockBlue.copy(alpha = 0.16f)
+                                }
+                            )
+                        ) {
+                            Row(
+                                modifier = Modifier.padding(horizontal = 12.dp, vertical = 10.dp),
+                                verticalAlignment = Alignment.CenterVertically,
+                                horizontalArrangement = Arrangement.spacedBy(10.dp)
+                            ) {
+                                Box(
+                                    modifier = Modifier
+                                        .size(9.dp)
+                                        .clip(CircleShape)
+                                        .background(
+                                            if (payload.saveToDirectLink) {
+                                                Color(0xFF1F7A4D)
+                                            } else {
+                                                LockBlue
+                                            }
+                                        )
+                                )
+                                Text(
+                                    text = if (payload.saveToDirectLink) {
+                                        tr(
+                                            "Direct Link will be saved after you tap Yes.",
+                                            "Direct Link akan disimpan setelah tombol Ya ditekan."
+                                        )
+                                    } else {
+                                        tr(
+                                            "Direct Link will not be changed.",
+                                            "Direct Link tidak akan diubah."
+                                        )
+                                    },
+                                    color = if (payload.saveToDirectLink) {
+                                        Color(0xFF155C3B)
+                                    } else {
+                                        LockBlueDeep
+                                    },
+                                    fontSize = 12.sp,
+                                    fontWeight = FontWeight.SemiBold,
+                                    lineHeight = 16.sp
+                                )
+                            }
+                        }
+                        pendingScanConfirmError?.let { message ->
+                            Surface(
+                                modifier = Modifier.fillMaxWidth(),
+                                shape = RoundedCornerShape(14.dp),
+                                color = Color(0xFFFEF3F2),
+                                border = BorderStroke(1.dp, Color(0xFFB42318).copy(alpha = 0.30f))
+                            ) {
+                                Text(
+                                    text = message,
+                                    color = Color(0xFFB42318),
+                                    fontSize = 12.sp,
+                                    fontWeight = FontWeight.SemiBold,
+                                    lineHeight = 16.sp,
+                                    modifier = Modifier.padding(horizontal = 12.dp, vertical = 10.dp)
+                                )
+                            }
+                        }
+                    }
+                },
+                confirmButton = {
+                    Button(
+                        onClick = {
+                        confirmPendingScanPayload(payload)
+                        },
+                        enabled = !pendingScanConfirmInFlight,
+                        shape = RoundedCornerShape(14.dp),
+                        colors = ButtonDefaults.buttonColors(
+                            containerColor = LockBlue,
+                            contentColor = LockOnDark,
+                            disabledContainerColor = LockBlue.copy(alpha = 0.45f),
+                            disabledContentColor = LockOnDark.copy(alpha = 0.75f)
+                        )
+                    ) {
+                        Text(
+                            text = when {
+                                pendingScanConfirmInFlight -> tr("Processing...", "Memproses...")
+                                payload.saveToDirectLink -> tr(
+                                    "Yes, save & continue",
+                                    "Ya, simpan & lanjut"
+                                )
+                                else -> tr(
+                                    "Yes, continue to Preparation",
+                                    "Ya, lanjut ke Preparation"
+                                )
+                            },
+                            fontWeight = FontWeight.Bold
+                        )
+                    }
+                },
+                dismissButton = {
+                    TextButton(onClick = {
+                        pendingScanConfirmPayload = null
+                        pendingScanConfirmError = null
+                    }, enabled = !pendingScanConfirmInFlight) {
+                        Text(
+                            text = tr("Cancel", "Batal"),
+                            color = LockTextSecondary,
+                            fontWeight = FontWeight.Bold
+                        )
+                    }
+                }
             )
         }
 

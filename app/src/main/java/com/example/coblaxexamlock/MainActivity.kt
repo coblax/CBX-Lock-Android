@@ -36,6 +36,7 @@ class MainActivity : ComponentActivity() {
     override fun onCreate(savedInstanceState: Bundle?) {
         StartupTrace.mark("activity_on_create_start")
         super.onCreate(savedInstanceState)
+        com.example.coblaxexamlock.runtime.TelegramMessageQueueHolder.initialize(this)
         val nativePreflightStarted = shouldUseNativePreflightShell()
         if (nativePreflightStarted) {
             StartupTrace.mark("set_content_start", "native_preflight")

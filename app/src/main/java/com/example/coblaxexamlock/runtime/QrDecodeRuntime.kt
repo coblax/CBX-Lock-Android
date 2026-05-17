@@ -26,9 +26,13 @@ private data class QrDecodeCropSpec(
 )
 
 private val qrDecodeFallbackCropSpecs = listOf(
+    // Target the QR position in the standard export card (QR is at ~26%-66% vertically, centered horizontally)
+    QrDecodeCropSpec(0.10f, 0.22f, 0.80f, 0.48f),
     QrDecodeCropSpec(0.14f, 0.18f, 0.72f, 0.60f),
     QrDecodeCropSpec(0.18f, 0.22f, 0.64f, 0.50f),
-    QrDecodeCropSpec(0.22f, 0.26f, 0.56f, 0.42f)
+    QrDecodeCropSpec(0.22f, 0.26f, 0.56f, 0.42f),
+    // Tighter center crop for screenshots or cropped images
+    QrDecodeCropSpec(0.08f, 0.08f, 0.84f, 0.84f)
 )
 
 internal fun calculateBitmapSampleSize(
@@ -88,6 +92,26 @@ private fun buildQrDecodeFallbackRects(width: Int, height: Int): List<Rect> {
     val rects = linkedSetOf<Rect>()
     val minDimension = minOf(width, height)
 
+    // For tall images (export card format), target the known QR position
+    // QR is centered horizontally, positioned at ~26%-66% vertically
+    if (height > width * 1.3) {
+        val qrEstimatedSize = (width * 0.55).toInt()
+        val qrLeft = ((width - qrEstimatedSize) / 2).coerceAtLeast(0)
+        val qrTop = (height * 0.24).toInt().coerceAtLeast(0)
+        val qrBottom = (height * 0.70).toInt().coerceAtMost(height)
+        val qrRight = (qrLeft + qrEstimatedSize).coerceAtMost(width)
+        if (qrRight - qrLeft >= 96 && qrBottom - qrTop >= 96) {
+            rects += Rect(qrLeft, qrTop, qrRight, qrBottom)
+        }
+        // Wider crop of the same region
+        val wideLeft = (width * 0.08).toInt()
+        val wideRight = (width * 0.92).toInt()
+        if (wideRight - wideLeft >= 96) {
+            rects += Rect(wideLeft, qrTop, wideRight, qrBottom)
+        }
+    }
+
+    // Center-biased square crops
     listOf(0.72f, 0.58f).forEach { sizeFraction ->
         val size = (minDimension * sizeFraction).toInt().coerceAtLeast(96)
         val left = ((width - size) / 2).coerceAtLeast(0)
@@ -126,7 +150,12 @@ private fun decodeQrPayloadFromBitmap(
     val height = bitmap.height
     val reader = newQrDecodeReader()
 
-    if (preferFallbackRegionsFirst) {
+    // Heuristic: if the image is tall (like an export card), try crop regions first
+    // because the QR is embedded in a decorative layout and full-image decode often fails
+    val isTallImage = height > width * 1.3
+    val shouldPreferFallback = preferFallbackRegionsFirst || isTallImage
+
+    if (shouldPreferFallback) {
         decodeQrPayloadFromFallbackRegions(bitmap, reader)?.let { return it }
     }
 
@@ -135,7 +164,7 @@ private fun decodeQrPayloadFromBitmap(
 
     decodeQrPayloadFromPixels(width, height, pixels, reader)?.let { return it }
 
-    if (!preferFallbackRegionsFirst) {
+    if (!shouldPreferFallback) {
         decodeQrPayloadFromFallbackRegions(bitmap, reader)?.let { return it }
     }
 

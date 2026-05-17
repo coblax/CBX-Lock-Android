@@ -12,8 +12,8 @@ import com.google.zxing.qrcode.decoder.ErrorCorrectionLevel
 object QrCodeGenerator {
     fun generateBitmap(content: String, size: Int = 960): Bitmap {
         val hints = mapOf(
-            EncodeHintType.MARGIN to 1,
-            EncodeHintType.ERROR_CORRECTION to ErrorCorrectionLevel.M
+            EncodeHintType.MARGIN to 2,
+            EncodeHintType.ERROR_CORRECTION to ErrorCorrectionLevel.H
         )
         val bitMatrix = QRCodeWriter().encode(
             content,

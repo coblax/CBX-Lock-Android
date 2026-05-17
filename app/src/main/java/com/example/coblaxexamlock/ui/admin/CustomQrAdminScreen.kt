@@ -203,6 +203,7 @@ import com.example.coblaxexamlock.ReverseEngineeringResult
 import com.example.coblaxexamlock.RootBypassResolver
 import com.example.coblaxexamlock.buildRootSecurityStatus
 import com.example.coblaxexamlock.formatCoordinates
+import com.example.coblaxexamlock.validateExamUrl
 import com.example.coblaxexamlock.config.DefaultExamUserAgent
 import com.example.coblaxexamlock.config.DeveloperGithubUrl
 import com.example.coblaxexamlock.config.PickerDialogColorScheme
@@ -342,6 +343,10 @@ internal fun CustomQrAdminScreen(
     val invalidGeofenceMessage = tr(
         "Geofence configuration is invalid. Latitude must be -90..90, longitude -180..180, and radius must be greater than 0.",
         "Konfigurasi geofence tidak valid. Latitude harus -90..90, longitude -180..180, dan radius harus lebih dari 0."
+    )
+    val invalidExamUrlMessage = tr(
+        "Exam URL must start with http:// or https:// and include a domain.",
+        "URL ujian harus diawali http:// atau https:// dan memiliki domain."
     )
     var activePickerField by remember { mutableStateOf<DateTimeField?>(null) }
     var isTimePickerVisible by remember { mutableStateOf(false) }
@@ -1046,8 +1051,16 @@ internal fun CustomQrAdminScreen(
                                 onGenerationIsErrorChange(true)
                                 onGeneratedQrPayloadChange(null)
                             } else {
+                                val examUrlValidation = validateExamUrl(examUrl)
+                                val normalizedExamUrl = examUrlValidation.normalizedUrl
+                                if (normalizedExamUrl == null) {
+                                    onGenerationStatusChange(invalidExamUrlMessage)
+                                    onGenerationIsErrorChange(true)
+                                    onGeneratedQrPayloadChange(null)
+                                    return@ActionButton
+                                }
                                 val payload = ExamQrPayload(
-                                    examUrl = examUrl.trim(),
+                                    examUrl = normalizedExamUrl,
                                     examName = examName.trim(),
                                     startDateTime = startTime,
                                     endDateTime = endTime,

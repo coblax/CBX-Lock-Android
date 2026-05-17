@@ -50,6 +50,11 @@ import java.util.Locale
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.withContext
 
+internal class TelegramHttpException(
+    val statusCode: Int,
+    message: String
+) : java.io.IOException(message)
+
 internal fun sendTelegramTextMessage(
     token: String,
     chatId: String,
@@ -85,6 +90,6 @@ internal fun sendTelegramTextMessage(
         val errorMessage =
             connection.errorStream?.bufferedReader()?.use { it.readText() }
                 ?: "HTTP $responseCode"
-        error(errorMessage)
+        throw TelegramHttpException(responseCode, errorMessage)
     }
 }
