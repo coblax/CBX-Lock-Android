@@ -63,6 +63,13 @@ internal data class DeviceCompatibilityProfile(
             " | sdk=$sdkInt" +
             " | low_ram=${lowRamProfile.enabled}" +
             " | severe=${lowRamProfile.severe}" +
+            " | ultra=${lowRamProfile.ultra}" +
+            " | low_ram_override=${lowRamProfile.lowRamOverride.name}" +
+            " | detected_profile=${lowRamProfile.detectedTier?.name ?: lowRamProfile.tier.name}" +
+            " | effective_profile=${lowRamProfile.tier.name}" +
+            " | total_ram_mb=${lowRamProfile.totalMemoryMb ?: "-"}" +
+            " | available_ram_mb=${lowRamProfile.availableMemoryMb ?: "-"}" +
+            " | memory_low=${lowRamProfile.memoryLow}" +
             " | skip_pinning_if_active=$skipScreenPinningRequestWhenAlreadyActive" +
             " | partial_overlay=${partialObscuredWebViewPolicy.name.lowercase(Locale.US)}"
     }

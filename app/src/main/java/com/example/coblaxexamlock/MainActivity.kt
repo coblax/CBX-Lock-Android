@@ -5,6 +5,7 @@ import android.content.pm.ActivityInfo
 import android.graphics.Color
 import android.os.Build
 import android.os.Bundle
+import android.os.SystemClock
 import android.view.Gravity
 import android.view.WindowManager
 import android.view.View
@@ -20,6 +21,7 @@ import androidx.core.view.WindowInsetsControllerCompat
 import com.example.coblaxexamlock.config.AdminKeyFastExamLabel
 import com.example.coblaxexamlock.config.AdminPreferencesName
 import com.example.coblaxexamlock.config.FastExamName
+import com.example.coblaxexamlock.config.SecretTapWindowMs
 import com.example.coblaxexamlock.ui.app.AppContent
 import com.example.coblaxexamlock.ui.theme.COBLAXEXAMLOCKTheme
 import java.lang.ref.WeakReference
@@ -32,18 +34,20 @@ class MainActivity : ComponentActivity() {
     private var edgeToEdgeEnabled = false
     private var initialLowRamProfile: LowRamProfile? = null
     private var pendingNativeHomeAction: String? = null
+    private var nativeSecretTapCount = 0
+    private var nativeLastSecretTapAt = 0L
 
     override fun onCreate(savedInstanceState: Bundle?) {
         StartupTrace.mark("activity_on_create_start")
         super.onCreate(savedInstanceState)
         com.example.coblaxexamlock.runtime.TelegramMessageQueueHolder.initialize(this)
-        val nativePreflightStarted = shouldUseNativePreflightShell()
+        val lowRamProfile = resolveLowRamProfile(this)
+        initialLowRamProfile = lowRamProfile
+        val nativePreflightStarted = shouldUseNativePreflightShell(lowRamProfile)
         if (nativePreflightStarted) {
             StartupTrace.mark("set_content_start", "native_preflight")
             showNativeLowRamHomeThenCompose()
         }
-        val lowRamProfile = resolveLowRamProfile(this)
-        initialLowRamProfile = lowRamProfile
         if (lowRamProfile.severe) {
             if (!nativePreflightStarted) {
                 StartupTrace.mark("set_content_start", "native_survival")
@@ -56,10 +60,17 @@ class MainActivity : ComponentActivity() {
         }
     }
 
-    private fun shouldUseNativePreflightShell(): Boolean {
+    private fun shouldUseNativePreflightShell(lowRamProfile: LowRamProfile): Boolean {
+        if (lowRamProfile.ultra) {
+            return true
+        }
         val activityManager = getSystemService(ActivityManager::class.java) ?: return false
         return runCatching {
-            activityManager.isLowRamDevice || activityManager.memoryClass <= NativePreflightMemoryClassMb
+            val memoryInfo = ActivityManager.MemoryInfo().also(activityManager::getMemoryInfo)
+            activityManager.isLowRamDevice ||
+                activityManager.memoryClass <= NativePreflightMemoryClassMb ||
+                memoryInfo.lowMemory ||
+                memoryInfo.availMem <= NativePreflightAvailableMemoryBytes
         }.getOrDefault(false)
     }
 
@@ -94,6 +105,7 @@ class MainActivity : ComponentActivity() {
 
     private fun showNativeLowRamHomeThenCompose() {
         StartupTrace.mark("home_compose_start", "shell=native_survival")
+        val lowRamProfile = initialLowRamProfile ?: resolveLowRamProfile(this)
         val root = LinearLayout(this).apply {
             orientation = LinearLayout.VERTICAL
             gravity = Gravity.CENTER_HORIZONTAL
@@ -109,18 +121,9 @@ class MainActivity : ComponentActivity() {
             background = roundedBackground(Color.WHITE, Color.rgb(212, 222, 233))
         }
 
-        // Production badge
+        // Lightweight profile badge and hidden Secret Admin trigger
         brandCard.addView(
-            TextView(this).apply {
-                text = "PROD"
-                setTextColor(Color.WHITE)
-                textSize = 10f
-                typeface = android.graphics.Typeface.DEFAULT_BOLD
-                gravity = Gravity.CENTER
-                setPadding(dp(12), dp(6), dp(12), dp(6))
-                background = roundedBackground(Color.rgb(16, 46, 106), Color.TRANSPARENT)
-                setOnClickListener { startComposeContent(NativeActionRuntimeHome) }
-            },
+            createNativeProfileBadge(lowRamProfile),
             LinearLayout.LayoutParams(
                 LinearLayout.LayoutParams.WRAP_CONTENT,
                 LinearLayout.LayoutParams.WRAP_CONTENT
@@ -270,6 +273,56 @@ class MainActivity : ComponentActivity() {
         )
     }
 
+    private fun createNativeProfileBadge(lowRamProfile: LowRamProfile): View {
+        val palette = lowRamProfileBadgePalette(lowRamProfile)
+        return LinearLayout(this).apply {
+            orientation = LinearLayout.HORIZONTAL
+            gravity = Gravity.CENTER
+            setMinimumHeight(dp(30))
+            setPadding(dp(10), dp(6), dp(10), dp(6))
+            background = pillBackground(palette.containerColorArgb, palette.borderColorArgb)
+            setOnClickListener { registerNativeSecretTap() }
+
+            addView(
+                View(this@MainActivity).apply {
+                    background = pillBackground(palette.dotColorArgb, Color.TRANSPARENT)
+                },
+                LinearLayout.LayoutParams(dp(7), dp(7)).apply {
+                    rightMargin = dp(6)
+                    gravity = Gravity.CENTER_VERTICAL
+                }
+            )
+
+            addView(
+                TextView(this@MainActivity).apply {
+                    text = lowRamProfileBadgeLabel(lowRamProfile)
+                    setTextColor(palette.contentColorArgb)
+                    textSize = 10f
+                    typeface = android.graphics.Typeface.DEFAULT_BOLD
+                    gravity = Gravity.CENTER
+                    includeFontPadding = false
+                },
+                LinearLayout.LayoutParams(
+                    LinearLayout.LayoutParams.WRAP_CONTENT,
+                    LinearLayout.LayoutParams.WRAP_CONTENT
+                ).apply { gravity = Gravity.CENTER_VERTICAL }
+            )
+        }
+    }
+
+    private fun registerNativeSecretTap() {
+        val now = SystemClock.elapsedRealtime()
+        if (now - nativeLastSecretTapAt > SecretTapWindowMs) {
+            nativeSecretTapCount = 0
+        }
+        nativeLastSecretTapAt = now
+        nativeSecretTapCount += 1
+        if (nativeSecretTapCount >= NativeSecretTapRequiredCount) {
+            nativeSecretTapCount = 0
+            startComposeContent(NativeActionSecretAdmin)
+        }
+    }
+
     private fun updateNativeDirectLinkLabelAfterIdle(button: TextView) {
         val label = runCatching {
             getSharedPreferences(AdminPreferencesName, MODE_PRIVATE)
@@ -286,6 +339,16 @@ class MainActivity : ComponentActivity() {
         android.graphics.drawable.GradientDrawable().apply {
             shape = android.graphics.drawable.GradientDrawable.RECTANGLE
             cornerRadius = dp(14).toFloat()
+            setColor(fillColor)
+            if (strokeColor != Color.TRANSPARENT) {
+                setStroke(dp(1), strokeColor)
+            }
+        }
+
+    private fun pillBackground(fillColor: Int, strokeColor: Int): android.graphics.drawable.GradientDrawable =
+        android.graphics.drawable.GradientDrawable().apply {
+            shape = android.graphics.drawable.GradientDrawable.RECTANGLE
+            cornerRadius = dp(999).toFloat()
             setColor(fillColor)
             if (strokeColor != Color.TRANSPARENT) {
                 setStroke(dp(1), strokeColor)
@@ -454,8 +517,10 @@ class MainActivity : ComponentActivity() {
         const val NativeActionScanExam = "ScanExam"
         const val NativeActionCustomQrAdmin = "CustomQrAdmin"
         const val NativeActionDirectLink = "DirectLink"
+        const val NativeActionSecretAdmin = "SecretAdmin"
         const val NativeLabelLoadDelayMillis = 1_200L
         const val NativePreflightMemoryClassMb = 96
+        const val NativePreflightAvailableMemoryBytes = 512L * 1024L * 1024L
+        const val NativeSecretTapRequiredCount = 4
     }
 }
-

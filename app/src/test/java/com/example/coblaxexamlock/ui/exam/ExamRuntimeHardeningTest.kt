@@ -11,7 +11,8 @@ class ExamRuntimeHardeningTest {
         val action = resolveExamRuntimeMemoryAction(
             shouldRespondToPressure = true,
             examSessionStarted = true,
-            hasFullscreenCustomView = false
+            hasFullscreenCustomView = false,
+            clearActiveWebViewCacheAllowed = false
         )
 
         assertTrue(action.respond)
@@ -28,6 +29,20 @@ class ExamRuntimeHardeningTest {
             ),
             action.diagnosticActions()
         )
+    }
+
+    @Test
+    fun activeExamCriticalTrimCanClearWebViewCache() {
+        val action = resolveExamRuntimeMemoryAction(
+            shouldRespondToPressure = true,
+            examSessionStarted = true,
+            hasFullscreenCustomView = false,
+            clearActiveWebViewCacheAllowed = true
+        )
+
+        assertTrue(action.keepActiveWebView)
+        assertTrue(action.clearActiveWebViewCache)
+        assertTrue(action.diagnosticActions().contains("clear_active_webview_cache"))
     }
 
     @Test

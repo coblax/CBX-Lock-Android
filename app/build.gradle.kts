@@ -120,8 +120,8 @@ android {
         applicationId = "com.example.coblaxexamlock"
         minSdk = 24
         targetSdk = 36
-        versionCode = 326
-        versionName = "3.2.6"
+        versionCode = 329
+        versionName = "3.2.9"
         ndk {
             abiFilters += listOf("arm64-v8a", "armeabi-v7a", "x86_64")
         }
@@ -242,6 +242,7 @@ dependencies {
     implementation(libs.google.material)
     implementation(libs.androidx.profileinstaller)
     testImplementation(libs.junit)
+    testImplementation("org.json:json:20240303")
     androidTestImplementation(libs.androidx.junit)
     androidTestImplementation(libs.androidx.espresso.core)
     androidTestImplementation(platform(libs.androidx.compose.bom))

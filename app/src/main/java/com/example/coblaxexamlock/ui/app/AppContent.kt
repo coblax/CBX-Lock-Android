@@ -1,5 +1,6 @@
 package com.example.coblaxexamlock.ui.app
 
+import android.os.SystemClock
 import android.util.Log
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.CompositionLocalProvider
@@ -18,6 +19,7 @@ import com.example.coblaxexamlock.LowRamProfile
 import com.example.coblaxexamlock.MemoryPressureCoordinator
 import com.example.coblaxexamlock.StartupTrace
 import com.example.coblaxexamlock.config.FastExamName
+import com.example.coblaxexamlock.config.SecretTapWindowMs
 import com.example.coblaxexamlock.currentDeviceCompatibilityProfile
 import com.example.coblaxexamlock.i18n.LocalUiLanguage
 import com.example.coblaxexamlock.persistence.HomeAdminSettings
@@ -54,6 +56,8 @@ internal fun AppContent(
     var persistedShellUiLanguage by remember { mutableStateOf(initialUiLanguage) }
     var shellHomeSettings by remember { mutableStateOf(HomeAdminSettings()) }
     var shellShowDeferredChrome by rememberSaveable { mutableStateOf(false) }
+    var shellSecretTapCount by rememberSaveable { mutableStateOf(0) }
+    var shellLastSecretTapAt by rememberSaveable { mutableStateOf(0L) }
     val startRuntimeInitially = shouldStartRuntimeImmediately(lowRamProfile, initialHomeActionRaw)
     var startRuntime by rememberSaveable {
         mutableStateOf(startRuntimeInitially)
@@ -138,7 +142,19 @@ internal fun AppContent(
                     startRuntime = true
                 },
                 directLinkLabel = shellHomeSettings.fastExamLabel.trim().ifBlank { FastExamName },
-                onSecretTap = { startRuntime = true },
+                onSecretTap = {
+                    val now = SystemClock.elapsedRealtime()
+                    if (now - shellLastSecretTapAt > SecretTapWindowMs) {
+                        shellSecretTapCount = 0
+                    }
+                    shellLastSecretTapAt = now
+                    shellSecretTapCount += 1
+                    if (shellSecretTapCount >= ShellSecretTapRequiredCount) {
+                        shellSecretTapCount = 0
+                        pendingHomeActionRaw = PendingHomeAction.SecretAdmin.name
+                        startRuntime = true
+                    }
+                },
                 showDeferredChrome = shellShowDeferredChrome
             )
         }
@@ -153,3 +169,5 @@ internal fun AppContent(
         onInitialHomeActionConsumed = { pendingHomeActionRaw = null }
     )
 }
+
+private const val ShellSecretTapRequiredCount = 4

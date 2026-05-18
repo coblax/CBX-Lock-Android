@@ -368,6 +368,7 @@ internal fun ExamSecurityPreparationScreenContent(
                     geofenceReady = geofenceReady,
                     fakeLocationReady = fakeLocationReady,
                     needsBluetoothPermission = needsBluetoothPermission,
+                    accessibilityInspection = accessibilityInspection,
                     runQuickFix = ::runQuickFix
                 )
             }

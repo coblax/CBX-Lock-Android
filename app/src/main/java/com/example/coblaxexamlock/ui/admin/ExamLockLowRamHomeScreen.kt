@@ -38,9 +38,12 @@ import androidx.compose.ui.unit.TextUnit
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import com.example.coblaxexamlock.BuildConfig
+import com.example.coblaxexamlock.LocalLowRamProfile
 import com.example.coblaxexamlock.StartupTrace
 import com.example.coblaxexamlock.config.DeveloperGithubUrl
 import com.example.coblaxexamlock.i18n.tr
+import com.example.coblaxexamlock.lowRamProfileBadgeLabel
+import com.example.coblaxexamlock.lowRamProfileBadgePalette
 import com.example.coblaxexamlock.model.UiLanguage
 import com.example.coblaxexamlock.ui.theme.LockBackground
 import com.example.coblaxexamlock.ui.theme.LockBlue
@@ -205,6 +208,14 @@ private fun LowRamHero(
     onUiLanguageChange: (UiLanguage) -> Unit,
     onSecretTap: () -> Unit
 ) {
+    val lowRamProfile = LocalLowRamProfile.current
+    val badgePalette = lowRamProfileBadgePalette(lowRamProfile)
+    val containerColor = Color(badgePalette.containerColorArgb)
+    val contentColor = Color(badgePalette.contentColorArgb)
+    val borderColor = Color(badgePalette.borderColorArgb)
+    val dotColor = Color(badgePalette.dotColorArgb)
+    val label = lowRamProfileBadgeLabel(lowRamProfile)
+
     Column(
         modifier = Modifier
             .fillMaxWidth()
@@ -223,19 +234,15 @@ private fun LowRamHero(
             Box(
                 modifier = Modifier
                     .clip(RoundedCornerShape(999.dp))
-                    .background(
-                        brush = Brush.horizontalGradient(
-                            0f to LockBlueDeep,
-                            1f to LockBlue.copy(alpha = 0.85f)
-                        )
-                    )
+                    .background(containerColor)
+                    .border(1.dp, borderColor, RoundedCornerShape(999.dp))
                     .clickable(
                         interactionSource = remember { MutableInteractionSource() },
                         indication = null,
                         role = Role.Button,
                         onClick = onSecretTap
                     )
-                    .padding(horizontal = 12.dp, vertical = 7.dp),
+                    .padding(horizontal = 10.dp, vertical = 6.dp),
                 contentAlignment = Alignment.Center
             ) {
                 Row(
@@ -246,14 +253,14 @@ private fun LowRamHero(
                         modifier = Modifier
                             .size(6.dp)
                             .clip(CircleShape)
-                            .background(Color.White.copy(alpha = 0.9f))
+                            .background(dotColor)
                     )
                     LowRamText(
-                        text = "PROD",
-                        color = LockOnDark,
+                        text = label,
+                        color = contentColor,
                         fontSize = 10.sp,
                         fontWeight = FontWeight.Black,
-                        letterSpacing = 0.8.sp
+                        letterSpacing = 0.sp
                     )
                 }
             }

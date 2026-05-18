@@ -15,6 +15,8 @@ import androidx.core.content.ContextCompat
 import com.example.coblaxexamlock.ClipboardBypassState
 import com.example.coblaxexamlock.ClipboardChangeDecision
 import com.example.coblaxexamlock.ClipboardSnapshot
+import com.example.coblaxexamlock.LocalLowRamProfile
+import com.example.coblaxexamlock.LowRamProfile
 import com.example.coblaxexamlock.config.ClipboardListenerWarmupIgnoreMillis
 import com.example.coblaxexamlock.config.ClipboardSettleWindowMillis
 import com.example.coblaxexamlock.config.GeofenceRuntimeRecheckIntervalMillis
@@ -26,6 +28,15 @@ import com.example.coblaxexamlock.GeofenceConfigParseResult
 import com.example.coblaxexamlock.readClipboardSnapshotLite
 import com.example.coblaxexamlock.runtime.isBluetoothEnabledForExam
 import kotlinx.coroutines.delay
+
+private const val UltraGeofenceRuntimeRecheckIntervalMillis = 90_000L
+
+internal fun geofenceRuntimeRecheckIntervalMillis(lowRamProfile: LowRamProfile): Long =
+    if (lowRamProfile.ultra) {
+        UltraGeofenceRuntimeRecheckIntervalMillis
+    } else {
+        GeofenceRuntimeRecheckIntervalMillis
+    }
 
 @Composable
 internal fun RuntimeLocationAndClipboardEffects(
@@ -57,12 +68,19 @@ internal fun RuntimeLocationAndClipboardEffects(
     diagnosticTimestamp: () -> String
 ) {
     val examSessionStarted = flowUiState.examSessionStarted.value
+    val lowRamProfile = LocalLowRamProfile.current
 
     LaunchedEffect(deviceTimeBaseline, deviceTimeBypassState) {
         refreshDeviceTimeSecurity("runtime_initial", false)
     }
 
-    LaunchedEffect(examSessionStarted, geofenceConfigParseResult, bypassGeofence, bypassFakeLocation) {
+    LaunchedEffect(
+        examSessionStarted,
+        geofenceConfigParseResult,
+        bypassGeofence,
+        bypassFakeLocation,
+        lowRamProfile
+    ) {
         val geofenceMonitoringActive = geofenceEnabled && !bypassGeofence
         val fakeLocationMonitoringActive = !bypassFakeLocation
         if (!examSessionStarted || (!geofenceMonitoringActive && !fakeLocationMonitoringActive)) {
@@ -85,7 +103,7 @@ internal fun RuntimeLocationAndClipboardEffects(
         }
 
         while (flowUiState.examSessionStarted.value && (geofenceMonitoringActive || fakeLocationMonitoringActive)) {
-            delay(GeofenceRuntimeRecheckIntervalMillis)
+            delay(geofenceRuntimeRecheckIntervalMillis(lowRamProfile))
             refreshGeofenceStatus(false, "periodic_recheck", true)
         }
     }

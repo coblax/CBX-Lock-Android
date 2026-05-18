@@ -8,7 +8,7 @@ Aplikasi ini menjaga fungsi utama ujian tetap sederhana untuk siswa: scan QR ata
 
 - App label: `CBX Lock`
 - Package: `com.example.coblaxexamlock`
-- Version: `3.0.0 (300)`
+- Version: `3.2.9 (329)`
 - Minimum Android: API 24
 - Target Android: API 36
 

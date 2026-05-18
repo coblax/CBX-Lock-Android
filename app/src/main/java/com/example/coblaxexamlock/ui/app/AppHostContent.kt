@@ -202,6 +202,7 @@ import com.example.coblaxexamlock.QrPortraitCaptureActivity
 import com.example.coblaxexamlock.SecureStrings
 import com.example.coblaxexamlock.StartupTrace
 import com.example.coblaxexamlock.TrustedNetworkTimeCoordinator
+import com.example.coblaxexamlock.applyLowRamProfileOverride
 import com.example.coblaxexamlock.captureDeviceTimeBaseline
 import com.example.coblaxexamlock.currentDeviceCompatibilityProfile
 import com.example.coblaxexamlock.inspectDeviceTimeSecurity
@@ -226,6 +227,7 @@ import com.example.coblaxexamlock.persistence.readAdminSettings
 import com.example.coblaxexamlock.persistence.readSavedUiLanguage
 import com.example.coblaxexamlock.persistence.saveAdminSettings
 import com.example.coblaxexamlock.persistence.saveUiLanguage
+import com.example.coblaxexamlock.resolveDetectedLowRamProfile
 import com.example.coblaxexamlock.resolveLowRamProfile
 import com.example.coblaxexamlock.runtime.decodeQrPayloadFromImageUri
 import com.example.coblaxexamlock.save.ExamQrPayloadSaver
@@ -325,7 +327,8 @@ internal enum class PendingHomeAction {
     RuntimeHome,
     ScanExam,
     CustomQrAdmin,
-    DirectLink
+    DirectLink,
+    SecretAdmin
 }
 
 private fun parseAppRecoveryRoute(rawValue: String?): AppRecoveryRoute =
@@ -429,8 +432,11 @@ internal fun AppHostRuntimeContent(
     val context = LocalContext.current
     val activity = context as ComponentActivity
     val coroutineScope = rememberCoroutineScope()
-    val lowRamProfile = remember(context, initialLowRamProfile) {
-        initialLowRamProfile ?: resolveLowRamProfile(context)
+    val detectedLowRamProfile = remember(context) {
+        resolveDetectedLowRamProfile(context)
+    }
+    var lowRamProfile by remember(context, initialLowRamProfile) {
+        mutableStateOf(initialLowRamProfile ?: resolveLowRamProfile(context))
     }
     val deviceCompatibilityProfile = remember(lowRamProfile) {
         currentDeviceCompatibilityProfile(lowRamProfile)
@@ -487,6 +493,10 @@ internal fun AppHostRuntimeContent(
 
     fun cacheAdminSettings(loaded: AdminSettings): AdminSettings {
         adminSettings = loaded
+        lowRamProfile = applyLowRamProfileOverride(
+            detectedProfile = detectedLowRamProfile,
+            override = loaded.lowRamProfileOverride
+        )
         homeAdminSettings = HomeAdminSettings(
             fastExamUrl = loaded.fastExamUrl,
             fastExamLabel = loaded.fastExamLabel
@@ -518,6 +528,10 @@ internal fun AppHostRuntimeContent(
     fun updateAdminSettings(updated: AdminSettings) {
         val normalized = updated.copy(examUserAgent = updated.effectiveExamUserAgent())
         adminSettings = normalized
+        lowRamProfile = applyLowRamProfileOverride(
+            detectedProfile = detectedLowRamProfile,
+            override = normalized.lowRamProfileOverride
+        )
         homeAdminSettings = HomeAdminSettings(
             fastExamUrl = normalized.fastExamUrl,
             fastExamLabel = normalized.fastExamLabel
@@ -739,9 +753,7 @@ internal fun AppHostRuntimeContent(
     LaunchedEffect(lowRamProfile) {
         Log.i(
             LowRamProfilePerfTag,
-            "enabled=${lowRamProfile.enabled} severe=${lowRamProfile.severe} " +
-                "qrMaxEdgePx=${lowRamProfile.qrMaxEdgePx} " +
-                "slowPollingMultiplier=${lowRamProfile.slowPollingMultiplier}"
+            lowRamProfile.diagnosticSummary()
         )
     }
 
@@ -1052,6 +1064,14 @@ internal fun AppHostRuntimeContent(
             PendingHomeAction.DirectLink -> {
                 StartupTrace.mark("pending_home_action_consumed", "action=${PendingHomeAction.DirectLink.name}")
                 launchDirectLink()
+                onInitialHomeActionConsumed()
+            }
+
+            PendingHomeAction.SecretAdmin -> {
+                StartupTrace.mark("pending_home_action_consumed", "action=${PendingHomeAction.SecretAdmin.name}")
+                adminFlowViewModel.dispatch(AdminFlowUiAction.SetAdminPasswordInput(""))
+                adminFlowViewModel.dispatch(AdminFlowUiAction.SetAdminPasswordError(null))
+                adminFlowViewModel.dispatch(AdminFlowUiAction.ShowAdminPasswordDialog)
                 onInitialHomeActionConsumed()
             }
 

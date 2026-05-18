@@ -35,6 +35,7 @@ import com.example.coblaxexamlock.LocationSpoofConfidenceTier
 import com.example.coblaxexamlock.LocationSpoofSecurityVerdict
 import com.example.coblaxexamlock.OverlaySignal
 import com.example.coblaxexamlock.RootBypassState
+import com.example.coblaxexamlock.accessibilityServiceFriendlySummary
 import com.example.coblaxexamlock.diagnosticLabel
 import com.example.coblaxexamlock.i18n.tr
 import com.example.coblaxexamlock.model.DiagnosticSection
@@ -264,6 +265,10 @@ internal fun PreparationRuntimeInteractionSection(
     onRequestSectionReport: (DiagnosticSection) -> Unit,
     modifier: Modifier = Modifier
 ) {
+    val blockingAccessibilitySummary = accessibilityServiceFriendlySummary(
+        serviceComponents = accessibilityInspection.effectiveServiceComponents,
+        maxItems = 1
+    )
     PreparationChecklistSectionSurface(
         sectionName = "runtime_interaction",
         modifier = modifier
@@ -277,8 +282,8 @@ internal fun PreparationRuntimeInteractionSection(
                     "Service yang diizinkan aktif: ${accessibilityInspection.allowedPackages.joinToString().ifBlank { "-" }}"
                 )
                 runtimeSecurity.accessibilityServiceEnabled -> tr(
-                    "Detected as active on this device",
-                    "Terdeteksi aktif di perangkat"
+                    "Turn off: $blockingAccessibilitySummary",
+                    "Matikan: $blockingAccessibilitySummary"
                 )
                 else -> tr("Inactive", "Tidak aktif")
             },

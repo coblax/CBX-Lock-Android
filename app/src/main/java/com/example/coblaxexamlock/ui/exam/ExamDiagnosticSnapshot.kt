@@ -53,6 +53,13 @@ internal data class ExamDiagnosticSnapshot(
     val buildType: String,
     val lowRamEnabled: Boolean,
     val lowRamSevere: Boolean,
+    val lowRamUltra: Boolean,
+    val lowRamTotalMemoryMb: Long?,
+    val lowRamAvailableMemoryMb: Long?,
+    val lowRamMemoryLow: Boolean,
+    val lowRamOverride: String,
+    val lowRamDetectedProfile: String,
+    val lowRamEffectiveProfile: String,
     val qrMaxEdgePx: Int,
     val slowPollingMultiplier: Int,
     val compatibilityFamily: String,
@@ -120,6 +127,13 @@ internal data class ExamDiagnosticSnapshot(
         "lowRam" to mapOf(
             "enabled" to lowRamEnabled,
             "severe" to lowRamSevere,
+            "ultra" to lowRamUltra,
+            "totalMemoryMb" to lowRamTotalMemoryMb,
+            "availableMemoryMb" to lowRamAvailableMemoryMb,
+            "memoryLow" to lowRamMemoryLow,
+            "override" to lowRamOverride,
+            "detectedProfile" to lowRamDetectedProfile,
+            "effectiveProfile" to lowRamEffectiveProfile,
             "qrMaxEdgePx" to qrMaxEdgePx,
             "slowPollingMultiplier" to slowPollingMultiplier
         ),
@@ -213,7 +227,12 @@ internal data class ExamDiagnosticSnapshot(
         appendLine("Generated: $generatedAt")
         appendLine("Source: $source")
         appendLine("App: $appVersionName ($versionCode) $buildType")
-        appendLine("Low RAM: enabled=$lowRamEnabled severe=$lowRamSevere qrMaxEdgePx=$qrMaxEdgePx polling=${slowPollingMultiplier}x")
+        appendLine(
+            "Low RAM: enabled=$lowRamEnabled severe=$lowRamSevere ultra=$lowRamUltra " +
+                "avail=${lowRamAvailableMemoryMb ?: "-"}MB total=${lowRamTotalMemoryMb ?: "-"}MB " +
+                "memoryLow=$lowRamMemoryLow override=$lowRamOverride detected=$lowRamDetectedProfile " +
+                "effective=$lowRamEffectiveProfile qrMaxEdgePx=$qrMaxEdgePx polling=${slowPollingMultiplier}x"
+        )
         appendLine("Compatibility: family=$compatibilityFamily label=$compatibilityLabel model=$compatibilityManufacturer/$compatibilityBrand/$compatibilityModel sdk=$compatibilitySdkInt skipPinningIfActive=$screenPinningSkipRequestWhenAlreadyActive")
         appendLine("Device survival: score=$survivalScore summary=$survivalPolicySummary")
         appendLine("Previous session: trail=$previousSessionBreadcrumbSummary recovery=${previousSessionRecoveryHint ?: "-"}")
@@ -296,6 +315,13 @@ internal fun buildExamDiagnosticSnapshot(input: ExamDiagnosticSnapshotInput): Ex
         buildType = BuildConfig.BUILD_TYPE,
         lowRamEnabled = input.lowRamProfile.enabled,
         lowRamSevere = input.lowRamProfile.severe,
+        lowRamUltra = input.lowRamProfile.ultra,
+        lowRamTotalMemoryMb = input.lowRamProfile.totalMemoryMb,
+        lowRamAvailableMemoryMb = input.lowRamProfile.availableMemoryMb,
+        lowRamMemoryLow = input.lowRamProfile.memoryLow,
+        lowRamOverride = input.lowRamProfile.lowRamOverride.name,
+        lowRamDetectedProfile = input.lowRamProfile.detectedTier?.name ?: input.lowRamProfile.tier.name,
+        lowRamEffectiveProfile = input.lowRamProfile.tier.name,
         qrMaxEdgePx = input.lowRamProfile.qrMaxEdgePx,
         slowPollingMultiplier = input.lowRamProfile.slowPollingMultiplier,
         compatibilityFamily = compatibility.family.name,
@@ -381,6 +407,13 @@ internal fun buildAdminExamDiagnosticSnapshot(
         buildType = BuildConfig.BUILD_TYPE,
         lowRamEnabled = lowRamProfile.enabled,
         lowRamSevere = lowRamProfile.severe,
+        lowRamUltra = lowRamProfile.ultra,
+        lowRamTotalMemoryMb = lowRamProfile.totalMemoryMb,
+        lowRamAvailableMemoryMb = lowRamProfile.availableMemoryMb,
+        lowRamMemoryLow = lowRamProfile.memoryLow,
+        lowRamOverride = lowRamProfile.lowRamOverride.name,
+        lowRamDetectedProfile = lowRamProfile.detectedTier?.name ?: lowRamProfile.tier.name,
+        lowRamEffectiveProfile = lowRamProfile.tier.name,
         qrMaxEdgePx = lowRamProfile.qrMaxEdgePx,
         slowPollingMultiplier = lowRamProfile.slowPollingMultiplier,
         compatibilityFamily = deviceCompatibilityProfile.family.name,
@@ -452,6 +485,13 @@ internal data class ExamDeviceFieldReport(
     val sdkInt: Int,
     val lowRamEnabled: Boolean,
     val lowRamSevere: Boolean,
+    val lowRamUltra: Boolean,
+    val lowRamTotalMemoryMb: Long?,
+    val lowRamAvailableMemoryMb: Long?,
+    val lowRamMemoryLow: Boolean,
+    val lowRamOverride: String,
+    val lowRamDetectedProfile: String,
+    val lowRamEffectiveProfile: String,
     val qrMaxEdgePx: Int,
     val slowPollingMultiplier: Int,
     val compatibilityFamily: String,
@@ -507,6 +547,13 @@ internal data class ExamDeviceFieldReport(
         "lowRam" to mapOf(
             "enabled" to lowRamEnabled,
             "severe" to lowRamSevere,
+            "ultra" to lowRamUltra,
+            "totalMemoryMb" to lowRamTotalMemoryMb,
+            "availableMemoryMb" to lowRamAvailableMemoryMb,
+            "memoryLow" to lowRamMemoryLow,
+            "override" to lowRamOverride,
+            "detectedProfile" to lowRamDetectedProfile,
+            "effectiveProfile" to lowRamEffectiveProfile,
             "qrMaxEdgePx" to qrMaxEdgePx,
             "slowPollingMultiplier" to slowPollingMultiplier
         ),
@@ -575,7 +622,12 @@ internal data class ExamDeviceFieldReport(
         appendLine("Source: $source")
         appendLine("App: $appVersionName ($versionCode) $buildType")
         appendLine("Device: $manufacturer / $brand / $model sdk=$sdkInt")
-        appendLine("Low RAM: enabled=$lowRamEnabled severe=$lowRamSevere qrMaxEdgePx=$qrMaxEdgePx polling=${slowPollingMultiplier}x")
+        appendLine(
+            "Low RAM: enabled=$lowRamEnabled severe=$lowRamSevere ultra=$lowRamUltra " +
+                "avail=${lowRamAvailableMemoryMb ?: "-"}MB total=${lowRamTotalMemoryMb ?: "-"}MB " +
+                "memoryLow=$lowRamMemoryLow override=$lowRamOverride detected=$lowRamDetectedProfile " +
+                "effective=$lowRamEffectiveProfile qrMaxEdgePx=$qrMaxEdgePx polling=${slowPollingMultiplier}x"
+        )
         appendLine("Compatibility: family=$compatibilityFamily label=$compatibilityLabel")
         appendLine("Compatibility summary: $compatibilitySummary")
         appendLine("Device survival: score=$survivalScore summary=$survivalPolicySummary")
@@ -632,6 +684,13 @@ internal fun buildAdminDeviceFieldReport(
         sdkInt = deviceCompatibilityProfile.sdkInt,
         lowRamEnabled = lowRamProfile.enabled,
         lowRamSevere = lowRamProfile.severe,
+        lowRamUltra = lowRamProfile.ultra,
+        lowRamTotalMemoryMb = lowRamProfile.totalMemoryMb,
+        lowRamAvailableMemoryMb = lowRamProfile.availableMemoryMb,
+        lowRamMemoryLow = lowRamProfile.memoryLow,
+        lowRamOverride = lowRamProfile.lowRamOverride.name,
+        lowRamDetectedProfile = lowRamProfile.detectedTier?.name ?: lowRamProfile.tier.name,
+        lowRamEffectiveProfile = lowRamProfile.tier.name,
         qrMaxEdgePx = lowRamProfile.qrMaxEdgePx,
         slowPollingMultiplier = lowRamProfile.slowPollingMultiplier,
         compatibilityFamily = deviceCompatibilityProfile.family.name,

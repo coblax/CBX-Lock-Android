@@ -3,6 +3,7 @@ package com.example.coblaxexamlock.model
 import com.example.coblaxexamlock.ExamQrLocationPolicy
 import com.example.coblaxexamlock.GeofenceShapeType
 import com.example.coblaxexamlock.GeofenceVertex
+import com.example.coblaxexamlock.LowRamProfileOverride
 import com.example.coblaxexamlock.SecureStrings
 import com.example.coblaxexamlock.config.DefaultExamUserAgent
 import com.example.coblaxexamlock.config.FastExamName
@@ -40,6 +41,7 @@ internal data class AdminSettings(
     val fastExamLabel: String = FastExamName,
     val officialApkUrl: String = "",
     val examUserAgent: String = DefaultExamUserAgent,
+    val lowRamProfileOverride: LowRamProfileOverride = LowRamProfileOverride.Auto,
     val directLinkLocationPolicySaved: Boolean = false,
     val directLinkLocationPolicySerialized: String = "",
     val directLinkGeofenceEnabled: Boolean = false,

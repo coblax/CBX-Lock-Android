@@ -341,10 +341,11 @@ private fun buildDeviceTimeHealthItem(input: PreExamHealthCheckInput): PreExamHe
 
 private fun buildBatteryPowerHealthItem(input: PreExamHealthCheckInput): PreExamHealthItem {
     val level = input.batteryStatus.levelPercent
-    val lowRamDetail = if (input.compatibilityProfile.lowRamProfile.enabled) {
-        " Low-RAM mode is active."
-    } else {
-        ""
+    val lowRamProfile = input.compatibilityProfile.lowRamProfile
+    val lowRamDetail = when {
+        lowRamProfile.ultra -> " Ultra Low-RAM mode is active (${lowRamProfile.availableMemoryMb ?: "-"}MB available)."
+        lowRamProfile.enabled -> " Low-RAM mode is active."
+        else -> ""
     }
     return if (level <= 30 && !input.batteryStatus.isCharging) {
         PreExamHealthItem(

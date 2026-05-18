@@ -221,6 +221,7 @@ internal data class PreparationSessionActions(
     val onAutoFixShown: (String) -> Unit,
     val onPreviousSessionRecoveryHintShown: (String) -> Unit,
     val onAutoFixActionOpened: (String) -> Unit,
+    val onScreenPinningDeferred: (String) -> Unit,
     val onStartExam: () -> Unit,
     val onBackHome: () -> Unit
 )
@@ -310,6 +311,7 @@ internal data class PreparationScreenActions(
     val onAutoFixShown: (String) -> Unit get() = session.onAutoFixShown
     val onPreviousSessionRecoveryHintShown: (String) -> Unit get() = session.onPreviousSessionRecoveryHintShown
     val onAutoFixActionOpened: (String) -> Unit get() = session.onAutoFixActionOpened
+    val onScreenPinningDeferred: (String) -> Unit get() = session.onScreenPinningDeferred
     val onStartExam: () -> Unit get() = session.onStartExam
     val onBackHome: () -> Unit get() = session.onBackHome
 }

@@ -18,6 +18,9 @@ internal enum class QuickFixSeverity {
     Warning
 }
 
+internal const val QuickFixStartScreenPinningCode = "start_screen_pinning"
+internal const val QuickFixScreenPinningDeferredCode = "screen_pinning_deferred_until_blockers_clear"
+
 internal data class PreparationQuickFixAction(
     val code: String,
     val text: String,
@@ -27,6 +30,9 @@ internal data class PreparationQuickFixAction(
     val filled: Boolean = false,
     val loading: Boolean = false,
     val enabled: Boolean = true,
+    val opensExternalSettings: Boolean = false,
+    val isNotice: Boolean = false,
+    val diagnosticDetails: String? = null,
     val onClick: () -> Unit
 )
 

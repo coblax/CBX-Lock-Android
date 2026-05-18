@@ -196,6 +196,8 @@ import com.example.coblaxexamlock.IntegrityCheckResult
 import com.example.coblaxexamlock.IntegrityGuard
 import com.example.coblaxexamlock.LocationPolicySource
 import com.example.coblaxexamlock.LocalLowRamProfile
+import com.example.coblaxexamlock.lowRamProfileBadgeLabel
+import com.example.coblaxexamlock.lowRamProfileBadgePalette
 import com.example.coblaxexamlock.OverlayRiskAnalyzer
 import com.example.coblaxexamlock.OverlayShieldStatus
 import com.example.coblaxexamlock.R
@@ -572,29 +574,28 @@ internal fun ProductionBuildBadge(
     onSecretTap: () -> Unit
 ) {
     val lowRamProfile = LocalLowRamProfile.current
-    val compactHome = lowRamProfile.deferHeavyUi
-    val backgroundModifier = if (compactHome) {
-        Modifier.background(LockBlueDeep)
-    } else {
-        Modifier.background(
-            brush = Brush.horizontalGradient(
-                0f to LockBlueDeep,
-                1f to LockBlue
-            )
-        )
-    }
+    val badgePalette = lowRamProfileBadgePalette(lowRamProfile)
+    val containerColor = Color(badgePalette.containerColorArgb)
+    val contentColor = Color(badgePalette.contentColorArgb)
+    val borderColor = Color(badgePalette.borderColorArgb)
+    val dotColor = Color(badgePalette.dotColorArgb)
+    val label = lowRamProfileBadgeLabel(lowRamProfile)
 
     Row(
         modifier = Modifier
-            .then(backgroundModifier)
-            .flatPill(containerColor = Color.Transparent, borderColor = LockBlue, borderAlpha = 0.18f)
+            .flatPill(
+                containerColor = containerColor,
+                borderColor = borderColor,
+                borderAlpha = 1f
+            )
             .clickable(
                 interactionSource = remember { MutableInteractionSource() },
                 indication = null,
                 role = Role.Button,
                 onClick = onSecretTap
             )
-            .padding(horizontal = 12.dp, vertical = 7.dp),
+            .heightIn(min = 30.dp)
+            .padding(horizontal = 10.dp, vertical = 6.dp),
         verticalAlignment = Alignment.CenterVertically,
         horizontalArrangement = Arrangement.spacedBy(6.dp)
     ) {
@@ -602,14 +603,14 @@ internal fun ProductionBuildBadge(
             modifier = Modifier
                 .size(7.dp)
                 .clip(CircleShape)
-                .background(Color.White.copy(alpha = 0.92f))
+                .background(dotColor)
         )
         Text(
-            text = localized(uiLanguage, "PROD", "PROD"),
-            color = LockOnDark,
+            text = localized(uiLanguage, label, label),
+            color = contentColor,
             fontSize = 10.sp,
             fontWeight = FontWeight.ExtraBold,
-            letterSpacing = 0.7.sp
+            letterSpacing = 0.sp
         )
     }
 }

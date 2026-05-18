@@ -1,9 +1,11 @@
 package com.example.coblaxexamlock.ui.preparation
 
+import com.example.coblaxexamlock.AccessibilityInspectionResult
 import com.example.coblaxexamlock.GeofenceSecurityVerdict
 import com.example.coblaxexamlock.LocationSpoofConfidenceTier
 import com.example.coblaxexamlock.LocationSpoofSecurityVerdict
 import com.example.coblaxexamlock.OverlayQuickFixTarget
+import com.example.coblaxexamlock.accessibilityQuickFixButtonText
 import com.example.coblaxexamlock.i18n.localized
 import com.example.coblaxexamlock.model.NetworkReadinessVerdict
 import com.example.coblaxexamlock.model.UiLanguage
@@ -17,6 +19,7 @@ internal fun buildPreparationQuickFixActions(
     geofenceReady: Boolean,
     fakeLocationReady: Boolean,
     needsBluetoothPermission: Boolean,
+    accessibilityInspection: AccessibilityInspectionResult,
     runQuickFix: (QuickFixTarget?, String, () -> Unit) -> Unit
 ): List<PreparationQuickFixAction> {
     with(state) {
@@ -135,20 +138,36 @@ internal fun buildPreparationQuickFixActions(
                     filled: Boolean = false,
                     loading: Boolean = false,
                     enabled: Boolean = true,
-                    onClick: () -> Unit
+                    opensExternalSettings: Boolean = false,
+                    isNotice: Boolean = false,
+                    diagnosticDetails: String? = null,
+                    onClick: () -> Unit = {}
                 ) {
                     val actionCode = code.ifBlank { "quick_fix_$priority" }
+                    val externalBlockedByPinning = isScreenPinningActive && opensExternalSettings
+                    val resolvedText = if (externalBlockedByPinning) {
+                        "$text - ${t("Turn off Screen Pinning first", "Matikan Screen Pinning dulu")}"
+                    } else {
+                        text
+                    }
                     add(
                         PreparationQuickFixAction(
                             code = actionCode,
-                            text = text,
+                            text = resolvedText,
                             severity = severity,
                             target = target,
                             priority = priority,
                             filled = filled,
                             loading = loading,
-                            enabled = enabled,
-                            onClick = { runQuickFix(target, actionCode, onClick) }
+                            enabled = enabled && !externalBlockedByPinning,
+                            opensExternalSettings = opensExternalSettings,
+                            isNotice = isNotice,
+                            diagnosticDetails = diagnosticDetails,
+                            onClick = if (isNotice) {
+                                {}
+                            } else {
+                                { runQuickFix(target, actionCode, onClick) }
+                            }
                         )
                     )
                 }
@@ -160,6 +179,7 @@ internal fun buildPreparationQuickFixActions(
                         target = QuickFixTarget.DeviceTime,
                         priority = 10,
                         filled = true,
+                        opensExternalSettings = true,
                         onClick = onOpenDateTimeSettings
                     )
                 }
@@ -179,6 +199,7 @@ internal fun buildPreparationQuickFixActions(
                         severity = QuickFixSeverity.Blocking,
                         target = QuickFixTarget.All,
                         priority = 20,
+                        opensExternalSettings = true,
                         onClick = onOpenDeveloperOptionsSettings
                     )
                 }
@@ -192,6 +213,7 @@ internal fun buildPreparationQuickFixActions(
                         severity = QuickFixSeverity.Blocking,
                         target = QuickFixTarget.All,
                         priority = 21,
+                        opensExternalSettings = true,
                         onClick = onOpenDeveloperOptionsSettings
                     )
                 }
@@ -253,15 +275,17 @@ internal fun buildPreparationQuickFixActions(
                         severity = if (fakeLocationReady) QuickFixSeverity.Warning else QuickFixSeverity.Blocking,
                         target = QuickFixTarget.Location,
                         priority = 30,
+                        opensExternalSettings = true,
                         onClick = onOpenFakeLocationDeveloperOptionsSettings
                     )
                 }
                 if (showAccessibilityFix) {
                     addQuickFix(
-                        text = t("Disable Risky Accessibility Services", "Nonaktifkan Layanan Aksesibilitas Berisiko"),
+                        text = accessibilityQuickFixButtonText(accessibilityInspection, uiLanguage),
                         severity = QuickFixSeverity.Blocking,
                         target = QuickFixTarget.All,
                         priority = 35,
+                        opensExternalSettings = true,
                         onClick = onOpenAccessibilitySettings
                     )
                 }
@@ -272,6 +296,7 @@ internal fun buildPreparationQuickFixActions(
                         target = QuickFixTarget.All,
                         priority = 36,
                         filled = true,
+                        opensExternalSettings = true,
                         onClick = onOpenAccessibilitySettings
                     )
                 }
@@ -295,6 +320,7 @@ internal fun buildPreparationQuickFixActions(
                         severity = QuickFixSeverity.Blocking,
                         target = QuickFixTarget.Location,
                         priority = 45,
+                        opensExternalSettings = true,
                         onClick = onOpenLocationServicesSettings
                     )
                 }
@@ -338,6 +364,7 @@ internal fun buildPreparationQuickFixActions(
                         severity = QuickFixSeverity.Blocking,
                         target = QuickFixTarget.All,
                         priority = 65,
+                        opensExternalSettings = true,
                         onClick = onOpenBluetoothSettings
                     )
                 }
@@ -349,6 +376,7 @@ internal fun buildPreparationQuickFixActions(
                         severity = QuickFixSeverity.Warning,
                         target = QuickFixTarget.Network,
                         priority = 70,
+                        opensExternalSettings = true,
                         onClick = onOpenAirplaneModeSettings
                     )
                 } else if (showNetworkVpnSettingsFix) {
@@ -359,6 +387,7 @@ internal fun buildPreparationQuickFixActions(
                         target = QuickFixTarget.Network,
                         priority = 70,
                         filled = true,
+                        opensExternalSettings = true,
                         onClick = onOpenVpnSettings
                     )
                 } else if (networkPrimaryIsRefresh && showNetworkRefreshFix) {
@@ -381,6 +410,7 @@ internal fun buildPreparationQuickFixActions(
                         severity = QuickFixSeverity.Warning,
                         target = QuickFixTarget.Network,
                         priority = 70,
+                        opensExternalSettings = true,
                         onClick = onOpenInternetSettings
                     )
                 }
@@ -390,6 +420,7 @@ internal fun buildPreparationQuickFixActions(
                         severity = QuickFixSeverity.Warning,
                         target = QuickFixTarget.Network,
                         priority = 75,
+                        opensExternalSettings = true,
                         onClick = onOpenWifiSettings
                     )
                 }
@@ -399,6 +430,7 @@ internal fun buildPreparationQuickFixActions(
                         severity = QuickFixSeverity.Warning,
                         target = QuickFixTarget.Network,
                         priority = 76,
+                        opensExternalSettings = true,
                         onClick = onOpenCellularSettings
                     )
                 }
@@ -434,6 +466,7 @@ internal fun buildPreparationQuickFixActions(
                         target = QuickFixTarget.WebView,
                         priority = 90,
                         filled = webViewHealthItem.verdict == PreExamHealthVerdict.Blocking,
+                        opensExternalSettings = true,
                         onClick = onOpenWebViewProviderSettings
                     )
                 }
@@ -445,6 +478,7 @@ internal fun buildPreparationQuickFixActions(
                         target = null,
                         priority = 200,
                         filled = true,
+                        opensExternalSettings = true,
                         onClick = onChooseKeyboard
                     )
                     addQuickFix(
@@ -452,18 +486,8 @@ internal fun buildPreparationQuickFixActions(
                         severity = QuickFixSeverity.Warning,
                         target = QuickFixTarget.All,
                         priority = 205,
+                        opensExternalSettings = true,
                         onClick = onOpenKeyboardSettings
-                    )
-                }
-                if (!bypassScreenPinning && screenPinningAvailable && !isScreenPinningActive) {
-                    addQuickFix(
-                        code = "start_screen_pinning",
-                        text = t("Start Screen Pinning", "Start Screen Pinning"),
-                        severity = QuickFixSeverity.Blocking,
-                        target = QuickFixTarget.ScreenPinning,
-                        priority = 210,
-                        filled = true,
-                        onClick = onStartScreenPinning
                     )
                 }
                 if (screenRecorderPackages.isNotEmpty() && !bypassScreenRecorder) {
@@ -472,6 +496,7 @@ internal fun buildPreparationQuickFixActions(
                         severity = QuickFixSeverity.Blocking,
                         target = QuickFixTarget.ScreenRecorder,
                         priority = 50,
+                        opensExternalSettings = true,
                         onClick = onOpenAppSettings
                     )
                 }
@@ -481,6 +506,7 @@ internal fun buildPreparationQuickFixActions(
                         severity = QuickFixSeverity.Blocking,
                         target = QuickFixTarget.DisplayMirror,
                         priority = 45,
+                        opensExternalSettings = true,
                         onClick = onOpenCastSettings
                     )
                 }
@@ -499,6 +525,7 @@ internal fun buildPreparationQuickFixActions(
                         severity = QuickFixSeverity.Warning,
                         target = QuickFixTarget.All,
                         priority = 220,
+                        opensExternalSettings = true,
                         onClick = onOpenOverlayAccessibilitySettings
                     )
                 }
@@ -508,8 +535,44 @@ internal fun buildPreparationQuickFixActions(
                         severity = QuickFixSeverity.Warning,
                         target = QuickFixTarget.All,
                         priority = 225,
+                        opensExternalSettings = true,
                         onClick = onOpenOverlaySettings
                     )
+                }
+                if (!bypassScreenPinning && screenPinningAvailable && !isScreenPinningActive) {
+                    val blockingActionsBeforePinning = this.filter {
+                        it.severity == QuickFixSeverity.Blocking && !it.isNotice
+                    }
+                    if (blockingActionsBeforePinning.isEmpty()) {
+                        addQuickFix(
+                            code = QuickFixStartScreenPinningCode,
+                            text = t("Start Screen Pinning", "Start Screen Pinning"),
+                            severity = QuickFixSeverity.Blocking,
+                            target = QuickFixTarget.ScreenPinning,
+                            priority = 210,
+                            filled = true,
+                            onClick = onStartScreenPinning
+                        )
+                    } else {
+                        val blockerCodes = blockingActionsBeforePinning
+                            .map { it.code }
+                            .distinct()
+                            .take(6)
+                            .joinToString(",")
+                        addQuickFix(
+                            code = QuickFixScreenPinningDeferredCode,
+                            text = t(
+                                "Finish the other required fixes first. Screen Pinning will appear as the final step.",
+                                "Selesaikan perbaikan wajib lain dulu. Screen Pinning akan muncul sebagai langkah terakhir."
+                            ),
+                            severity = QuickFixSeverity.Warning,
+                            target = QuickFixTarget.ScreenPinning,
+                            priority = 210,
+                            enabled = false,
+                            isNotice = true,
+                            diagnosticDetails = "blockers=${blockingActionsBeforePinning.size} | blocker_codes=$blockerCodes"
+                        )
+                    }
                 }
             }
             val quickFixActions = if (quickFixIssueActions.isEmpty()) {

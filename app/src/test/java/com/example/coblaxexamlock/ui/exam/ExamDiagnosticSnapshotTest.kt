@@ -63,8 +63,15 @@ class ExamDiagnosticSnapshotTest {
             sdkInt = 29,
             lowRamEnabled = true,
             lowRamSevere = true,
-            qrMaxEdgePx = 960,
-            slowPollingMultiplier = 2,
+            lowRamUltra = true,
+            lowRamTotalMemoryMb = 768,
+            lowRamAvailableMemoryMb = 468,
+            lowRamMemoryLow = false,
+            lowRamOverride = "Auto",
+            lowRamDetectedProfile = "Ultra",
+            lowRamEffectiveProfile = "Ultra",
+            qrMaxEdgePx = 720,
+            slowPollingMultiplier = 4,
             compatibilityFamily = "SamsungLegacyTablet",
             compatibilityLabel = "Samsung legacy tablet",
             compatibilitySummary = "family=SamsungLegacyTablet",
@@ -110,5 +117,7 @@ class ExamDiagnosticSnapshotTest {
         assertTrue(json.contains("SamsungLegacyTablet"))
         assertTrue(json.contains("webView"))
         assertTrue(json.contains("Ready"))
+        assertTrue(json.contains("override"))
+        assertTrue(json.contains("effectiveProfile"))
     }
 }

@@ -6,6 +6,8 @@ import androidx.compose.runtime.DisposableEffect
 import androidx.compose.runtime.LaunchedEffect
 import com.example.coblaxexamlock.FakeLocationBypassState
 import com.example.coblaxexamlock.LocationFixQualityStatus
+import com.example.coblaxexamlock.LocalLowRamProfile
+import com.example.coblaxexamlock.LowRamProfile
 import com.example.coblaxexamlock.MainActivity
 import com.example.coblaxexamlock.RootSecurityStatus
 import com.example.coblaxexamlock.buildRootSecurityStatus
@@ -22,6 +24,17 @@ import kotlinx.coroutines.withContext
 
 private const val RuntimeFastStaticSecurityPollIntervalMillis = 2_000L
 private const val RuntimeScreenRecorderPollIntervalMillis = 15_000L
+private const val RuntimeUltraScreenRecorderPollIntervalMillis = 45_000L
+
+internal fun runtimeFastStaticSecurityPollIntervalMillis(lowRamProfile: LowRamProfile): Long =
+    RuntimeFastStaticSecurityPollIntervalMillis * lowRamProfile.slowPollingMultiplier
+
+internal fun runtimeScreenRecorderPollIntervalMillis(lowRamProfile: LowRamProfile): Long =
+    if (lowRamProfile.ultra) {
+        RuntimeUltraScreenRecorderPollIntervalMillis
+    } else {
+        RuntimeScreenRecorderPollIntervalMillis
+    }
 
 internal data class RuntimeStaticSecurityUiMessage(
     val key: String,
@@ -204,6 +217,7 @@ internal fun RuntimeStaticSecurityEffects(
     startAlarm: () -> Unit
 ) {
     val initialScanComplete = securityUiState.staticSecurityInitialScanComplete.value
+    val lowRamProfile = LocalLowRamProfile.current
 
     fun refreshRuntimeFastStaticSecurity(trigger: String, forceRefresh: Boolean = false) {
         refreshRuntimeFastStaticSecurityState(
@@ -236,7 +250,8 @@ internal fun RuntimeStaticSecurityEffects(
         examSessionStarted,
         bypassDisplayMirror,
         bypassMultiWindow,
-        initialScanComplete
+        initialScanComplete,
+        lowRamProfile
     ) {
         if (!initialScanComplete) {
             return@LaunchedEffect
@@ -246,7 +261,7 @@ internal fun RuntimeStaticSecurityEffects(
             return@LaunchedEffect
         }
         while (true) {
-            delay(RuntimeFastStaticSecurityPollIntervalMillis)
+            delay(runtimeFastStaticSecurityPollIntervalMillis(lowRamProfile))
             refreshRuntimeFastStaticSecurity("runtime_static_security_fast_poll")
         }
     }
@@ -254,7 +269,8 @@ internal fun RuntimeStaticSecurityEffects(
     LaunchedEffect(
         examSessionStarted,
         bypassScreenRecorder,
-        initialScanComplete
+        initialScanComplete,
+        lowRamProfile
     ) {
         if (!initialScanComplete) {
             return@LaunchedEffect
@@ -264,7 +280,7 @@ internal fun RuntimeStaticSecurityEffects(
             return@LaunchedEffect
         }
         while (true) {
-            delay(RuntimeScreenRecorderPollIntervalMillis)
+            delay(runtimeScreenRecorderPollIntervalMillis(lowRamProfile))
             refreshRuntimeScreenRecorder("runtime_screen_recorder_poll")
         }
     }

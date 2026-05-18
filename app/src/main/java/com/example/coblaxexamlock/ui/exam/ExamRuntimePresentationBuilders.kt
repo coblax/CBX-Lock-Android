@@ -357,6 +357,7 @@ internal fun buildPreparationScreenActions(
     onAutoFixShown: (String) -> Unit,
     onPreviousSessionRecoveryHintShown: (String) -> Unit,
     onAutoFixActionOpened: (String) -> Unit,
+    onScreenPinningDeferred: (String) -> Unit,
     onStartExam: () -> Unit,
     onBackHome: () -> Unit
 ): PreparationScreenActions {
@@ -370,6 +371,7 @@ internal fun buildPreparationScreenActions(
             onAutoFixShown = onAutoFixShown,
             onPreviousSessionRecoveryHintShown = onPreviousSessionRecoveryHintShown,
             onAutoFixActionOpened = onAutoFixActionOpened,
+            onScreenPinningDeferred = onScreenPinningDeferred,
             onStartExam = onStartExam,
             onBackHome = onBackHome
         ),

@@ -17,6 +17,7 @@ import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.remember
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.draw.clip
@@ -25,6 +26,7 @@ import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
+import com.example.coblaxexamlock.AccessibilityInspectionResult
 import com.example.coblaxexamlock.i18n.LocalUiLanguage
 import com.example.coblaxexamlock.i18n.tr
 import com.example.coblaxexamlock.ui.theme.LockGoldDark
@@ -40,6 +42,7 @@ internal fun PreparationQuickFixPanel(
     geofenceReady: Boolean,
     fakeLocationReady: Boolean,
     needsBluetoothPermission: Boolean,
+    accessibilityInspection: AccessibilityInspectionResult,
     runQuickFix: (QuickFixTarget?, String, () -> Unit) -> Unit,
     modifier: Modifier = Modifier
 ) {
@@ -62,6 +65,7 @@ internal fun PreparationQuickFixPanel(
         geofenceReady,
         fakeLocationReady,
         needsBluetoothPermission,
+        accessibilityInspection,
         runQuickFix
     ) {
         buildPreparationQuickFixActions(
@@ -73,15 +77,26 @@ internal fun PreparationQuickFixPanel(
             geofenceReady = geofenceReady,
             fakeLocationReady = fakeLocationReady,
             needsBluetoothPermission = needsBluetoothPermission,
+            accessibilityInspection = accessibilityInspection,
             runQuickFix = runQuickFix
         )
     }
-    val primaryQuickFixAction = quickFixActions.firstOrNull()
-    val remainingQuickFixActions = quickFixActions.drop(1)
+    val noticeQuickFixActions = quickFixActions.filter { it.isNotice }
+    val actionableQuickFixActions = quickFixActions.filterNot { it.isNotice }
+    val pinningDeferredNotice = noticeQuickFixActions.firstOrNull {
+        it.code == QuickFixScreenPinningDeferredCode
+    }
+    LaunchedEffect(pinningDeferredNotice?.diagnosticDetails) {
+        val details = pinningDeferredNotice?.diagnosticDetails ?: return@LaunchedEffect
+        actions.onScreenPinningDeferred(details)
+    }
+    val primaryQuickFixAction = actionableQuickFixActions.firstOrNull()
+    val remainingQuickFixActions = actionableQuickFixActions.drop(1)
     val blockingQuickFixActions = remainingQuickFixActions.filter { it.severity == QuickFixSeverity.Blocking }
     val warningQuickFixActions = remainingQuickFixActions.filter { it.severity == QuickFixSeverity.Warning }
-    val blockingQuickFixCount = quickFixActions.count { it.severity == QuickFixSeverity.Blocking }
-    val warningQuickFixCount = quickFixActions.count { it.severity == QuickFixSeverity.Warning && it.priority != 900 }
+    val blockingQuickFixCount = actionableQuickFixActions.count { it.severity == QuickFixSeverity.Blocking }
+    val warningQuickFixCount =
+        actionableQuickFixActions.count { it.severity == QuickFixSeverity.Warning && it.priority != 900 }
     val quickFixBorderColor = if (blockingQuickFixCount > 0)
         Color(0xFFB34A4A).copy(alpha = 0.30f)
     else
@@ -135,6 +150,25 @@ internal fun PreparationQuickFixPanel(
                         fontSize = 12.sp,
                         lineHeight = 17.sp
                     )
+
+                    noticeQuickFixActions.forEach { notice ->
+                        Box(
+                            modifier = Modifier
+                                .fillMaxWidth()
+                                .clip(RoundedCornerShape(14.dp))
+                                .background(Color(0xFFFFF8E6))
+                                .border(1.dp, LockGoldDark.copy(alpha = 0.35f), RoundedCornerShape(14.dp))
+                                .padding(horizontal = 12.dp, vertical = 9.dp)
+                        ) {
+                            Text(
+                                text = notice.text,
+                                color = LockGoldDark,
+                                fontSize = 12.sp,
+                                lineHeight = 16.sp,
+                                fontWeight = FontWeight.SemiBold
+                            )
+                        }
+                    }
 
                     val primaryAction = primaryQuickFixAction
                     if (primaryAction != null) {

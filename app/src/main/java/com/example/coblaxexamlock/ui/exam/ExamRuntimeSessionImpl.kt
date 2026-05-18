@@ -2368,6 +2368,8 @@ internal fun ExamRuntimeSessionScreenImpl(
                 append(if (lowRamProfile.enabled) "yes" else "no")
                 append(" | severe=")
                 append(if (lowRamProfile.severe) "yes" else "no")
+                append(" | ultra=")
+                append(if (lowRamProfile.ultra) "yes" else "no")
                 append(" | recovery=manual_safe")
             }
             recordAction(
@@ -2419,7 +2421,8 @@ internal fun ExamRuntimeSessionScreenImpl(
             val memoryAction = resolveExamRuntimeMemoryAction(
                 shouldRespondToPressure = MemoryPressureCoordinator.shouldRespondToPressure(level),
                 examSessionStarted = examSessionStarted,
-                hasFullscreenCustomView = fullScreenCustomView != null
+                hasFullscreenCustomView = fullScreenCustomView != null,
+                clearActiveWebViewCacheAllowed = MemoryPressureCoordinator.shouldClearActiveWebViewCache(level)
             )
             if (!memoryAction.respond) {
                 return
@@ -2445,7 +2448,8 @@ internal fun ExamRuntimeSessionScreenImpl(
             SecurityDetectorCache.invalidateStaticSecurity()
             val actions = memoryAction.diagnosticActions().joinToString(",")
             val details = "trim_level=$level | exam_started=$examSessionStarted | " +
-                "low_ram=${lowRamProfile.enabled} | severe=${lowRamProfile.severe} | actions=$actions"
+                "low_ram=${lowRamProfile.enabled} | severe=${lowRamProfile.severe} | " +
+                "ultra=${lowRamProfile.ultra} | actions=$actions"
             lastRuntimeMemoryActionSummary = details.take(240)
             recordAction(
                 code = ExamRuntimeHardeningDiagnostics.MemoryTrimHandled,
@@ -3020,6 +3024,7 @@ internal fun ExamRuntimeSessionScreenImpl(
                 flowUiState = flowUiState,
                 adminUiState = adminUiState,
                 clipboardUiState = clipboardUiState,
+                lowRamProfile = lowRamProfile,
                 lockTaskAlreadyActive = lockTaskAlreadyActive,
                 hideSystemKeyboard = ::hideSystemKeyboard,
                 showSystemKeyboard = ::showSystemKeyboard
@@ -4796,6 +4801,12 @@ internal fun ExamRuntimeSessionScreenImpl(
             recordAction(
                 code = ExamRuntimeHardeningDiagnostics.PreparationAutoFixActionOpened,
                 details = "action=$actionCode"
+            )
+        },
+        onScreenPinningDeferred = { details ->
+            recordAction(
+                code = ExamRuntimeHardeningDiagnostics.ScreenPinningDeferredUntilBlockersClear,
+                details = details
             )
         },
         onStartExam = ::handleStartExam,

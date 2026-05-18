@@ -24,6 +24,8 @@ import com.example.coblaxexamlock.SecureStrings
 import com.example.coblaxexamlock.SignatureIntegrity
 import com.example.coblaxexamlock.SignatureIntegrityResult
 import com.example.coblaxexamlock.WebViewCompatibilityStatus
+import com.example.coblaxexamlock.accessibilityBlockingCauseText
+import com.example.coblaxexamlock.accessibilityBlockingFixText
 import com.example.coblaxexamlock.diagnosticLabel
 import com.example.coblaxexamlock.formatCoordinates
 import com.example.coblaxexamlock.format.formatElapsedDuration
@@ -469,6 +471,10 @@ internal fun StringBuilder.appendTelegramSectionDetails(details: TelegramSection
                             riskyAccessibilityPackages.joinToString().ifBlank { "-" }
                         }"
                     )
+                    if (accessibilityServiceEnabled) {
+                        appendLine("Accessibility likely cause: ${accessibilityBlockingCauseText(accessibilityInspection, uiLanguage)}")
+                        appendLine("Accessibility fix hint: ${accessibilityBlockingFixText(accessibilityInspection, uiLanguage)}")
+                    }
                 }
                 DiagnosticSection.Overlay -> {
                     appendLine("[OVERLAY / FLOATING APP]")

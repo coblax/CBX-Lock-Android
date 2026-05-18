@@ -38,7 +38,8 @@ internal data class ExamRuntimeMemoryAction(
 internal fun resolveExamRuntimeMemoryAction(
     shouldRespondToPressure: Boolean,
     examSessionStarted: Boolean,
-    hasFullscreenCustomView: Boolean
+    hasFullscreenCustomView: Boolean,
+    clearActiveWebViewCacheAllowed: Boolean = false
 ): ExamRuntimeMemoryAction {
     if (!shouldRespondToPressure) {
         return ExamRuntimeMemoryAction(respond = false)
@@ -51,7 +52,7 @@ internal fun resolveExamRuntimeMemoryAction(
         clearUnusedFullscreenContainer = !hasFullscreenCustomView,
         cleanupInactiveWebView = !examSessionStarted,
         keepActiveWebView = examSessionStarted,
-        clearActiveWebViewCache = examSessionStarted
+        clearActiveWebViewCache = examSessionStarted && clearActiveWebViewCacheAllowed
     )
 }
 
@@ -182,6 +183,7 @@ internal object ExamRuntimeHardeningDiagnostics {
     const val CompatibilityScoreUpdated = "COMPATIBILITY_SCORE_UPDATED"
     const val PreparationAutoFixShown = "PREPARATION_AUTOFIX_SHOWN"
     const val PreparationAutoFixActionOpened = "PREPARATION_AUTOFIX_ACTION_OPENED"
+    const val ScreenPinningDeferredUntilBlockersClear = "SCREEN_PINNING_DEFERRED_UNTIL_BLOCKERS_CLEAR"
     const val PreviousSessionBreadcrumbWritten = "PREVIOUS_SESSION_BREADCRUMB_WRITTEN"
     const val PreviousSessionRecoveryHintShown = "PREVIOUS_SESSION_RECOVERY_HINT_SHOWN"
     const val WebViewProviderHealthResolved = "WEBVIEW_PROVIDER_HEALTH_RESOLVED"
@@ -249,6 +251,7 @@ internal object ExamRuntimeHardeningDiagnostics {
         CompatibilityScoreUpdated,
         PreparationAutoFixShown,
         PreparationAutoFixActionOpened,
+        ScreenPinningDeferredUntilBlockersClear,
         PreviousSessionBreadcrumbWritten,
         PreviousSessionRecoveryHintShown,
         WebViewProviderHealthResolved,

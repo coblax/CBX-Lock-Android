@@ -17,6 +17,9 @@ import com.example.coblaxexamlock.config.VirtualManufacturerTokens
 import com.example.coblaxexamlock.config.VirtualModelTokens
 import com.example.coblaxexamlock.config.VirtualProductTokens
 import com.example.coblaxexamlock.config.VirtualQemuFiles
+import com.example.coblaxexamlock.accessibilityBlockingCauseText
+import com.example.coblaxexamlock.accessibilityBlockingFixText
+import com.example.coblaxexamlock.accessibilityServiceFriendlySummary
 import com.example.coblaxexamlock.diagnosticLabel
 import com.example.coblaxexamlock.model.UiLanguage
 
@@ -113,17 +116,33 @@ internal fun buildPreparationChecklistDetailText(
             "- Jika aktif saat ujian -> pelanggaran + alarm"
         }
     )
-    val accessibilityDetail = preparationDetailOrNull(
+    val accessibilityActionDetail = if (!bypassAccessibility && accessibilityInspection.blockingServiceActive) {
+        accessibilityBlockingCauseText(accessibilityInspection, uiLanguage) +
+            "\n" +
+            accessibilityBlockingFixText(accessibilityInspection, uiLanguage)
+    } else {
+        null
+    }
+    val accessibilityAuditDetail = preparationDetailOrNull(
         english = {
         "Checked:\n" +
             "- AccessibilityManager.isEnabled\n" +
             "- Settings.Secure.ENABLED_ACCESSIBILITY_SERVICES not empty\n" +
+            "- Likely active service: ${
+                accessibilityServiceFriendlySummary(
+                    accessibilityInspection.effectiveServiceComponents,
+                    includePackage = true
+                )
+            }\n" +
             "- Active packages: ${preparationListSummary(enabledAccessibilityPackages)}\n" +
             "- Allowed services: ${preparationListSummary(allowedAccessibilityServices)}\n" +
             "- Allowed packages: ${preparationListSummary(allowedAccessibilityPackages)}\n" +
             "- Effective packages after allowlist: ${preparationListSummary(effectiveAccessibilityPackages)}\n" +
             "- Risky keywords: ${preparationListSummary(RiskyAccessibilityKeywords)}\n" +
             "- Risky packages matched: ${preparationListSummary(riskyAccessibilityPackages)}\n" +
+            "Common causes:\n" +
+            "- Select to Speak, TalkBack, Switch Access, Voice Access\n" +
+            "- Auto clicker, app lock, antivirus/cleaner, floating menu, or OEM assistant service\n" +
             "Impact:\n" +
             "- Start blocked if accessibility service active\n" +
             "- If enabled during exam -> warning + alarm"
@@ -132,16 +151,29 @@ internal fun buildPreparationChecklistDetailText(
         "Dicek:\n" +
             "- AccessibilityManager.isEnabled\n" +
             "- Settings.Secure.ENABLED_ACCESSIBILITY_SERVICES tidak kosong\n" +
+            "- Kemungkinan service aktif: ${
+                accessibilityServiceFriendlySummary(
+                    accessibilityInspection.effectiveServiceComponents,
+                    includePackage = true
+                )
+            }\n" +
             "- Paket aktif: ${preparationListSummary(enabledAccessibilityPackages)}\n" +
             "- Service yang diizinkan: ${preparationListSummary(allowedAccessibilityServices)}\n" +
             "- Paket yang diizinkan: ${preparationListSummary(allowedAccessibilityPackages)}\n" +
             "- Paket efektif setelah allowlist: ${preparationListSummary(effectiveAccessibilityPackages)}\n" +
             "- Keyword berisiko: ${preparationListSummary(RiskyAccessibilityKeywords)}\n" +
             "- Paket berisiko terdeteksi: ${preparationListSummary(riskyAccessibilityPackages)}\n" +
+            "Kemungkinan penyebab:\n" +
+            "- Select to Speak/Pilih untuk Diucapkan, TalkBack, Akses Tombol/Switch Access, Voice Access\n" +
+            "- Auto clicker, app lock, antivirus/cleaner, floating menu, atau service bantuan bawaan vendor\n" +
             "Dampak:\n" +
             "- Mulai ujian diblokir jika aksesibilitas aktif\n" +
             "- Jika aktif saat ujian -> peringatan + alarm"
         }
+    )
+    val accessibilityDetail = appendPreparationAuditDetail(
+        actionDetail = accessibilityActionDetail,
+        auditDetail = accessibilityAuditDetail
     )
     val overlayDetail = preparationDetailOrNull(
         english = {

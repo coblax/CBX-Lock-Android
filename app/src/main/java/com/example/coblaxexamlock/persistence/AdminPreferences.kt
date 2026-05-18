@@ -18,6 +18,7 @@ import com.example.coblaxexamlock.config.AdminKeyDirectLinkLocationPolicySeriali
 import com.example.coblaxexamlock.config.AdminKeyExamUserAgent
 import com.example.coblaxexamlock.config.AdminKeyFastExamLabel
 import com.example.coblaxexamlock.config.AdminKeyFastExamUrl
+import com.example.coblaxexamlock.config.AdminKeyLowRamProfileOverride
 import com.example.coblaxexamlock.config.AdminKeyOfficialApkUrl
 import com.example.coblaxexamlock.config.AdminKeyShowChecklistDetails
 import com.example.coblaxexamlock.config.AdminPreferencesName
@@ -29,6 +30,8 @@ import com.example.coblaxexamlock.model.AdminSettings
 import com.example.coblaxexamlock.model.UiLanguage
 import com.example.coblaxexamlock.model.effectiveExamUserAgent
 import com.example.coblaxexamlock.model.normalizeExamUserAgent
+import com.example.coblaxexamlock.lowRamProfileOverrideToRaw
+import com.example.coblaxexamlock.parseLowRamProfileOverride
 
 internal fun Context.readSavedUiLanguage(): UiLanguage {
     val savedCode = getSharedPreferences(UiPreferencesName, Context.MODE_PRIVATE)
@@ -87,6 +90,9 @@ internal fun Context.readAdminSettings(): AdminSettings {
         officialApkUrl = preferences.getString(AdminKeyOfficialApkUrl, "") ?: "",
         examUserAgent = normalizeExamUserAgent(
             preferences.getString(AdminKeyExamUserAgent, DefaultExamUserAgent)
+        ),
+        lowRamProfileOverride = parseLowRamProfileOverride(
+            preferences.getString(AdminKeyLowRamProfileOverride, null)
         ),
         directLinkLocationPolicySaved = preferences.getBoolean(
             AdminKeyDirectLinkLocationPolicySaved,
@@ -165,6 +171,10 @@ internal fun Context.saveAdminSettings(settings: AdminSettings) {
         putString(AdminKeyFastExamLabel, settings.fastExamLabel)
         putString(AdminKeyOfficialApkUrl, settings.officialApkUrl)
         putString(AdminKeyExamUserAgent, effectiveExamUserAgent)
+        putString(
+            AdminKeyLowRamProfileOverride,
+            lowRamProfileOverrideToRaw(settings.lowRamProfileOverride)
+        )
         putBoolean(AdminKeyDirectLinkLocationPolicySaved, settings.directLinkLocationPolicySaved)
         putString(
             AdminKeyDirectLinkLocationPolicySerialized,

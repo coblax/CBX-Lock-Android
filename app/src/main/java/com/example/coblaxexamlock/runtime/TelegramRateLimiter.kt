@@ -9,11 +9,12 @@ import kotlinx.coroutines.sync.withLock
 
 internal class TelegramRateLimiter(
     private val maxTokens: Int = TelegramRateLimitMaxTokens,
-    private val refillPeriodMs: Long = TelegramRateLimitRefillPeriodMs
+    private val refillPeriodMs: Long = TelegramRateLimitRefillPeriodMs,
+    private val nowMillis: () -> Long = { SystemClock.elapsedRealtime() }
 ) {
     private val mutex = Mutex()
     private var tokens = maxTokens
-    private var lastRefillTime = SystemClock.elapsedRealtime()
+    private var lastRefillTime = nowMillis()
 
     suspend fun acquire() {
         while (true) {
@@ -40,7 +41,7 @@ internal class TelegramRateLimiter(
     }
 
     private fun refillTokens() {
-        val now = SystemClock.elapsedRealtime()
+        val now = nowMillis()
         val elapsed = now - lastRefillTime
         if (elapsed >= refillPeriodMs) {
             tokens = maxTokens

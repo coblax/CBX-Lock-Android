@@ -12,6 +12,7 @@ internal const val AdminKeyCustomQrSaveToDirectLinkEnabled =
     "admin_custom_qr_save_to_direct_link_enabled"
 internal const val AdminKeyShowChecklistDetails = "admin_show_checklist_details"
 internal const val AdminKeyExamUserAgent = "admin_exam_user_agent"
+internal const val AdminKeyLowRamProfileOverride = "admin_low_ram_profile_override"
 internal const val AdminKeyDirectLinkLocationPolicySaved = "admin_fast_exam_location_policy_saved"
 internal const val AdminKeyDirectLinkLocationPolicySerialized = "admin_fast_exam_location_policy_serialized"
 internal const val AdminKeyDirectLinkGeofenceEnabled = "admin_fast_exam_geofence_enabled"

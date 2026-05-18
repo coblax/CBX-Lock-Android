@@ -2,6 +2,7 @@ package com.example.coblaxexamlock.ui.preparation
 
 import com.example.coblaxexamlock.AdbBypassState
 import com.example.coblaxexamlock.AdbInspection
+import com.example.coblaxexamlock.AccessibilityInspectionResult
 import com.example.coblaxexamlock.AppSwitchBypassState
 import com.example.coblaxexamlock.AppSwitchProtectionMode
 import com.example.coblaxexamlock.AppSwitchStatus
@@ -44,6 +45,7 @@ import com.example.coblaxexamlock.model.NetworkReadinessUserVerdict
 import com.example.coblaxexamlock.model.NetworkReadinessVerdict
 import com.example.coblaxexamlock.model.NetworkUnstableRuntimeStatus
 import com.example.coblaxexamlock.model.RootDetectionDetails
+import com.example.coblaxexamlock.model.UiLanguage
 import com.example.coblaxexamlock.runtime.MultiWindowModeInfo
 import org.junit.Assert.assertEquals
 import org.junit.Assert.assertFalse
@@ -98,6 +100,118 @@ class PreparationStateSlicingTest {
         assertTrue(activeReadiness.canStartExam)
         assertTrue(bypassReadiness.screenPinningReady)
         assertTrue(bypassReadiness.canStartExam)
+    }
+
+    @Test
+    fun quickFixDefersScreenPinningUntilOtherBlockersAreClear() {
+        val state = preparationState(
+            device = deviceState().copy(
+                screenPinningAvailable = true,
+                isScreenPinningActive = false
+            ),
+            runtimeSecurity = runtimeSecurityState().copy(accessibilityServiceEnabled = true)
+        )
+
+        val actions = quickFixActionsFor(state)
+        val deferredNotice = actions.first { it.code == QuickFixScreenPinningDeferredCode }
+
+        assertFalse(actions.any { it.code == QuickFixStartScreenPinningCode && it.enabled })
+        assertTrue(deferredNotice.isNotice)
+        assertFalse(deferredNotice.enabled)
+        assertEquals(QuickFixTarget.ScreenPinning, deferredNotice.target)
+        assertTrue(deferredNotice.diagnosticDetails.orEmpty().contains("blockers=1"))
+    }
+
+    @Test
+    fun quickFixDefersScreenPinningForBlockingWebViewFix() {
+        val state = preparationState(
+            device = deviceState().copy(
+                screenPinningAvailable = true,
+                isScreenPinningActive = false
+            ),
+            diagnostics = diagnosticsState().copy(
+                preExamHealthCheckSnapshot = PreExamHealthSnapshot(
+                    compatibilityFamily = DeviceCompatibilityFamily.Generic,
+                    compatibilityLabel = "Android",
+                    generatedAtElapsedMs = 0L,
+                    items = listOf(
+                        PreExamHealthItem(
+                            category = PreExamHealthCategory.WebView,
+                            verdict = PreExamHealthVerdict.Blocking,
+                            title = "WebView",
+                            detail = "Provider unavailable",
+                            quickFix = "Open WebView Settings"
+                        )
+                    )
+                )
+            )
+        )
+
+        val actions = quickFixActionsFor(state)
+
+        assertTrue(actions.any { it.code == QuickFixScreenPinningDeferredCode })
+        assertFalse(actions.any { it.code == QuickFixStartScreenPinningCode && it.enabled })
+        assertTrue(actions.first { it.code == "webview_provider_settings" }.opensExternalSettings)
+    }
+
+    @Test
+    fun quickFixShowsScreenPinningWhenItIsTheOnlyBlocker() {
+        val state = preparationState(
+            device = deviceState().copy(
+                screenPinningAvailable = true,
+                isScreenPinningActive = false
+            )
+        )
+
+        val actions = quickFixActionsFor(state)
+        val startPinning = actions.first { it.code == QuickFixStartScreenPinningCode }
+
+        assertTrue(startPinning.enabled)
+        assertFalse(startPinning.isNotice)
+        assertEquals(QuickFixSeverity.Blocking, startPinning.severity)
+        assertEquals(QuickFixTarget.ScreenPinning, startPinning.target)
+        assertFalse(actions.any { it.code == QuickFixScreenPinningDeferredCode })
+    }
+
+    @Test
+    fun quickFixDisablesExternalSettingsActionsWhenScreenPinningAlreadyActive() {
+        val state = preparationState(
+            device = deviceState().copy(
+                screenPinningAvailable = true,
+                isScreenPinningActive = true
+            ),
+            runtimeSecurity = runtimeSecurityState().copy(accessibilityServiceEnabled = true)
+        )
+
+        val actions = quickFixActionsFor(state)
+        val accessibilityFix = actions.first { it.priority == 35 }
+
+        assertTrue(accessibilityFix.opensExternalSettings)
+        assertFalse(accessibilityFix.enabled)
+        assertTrue(accessibilityFix.text.contains("Turn off Screen Pinning first"))
+    }
+
+    @Test
+    fun quickFixKeepsInternalRefreshActionsEnabledWhenScreenPinningAlreadyActive() {
+        val state = preparationState(
+            device = deviceState().copy(
+                screenPinningAvailable = true,
+                isScreenPinningActive = true
+            ),
+            network = networkState(
+                readinessStatus = networkReadinessStatus(
+                    verdict = NetworkReadinessVerdict.Unstable,
+                    userVerdict = NetworkReadinessUserVerdict.Unstable
+                )
+            )
+        )
+
+        val actions = quickFixActionsFor(state)
+        val refreshNetwork = actions.first { it.priority == 70 }
+
+        assertFalse(refreshNetwork.opensExternalSettings)
+        assertTrue(refreshNetwork.enabled)
+        assertFalse(refreshNetwork.isNotice)
     }
 
     @Test
@@ -187,6 +301,94 @@ class PreparationStateSlicingTest {
             accessibilityGuardRequired = false,
             accessibilityGuardAvailable = true,
             accessibilityGuardEnabled = false
+        )
+    }
+
+    private fun quickFixActionsFor(state: PreparationScreenState): List<PreparationQuickFixAction> {
+        return buildPreparationQuickFixActions(
+            state = state,
+            actions = preparationActions(),
+            uiLanguage = UiLanguage.English,
+            accessibilityGuardRequired = false,
+            accessibilityGuardEnabled = false,
+            geofenceReady = true,
+            fakeLocationReady = true,
+            needsBluetoothPermission = false,
+            accessibilityInspection = accessibilityInspection(),
+            runQuickFix = { _, _, action -> action() }
+        )
+    }
+
+    private fun preparationActions(): PreparationScreenActions {
+        val noOp = {}
+        return PreparationScreenActions(
+            session = PreparationSessionActions(
+                onRefreshStatus = noOp,
+                onRefreshAllSecurityChecks = noOp,
+                onRefreshHealthCheck = noOp,
+                onRequestSectionReport = {},
+                onExportDiagnostics = noOp,
+                onAutoFixShown = {},
+                onPreviousSessionRecoveryHintShown = {},
+                onAutoFixActionOpened = {},
+                onScreenPinningDeferred = {},
+                onStartExam = noOp,
+                onBackHome = noOp
+            ),
+            network = PreparationNetworkActions(
+                onOpenInternetSettings = noOp,
+                onOpenVpnSettings = noOp,
+                onOpenWifiSettings = noOp,
+                onOpenCellularSettings = noOp,
+                onOpenAirplaneModeSettings = noOp,
+                onRefreshNetworkStatus = noOp
+            ),
+            device = PreparationDeviceActions(
+                onChooseKeyboard = noOp,
+                onOpenKeyboardSettings = noOp,
+                onGrantBluetoothPermission = noOp,
+                onOpenBluetoothSettings = noOp,
+                onOpenAccessibilitySettings = noOp,
+                onOpenOverlayAccessibilitySettings = noOp,
+                onOpenDeveloperOptionsSettings = noOp,
+                onOpenDateTimeSettings = noOp,
+                onOpenScreenPinningSettings = noOp,
+                onStartScreenPinning = noOp,
+                onOpenOverlaySettings = noOp,
+                onOpenAppSettings = noOp,
+                onOpenCastSettings = noOp,
+                onOpenWebViewProviderSettings = noOp,
+                onReinstallOfficialApk = noOp
+            ),
+            location = PreparationLocationActions(
+                onRequestLocationPermission = noOp,
+                onOpenLocationServicesSettings = noOp,
+                onRefreshGeofenceLocation = noOp,
+                onOpenGeofenceMapViewer = noOp,
+                onOpenFakeLocationDeveloperOptionsSettings = noOp
+            ),
+            runtimeSecurity = PreparationRuntimeSecurityActions(
+                onOpenAccessibilitySettings = noOp,
+                onOpenOverlayAccessibilitySettings = noOp,
+                onOpenOverlaySettings = noOp,
+                onOpenAppSettings = noOp,
+                onOpenCastSettings = noOp
+            )
+        )
+    }
+
+    private fun accessibilityInspection(): AccessibilityInspectionResult {
+        return AccessibilityInspectionResult(
+            managerEnabled = false,
+            touchExplorationEnabled = false,
+            rawEnabledServices = "",
+            activeServiceComponents = emptyList(),
+            activePackages = emptyList(),
+            allowedServiceComponents = emptyList(),
+            allowedPackages = emptyList(),
+            effectiveServiceComponents = emptyList(),
+            effectivePackages = emptyList(),
+            riskyPackages = emptyList()
         )
     }
 

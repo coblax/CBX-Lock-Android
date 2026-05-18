@@ -218,7 +218,12 @@ import com.example.coblaxexamlock.buildRootSecurityStatus
 import com.example.coblaxexamlock.formatCoordinates
 import com.example.coblaxexamlock.LocalDeviceCompatibilityProfile
 import com.example.coblaxexamlock.LocalLowRamProfile
+import com.example.coblaxexamlock.LowRamProfile
+import com.example.coblaxexamlock.LowRamProfileOverride
+import com.example.coblaxexamlock.applyLowRamProfileOverride
+import com.example.coblaxexamlock.isLowRamProfileOverrideRisky
 import com.example.coblaxexamlock.launchFirstPlatformIntentSafely
+import com.example.coblaxexamlock.lowRamProfileBadgeLabel
 import com.example.coblaxexamlock.config.DefaultExamUserAgent
 import com.example.coblaxexamlock.config.DeveloperGithubUrl
 import com.example.coblaxexamlock.config.PickerDialogColorScheme
@@ -240,6 +245,7 @@ import com.example.coblaxexamlock.isExamGuardAccessibilityAvailable
 import com.example.coblaxexamlock.isExamGuardAccessibilityEnabled
 import com.example.coblaxexamlock.openWebViewProviderSettings
 import com.example.coblaxexamlock.readWebViewCompatibilityStatus
+import com.example.coblaxexamlock.resolveDetectedLowRamProfile
 import com.example.coblaxexamlock.model.AdminSettings
 import com.example.coblaxexamlock.model.CustomQrAdminTab
 import com.example.coblaxexamlock.model.DateTimeField
@@ -413,6 +419,18 @@ internal fun SecretAdminScreen(
     val context = LocalContext.current
     val uiLanguage = LocalUiLanguage.current
     val lowRamProfile = LocalLowRamProfile.current
+    val detectedLowRamProfile = remember(context) {
+        resolveDetectedLowRamProfile(context.applicationContext)
+    }
+    val selectedEffectiveLowRamProfile = remember(
+        detectedLowRamProfile,
+        settings.lowRamProfileOverride
+    ) {
+        applyLowRamProfileOverride(
+            detectedProfile = detectedLowRamProfile,
+            override = settings.lowRamProfileOverride
+        )
+    }
     val deviceCompatibilityProfile = LocalDeviceCompatibilityProfile.current
     val vendorChecklist = remember(deviceCompatibilityProfile.manufacturer, deviceCompatibilityProfile.brand) {
         resolveDeviceVendorChecklist(
@@ -1044,15 +1062,26 @@ internal fun SecretAdminScreen(
         ) {
             if (selectedSecretAdminTab == SecretAdminTab.Setup) {
 
-        Column(
-            modifier = Modifier
-                .fillMaxWidth()
-                .clip(RoundedCornerShape(20.dp))
-                .background(Color.White)
-                .border(1.dp, LockOutline.copy(alpha = 0.7f), RoundedCornerShape(20.dp))
-                .padding(horizontal = 16.dp, vertical = 16.dp),
-            verticalArrangement = Arrangement.spacedBy(12.dp)
-        ) {
+                PerformanceProfileCard(
+                    selectedOverride = settings.lowRamProfileOverride,
+                    detectedProfile = detectedLowRamProfile,
+                    effectiveProfile = selectedEffectiveLowRamProfile,
+                    onOverrideChange = {
+                        onSettingsChange(settings.copy(lowRamProfileOverride = it))
+                    }
+                )
+
+                Spacer(modifier = Modifier.height(18.dp))
+
+                Column(
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .clip(RoundedCornerShape(20.dp))
+                        .background(Color.White)
+                        .border(1.dp, LockOutline.copy(alpha = 0.7f), RoundedCornerShape(20.dp))
+                        .padding(horizontal = 16.dp, vertical = 16.dp),
+                    verticalArrangement = Arrangement.spacedBy(12.dp)
+                ) {
                 Text(
                     text = tr("Direct Link", "Direct Link"),
                     color = LockTextPrimary,
@@ -1710,6 +1739,237 @@ internal fun SecretAdminScreen(
         )
     }
 }
+
+@Composable
+private fun PerformanceProfileCard(
+    selectedOverride: LowRamProfileOverride,
+    detectedProfile: LowRamProfile,
+    effectiveProfile: LowRamProfile,
+    onOverrideChange: (LowRamProfileOverride) -> Unit
+) {
+    val overrideOptions = remember {
+        listOf(
+            LowRamProfileOverride.Auto,
+            LowRamProfileOverride.Normal,
+            LowRamProfileOverride.Low,
+            LowRamProfileOverride.Ultra
+        )
+    }
+    val riskyOverride = isLowRamProfileOverrideRisky(detectedProfile, selectedOverride)
+    Surface(
+        modifier = Modifier.fillMaxWidth(),
+        shape = RoundedCornerShape(22.dp),
+        color = Color.White,
+        border = BorderStroke(1.dp, LockOutline.copy(alpha = 0.7f)),
+        tonalElevation = 0.dp,
+        shadowElevation = 0.dp
+    ) {
+        Column(
+            modifier = Modifier.padding(horizontal = 16.dp, vertical = 16.dp),
+            verticalArrangement = Arrangement.spacedBy(12.dp)
+        ) {
+            Column(verticalArrangement = Arrangement.spacedBy(4.dp)) {
+                Text(
+                    text = tr("Performance Profile", "Profil Performa"),
+                    color = LockTextPrimary,
+                    fontSize = 17.sp,
+                    fontWeight = FontWeight.Bold
+                )
+                Text(
+                    text = tr(
+                        "Override ini hanya mengatur beban UI dan interval polling, bukan bypass proteksi ujian.",
+                        "Override ini hanya mengatur beban UI dan interval polling, bukan bypass proteksi ujian."
+                    ),
+                    color = LockTextSecondary,
+                    fontSize = 12.sp,
+                    lineHeight = 16.sp
+                )
+            }
+
+            Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
+                overrideOptions.chunked(2).forEach { rowOptions ->
+                    Row(
+                        modifier = Modifier.fillMaxWidth(),
+                        horizontalArrangement = Arrangement.spacedBy(8.dp)
+                    ) {
+                        rowOptions.forEach { option ->
+                            PerformanceProfileOptionPill(
+                                override = option,
+                                selected = selectedOverride == option,
+                                onClick = { onOverrideChange(option) },
+                                modifier = Modifier.weight(1f)
+                            )
+                        }
+                        if (rowOptions.size == 1) {
+                            Spacer(modifier = Modifier.weight(1f))
+                        }
+                    }
+                }
+            }
+
+            if (riskyOverride) {
+                StatusBanner(
+                    message = tr(
+                        "Mode terpilih lebih ringan dari hasil deteksi. Di HP RAM kecil, pilihan ini bisa membuat WebView atau UI lebih lag.",
+                        "Mode terpilih lebih ringan dari hasil deteksi. Di HP RAM kecil, pilihan ini bisa membuat WebView atau UI lebih lag."
+                    ),
+                    isError = true
+                )
+            }
+
+            Column(
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .clip(RoundedCornerShape(16.dp))
+                    .background(LockSurfaceSoft)
+                    .border(1.dp, LockOutline.copy(alpha = 0.55f), RoundedCornerShape(16.dp))
+                    .padding(horizontal = 12.dp, vertical = 10.dp),
+                verticalArrangement = Arrangement.spacedBy(7.dp)
+            ) {
+                PerformanceProfileSummaryRow(
+                    label = tr("Detected", "Terdeteksi"),
+                    value = lowRamProfileBadgeLabel(detectedProfile)
+                )
+                PerformanceProfileSummaryRow(
+                    label = tr("Effective", "Aktif"),
+                    value = lowRamProfileBadgeLabel(effectiveProfile)
+                )
+                PerformanceProfileSummaryRow(
+                    label = tr("RAM", "RAM"),
+                    value = "avail=${effectiveProfile.availableMemoryMb ?: "-"}MB total=${effectiveProfile.totalMemoryMb ?: "-"}MB"
+                )
+                PerformanceProfileSummaryRow(
+                    label = tr("Polling", "Polling"),
+                    value = "${effectiveProfile.slowPollingMultiplier}x"
+                )
+            }
+        }
+    }
+}
+
+@Composable
+private fun PerformanceProfileOptionPill(
+    override: LowRamProfileOverride,
+    selected: Boolean,
+    onClick: () -> Unit,
+    modifier: Modifier = Modifier
+) {
+    val shape = RoundedCornerShape(18.dp)
+    val containerColor = if (selected) {
+        performanceProfileSelectedContainer(override)
+    } else {
+        Color.White
+    }
+    val borderColor = if (selected) {
+        performanceProfileDotColor(override).copy(alpha = 0.65f)
+    } else {
+        LockOutline.copy(alpha = 0.65f)
+    }
+    val contentColor = if (selected && override == LowRamProfileOverride.Ultra) {
+        LockOnDark
+    } else {
+        LockTextPrimary
+    }
+    Row(
+        modifier = modifier
+            .heightIn(min = 44.dp)
+            .clip(shape)
+            .background(containerColor)
+            .border(1.dp, borderColor, shape)
+            .clickable(
+                role = Role.RadioButton,
+                indication = null,
+                interactionSource = remember { MutableInteractionSource() },
+                onClick = onClick
+            )
+            .padding(horizontal = 12.dp, vertical = 9.dp),
+        verticalAlignment = Alignment.CenterVertically,
+        horizontalArrangement = Arrangement.spacedBy(8.dp)
+    ) {
+        Box(
+            modifier = Modifier
+                .size(8.dp)
+                .clip(CircleShape)
+                .background(performanceProfileDotColor(override))
+        )
+        Column(verticalArrangement = Arrangement.spacedBy(1.dp)) {
+            Text(
+                text = performanceProfileTitle(override),
+                color = contentColor,
+                fontSize = 13.sp,
+                fontWeight = FontWeight.Bold,
+                maxLines = 1
+            )
+            Text(
+                text = performanceProfileSubtitle(override),
+                color = if (selected && override == LowRamProfileOverride.Ultra) {
+                    LockOnDark.copy(alpha = 0.74f)
+                } else {
+                    LockTextSecondary
+                },
+                fontSize = 10.sp,
+                maxLines = 1
+            )
+        }
+    }
+}
+
+@Composable
+private fun PerformanceProfileSummaryRow(
+    label: String,
+    value: String
+) {
+    Row(
+        modifier = Modifier.fillMaxWidth(),
+        horizontalArrangement = Arrangement.SpaceBetween,
+        verticalAlignment = Alignment.CenterVertically
+    ) {
+        Text(
+            text = label,
+            color = LockTextSecondary,
+            fontSize = 11.sp
+        )
+        Text(
+            text = value,
+            color = LockTextPrimary,
+            fontSize = 11.sp,
+            fontWeight = FontWeight.SemiBold,
+            textAlign = TextAlign.End
+        )
+    }
+}
+
+private fun performanceProfileTitle(override: LowRamProfileOverride): String =
+    when (override) {
+        LowRamProfileOverride.Auto -> "Auto"
+        LowRamProfileOverride.Normal -> "Normal"
+        LowRamProfileOverride.Low -> "Low"
+        LowRamProfileOverride.Ultra -> "Ultra"
+    }
+
+private fun performanceProfileSubtitle(override: LowRamProfileOverride): String =
+    when (override) {
+        LowRamProfileOverride.Auto -> "Deteksi"
+        LowRamProfileOverride.Normal -> "Penuh"
+        LowRamProfileOverride.Low -> "Ringan"
+        LowRamProfileOverride.Ultra -> "Paling ringan"
+    }
+
+private fun performanceProfileDotColor(override: LowRamProfileOverride): Color =
+    when (override) {
+        LowRamProfileOverride.Auto -> LockBlue
+        LowRamProfileOverride.Normal -> Color(0xFF2E7D32)
+        LowRamProfileOverride.Low -> LockGoldDark
+        LowRamProfileOverride.Ultra -> LockGold
+    }
+
+private fun performanceProfileSelectedContainer(override: LowRamProfileOverride): Color =
+    when (override) {
+        LowRamProfileOverride.Auto -> LockBlueSoft.copy(alpha = 0.56f)
+        LowRamProfileOverride.Normal -> Color(0xFFEFFAF1)
+        LowRamProfileOverride.Low -> Color(0xFFFFF8E6)
+        LowRamProfileOverride.Ultra -> LockBlueDeep
+    }
 
 @Composable
 private fun AdminReadinessSummaryCard(
