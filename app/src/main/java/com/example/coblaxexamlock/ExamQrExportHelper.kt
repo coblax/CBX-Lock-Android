@@ -34,7 +34,7 @@ internal object ExamQrExportHelper {
     ): Bitmap {
         val width = exportSpec.widthPx
         val height = exportSpec.heightPx
-        val bitmap = createBitmap(width, height, Bitmap.Config.ARGB_8888)
+        val bitmap = createBitmap(width, height, Bitmap.Config.RGB_565)
         val canvas = Canvas(bitmap)
         val scale = exportSpec.scale
 

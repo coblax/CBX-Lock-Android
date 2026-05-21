@@ -169,17 +169,22 @@ internal fun prependDiagnosticEvent(
     nowElapsedMs: Long = SystemClock.elapsedRealtime(),
     timestamp: String = diagnosticTimestamp()
 ): List<DiagnosticEvent> {
-    return (listOf(
-        DiagnosticEvent(
-            timestamp = timestamp,
-            level = level.name,
-            code = code,
-            screen = screen,
-            appElapsedMs = nowElapsedMs - appStartedAtElapsedMs,
-            sessionElapsedMs = examSessionStartedAtElapsedMs?.let { nowElapsedMs - it },
-            details = details.ifBlank { "-" }
-        )
-    ) + existingEvents).take(maxEntries)
+    val newEvent = DiagnosticEvent(
+        timestamp = timestamp,
+        level = level.name,
+        code = code,
+        screen = screen,
+        appElapsedMs = nowElapsedMs - appStartedAtElapsedMs,
+        sessionElapsedMs = examSessionStartedAtElapsedMs?.let { nowElapsedMs - it },
+        details = details.ifBlank { "-" }
+    )
+    val keepFromExisting = minOf(existingEvents.size, maxEntries - 1).coerceAtLeast(0)
+    val result = ArrayList<DiagnosticEvent>(keepFromExisting + 1)
+    result.add(newEvent)
+    for (i in 0 until keepFromExisting) {
+        result.add(existingEvents[i])
+    }
+    return result
 }
 
 internal fun buildGeofenceEventDetails(

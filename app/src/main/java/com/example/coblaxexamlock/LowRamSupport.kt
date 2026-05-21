@@ -18,7 +18,7 @@ private const val LowQrMaxEdgePx = 1024
 private const val UltraQrMaxEdgePx = 720
 private const val NormalDiagnosticLogMaxEntries = 20
 private const val LowDiagnosticLogMaxEntries = 16
-private const val UltraDiagnosticLogMaxEntries = 12
+private const val UltraDiagnosticLogMaxEntries = 8
 private const val NormalManualRefreshCooldownMillis = 0L
 private const val LowManualRefreshCooldownMillis = 800L
 private const val UltraManualRefreshCooldownMillis = 1_200L
@@ -164,7 +164,7 @@ internal fun applyLowRamProfileOverride(
             detectedTier = detectedTier,
             qrMaxEdgePx = UltraQrMaxEdgePx,
             deferHeavyUi = true,
-            slowPollingMultiplier = 4,
+            slowPollingMultiplier = 6,
             diagnosticLogMaxEntries = UltraDiagnosticLogMaxEntries,
             manualRefreshCooldownMillis = UltraManualRefreshCooldownMillis
         )
@@ -240,7 +240,7 @@ internal fun calculateLowRamProfile(
         },
         deferHeavyUi = enabled,
         slowPollingMultiplier = when {
-            ultra -> 4
+            ultra -> 6
             enabled -> 2
             else -> 1
         },
