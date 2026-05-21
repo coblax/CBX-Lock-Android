@@ -267,7 +267,7 @@ internal fun PolygonGeofenceEditor(
     val mapsReady = mapsApiKey.isNotBlank()
     val coroutineScope = rememberCoroutineScope()
     var googleMap by remember { mutableStateOf<GoogleMap?>(null) }
-    var mapVisible by remember { mutableStateOf(!lowRamProfile.deferHeavyUi) }
+    var mapVisible by remember { mutableStateOf(!lowRamProfile.deferHeavyUi && !lowRamProfile.ultra) }
     var draftVertices by remember(initialVertices) { mutableStateOf(initialVertices.take(50)) }
     var saveValidationError by remember { mutableStateOf<String?>(null) }
     var searchedLatLng by remember { mutableStateOf<LatLng?>(null) }
@@ -583,13 +583,16 @@ internal fun PolygonGeofenceEditor(
                         )
                         Button(
                             onClick = { mapVisible = true },
-                            enabled = mapsReady,
+                            enabled = mapsReady && !lowRamProfile.ultra,
                             colors = ButtonDefaults.buttonColors(
                                 containerColor = LockBlue,
                                 contentColor = LockOnDark
                             )
                         ) {
-                            Text(tr("Open Map", "Buka Map"), fontWeight = FontWeight.Bold)
+                            Text(
+                                text = if (lowRamProfile.ultra) tr("Disabled on Ultra RAM", "Dinonaktifkan di Ultra RAM") else tr("Open Map", "Buka Map"),
+                                fontWeight = FontWeight.Bold
+                            )
                         }
                     }
                 }

@@ -132,6 +132,7 @@ internal fun buildPreparationQuickFixActions(
                 fun addQuickFix(
                     code: String = "",
                     text: String,
+                    reason: String? = null,
                     severity: QuickFixSeverity,
                     target: QuickFixTarget?,
                     priority: Int,
@@ -154,6 +155,7 @@ internal fun buildPreparationQuickFixActions(
                         PreparationQuickFixAction(
                             code = actionCode,
                             text = resolvedText,
+                            reason = reason,
                             severity = severity,
                             target = target,
                             priority = priority,
@@ -175,6 +177,7 @@ internal fun buildPreparationQuickFixActions(
                 if (showDeviceTimeFix) {
                     addQuickFix(
                         text = t("Enable Automatic Date & Time", "Aktifkan Tanggal & Waktu Otomatis"),
+                        reason = t("Manual time can be used to bypass exam schedules.", "Waktu manual bisa dipakai untuk melewati jadwal ujian."),
                         severity = QuickFixSeverity.Blocking,
                         target = QuickFixTarget.DeviceTime,
                         priority = 10,
@@ -196,6 +199,7 @@ internal fun buildPreparationQuickFixActions(
                 if (showAdbFix) {
                     addQuickFix(
                         text = t("Turn Off USB Debugging", "Matikan USB Debugging"),
+                        reason = t("USB Debugging allows external access to exam data.", "USB Debugging memungkinkan akses eksternal ke data ujian."),
                         severity = QuickFixSeverity.Blocking,
                         target = QuickFixTarget.All,
                         priority = 20,
@@ -272,6 +276,7 @@ internal fun buildPreparationQuickFixActions(
                 if (showFakeLocationDeveloperOptionsFix) {
                     addQuickFix(
                         text = t("Turn Off Mock Location App", "Matikan Aplikasi Lokasi Palsu"),
+                        reason = t("Mock location apps can fake your exam position.", "Aplikasi lokasi palsu bisa memalsukan posisi ujian Anda."),
                         severity = if (fakeLocationReady) QuickFixSeverity.Warning else QuickFixSeverity.Blocking,
                         target = QuickFixTarget.Location,
                         priority = 30,
@@ -282,6 +287,7 @@ internal fun buildPreparationQuickFixActions(
                 if (showAccessibilityFix) {
                     addQuickFix(
                         text = accessibilityQuickFixButtonText(accessibilityInspection, uiLanguage),
+                        reason = t("Active accessibility services can read exam content.", "Layanan aksesibilitas aktif bisa membaca konten ujian."),
                         severity = QuickFixSeverity.Blocking,
                         target = QuickFixTarget.All,
                         priority = 35,
@@ -292,6 +298,7 @@ internal fun buildPreparationQuickFixActions(
                 if (showAccessibilityGuardFix) {
                     addQuickFix(
                         text = t("Enable CBX Lock Exam Guard", "Aktifkan CBX Lock Exam Guard"),
+                        reason = t("Exam Guard prevents app switching during the exam.", "Exam Guard mencegah perpindahan aplikasi selama ujian."),
                         severity = QuickFixSeverity.Blocking,
                         target = QuickFixTarget.All,
                         priority = 36,
@@ -307,6 +314,7 @@ internal fun buildPreparationQuickFixActions(
                         } else {
                             t("Allow Location Permission", "Izinkan Akses Lokasi")
                         },
+                        reason = t("Geofence needs precise location to verify your exam position.", "Geofence butuh lokasi presisi untuk memverifikasi posisi ujian."),
                         severity = QuickFixSeverity.Blocking,
                         target = null,
                         priority = 40,
@@ -351,6 +359,7 @@ internal fun buildPreparationQuickFixActions(
                 if (showBluetoothPermissionFix) {
                     addQuickFix(
                         text = t("Allow Bluetooth Access", "Izinkan Akses Bluetooth"),
+                        reason = t("Needed to verify no Bluetooth cheating devices are connected.", "Diperlukan untuk memverifikasi tidak ada perangkat curang Bluetooth."),
                         severity = QuickFixSeverity.Blocking,
                         target = null,
                         priority = 60,
@@ -361,6 +370,7 @@ internal fun buildPreparationQuickFixActions(
                 if (showBluetoothFix) {
                     addQuickFix(
                         text = t("Turn Off Bluetooth", "Matikan Bluetooth"),
+                        reason = t("Bluetooth can be used to share exam answers.", "Bluetooth bisa dipakai untuk berbagi jawaban ujian."),
                         severity = QuickFixSeverity.Blocking,
                         target = QuickFixTarget.All,
                         priority = 65,

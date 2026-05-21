@@ -27,6 +27,7 @@ internal const val QuickFixRefreshAllSecurityChecksCode = "refresh_all_security_
 internal data class PreparationQuickFixAction(
     val code: String,
     val text: String,
+    val reason: String? = null,
     val severity: QuickFixSeverity,
     val target: QuickFixTarget?,
     val priority: Int,

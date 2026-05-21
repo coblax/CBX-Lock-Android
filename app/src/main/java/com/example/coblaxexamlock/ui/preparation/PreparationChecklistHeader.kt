@@ -17,6 +17,7 @@ import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.rounded.Home
 import androidx.compose.material3.Icon
+import androidx.compose.material3.LinearProgressIndicator
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.ui.Alignment
@@ -40,6 +41,11 @@ import com.example.coblaxexamlock.ui.theme.LockTextSecondary
 internal fun PreparationChecklistHeader(
     examTitle: String,
     severeLowRamPreparation: Boolean,
+    blockingCount: Int,
+    warningCount: Int,
+    safeCount: Int,
+    canStartExam: Boolean,
+    firstBlockingReason: String?,
     onBackHome: () -> Unit
 ) {
     val shape = RoundedCornerShape(if (severeLowRamPreparation) 20.dp else 24.dp)
@@ -127,7 +133,122 @@ internal fun PreparationChecklistHeader(
                     fontSize = 12.sp,
                     lineHeight = 16.sp
                 )
+
+                Spacer(modifier = Modifier.height(8.dp))
+
+                // Progress bar
+                val totalChecks = safeCount + blockingCount
+                val progress = if (totalChecks > 0) safeCount.toFloat() / totalChecks else 1f
+                val progressColor = if (canStartExam) Color(0xFF2F8F63) else if (progress > 0.7f) Color(0xFFC79317) else Color(0xFFB34A4A)
+                LinearProgressIndicator(
+                    progress = { progress },
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .height(6.dp)
+                        .clip(RoundedCornerShape(3.dp)),
+                    color = progressColor,
+                    trackColor = progressColor.copy(alpha = 0.12f)
+                )
+                Text(
+                    text = tr(
+                        "$safeCount/$totalChecks passed",
+                        "$safeCount/$totalChecks lulus"
+                    ),
+                    color = LockTextSecondary,
+                    fontSize = 10.sp,
+                    fontWeight = FontWeight.SemiBold
+                )
+
+                Spacer(modifier = Modifier.height(12.dp))
+
+                // Readiness summary chips
+                Row(
+                    modifier = Modifier.fillMaxWidth(),
+                    horizontalArrangement = Arrangement.spacedBy(8.dp)
+                ) {
+                    ReadinessChip(
+                        count = safeCount,
+                        label = tr("Safe", "Aman"),
+                        color = Color(0xFF2F8F63),
+                        modifier = Modifier.weight(1f)
+                    )
+                    ReadinessChip(
+                        count = warningCount,
+                        label = tr("Warn", "Warn"),
+                        color = Color(0xFFC79317),
+                        modifier = Modifier.weight(1f)
+                    )
+                    ReadinessChip(
+                        count = blockingCount,
+                        label = tr("Block", "Blok"),
+                        color = Color(0xFFB34A4A),
+                        modifier = Modifier.weight(1f)
+                    )
+                }
+
+                Spacer(modifier = Modifier.height(8.dp))
+
+                // Status sentence
+                val statusText = if (canStartExam) {
+                    tr(
+                        "✅ All checks passed — ready to start.",
+                        "✅ Semua pemeriksaan lulus — siap mulai."
+                    )
+                } else if (blockingCount == 1) {
+                    firstBlockingReason?.let {
+                        tr(
+                            "🔴 1 issue must be fixed: $it",
+                            "🔴 1 masalah harus diperbaiki: $it"
+                        )
+                    } ?: tr(
+                        "🔴 1 issue must be fixed before starting.",
+                        "🔴 1 masalah harus diperbaiki sebelum mulai."
+                    )
+                } else {
+                    tr(
+                        "🔴 $blockingCount issues must be fixed before starting.",
+                        "🔴 $blockingCount masalah harus diperbaiki sebelum mulai."
+                    )
+                }
+                val statusColor = if (canStartExam) Color(0xFF2F8F63) else Color(0xFFB34A4A)
+                Text(
+                    text = statusText,
+                    color = statusColor,
+                    fontSize = 11.sp,
+                    fontWeight = FontWeight.SemiBold,
+                    lineHeight = 15.sp
+                )
             }
         }
+    }
+}
+
+@Composable
+private fun ReadinessChip(
+    count: Int,
+    label: String,
+    color: Color,
+    modifier: Modifier = Modifier
+) {
+    Column(
+        modifier = modifier
+            .clip(RoundedCornerShape(14.dp))
+            .background(color.copy(alpha = 0.08f))
+            .border(1.dp, color.copy(alpha = 0.15f), RoundedCornerShape(14.dp))
+            .padding(horizontal = 8.dp, vertical = 7.dp),
+        horizontalAlignment = Alignment.CenterHorizontally
+    ) {
+        Text(
+            text = "$count",
+            color = color,
+            fontSize = 15.sp,
+            fontWeight = FontWeight.ExtraBold
+        )
+        Text(
+            text = label,
+            color = LockTextSecondary,
+            fontSize = 9.sp,
+            fontWeight = FontWeight.Bold
+        )
     }
 }

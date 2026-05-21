@@ -92,6 +92,8 @@ internal fun ExamSecurityPreparationScreenContent(
     @Suppress("DEPRECATION")
     val lifecycleOwner = LocalLifecycleOwner.current
     var pendingQuickFixTarget by rememberSaveable { mutableStateOf<QuickFixTarget?>(null) }
+    var pendingQuickFixCode by rememberSaveable { mutableStateOf<String?>(null) }
+    var quickFixFeedbackText by remember { mutableStateOf<String?>(null) }
     val refreshAllSecurityChecks by rememberUpdatedState(onRefreshAllSecurityChecks)
     val refreshPreparationStatus by rememberUpdatedState(onRefreshStatus)
     val refreshNetworkStatus by rememberUpdatedState(onRefreshNetworkStatus)
@@ -175,6 +177,22 @@ internal fun ExamSecurityPreparationScreenContent(
                 QuickFixTarget.MultiWindow -> refreshPreparationStatus()
                 QuickFixTarget.All -> refreshAllSecurityChecks()
             }
+            // #12 Delayed re-check: some states (Bluetooth, ADB) need settling time
+            manualRefreshScope.launch {
+                delay(600L)
+                refreshPreparationStatus()
+            }
+            // #7 Return indicator: show brief feedback about which fix was attempted
+            val fixCode = pendingQuickFixCode
+            if (fixCode != null) {
+                pendingQuickFixCode = null
+                val fixLabel = fixCode.replace("_", " ").replaceFirstChar { it.uppercase() }
+                quickFixFeedbackText = "\u21a9 $fixLabel"
+                manualRefreshScope.launch {
+                    delay(3000L)
+                    quickFixFeedbackText = null
+                }
+            }
         }
         lifecycleOwner.lifecycle.addObserver(observer)
         onDispose {
@@ -186,6 +204,7 @@ internal fun ExamSecurityPreparationScreenContent(
         if (target != null) {
             pendingQuickFixTarget = target
         }
+        pendingQuickFixCode = actionCode
         action()
     }
     val autoFixSuggestions = remember(preExamHealthCheckSnapshot, deviceSurvivalPolicy) {
@@ -285,6 +304,16 @@ internal fun ExamSecurityPreparationScreenContent(
     val fakeLocationReady = readiness.fakeLocationReady
     val canStartExam = readiness.canStartExam
     val hasBypassIndicators = readiness.hasBypassIndicators
+    val blockingReasonEN = resolveFirstBlockingReason(readiness, en = true)
+    val blockingReasonID = resolveFirstBlockingReason(readiness, en = false)
+    val firstBlockingReason = tr(blockingReasonEN ?: "", blockingReasonID ?: "")
+        .takeIf { it.isNotBlank() }
+    val readinessSummary = remember(readiness) {
+        buildPreparationReadinessSummary(readiness, blockingReasonEN, blockingReasonID)
+    }
+    val sectionHealthMap = remember(readiness) {
+        buildSectionHealthMap(readiness)
+    }
     val startButtonColor = when {
         !canStartExam -> Color(0xFFB34A4A)
         hasBypassIndicators -> LockGold
@@ -315,6 +344,11 @@ internal fun ExamSecurityPreparationScreenContent(
                 PreparationChecklistHeader(
                     examTitle = examTitle,
                     severeLowRamPreparation = severeLowRamPreparation,
+                    blockingCount = readinessSummary.blockingCount,
+                    warningCount = readinessSummary.warningCount,
+                    safeCount = readinessSummary.safeCount,
+                    canStartExam = canStartExam,
+                    firstBlockingReason = firstBlockingReason,
                     onBackHome = onBackHome
                 )
             }
@@ -328,88 +362,106 @@ internal fun ExamSecurityPreparationScreenContent(
             val visibleChecklistText = checklistText
             if (visibleChecklistText != null) {
                 item(key = "checklist_device_setup") {
-                    PreparationDeviceSetupSection(
-                        device = state.device,
-                        bypass = state.bypass,
-                        text = visibleChecklistText,
-                        sendingSection = state.session.sendingSection,
-                        needsBluetoothPermission = needsBluetoothPermission,
-                        onRequestSectionReport = actions.session.onRequestSectionReport
-                    )
+                    CollapsibleChecklistSection("checklist_device_setup", sectionHealthMap["checklist_device_setup"]) {
+                        PreparationDeviceSetupSection(
+                            device = state.device,
+                            bypass = state.bypass,
+                            text = visibleChecklistText,
+                            sendingSection = state.session.sendingSection,
+                            needsBluetoothPermission = needsBluetoothPermission,
+                            onRequestSectionReport = actions.session.onRequestSectionReport
+                        )
+                    }
                 }
                 item(key = "checklist_connectivity") {
-                    PreparationConnectivitySection(
-                        text = visibleChecklistText,
-                        sendingSection = state.session.sendingSection,
-                        onRequestSectionReport = actions.session.onRequestSectionReport
-                    )
+                    CollapsibleChecklistSection("checklist_connectivity", sectionHealthMap["checklist_connectivity"]) {
+                        PreparationConnectivitySection(
+                            text = visibleChecklistText,
+                            sendingSection = state.session.sendingSection,
+                            onRequestSectionReport = actions.session.onRequestSectionReport
+                        )
+                    }
                 }
                 item(key = "checklist_device_health") {
-                    PreparationDeviceHealthSection(
-                        device = state.device,
-                        bypass = state.bypass,
-                        text = visibleChecklistText,
-                        sendingSection = state.session.sendingSection,
-                        onRequestSectionReport = actions.session.onRequestSectionReport
-                    )
+                    CollapsibleChecklistSection("checklist_device_health", sectionHealthMap["checklist_device_health"]) {
+                        PreparationDeviceHealthSection(
+                            device = state.device,
+                            bypass = state.bypass,
+                            text = visibleChecklistText,
+                            sendingSection = state.session.sendingSection,
+                            onRequestSectionReport = actions.session.onRequestSectionReport
+                        )
+                    }
                 }
                 item(key = "checklist_runtime_interaction") {
-                    PreparationRuntimeInteractionSection(
-                        runtimeSecurity = state.runtimeSecurity,
-                        bypass = state.bypass,
-                        text = visibleChecklistText,
-                        sendingSection = state.session.sendingSection,
-                        accessibilityInspection = accessibilityInspection,
-                        onRequestSectionReport = actions.session.onRequestSectionReport
-                    )
+                    CollapsibleChecklistSection("checklist_runtime_interaction", sectionHealthMap["checklist_runtime_interaction"]) {
+                        PreparationRuntimeInteractionSection(
+                            runtimeSecurity = state.runtimeSecurity,
+                            bypass = state.bypass,
+                            text = visibleChecklistText,
+                            sendingSection = state.session.sendingSection,
+                            accessibilityInspection = accessibilityInspection,
+                            onRequestSectionReport = actions.session.onRequestSectionReport
+                        )
+                    }
                 }
                 item(key = "checklist_device_integrity") {
-                    PreparationDeviceIntegritySection(
-                        device = state.device,
-                        bypass = state.bypass,
-                        text = visibleChecklistText,
-                        sendingSection = state.session.sendingSection,
-                        onRequestSectionReport = actions.session.onRequestSectionReport
-                    )
+                    CollapsibleChecklistSection("checklist_device_integrity", sectionHealthMap["checklist_device_integrity"]) {
+                        PreparationDeviceIntegritySection(
+                            device = state.device,
+                            bypass = state.bypass,
+                            text = visibleChecklistText,
+                            sendingSection = state.session.sendingSection,
+                            onRequestSectionReport = actions.session.onRequestSectionReport
+                        )
+                    }
                 }
                 item(key = "checklist_runtime_clipboard") {
-                    PreparationRuntimeClipboardSection(
-                        runtimeSecurity = state.runtimeSecurity,
-                        bypass = state.bypass,
-                        text = visibleChecklistText,
-                        sendingSection = state.session.sendingSection,
-                        onRequestSectionReport = actions.session.onRequestSectionReport
-                    )
+                    CollapsibleChecklistSection("checklist_runtime_clipboard", sectionHealthMap["checklist_runtime_clipboard"]) {
+                        PreparationRuntimeClipboardSection(
+                            runtimeSecurity = state.runtimeSecurity,
+                            bypass = state.bypass,
+                            text = visibleChecklistText,
+                            sendingSection = state.session.sendingSection,
+                            onRequestSectionReport = actions.session.onRequestSectionReport
+                        )
+                    }
                 }
                 item(key = "checklist_location") {
-                    PreparationLocationSection(
-                        location = state.location,
-                        bypass = state.bypass,
-                        text = visibleChecklistText,
-                        sendingSection = state.session.sendingSection,
-                        onRequestSectionReport = actions.session.onRequestSectionReport
-                    )
+                    CollapsibleChecklistSection("checklist_location", sectionHealthMap["checklist_location"]) {
+                        PreparationLocationSection(
+                            location = state.location,
+                            bypass = state.bypass,
+                            text = visibleChecklistText,
+                            sendingSection = state.session.sendingSection,
+                            onRequestSectionReport = actions.session.onRequestSectionReport
+                        )
+                    }
                 }
                 item(key = "checklist_device_lock") {
-                    PreparationDeviceLockSection(
-                        device = state.device,
-                        bypass = state.bypass,
-                        text = visibleChecklistText,
-                        sendingSection = state.session.sendingSection,
-                        accessibilityGuardAvailable = accessibilityGuardAvailable,
-                        accessibilityGuardRequired = accessibilityGuardRequired,
-                        accessibilityGuardEnabled = accessibilityGuardEnabled,
-                        onRequestSectionReport = actions.session.onRequestSectionReport
-                    )
+                    CollapsibleChecklistSection("checklist_device_lock", sectionHealthMap["checklist_device_lock"]) {
+                        PreparationDeviceLockSection(
+                            device = state.device,
+                            bypass = state.bypass,
+                            text = visibleChecklistText,
+                            sendingSection = state.session.sendingSection,
+                            accessibilityGuardAvailable = accessibilityGuardAvailable,
+                            accessibilityGuardRequired = accessibilityGuardRequired,
+                            accessibilityGuardEnabled = accessibilityGuardEnabled,
+                            onRequestSectionReport = actions.session.onRequestSectionReport
+                        )
+                    }
                 }
                 item(key = "checklist_runtime_static_security") {
-                    PreparationRuntimeStaticSecuritySection(
-                        runtimeSecurity = state.runtimeSecurity,
-                        bypass = state.bypass,
-                        text = visibleChecklistText,
-                        sendingSection = state.session.sendingSection,
-                        onRequestSectionReport = actions.session.onRequestSectionReport
-                    )
+                    CollapsibleChecklistSection("checklist_runtime_static_security", sectionHealthMap["checklist_runtime_static_security"]) {
+                        PreparationRuntimeStaticSecuritySection(
+                            runtimeSecurity = state.runtimeSecurity,
+                            bypass = state.bypass,
+                            text = visibleChecklistText,
+                            sendingSection = state.session.sendingSection,
+                            onRequestSectionReport = actions.session.onRequestSectionReport
+                        )
+                    }
                 }
             } else {
                 item(key = "ultra_low_ram_checklist_collapsed") {
@@ -461,6 +513,12 @@ internal fun ExamSecurityPreparationScreenContent(
                 )
             }
 
+            if (canStartExam) {
+                item(key = "celebration_banner") {
+                    PreparationCelebrationBanner()
+                }
+            }
+
             item(key = "preparation_bottom_spacer") {
                 Spacer(modifier = Modifier.height(6.dp))
             }
@@ -472,6 +530,7 @@ internal fun ExamSecurityPreparationScreenContent(
             canStartExam = canStartExam,
             isStartingExam = isStartingExam,
             webViewSessionResetInFlight = webViewSessionResetInFlight,
+            blockingReason = firstBlockingReason,
             onRefreshStatus = throttledActions.onRefreshStatus,
             onStartExam = onStartExam,
             onBackHome = onBackHome,

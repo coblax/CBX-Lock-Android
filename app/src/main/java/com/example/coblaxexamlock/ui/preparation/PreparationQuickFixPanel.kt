@@ -176,16 +176,29 @@ internal fun PreparationQuickFixPanel(
                         }
                     }
 
+                    val stepNumbers = listOf("①", "②", "③", "④", "⑤", "⑥", "⑦", "⑧", "⑨", "⑩")
+                    var stepIndex = 0
+
                     val primaryAction = primaryQuickFixAction
                     if (primaryAction != null) {
+                        val stepLabel = stepNumbers.getOrElse(stepIndex) { "${stepIndex + 1}." }
+                        stepIndex++
                         PreparationAssistButton(
                             text = primaryAction.text,
-                            labelPrefix = tr("Fix First", "Perbaiki Dulu"),
+                            labelPrefix = "$stepLabel ${tr("Fix First", "Perbaiki Dulu")}",
                             filled = true,
                             loading = primaryAction.loading,
                             enabled = primaryAction.enabled,
                             onClick = primaryAction.onClick
                         )
+                        if (!primaryAction.reason.isNullOrBlank()) {
+                            Text(
+                                text = primaryAction.reason,
+                                color = LockTextSecondary,
+                                fontSize = 10.sp,
+                                lineHeight = 13.sp
+                            )
+                        }
                     }
 
                     if (blockingQuickFixActions.isNotEmpty()) {
@@ -206,15 +219,26 @@ internal fun PreparationQuickFixPanel(
                                 fontWeight = FontWeight.Bold
                             )
                         }
-                        blockingQuickFixActions.forEach { action ->
+                        blockingQuickFixActions.forEachIndexed { _, action ->
+                            val stepLabel = stepNumbers.getOrElse(stepIndex) { "${stepIndex + 1}." }
+                            stepIndex++
                             PreparationAssistButton(
                                 text = action.text,
+                                labelPrefix = stepLabel,
                                 compact = true,
                                 filled = action.filled,
                                 loading = action.loading,
                                 enabled = action.enabled,
                                 onClick = action.onClick
                             )
+                            if (!action.reason.isNullOrBlank()) {
+                                Text(
+                                    text = action.reason,
+                                    color = LockTextSecondary,
+                                    fontSize = 10.sp,
+                                    lineHeight = 13.sp
+                                )
+                            }
                         }
                     }
 
@@ -236,15 +260,26 @@ internal fun PreparationQuickFixPanel(
                                 fontWeight = FontWeight.Bold
                             )
                         }
-                        warningQuickFixActions.forEach { action ->
+                        warningQuickFixActions.forEachIndexed { _, action ->
+                            val stepLabel = stepNumbers.getOrElse(stepIndex) { "${stepIndex + 1}." }
+                            stepIndex++
                             PreparationAssistButton(
                                 text = action.text,
+                                labelPrefix = stepLabel,
                                 compact = true,
                                 filled = action.filled,
                                 loading = action.loading,
                                 enabled = action.enabled,
                                 onClick = action.onClick
                             )
+                            if (!action.reason.isNullOrBlank()) {
+                                Text(
+                                    text = action.reason,
+                                    color = LockTextSecondary,
+                                    fontSize = 10.sp,
+                                    lineHeight = 13.sp
+                                )
+                            }
                         }
                     }
 

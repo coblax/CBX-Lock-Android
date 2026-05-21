@@ -359,21 +359,26 @@ internal fun PreparationFloatingActionBar(
     canStartExam: Boolean,
     isStartingExam: Boolean,
     webViewSessionResetInFlight: Boolean,
+    blockingReason: String? = null,
     onRefreshStatus: () -> Unit,
     onStartExam: () -> Unit,
     onBackHome: () -> Unit,
     modifier: Modifier = Modifier
 ) {
-    Row(
+    Column(
         modifier = modifier
             .clip(RoundedCornerShape(20.dp))
             .background(LockBlueDeep)
             .border(1.dp, LockBlueDeep.copy(alpha = 0.85f), RoundedCornerShape(20.dp))
             .fillMaxWidth()
-            .padding(horizontal = 6.dp, vertical = 6.dp),
-        horizontalArrangement = Arrangement.spacedBy(6.dp),
-        verticalAlignment = Alignment.CenterVertically
     ) {
+        Row(
+            modifier = Modifier
+                .fillMaxWidth()
+                .padding(horizontal = 6.dp, vertical = 6.dp),
+            horizontalArrangement = Arrangement.spacedBy(6.dp),
+            verticalAlignment = Alignment.CenterVertically
+        ) {
             CompactPrepActionButton(
                 icon = Icons.Rounded.Refresh,
                 label = "Refresh",
@@ -425,5 +430,19 @@ internal fun PreparationFloatingActionBar(
                 label = "Menu",
                 onClick = onBackHome
             )
+        }
+        if (!canStartExam && !blockingReason.isNullOrBlank()) {
+            Text(
+                text = "⚠ $blockingReason",
+                color = Color.White.copy(alpha = 0.75f),
+                fontSize = 10.sp,
+                fontWeight = FontWeight.SemiBold,
+                textAlign = TextAlign.Center,
+                maxLines = 1,
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .padding(bottom = 6.dp)
+            )
+        }
     }
 }

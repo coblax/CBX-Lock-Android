@@ -268,7 +268,7 @@ internal fun CircleGeofenceEditorScreen(
     val mapsReady = mapsApiKey.isNotBlank()
     val coroutineScope = rememberCoroutineScope()
     var googleMap by remember { mutableStateOf<GoogleMap?>(null) }
-    var mapVisible by remember { mutableStateOf(!lowRamProfile.deferHeavyUi) }
+    var mapVisible by remember { mutableStateOf(!lowRamProfile.deferHeavyUi && !lowRamProfile.ultra) }
     var draftCenters by remember(initialCenters) { mutableStateOf(initialCenters.take(5)) }
     var draftRadiusMeters by remember(initialRadiusMeters) { mutableStateOf(initialRadiusMeters) }
     var selectedIndex by remember(initialCenters) {
@@ -720,13 +720,16 @@ internal fun CircleGeofenceEditorScreen(
                             Button(
                                 onClick = { mapVisible = true },
                                 modifier = Modifier.weight(1f),
-                                enabled = mapsReady,
+                                enabled = mapsReady && !lowRamProfile.ultra,
                                 colors = ButtonDefaults.buttonColors(
                                     containerColor = LockBlue,
                                     contentColor = LockOnDark
                                 )
                             ) {
-                                Text(tr("Open Map", "Buka Map"), fontWeight = FontWeight.Bold)
+                                Text(
+                                    text = if (lowRamProfile.ultra) tr("Disabled on Ultra RAM", "Dinonaktifkan di Ultra RAM") else tr("Open Map", "Buka Map"),
+                                    fontWeight = FontWeight.Bold
+                                )
                             }
                             Button(
                                 onClick = {
