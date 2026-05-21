@@ -196,6 +196,7 @@ import com.example.coblaxexamlock.BuildConfig
 import com.example.coblaxexamlock.LocalDeviceCompatibilityProfile
 import com.example.coblaxexamlock.LocalLowRamProfile
 import com.example.coblaxexamlock.LowRamProfile
+import com.example.coblaxexamlock.LowRamProfileOverride
 import com.example.coblaxexamlock.LocationPolicySource
 import com.example.coblaxexamlock.MemoryPressureCoordinator
 import com.example.coblaxexamlock.QrPortraitCaptureActivity
@@ -236,6 +237,7 @@ import com.example.coblaxexamlock.ui.admin.CustomQrAdminScreen
 import com.example.coblaxexamlock.ui.admin.ExamLockLowRamHomeScreen
 import com.example.coblaxexamlock.ui.admin.ExamLockHomeScreen
 import com.example.coblaxexamlock.ui.admin.InfoDialog
+import com.example.coblaxexamlock.ui.admin.PublicPerformanceProfileDialog
 import com.example.coblaxexamlock.ui.admin.ScanSourceDialog
 import com.example.coblaxexamlock.ui.admin.SecretAdminScreen
 import com.example.coblaxexamlock.ui.exam.ExamWebViewScreen
@@ -457,6 +459,7 @@ internal fun AppHostRuntimeContent(
         mutableStateOf(if (lowRamProfile.deferHeavyUi) null else context.readAdminSettings())
     }
     var showDeferredHomeChrome by rememberSaveable { mutableStateOf(!lowRamProfile.severe) }
+    var showPerformanceProfileDialog by rememberSaveable { mutableStateOf(false) }
     val adminSettingsSaveRequests = remember { Channel<AdminSettings>(capacity = Channel.CONFLATED) }
     var activeExamPayload by rememberSaveable(stateSaver = ExamQrPayloadSaver) {
         mutableStateOf(null as ExamQrPayload?)
@@ -539,6 +542,23 @@ internal fun AppHostRuntimeContent(
         val sendResult = adminSettingsSaveRequests.trySend(normalized)
         if (BuildConfig.DEBUG && sendResult.isFailure) {
             Log.d(AdminSettingsPerfTag, "Admin settings save request was dropped before enqueue.")
+        }
+    }
+
+    fun updateLowRamProfileOverride(override: LowRamProfileOverride) {
+        lowRamProfile = applyLowRamProfileOverride(
+            detectedProfile = detectedLowRamProfile,
+            override = override
+        )
+        adminSettings?.let { cachedSettings ->
+            updateAdminSettings(cachedSettings.copy(lowRamProfileOverride = override))
+            return
+        }
+        coroutineScope.launch {
+            val currentSettings = withContext(Dispatchers.IO) {
+                context.readAdminSettings()
+            }
+            updateAdminSettings(currentSettings.copy(lowRamProfileOverride = override))
         }
     }
 
@@ -1129,6 +1149,7 @@ internal fun AppHostRuntimeContent(
                     onOpenFastExam = ::launchDirectLink,
                     directLinkLabel = directLinkLabel,
                     onSecretTap = ::registerSecretTap,
+                    onOpenPerformanceProfile = { showPerformanceProfileDialog = true },
                     showDeferredChrome = showDeferredHomeChrome
                 )
             } else {
@@ -1145,6 +1166,7 @@ internal fun AppHostRuntimeContent(
                     onOpenFastExam = ::launchDirectLink,
                     directLinkLabel = directLinkLabel,
                     onSecretTap = ::registerSecretTap,
+                    onOpenPerformanceProfile = { showPerformanceProfileDialog = true },
                     showDeferredChrome = showDeferredHomeChrome
                 )
             }
@@ -1178,6 +1200,16 @@ internal fun AppHostRuntimeContent(
                         savedRouteSnapshotRaw = AppRecoveryRoute.Home.name
                         adminFlowViewModel.dispatch(AdminFlowUiAction.SetCurrentScreen(AppScreen.Home))
                 }
+            )
+        }
+
+        if (showPerformanceProfileDialog) {
+            PublicPerformanceProfileDialog(
+                selectedOverride = lowRamProfile.lowRamOverride,
+                detectedProfile = detectedLowRamProfile,
+                effectiveProfile = lowRamProfile,
+                onOverrideChange = ::updateLowRamProfileOverride,
+                onDismiss = { showPerformanceProfileDialog = false }
             )
         }
 

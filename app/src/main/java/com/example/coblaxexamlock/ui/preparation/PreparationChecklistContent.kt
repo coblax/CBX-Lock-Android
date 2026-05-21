@@ -18,8 +18,10 @@ import androidx.compose.runtime.Composable
 import androidx.compose.runtime.DisposableEffect
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableLongStateOf
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
+import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.runtime.rememberUpdatedState
 import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.runtime.setValue
@@ -42,6 +44,9 @@ import com.example.coblaxexamlock.runtime.requiresBluetoothExamPermission
 import com.example.coblaxexamlock.ui.theme.LockBackground
 import com.example.coblaxexamlock.ui.theme.LockBlueDeep
 import com.example.coblaxexamlock.ui.theme.LockGold
+import kotlinx.coroutines.Job
+import kotlinx.coroutines.delay
+import kotlinx.coroutines.launch
 
 private const val PreparationPerfTag = "PreparationPerf"
 
@@ -69,7 +74,10 @@ internal fun ExamSecurityPreparationScreenContent(
         with(actions) {
     val uiLanguage = LocalUiLanguage.current
     val context = LocalContext.current
-    val severeLowRamPreparation = LocalLowRamProfile.current.severe
+    val lowRamProfile = LocalLowRamProfile.current
+    val severeLowRamPreparation = lowRamProfile.severe
+    val ultraLowRamPreparation = lowRamProfile.ultra
+    val showFullChecklist = !ultraLowRamPreparation || showChecklistDetails
     val accessibilityInspection = remember(
         context,
         accessibilityServiceEnabled,
@@ -88,6 +96,66 @@ internal fun ExamSecurityPreparationScreenContent(
     val refreshPreparationStatus by rememberUpdatedState(onRefreshStatus)
     val refreshNetworkStatus by rememberUpdatedState(onRefreshNetworkStatus)
     val refreshLocationStatus by rememberUpdatedState(onRefreshGeofenceLocation)
+    val manualRefreshScope = rememberCoroutineScope()
+    var lastManualRefreshAt by remember { mutableLongStateOf(0L) }
+    var lastManualRefreshKey by remember { mutableStateOf<String?>(null) }
+    var pendingManualRefreshJob by remember { mutableStateOf<Job?>(null) }
+    var pendingManualRefreshAction by remember { mutableStateOf<(() -> Unit)?>(null) }
+    fun runManualRefreshWithCooldown(key: String, action: () -> Unit) {
+        val cooldownMillis = lowRamProfile.manualRefreshCooldownMillis
+        if (cooldownMillis <= 0L) {
+            action()
+            return
+        }
+        val nowElapsedMs = SystemClock.elapsedRealtime()
+        val elapsedMs = nowElapsedMs - lastManualRefreshAt
+        if (lastManualRefreshKey != key || elapsedMs >= cooldownMillis) {
+            pendingManualRefreshJob?.cancel()
+            pendingManualRefreshJob = null
+            pendingManualRefreshAction = null
+            lastManualRefreshKey = key
+            lastManualRefreshAt = nowElapsedMs
+            action()
+            return
+        }
+        pendingManualRefreshAction = action
+        if (pendingManualRefreshJob == null) {
+            pendingManualRefreshJob = manualRefreshScope.launch {
+                delay((cooldownMillis - elapsedMs).coerceAtLeast(0L))
+                val queuedAction = pendingManualRefreshAction
+                pendingManualRefreshAction = null
+                pendingManualRefreshJob = null
+                lastManualRefreshKey = key
+                lastManualRefreshAt = SystemClock.elapsedRealtime()
+                queuedAction?.invoke()
+            }
+        }
+    }
+    DisposableEffect(Unit) {
+        onDispose {
+            pendingManualRefreshJob?.cancel()
+        }
+    }
+    val throttledActions = actions.copy(
+        session = actions.session.copy(
+            onRefreshStatus = {
+                runManualRefreshWithCooldown("status", refreshPreparationStatus)
+            },
+            onRefreshAllSecurityChecks = {
+                runManualRefreshWithCooldown("all", refreshAllSecurityChecks)
+            }
+        ),
+        network = actions.network.copy(
+            onRefreshNetworkStatus = {
+                runManualRefreshWithCooldown("network", refreshNetworkStatus)
+            }
+        ),
+        location = actions.location.copy(
+            onRefreshGeofenceLocation = {
+                runManualRefreshWithCooldown("location", refreshLocationStatus)
+            }
+        )
+    )
     DisposableEffect(lifecycleOwner) {
         val observer = LifecycleEventObserver { _, event ->
             if (event != Lifecycle.Event.ON_RESUME) {
@@ -171,18 +239,23 @@ internal fun ExamSecurityPreparationScreenContent(
         accessibilityGuardEnabled,
         accessibilityGuardAvailable,
         accessibilityGuardRequired,
-        needsBluetoothPermission
+        needsBluetoothPermission,
+        showFullChecklist
     ) {
         debugMeasurePreparationWork("buildPreparationChecklistText") {
-            buildPreparationChecklistText(
-                state = state,
-                uiLanguage = uiLanguage,
-                accessibilityInspection = accessibilityInspection,
-                accessibilityGuardEnabled = accessibilityGuardEnabled,
-                accessibilityGuardAvailable = accessibilityGuardAvailable,
-                accessibilityGuardRequired = accessibilityGuardRequired,
-                needsBluetoothPermission = needsBluetoothPermission
-            )
+            if (showFullChecklist) {
+                buildPreparationChecklistText(
+                    state = state,
+                    uiLanguage = uiLanguage,
+                    accessibilityInspection = accessibilityInspection,
+                    accessibilityGuardEnabled = accessibilityGuardEnabled,
+                    accessibilityGuardAvailable = accessibilityGuardAvailable,
+                    accessibilityGuardRequired = accessibilityGuardRequired,
+                    needsBluetoothPermission = needsBluetoothPermission
+                )
+            } else {
+                null
+            }
         }
     }
     val readiness = remember(
@@ -252,89 +325,104 @@ internal fun ExamSecurityPreparationScreenContent(
                     telegramHelperText = telegramHelperText
                 )
             }
-            item(key = "checklist_device_setup") {
-                PreparationDeviceSetupSection(
-                    device = state.device,
-                    bypass = state.bypass,
-                    text = checklistText,
-                    sendingSection = state.session.sendingSection,
-                    needsBluetoothPermission = needsBluetoothPermission,
-                    onRequestSectionReport = actions.session.onRequestSectionReport
-                )
-            }
-            item(key = "checklist_connectivity") {
-                PreparationConnectivitySection(
-                    text = checklistText,
-                    sendingSection = state.session.sendingSection,
-                    onRequestSectionReport = actions.session.onRequestSectionReport
-                )
-            }
-            item(key = "checklist_device_health") {
-                PreparationDeviceHealthSection(
-                    device = state.device,
-                    bypass = state.bypass,
-                    text = checklistText,
-                    sendingSection = state.session.sendingSection,
-                    onRequestSectionReport = actions.session.onRequestSectionReport
-                )
-            }
-            item(key = "checklist_runtime_interaction") {
-                PreparationRuntimeInteractionSection(
-                    runtimeSecurity = state.runtimeSecurity,
-                    bypass = state.bypass,
-                    text = checklistText,
-                    sendingSection = state.session.sendingSection,
-                    accessibilityInspection = accessibilityInspection,
-                    onRequestSectionReport = actions.session.onRequestSectionReport
-                )
-            }
-            item(key = "checklist_device_integrity") {
-                PreparationDeviceIntegritySection(
-                    device = state.device,
-                    bypass = state.bypass,
-                    text = checklistText,
-                    sendingSection = state.session.sendingSection,
-                    onRequestSectionReport = actions.session.onRequestSectionReport
-                )
-            }
-            item(key = "checklist_runtime_clipboard") {
-                PreparationRuntimeClipboardSection(
-                    runtimeSecurity = state.runtimeSecurity,
-                    bypass = state.bypass,
-                    text = checklistText,
-                    sendingSection = state.session.sendingSection,
-                    onRequestSectionReport = actions.session.onRequestSectionReport
-                )
-            }
-            item(key = "checklist_location") {
-                PreparationLocationSection(
-                    location = state.location,
-                    bypass = state.bypass,
-                    text = checklistText,
-                    sendingSection = state.session.sendingSection,
-                    onRequestSectionReport = actions.session.onRequestSectionReport
-                )
-            }
-            item(key = "checklist_device_lock") {
-                PreparationDeviceLockSection(
-                    device = state.device,
-                    bypass = state.bypass,
-                    text = checklistText,
-                    sendingSection = state.session.sendingSection,
-                    accessibilityGuardAvailable = accessibilityGuardAvailable,
-                    accessibilityGuardRequired = accessibilityGuardRequired,
-                    accessibilityGuardEnabled = accessibilityGuardEnabled,
-                    onRequestSectionReport = actions.session.onRequestSectionReport
-                )
-            }
-            item(key = "checklist_runtime_static_security") {
-                PreparationRuntimeStaticSecuritySection(
-                    runtimeSecurity = state.runtimeSecurity,
-                    bypass = state.bypass,
-                    text = checklistText,
-                    sendingSection = state.session.sendingSection,
-                    onRequestSectionReport = actions.session.onRequestSectionReport
-                )
+            val visibleChecklistText = checklistText
+            if (visibleChecklistText != null) {
+                item(key = "checklist_device_setup") {
+                    PreparationDeviceSetupSection(
+                        device = state.device,
+                        bypass = state.bypass,
+                        text = visibleChecklistText,
+                        sendingSection = state.session.sendingSection,
+                        needsBluetoothPermission = needsBluetoothPermission,
+                        onRequestSectionReport = actions.session.onRequestSectionReport
+                    )
+                }
+                item(key = "checklist_connectivity") {
+                    PreparationConnectivitySection(
+                        text = visibleChecklistText,
+                        sendingSection = state.session.sendingSection,
+                        onRequestSectionReport = actions.session.onRequestSectionReport
+                    )
+                }
+                item(key = "checklist_device_health") {
+                    PreparationDeviceHealthSection(
+                        device = state.device,
+                        bypass = state.bypass,
+                        text = visibleChecklistText,
+                        sendingSection = state.session.sendingSection,
+                        onRequestSectionReport = actions.session.onRequestSectionReport
+                    )
+                }
+                item(key = "checklist_runtime_interaction") {
+                    PreparationRuntimeInteractionSection(
+                        runtimeSecurity = state.runtimeSecurity,
+                        bypass = state.bypass,
+                        text = visibleChecklistText,
+                        sendingSection = state.session.sendingSection,
+                        accessibilityInspection = accessibilityInspection,
+                        onRequestSectionReport = actions.session.onRequestSectionReport
+                    )
+                }
+                item(key = "checklist_device_integrity") {
+                    PreparationDeviceIntegritySection(
+                        device = state.device,
+                        bypass = state.bypass,
+                        text = visibleChecklistText,
+                        sendingSection = state.session.sendingSection,
+                        onRequestSectionReport = actions.session.onRequestSectionReport
+                    )
+                }
+                item(key = "checklist_runtime_clipboard") {
+                    PreparationRuntimeClipboardSection(
+                        runtimeSecurity = state.runtimeSecurity,
+                        bypass = state.bypass,
+                        text = visibleChecklistText,
+                        sendingSection = state.session.sendingSection,
+                        onRequestSectionReport = actions.session.onRequestSectionReport
+                    )
+                }
+                item(key = "checklist_location") {
+                    PreparationLocationSection(
+                        location = state.location,
+                        bypass = state.bypass,
+                        text = visibleChecklistText,
+                        sendingSection = state.session.sendingSection,
+                        onRequestSectionReport = actions.session.onRequestSectionReport
+                    )
+                }
+                item(key = "checklist_device_lock") {
+                    PreparationDeviceLockSection(
+                        device = state.device,
+                        bypass = state.bypass,
+                        text = visibleChecklistText,
+                        sendingSection = state.session.sendingSection,
+                        accessibilityGuardAvailable = accessibilityGuardAvailable,
+                        accessibilityGuardRequired = accessibilityGuardRequired,
+                        accessibilityGuardEnabled = accessibilityGuardEnabled,
+                        onRequestSectionReport = actions.session.onRequestSectionReport
+                    )
+                }
+                item(key = "checklist_runtime_static_security") {
+                    PreparationRuntimeStaticSecuritySection(
+                        runtimeSecurity = state.runtimeSecurity,
+                        bypass = state.bypass,
+                        text = visibleChecklistText,
+                        sendingSection = state.session.sendingSection,
+                        onRequestSectionReport = actions.session.onRequestSectionReport
+                    )
+                }
+            } else {
+                item(key = "ultra_low_ram_checklist_collapsed") {
+                    PreparationNoticeCard(
+                        title = tr("Ultra Low-RAM Mode", "Mode Ultra Low-RAM"),
+                        message = tr(
+                            "Technical checklist details are hidden to keep this phone responsive. Open Detail Teknis from admin settings if a full audit is needed.",
+                            "Detail checklist teknis disembunyikan agar HP tetap responsif. Buka Detail Teknis dari pengaturan admin jika perlu audit lengkap."
+                        ),
+                        accentColor = LockGold,
+                        backgroundColor = Color(0xFFFFF8E6)
+                    )
+                }
             }
 
             if (tamperDetected) {
@@ -354,7 +442,7 @@ internal fun ExamSecurityPreparationScreenContent(
             item(key = "notice_stack") {
                 PreparationNoticeStack(
                     state = state,
-                    actions = actions,
+                    actions = throttledActions,
                     runQuickFix = ::runQuickFix
                 )
             }
@@ -362,7 +450,7 @@ internal fun ExamSecurityPreparationScreenContent(
             item(key = "quick_fix_panel") {
                 PreparationQuickFixPanel(
                     state = state,
-                    actions = actions,
+                    actions = throttledActions,
                     accessibilityGuardRequired = accessibilityGuardRequired,
                     accessibilityGuardEnabled = accessibilityGuardEnabled,
                     geofenceReady = geofenceReady,
@@ -384,7 +472,7 @@ internal fun ExamSecurityPreparationScreenContent(
             canStartExam = canStartExam,
             isStartingExam = isStartingExam,
             webViewSessionResetInFlight = webViewSessionResetInFlight,
-            onRefreshStatus = onRefreshStatus,
+            onRefreshStatus = throttledActions.onRefreshStatus,
             onStartExam = onStartExam,
             onBackHome = onBackHome,
             modifier = Modifier

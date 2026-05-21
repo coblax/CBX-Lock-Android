@@ -24,16 +24,17 @@ import kotlinx.coroutines.withContext
 
 private const val RuntimeFastStaticSecurityPollIntervalMillis = 2_000L
 private const val RuntimeScreenRecorderPollIntervalMillis = 15_000L
+private const val RuntimeLowScreenRecorderPollIntervalMillis = 30_000L
 private const val RuntimeUltraScreenRecorderPollIntervalMillis = 45_000L
 
 internal fun runtimeFastStaticSecurityPollIntervalMillis(lowRamProfile: LowRamProfile): Long =
     RuntimeFastStaticSecurityPollIntervalMillis * lowRamProfile.slowPollingMultiplier
 
 internal fun runtimeScreenRecorderPollIntervalMillis(lowRamProfile: LowRamProfile): Long =
-    if (lowRamProfile.ultra) {
-        RuntimeUltraScreenRecorderPollIntervalMillis
-    } else {
-        RuntimeScreenRecorderPollIntervalMillis
+    when {
+        lowRamProfile.ultra -> RuntimeUltraScreenRecorderPollIntervalMillis
+        lowRamProfile.enabled -> RuntimeLowScreenRecorderPollIntervalMillis
+        else -> RuntimeScreenRecorderPollIntervalMillis
     }
 
 internal data class RuntimeStaticSecurityUiMessage(

@@ -16,8 +16,8 @@ internal fun calculateQrExportBitmapSpec(
     lowRamProfile: LowRamProfile = LowRamProfile()
 ): QrExportBitmapSpec {
     val scale = when {
-        lowRamProfile.severe -> 0.67f
-        lowRamProfile.enabled -> 0.78f
+        lowRamProfile.severe -> 0.60f
+        lowRamProfile.enabled -> 0.72f
         else -> 1f
     }
     val width = (BaseQrExportWidthPx * scale).toInt().coerceAtLeast(900)

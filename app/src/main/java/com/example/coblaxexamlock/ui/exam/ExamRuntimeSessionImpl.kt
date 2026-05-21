@@ -69,7 +69,6 @@ import com.example.coblaxexamlock.ClipboardRuntimeStatus
 import com.example.coblaxexamlock.ClipboardSnapshot
 import com.example.coblaxexamlock.config.AlarmAcknowledgeDedupWindowMillis
 import com.example.coblaxexamlock.config.AppSwitchSuppressionWindowMillis
-import com.example.coblaxexamlock.config.MaxDiagnosticActionLogEntries
 import com.example.coblaxexamlock.config.MaxNetworkTimelineEntries
 import com.example.coblaxexamlock.config.NetworkUnstableFlipThreshold
 import com.example.coblaxexamlock.config.NetworkUnstableWindowMillis
@@ -934,7 +933,7 @@ internal fun ExamRuntimeSessionScreenImpl(
                 screen = currentDiagnosticScreen(),
                 appStartedAtElapsedMs = appStartedAtElapsedMs,
                 examSessionStartedAtElapsedMs = examSessionStartedAtElapsedMs,
-                maxEntries = MaxDiagnosticActionLogEntries
+                maxEntries = lowRamProfile.diagnosticLogMaxEntries
             )
         }
 
@@ -1051,7 +1050,7 @@ internal fun ExamRuntimeSessionScreenImpl(
                 screen = currentDiagnosticScreen(),
                 appStartedAtElapsedMs = appStartedAtElapsedMs,
                 examSessionStartedAtElapsedMs = examSessionStartedAtElapsedMs,
-                maxEntries = MaxDiagnosticActionLogEntries
+                maxEntries = lowRamProfile.diagnosticLogMaxEntries
             )
         }
 
@@ -1075,7 +1074,7 @@ internal fun ExamRuntimeSessionScreenImpl(
                 screen = currentDiagnosticScreen(),
                 appStartedAtElapsedMs = appStartedAtElapsedMs,
                 examSessionStartedAtElapsedMs = examSessionStartedAtElapsedMs,
-                maxEntries = MaxDiagnosticActionLogEntries
+                maxEntries = lowRamProfile.diagnosticLogMaxEntries
             )
         }
 

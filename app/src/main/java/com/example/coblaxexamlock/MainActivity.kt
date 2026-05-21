@@ -1,4 +1,5 @@
 package com.example.coblaxexamlock
+import android.app.AlertDialog
 import android.app.ActivityManager
 import android.content.res.Configuration
 import android.content.pm.ActivityInfo
@@ -12,6 +13,7 @@ import android.view.View
 import android.view.ViewTreeObserver
 import android.widget.LinearLayout
 import android.widget.TextView
+import android.widget.Toast
 import androidx.activity.ComponentActivity
 import androidx.activity.compose.setContent
 import androidx.activity.enableEdgeToEdge
@@ -123,7 +125,7 @@ class MainActivity : ComponentActivity() {
 
         // Lightweight profile badge and hidden Secret Admin trigger
         brandCard.addView(
-            createNativeProfileBadge(lowRamProfile),
+            createNativeProfileControls(lowRamProfile),
             LinearLayout.LayoutParams(
                 LinearLayout.LayoutParams.WRAP_CONTENT,
                 LinearLayout.LayoutParams.WRAP_CONTENT
@@ -273,6 +275,15 @@ class MainActivity : ComponentActivity() {
         )
     }
 
+    private fun createNativeProfileControls(lowRamProfile: LowRamProfile): View =
+        LinearLayout(this).apply {
+            orientation = LinearLayout.HORIZONTAL
+            gravity = Gravity.CENTER
+            addView(createNativeProfileBadge(lowRamProfile))
+            addView(horizontalSpace(dp(8)))
+            addView(createNativePerformanceProfileButton())
+        }
+
     private fun createNativeProfileBadge(lowRamProfile: LowRamProfile): View {
         val palette = lowRamProfileBadgePalette(lowRamProfile)
         return LinearLayout(this).apply {
@@ -308,6 +319,81 @@ class MainActivity : ComponentActivity() {
                 ).apply { gravity = Gravity.CENTER_VERTICAL }
             )
         }
+    }
+
+    private fun createNativePerformanceProfileButton(): View =
+        TextView(this).apply {
+            text = NativePerformanceProfileGear
+            contentDescription = "Buka pengaturan profil performa"
+            setTextColor(Color.rgb(16, 46, 106))
+            textSize = 16f
+            typeface = android.graphics.Typeface.DEFAULT_BOLD
+            gravity = Gravity.CENTER
+            includeFontPadding = false
+            setMinWidth(dp(32))
+            setMinimumHeight(dp(32))
+            background = pillBackground(Color.rgb(244, 247, 251), Color.rgb(212, 222, 233))
+            setOnClickListener { showNativePerformanceProfileDialog() }
+        }
+
+    private fun showNativePerformanceProfileDialog() {
+        val detectedProfile = resolveDetectedLowRamProfile(this)
+        val effectiveProfile = initialLowRamProfile ?: resolveLowRamProfile(this)
+        val overrideOptions = lowRamProfileOverrideOptions()
+        val checkedIndex = overrideOptions.indexOf(effectiveProfile.lowRamOverride).coerceAtLeast(0)
+        val labels = overrideOptions
+            .map { option -> nativePerformanceProfileOptionLabel(option) }
+            .toTypedArray()
+        AlertDialog.Builder(this)
+            .setTitle("Profil Performa")
+            .setMessage(nativePerformanceProfileSummary(detectedProfile, effectiveProfile))
+            .setSingleChoiceItems(labels, checkedIndex) { dialog, which ->
+                val selectedOverride = overrideOptions[which]
+                saveLowRamProfileOverride(this, selectedOverride)
+                initialLowRamProfile = applyLowRamProfileOverride(
+                    detectedProfile = detectedProfile,
+                    override = selectedOverride
+                )
+                when {
+                    isLowRamProfileOverrideRisky(detectedProfile, selectedOverride) -> {
+                        Toast.makeText(
+                            this,
+                            "Mode lebih ringan dari deteksi. HP kecil bisa lebih lag.",
+                            Toast.LENGTH_LONG
+                        ).show()
+                    }
+                    selectedOverride == LowRamProfileOverride.Ultra -> {
+                        Toast.makeText(
+                            this,
+                            "Ultra mengurangi beban UI dan memperjarang polling berkala.",
+                            Toast.LENGTH_LONG
+                        ).show()
+                    }
+                }
+                dialog.dismiss()
+                showNativeLowRamHomeThenCompose()
+            }
+            .setNegativeButton("Tutup", null)
+            .show()
+    }
+
+    private fun nativePerformanceProfileOptionLabel(override: LowRamProfileOverride): String =
+        when (override) {
+            LowRamProfileOverride.Auto -> "Auto - Deteksi perangkat"
+            LowRamProfileOverride.Normal -> "Normal - Performa penuh"
+            LowRamProfileOverride.Low -> "Low - Lebih ringan"
+            LowRamProfileOverride.Ultra -> "Ultra - Paling ringan"
+        }
+
+    private fun nativePerformanceProfileSummary(
+        detectedProfile: LowRamProfile,
+        effectiveProfile: LowRamProfile
+    ): String {
+        return "Ini hanya mengatur performa/UI, bukan bypass proteksi ujian.\n\n" +
+            "Terdeteksi: ${lowRamProfileBadgeLabel(detectedProfile)}\n" +
+            "Aktif: ${lowRamProfileBadgeLabel(effectiveProfile)}\n" +
+            "RAM: avail=${effectiveProfile.availableMemoryMb ?: "-"}MB total=${effectiveProfile.totalMemoryMb ?: "-"}MB\n" +
+            "Polling: ${effectiveProfile.slowPollingMultiplier}x"
     }
 
     private fun registerNativeSecretTap() {
@@ -361,6 +447,11 @@ class MainActivity : ComponentActivity() {
     private fun space(heightPx: Int): View =
         View(this).apply {
             layoutParams = LinearLayout.LayoutParams(1, heightPx)
+        }
+
+    private fun horizontalSpace(widthPx: Int): View =
+        View(this).apply {
+            layoutParams = LinearLayout.LayoutParams(widthPx, 1)
         }
 
     fun setOnUserLeaveExamHandler(handler: (() -> Unit)?) {
@@ -522,5 +613,6 @@ class MainActivity : ComponentActivity() {
         const val NativePreflightMemoryClassMb = 96
         const val NativePreflightAvailableMemoryBytes = 512L * 1024L * 1024L
         const val NativeSecretTapRequiredCount = 4
+        const val NativePerformanceProfileGear = "\u2699"
     }
 }

@@ -35,6 +35,19 @@ class LowRamSupportTest {
     }
 
     @Test
+    fun publicLowRamProfileOverrideOptionsExposeAllModes() {
+        assertEquals(
+            listOf(
+                LowRamProfileOverride.Auto,
+                LowRamProfileOverride.Normal,
+                LowRamProfileOverride.Low,
+                LowRamProfileOverride.Ultra
+            ),
+            lowRamProfileOverrideOptions()
+        )
+    }
+
+    @Test
     fun profileOverrideKeepsDetectedRamMetadata() {
         val detected = LowRamProfile(
             enabled = true,
@@ -70,7 +83,9 @@ class LowRamSupportTest {
         assertFalse(low.severe)
         assertFalse(low.ultra)
         assertEquals(2, low.slowPollingMultiplier)
-        assertEquals(1280, low.qrMaxEdgePx)
+        assertEquals(1024, low.qrMaxEdgePx)
+        assertEquals(16, low.diagnosticLogMaxEntries)
+        assertEquals(800L, low.manualRefreshCooldownMillis)
         assertEquals(LowRamTier.Ultra, low.detectedTier)
 
         val ultra = applyLowRamProfileOverride(detected, LowRamProfileOverride.Ultra)
@@ -79,6 +94,8 @@ class LowRamSupportTest {
         assertTrue(ultra.ultra)
         assertEquals(4, ultra.slowPollingMultiplier)
         assertEquals(720, ultra.qrMaxEdgePx)
+        assertEquals(12, ultra.diagnosticLogMaxEntries)
+        assertEquals(1_200L, ultra.manualRefreshCooldownMillis)
         assertEquals(LowRamTier.Ultra, ultra.detectedTier)
     }
 
@@ -96,7 +113,7 @@ class LowRamSupportTest {
     fun normalProfileKeepsFullPolicy() {
         val profile = calculateLowRamProfile(
             isLowRamDevice = false,
-            totalMemoryBytes = 2_048L * 1024L * 1024L,
+            totalMemoryBytes = 3_072L * 1024L * 1024L,
             memoryClassMb = 192
         )
 
@@ -106,10 +123,30 @@ class LowRamSupportTest {
         assertEquals(2560, profile.qrMaxEdgePx)
         assertFalse(profile.deferHeavyUi)
         assertEquals(1, profile.slowPollingMultiplier)
+        assertEquals(20, profile.diagnosticLogMaxEntries)
+        assertEquals(0L, profile.manualRefreshCooldownMillis)
     }
 
     @Test
-    fun exactlyOneGbEnablesLowRamPolicy() {
+    fun exactlyTwoGbEnablesLowRamPolicy() {
+        val profile = calculateLowRamProfile(
+            isLowRamDevice = false,
+            totalMemoryBytes = 2_048L * 1024L * 1024L,
+            memoryClassMb = 192
+        )
+
+        assertTrue(profile.enabled)
+        assertFalse(profile.severe)
+        assertFalse(profile.ultra)
+        assertEquals(1024, profile.qrMaxEdgePx)
+        assertTrue(profile.deferHeavyUi)
+        assertEquals(2, profile.slowPollingMultiplier)
+        assertEquals(16, profile.diagnosticLogMaxEntries)
+        assertEquals(800L, profile.manualRefreshCooldownMillis)
+    }
+
+    @Test
+    fun exactlyOneGbEnablesUltraPolicy() {
         val profile = calculateLowRamProfile(
             isLowRamDevice = false,
             totalMemoryBytes = 1_024L * 1024L * 1024L,
@@ -117,11 +154,13 @@ class LowRamSupportTest {
         )
 
         assertTrue(profile.enabled)
-        assertFalse(profile.severe)
-        assertFalse(profile.ultra)
-        assertEquals(1280, profile.qrMaxEdgePx)
+        assertTrue(profile.severe)
+        assertTrue(profile.ultra)
+        assertEquals(720, profile.qrMaxEdgePx)
         assertTrue(profile.deferHeavyUi)
-        assertEquals(2, profile.slowPollingMultiplier)
+        assertEquals(4, profile.slowPollingMultiplier)
+        assertEquals(12, profile.diagnosticLogMaxEntries)
+        assertEquals(1_200L, profile.manualRefreshCooldownMillis)
     }
 
     @Test

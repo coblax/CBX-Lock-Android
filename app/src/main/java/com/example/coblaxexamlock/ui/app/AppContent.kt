@@ -18,6 +18,7 @@ import com.example.coblaxexamlock.LocalLowRamProfile
 import com.example.coblaxexamlock.LowRamProfile
 import com.example.coblaxexamlock.MemoryPressureCoordinator
 import com.example.coblaxexamlock.StartupTrace
+import com.example.coblaxexamlock.applyLowRamProfileOverride
 import com.example.coblaxexamlock.config.FastExamName
 import com.example.coblaxexamlock.config.SecretTapWindowMs
 import com.example.coblaxexamlock.currentDeviceCompatibilityProfile
@@ -26,8 +27,11 @@ import com.example.coblaxexamlock.persistence.HomeAdminSettings
 import com.example.coblaxexamlock.persistence.readHomeAdminSettings
 import com.example.coblaxexamlock.persistence.readSavedUiLanguage
 import com.example.coblaxexamlock.persistence.saveUiLanguage
+import com.example.coblaxexamlock.resolveDetectedLowRamProfile
 import com.example.coblaxexamlock.resolveLowRamProfile
+import com.example.coblaxexamlock.saveLowRamProfileOverride
 import com.example.coblaxexamlock.ui.admin.ExamLockLowRamHomeScreen
+import com.example.coblaxexamlock.ui.admin.PublicPerformanceProfileDialog
 import com.example.coblaxexamlock.ui.exam.ExamRuntimeHardeningDiagnostics
 import com.example.coblaxexamlock.ui.exam.ExamRuntimeHardeningLogTag
 import kotlinx.coroutines.Dispatchers
@@ -45,8 +49,11 @@ internal fun AppContent(
     initialLowRamProfile: LowRamProfile? = null
 ) {
     val context = LocalContext.current
-    val lowRamProfile = remember(context, initialLowRamProfile) {
-        initialLowRamProfile ?: resolveLowRamProfile(context)
+    val detectedLowRamProfile = remember(context) {
+        resolveDetectedLowRamProfile(context)
+    }
+    var lowRamProfile by remember(context, initialLowRamProfile) {
+        mutableStateOf(initialLowRamProfile ?: resolveLowRamProfile(context))
     }
     val deviceCompatibilityProfile = remember(lowRamProfile) {
         currentDeviceCompatibilityProfile(lowRamProfile)
@@ -58,6 +65,7 @@ internal fun AppContent(
     var shellShowDeferredChrome by rememberSaveable { mutableStateOf(false) }
     var shellSecretTapCount by rememberSaveable { mutableStateOf(0) }
     var shellLastSecretTapAt by rememberSaveable { mutableStateOf(0L) }
+    var showPerformanceProfileDialog by rememberSaveable { mutableStateOf(false) }
     val startRuntimeInitially = shouldStartRuntimeImmediately(lowRamProfile, initialHomeActionRaw)
     var startRuntime by rememberSaveable {
         mutableStateOf(startRuntimeInitially)
@@ -155,8 +163,25 @@ internal fun AppContent(
                         startRuntime = true
                     }
                 },
+                onOpenPerformanceProfile = { showPerformanceProfileDialog = true },
                 showDeferredChrome = shellShowDeferredChrome
             )
+
+            if (showPerformanceProfileDialog) {
+                PublicPerformanceProfileDialog(
+                    selectedOverride = lowRamProfile.lowRamOverride,
+                    detectedProfile = detectedLowRamProfile,
+                    effectiveProfile = lowRamProfile,
+                    onOverrideChange = { override ->
+                        saveLowRamProfileOverride(context, override)
+                        lowRamProfile = applyLowRamProfileOverride(
+                            detectedProfile = detectedLowRamProfile,
+                            override = override
+                        )
+                    },
+                    onDismiss = { showPerformanceProfileDialog = false }
+                )
+            }
         }
         return
     }

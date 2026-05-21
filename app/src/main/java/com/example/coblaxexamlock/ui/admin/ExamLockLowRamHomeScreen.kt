@@ -65,6 +65,7 @@ internal fun ExamLockLowRamHomeScreen(
     onOpenFastExam: () -> Unit,
     directLinkLabel: String,
     onSecretTap: () -> Unit,
+    onOpenPerformanceProfile: () -> Unit,
     showDeferredChrome: Boolean,
     modifier: Modifier = Modifier
 ) {
@@ -106,7 +107,8 @@ internal fun ExamLockLowRamHomeScreen(
             LowRamHero(
                 uiLanguage = uiLanguage,
                 onUiLanguageChange = onUiLanguageChange,
-                onSecretTap = onSecretTap
+                onSecretTap = onSecretTap,
+                onOpenPerformanceProfile = onOpenPerformanceProfile
             )
 
             Spacer(modifier = Modifier.height(16.dp))
@@ -206,7 +208,8 @@ internal fun ExamLockLowRamHomeScreen(
 private fun LowRamHero(
     uiLanguage: UiLanguage,
     onUiLanguageChange: (UiLanguage) -> Unit,
-    onSecretTap: () -> Unit
+    onSecretTap: () -> Unit,
+    onOpenPerformanceProfile: () -> Unit
 ) {
     val lowRamProfile = LocalLowRamProfile.current
     val badgePalette = lowRamProfileBadgePalette(lowRamProfile)
@@ -230,42 +233,46 @@ private fun LowRamHero(
             horizontalArrangement = Arrangement.SpaceBetween,
             verticalAlignment = Alignment.CenterVertically
         ) {
-            // Production badge
-            Box(
-                modifier = Modifier
-                    .clip(RoundedCornerShape(999.dp))
-                    .background(containerColor)
-                    .border(1.dp, borderColor, RoundedCornerShape(999.dp))
-                    .clickable(
-                        interactionSource = remember { MutableInteractionSource() },
-                        indication = null,
-                        role = Role.Button,
-                        onClick = onSecretTap
-                    )
-                    .padding(horizontal = 10.dp, vertical = 6.dp),
-                contentAlignment = Alignment.Center
+            Row(
+                verticalAlignment = Alignment.CenterVertically,
+                horizontalArrangement = Arrangement.spacedBy(8.dp)
             ) {
-                Row(
-                    verticalAlignment = Alignment.CenterVertically,
-                    horizontalArrangement = Arrangement.spacedBy(5.dp)
+                Box(
+                    modifier = Modifier
+                        .clip(RoundedCornerShape(999.dp))
+                        .background(containerColor)
+                        .border(1.dp, borderColor, RoundedCornerShape(999.dp))
+                        .clickable(
+                            interactionSource = remember { MutableInteractionSource() },
+                            indication = null,
+                            role = Role.Button,
+                            onClick = onSecretTap
+                        )
+                        .padding(horizontal = 10.dp, vertical = 6.dp),
+                    contentAlignment = Alignment.Center
                 ) {
-                    Box(
-                        modifier = Modifier
-                            .size(6.dp)
-                            .clip(CircleShape)
-                            .background(dotColor)
-                    )
-                    LowRamText(
-                        text = label,
-                        color = contentColor,
-                        fontSize = 10.sp,
-                        fontWeight = FontWeight.Black,
-                        letterSpacing = 0.sp
-                    )
+                    Row(
+                        verticalAlignment = Alignment.CenterVertically,
+                        horizontalArrangement = Arrangement.spacedBy(5.dp)
+                    ) {
+                        Box(
+                            modifier = Modifier
+                                .size(6.dp)
+                                .clip(CircleShape)
+                                .background(dotColor)
+                        )
+                        LowRamText(
+                            text = label,
+                            color = contentColor,
+                            fontSize = 10.sp,
+                            fontWeight = FontWeight.Black,
+                            letterSpacing = 0.sp
+                        )
+                    }
                 }
+                PerformanceProfileGearButton(onClick = onOpenPerformanceProfile)
             }
 
-            // Language toggle
             Row(
                 modifier = Modifier
                     .clip(RoundedCornerShape(999.dp))

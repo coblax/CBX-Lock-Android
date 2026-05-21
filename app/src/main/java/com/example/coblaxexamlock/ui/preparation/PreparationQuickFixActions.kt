@@ -579,7 +579,7 @@ internal fun buildPreparationQuickFixActions(
                 emptyList()
             } else {
                 quickFixIssueActions + PreparationQuickFixAction(
-                    code = "refresh_all_security_checks",
+                    code = QuickFixRefreshAllSecurityChecksCode,
                     text = if (isRefreshingGeofence || isRefreshingNetwork) {
                         t("Refreshing Checks...", "Sedang Refresh Pemeriksaan...")
                     } else {
@@ -592,7 +592,7 @@ internal fun buildPreparationQuickFixActions(
                     loading = isRefreshingGeofence || isRefreshingNetwork,
                     enabled = !(isRefreshingGeofence || isRefreshingNetwork),
                     onClick = {
-                        onAutoFixActionOpened("refresh_all_security_checks")
+                        onAutoFixActionOpened(QuickFixRefreshAllSecurityChecksCode)
                         onRefreshAllSecurityChecks()
                     }
                 )

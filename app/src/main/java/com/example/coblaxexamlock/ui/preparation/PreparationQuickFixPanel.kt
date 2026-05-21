@@ -27,6 +27,7 @@ import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import com.example.coblaxexamlock.AccessibilityInspectionResult
+import com.example.coblaxexamlock.LocalLowRamProfile
 import com.example.coblaxexamlock.i18n.LocalUiLanguage
 import com.example.coblaxexamlock.i18n.tr
 import com.example.coblaxexamlock.ui.theme.LockGoldDark
@@ -47,6 +48,7 @@ internal fun PreparationQuickFixPanel(
     modifier: Modifier = Modifier
 ) {
     val uiLanguage = LocalUiLanguage.current
+    val lowRamProfile = LocalLowRamProfile.current
     val quickFixActions = remember(
         state.network,
         state.device,
@@ -81,8 +83,13 @@ internal fun PreparationQuickFixPanel(
             runQuickFix = runQuickFix
         )
     }
-    val noticeQuickFixActions = quickFixActions.filter { it.isNotice }
-    val actionableQuickFixActions = quickFixActions.filterNot { it.isNotice }
+    val displayActions = remember(quickFixActions, lowRamProfile) {
+        selectPreparationQuickFixActionsForDisplay(
+            actions = quickFixActions,
+            lowRamProfile = lowRamProfile
+        )
+    }
+    val noticeQuickFixActions = displayActions.notices
     val pinningDeferredNotice = noticeQuickFixActions.firstOrNull {
         it.code == QuickFixScreenPinningDeferredCode
     }
@@ -90,13 +97,12 @@ internal fun PreparationQuickFixPanel(
         val details = pinningDeferredNotice?.diagnosticDetails ?: return@LaunchedEffect
         actions.onScreenPinningDeferred(details)
     }
-    val primaryQuickFixAction = actionableQuickFixActions.firstOrNull()
-    val remainingQuickFixActions = actionableQuickFixActions.drop(1)
-    val blockingQuickFixActions = remainingQuickFixActions.filter { it.severity == QuickFixSeverity.Blocking }
-    val warningQuickFixActions = remainingQuickFixActions.filter { it.severity == QuickFixSeverity.Warning }
-    val blockingQuickFixCount = actionableQuickFixActions.count { it.severity == QuickFixSeverity.Blocking }
-    val warningQuickFixCount =
-        actionableQuickFixActions.count { it.severity == QuickFixSeverity.Warning && it.priority != 900 }
+    val primaryQuickFixAction = displayActions.primary
+    val blockingQuickFixActions = displayActions.blocking
+    val warningQuickFixActions = displayActions.warnings
+    val refreshQuickFixAction = displayActions.refresh
+    val blockingQuickFixCount = displayActions.blockingCount
+    val warningQuickFixCount = displayActions.warningCount
     val quickFixBorderColor = if (blockingQuickFixCount > 0)
         Color(0xFFB34A4A).copy(alpha = 0.30f)
     else
@@ -240,6 +246,17 @@ internal fun PreparationQuickFixPanel(
                                 onClick = action.onClick
                             )
                         }
+                    }
+
+                    if (refreshQuickFixAction != null) {
+                        PreparationAssistButton(
+                            text = refreshQuickFixAction.text,
+                            compact = true,
+                            filled = false,
+                            loading = refreshQuickFixAction.loading,
+                            enabled = refreshQuickFixAction.enabled,
+                            onClick = refreshQuickFixAction.onClick
+                        )
                     }
                 }
             }

@@ -22,6 +22,9 @@ class QrExportTuningTest {
             LowRamProfile(enabled = true, severe = false)
         )
 
+        assertEquals(1036, lowRam.widthPx)
+        assertEquals(1526, lowRam.heightPx)
+        assertEquals(547, lowRam.qrSizePx)
         assertTrue(lowRam.widthPx < normal.widthPx)
         assertTrue(lowRam.heightPx < normal.heightPx)
         assertTrue(lowRam.qrSizePx >= 500)
@@ -35,9 +38,9 @@ class QrExportTuningTest {
             LowRamProfile(enabled = true, severe = true)
         )
 
-        assertTrue(severe.widthPx >= 900)
-        assertTrue(severe.heightPx >= 1320)
-        assertTrue(severe.qrSizePx >= 500)
+        assertEquals(900, severe.widthPx)
+        assertEquals(1320, severe.heightPx)
+        assertEquals(500, severe.qrSizePx)
         assertTrue(severe.estimatedBitmapBytes < normal.estimatedBitmapBytes / 2)
     }
 }

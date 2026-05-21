@@ -29,13 +29,14 @@ import com.example.coblaxexamlock.readClipboardSnapshotLite
 import com.example.coblaxexamlock.runtime.isBluetoothEnabledForExam
 import kotlinx.coroutines.delay
 
+private const val LowGeofenceRuntimeRecheckIntervalMillis = 60_000L
 private const val UltraGeofenceRuntimeRecheckIntervalMillis = 90_000L
 
 internal fun geofenceRuntimeRecheckIntervalMillis(lowRamProfile: LowRamProfile): Long =
-    if (lowRamProfile.ultra) {
-        UltraGeofenceRuntimeRecheckIntervalMillis
-    } else {
-        GeofenceRuntimeRecheckIntervalMillis
+    when {
+        lowRamProfile.ultra -> UltraGeofenceRuntimeRecheckIntervalMillis
+        lowRamProfile.enabled -> LowGeofenceRuntimeRecheckIntervalMillis
+        else -> GeofenceRuntimeRecheckIntervalMillis
     }
 
 @Composable

@@ -8,11 +8,20 @@ import com.example.coblaxexamlock.config.AdminPreferencesName
 import java.util.concurrent.CopyOnWriteArraySet
 
 private const val OneMegabyteBytes = 1024L * 1024L
-private const val LowRamTotalMemoryMb = 1024L
-private const val SevereLowRamTotalMemoryMb = 768L
+private const val LowRamTotalMemoryMb = 2048L
+private const val SevereLowRamTotalMemoryMb = 1024L
 private const val UltraLowRamAvailableMemoryMb = 512L
 private const val LowRamMemoryClassMb = 128
 private const val SevereLowRamMemoryClassMb = 96
+private const val NormalQrMaxEdgePx = 2560
+private const val LowQrMaxEdgePx = 1024
+private const val UltraQrMaxEdgePx = 720
+private const val NormalDiagnosticLogMaxEntries = 20
+private const val LowDiagnosticLogMaxEntries = 16
+private const val UltraDiagnosticLogMaxEntries = 12
+private const val NormalManualRefreshCooldownMillis = 0L
+private const val LowManualRefreshCooldownMillis = 800L
+private const val UltraManualRefreshCooldownMillis = 1_200L
 
 internal enum class LowRamTier {
     Normal,
@@ -43,9 +52,11 @@ internal data class LowRamProfile(
     val memoryLow: Boolean = false,
     val lowRamOverride: LowRamProfileOverride = LowRamProfileOverride.Auto,
     val detectedTier: LowRamTier? = null,
-    val qrMaxEdgePx: Int = 2560,
+    val qrMaxEdgePx: Int = NormalQrMaxEdgePx,
     val deferHeavyUi: Boolean = false,
-    val slowPollingMultiplier: Int = 1
+    val slowPollingMultiplier: Int = 1,
+    val diagnosticLogMaxEntries: Int = NormalDiagnosticLogMaxEntries,
+    val manualRefreshCooldownMillis: Long = NormalManualRefreshCooldownMillis
 ) {
     val tier: LowRamTier
         get() = when {
@@ -65,7 +76,9 @@ internal data class LowRamProfile(
             " detected=${detectedTier?.name ?: tier.name}" +
             " effective=${tier.name}" +
             " qrMaxEdgePx=$qrMaxEdgePx" +
-            " polling=${slowPollingMultiplier}x"
+            " polling=${slowPollingMultiplier}x" +
+            " logMax=$diagnosticLogMaxEntries" +
+            " refreshCooldownMs=$manualRefreshCooldownMillis"
     }
 }
 
@@ -77,6 +90,14 @@ internal fun parseLowRamProfileOverride(rawValue: String?): LowRamProfileOverrid
 }
 
 internal fun lowRamProfileOverrideToRaw(override: LowRamProfileOverride): String = override.name
+
+internal fun lowRamProfileOverrideOptions(): List<LowRamProfileOverride> =
+    listOf(
+        LowRamProfileOverride.Auto,
+        LowRamProfileOverride.Normal,
+        LowRamProfileOverride.Low,
+        LowRamProfileOverride.Ultra
+    )
 
 private fun tierRank(tier: LowRamTier): Int =
     when (tier) {
@@ -117,9 +138,11 @@ internal fun applyLowRamProfileOverride(
             ultra = false,
             lowRamOverride = override,
             detectedTier = detectedTier,
-            qrMaxEdgePx = 2560,
+            qrMaxEdgePx = NormalQrMaxEdgePx,
             deferHeavyUi = false,
-            slowPollingMultiplier = 1
+            slowPollingMultiplier = 1,
+            diagnosticLogMaxEntries = NormalDiagnosticLogMaxEntries,
+            manualRefreshCooldownMillis = NormalManualRefreshCooldownMillis
         )
         LowRamProfileOverride.Low -> detectedProfile.copy(
             enabled = true,
@@ -127,9 +150,11 @@ internal fun applyLowRamProfileOverride(
             ultra = false,
             lowRamOverride = override,
             detectedTier = detectedTier,
-            qrMaxEdgePx = 1280,
+            qrMaxEdgePx = LowQrMaxEdgePx,
             deferHeavyUi = true,
-            slowPollingMultiplier = 2
+            slowPollingMultiplier = 2,
+            diagnosticLogMaxEntries = LowDiagnosticLogMaxEntries,
+            manualRefreshCooldownMillis = LowManualRefreshCooldownMillis
         )
         LowRamProfileOverride.Ultra -> detectedProfile.copy(
             enabled = true,
@@ -137,9 +162,11 @@ internal fun applyLowRamProfileOverride(
             ultra = true,
             lowRamOverride = override,
             detectedTier = detectedTier,
-            qrMaxEdgePx = 720,
+            qrMaxEdgePx = UltraQrMaxEdgePx,
             deferHeavyUi = true,
-            slowPollingMultiplier = 4
+            slowPollingMultiplier = 4,
+            diagnosticLogMaxEntries = UltraDiagnosticLogMaxEntries,
+            manualRefreshCooldownMillis = UltraManualRefreshCooldownMillis
         )
     }
 }
@@ -207,15 +234,25 @@ internal fun calculateLowRamProfile(
         availableMemoryMb = availableMemoryMb,
         memoryLow = memoryLow,
         qrMaxEdgePx = when {
-            ultra -> 720
-            enabled -> 1280
-            else -> 2560
+            ultra -> UltraQrMaxEdgePx
+            enabled -> LowQrMaxEdgePx
+            else -> NormalQrMaxEdgePx
         },
         deferHeavyUi = enabled,
         slowPollingMultiplier = when {
             ultra -> 4
             enabled -> 2
             else -> 1
+        },
+        diagnosticLogMaxEntries = when {
+            ultra -> UltraDiagnosticLogMaxEntries
+            enabled -> LowDiagnosticLogMaxEntries
+            else -> NormalDiagnosticLogMaxEntries
+        },
+        manualRefreshCooldownMillis = when {
+            ultra -> UltraManualRefreshCooldownMillis
+            enabled -> LowManualRefreshCooldownMillis
+            else -> NormalManualRefreshCooldownMillis
         }
     )
 }
@@ -225,6 +262,17 @@ internal fun readLowRamProfileOverride(context: Context): LowRamProfileOverride 
         .getSharedPreferences(AdminPreferencesName, Context.MODE_PRIVATE)
         .getString(AdminKeyLowRamProfileOverride, null)
     return parseLowRamProfileOverride(rawValue)
+}
+
+internal fun saveLowRamProfileOverride(
+    context: Context,
+    override: LowRamProfileOverride
+) {
+    context.applicationContext
+        .getSharedPreferences(AdminPreferencesName, Context.MODE_PRIVATE)
+        .edit()
+        .putString(AdminKeyLowRamProfileOverride, lowRamProfileOverrideToRaw(override))
+        .apply()
 }
 
 internal fun resolveDetectedLowRamProfile(context: Context): LowRamProfile {

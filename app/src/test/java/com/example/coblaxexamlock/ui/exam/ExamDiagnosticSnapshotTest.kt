@@ -72,6 +72,8 @@ class ExamDiagnosticSnapshotTest {
             lowRamEffectiveProfile = "Ultra",
             qrMaxEdgePx = 720,
             slowPollingMultiplier = 4,
+            diagnosticLogMaxEntries = 12,
+            manualRefreshCooldownMillis = 1200L,
             compatibilityFamily = "SamsungLegacyTablet",
             compatibilityLabel = "Samsung legacy tablet",
             compatibilitySummary = "family=SamsungLegacyTablet",
@@ -119,5 +121,7 @@ class ExamDiagnosticSnapshotTest {
         assertTrue(json.contains("Ready"))
         assertTrue(json.contains("override"))
         assertTrue(json.contains("effectiveProfile"))
+        assertTrue(json.contains("diagnosticLogMaxEntries"))
+        assertTrue(json.contains("manualRefreshCooldownMillis"))
     }
 }

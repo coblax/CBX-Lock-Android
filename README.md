@@ -8,7 +8,7 @@ Aplikasi ini menjaga fungsi utama ujian tetap sederhana untuk siswa: scan QR ata
 
 - App label: `CBX Lock`
 - Package: `com.example.coblaxexamlock`
-- Version: `3.2.9 (329)`
+- Version: `3.2.10 (330)`
 - Minimum Android: API 24
 - Target Android: API 36
 
@@ -86,6 +86,11 @@ Data panjang akan dipotong otomatis menjadi beberapa pesan.
 
 Target perangkat low-end tetap didukung tanpa menghapus fungsi utama. Untuk perangkat RAM kecil, aplikasi mengutamakan:
 
+- profile Low aktif untuk total RAM <= 2 GB, memoryClass <= 128 MB, atau Android low-RAM
+- profile Ultra aktif untuk total RAM <= 1 GB, memoryClass <= 96 MB, available RAM <= 512 MB, atau Android memory pressure
+- user bisa memilih Auto/Normal/Low/Ultra dari ikon gear di sebelah badge profil pada home
+- profile Low memakai QR decode 1024px, polling 2x, log diagnostik 16 event, dan refresh cooldown 800ms
+- profile Ultra memakai QR decode 720px, polling 4x, log diagnostik 12 event, dan refresh cooldown 1200ms
 - load fitur berat hanya saat dibutuhkan
 - WebView dibuat saat sesi ujian dimulai
 - MapView/Places dibuat hanya saat editor lokasi dibuka

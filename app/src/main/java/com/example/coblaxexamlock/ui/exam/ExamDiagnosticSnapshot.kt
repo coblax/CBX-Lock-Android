@@ -62,6 +62,8 @@ internal data class ExamDiagnosticSnapshot(
     val lowRamEffectiveProfile: String,
     val qrMaxEdgePx: Int,
     val slowPollingMultiplier: Int,
+    val diagnosticLogMaxEntries: Int,
+    val manualRefreshCooldownMillis: Long,
     val compatibilityFamily: String,
     val compatibilityLabel: String,
     val compatibilityManufacturer: String,
@@ -135,7 +137,9 @@ internal data class ExamDiagnosticSnapshot(
             "detectedProfile" to lowRamDetectedProfile,
             "effectiveProfile" to lowRamEffectiveProfile,
             "qrMaxEdgePx" to qrMaxEdgePx,
-            "slowPollingMultiplier" to slowPollingMultiplier
+            "slowPollingMultiplier" to slowPollingMultiplier,
+            "diagnosticLogMaxEntries" to diagnosticLogMaxEntries,
+            "manualRefreshCooldownMillis" to manualRefreshCooldownMillis
         ),
         "compatibility" to mapOf(
             "family" to compatibilityFamily,
@@ -231,7 +235,8 @@ internal data class ExamDiagnosticSnapshot(
             "Low RAM: enabled=$lowRamEnabled severe=$lowRamSevere ultra=$lowRamUltra " +
                 "avail=${lowRamAvailableMemoryMb ?: "-"}MB total=${lowRamTotalMemoryMb ?: "-"}MB " +
                 "memoryLow=$lowRamMemoryLow override=$lowRamOverride detected=$lowRamDetectedProfile " +
-                "effective=$lowRamEffectiveProfile qrMaxEdgePx=$qrMaxEdgePx polling=${slowPollingMultiplier}x"
+                "effective=$lowRamEffectiveProfile qrMaxEdgePx=$qrMaxEdgePx polling=${slowPollingMultiplier}x " +
+                "logMax=$diagnosticLogMaxEntries refreshCooldownMs=$manualRefreshCooldownMillis"
         )
         appendLine("Compatibility: family=$compatibilityFamily label=$compatibilityLabel model=$compatibilityManufacturer/$compatibilityBrand/$compatibilityModel sdk=$compatibilitySdkInt skipPinningIfActive=$screenPinningSkipRequestWhenAlreadyActive")
         appendLine("Device survival: score=$survivalScore summary=$survivalPolicySummary")
@@ -324,6 +329,8 @@ internal fun buildExamDiagnosticSnapshot(input: ExamDiagnosticSnapshotInput): Ex
         lowRamEffectiveProfile = input.lowRamProfile.tier.name,
         qrMaxEdgePx = input.lowRamProfile.qrMaxEdgePx,
         slowPollingMultiplier = input.lowRamProfile.slowPollingMultiplier,
+        diagnosticLogMaxEntries = input.lowRamProfile.diagnosticLogMaxEntries,
+        manualRefreshCooldownMillis = input.lowRamProfile.manualRefreshCooldownMillis,
         compatibilityFamily = compatibility.family.name,
         compatibilityLabel = compatibility.vendorDisplayName,
         compatibilityManufacturer = compatibility.manufacturer,
@@ -379,7 +386,7 @@ internal fun buildExamDiagnosticSnapshot(input: ExamDiagnosticSnapshotInput): Ex
             redactDiagnosticDetail("${item.category.name}:${item.verdict.name}:${item.title}:${item.detail}")
         },
         events = input.diagnosticEvents
-            .take(MaxDiagnosticSnapshotEvents)
+            .take(minOf(MaxDiagnosticSnapshotEvents, input.lowRamProfile.diagnosticLogMaxEntries))
             .map(::toSnapshotEvent)
     )
 }
@@ -416,6 +423,8 @@ internal fun buildAdminExamDiagnosticSnapshot(
         lowRamEffectiveProfile = lowRamProfile.tier.name,
         qrMaxEdgePx = lowRamProfile.qrMaxEdgePx,
         slowPollingMultiplier = lowRamProfile.slowPollingMultiplier,
+        diagnosticLogMaxEntries = lowRamProfile.diagnosticLogMaxEntries,
+        manualRefreshCooldownMillis = lowRamProfile.manualRefreshCooldownMillis,
         compatibilityFamily = deviceCompatibilityProfile.family.name,
         compatibilityLabel = deviceCompatibilityProfile.vendorDisplayName,
         compatibilityManufacturer = deviceCompatibilityProfile.manufacturer,
@@ -494,6 +503,8 @@ internal data class ExamDeviceFieldReport(
     val lowRamEffectiveProfile: String,
     val qrMaxEdgePx: Int,
     val slowPollingMultiplier: Int,
+    val diagnosticLogMaxEntries: Int,
+    val manualRefreshCooldownMillis: Long,
     val compatibilityFamily: String,
     val compatibilityLabel: String,
     val compatibilitySummary: String,
@@ -555,7 +566,9 @@ internal data class ExamDeviceFieldReport(
             "detectedProfile" to lowRamDetectedProfile,
             "effectiveProfile" to lowRamEffectiveProfile,
             "qrMaxEdgePx" to qrMaxEdgePx,
-            "slowPollingMultiplier" to slowPollingMultiplier
+            "slowPollingMultiplier" to slowPollingMultiplier,
+            "diagnosticLogMaxEntries" to diagnosticLogMaxEntries,
+            "manualRefreshCooldownMillis" to manualRefreshCooldownMillis
         ),
         "compatibility" to mapOf(
             "family" to compatibilityFamily,
@@ -626,7 +639,8 @@ internal data class ExamDeviceFieldReport(
             "Low RAM: enabled=$lowRamEnabled severe=$lowRamSevere ultra=$lowRamUltra " +
                 "avail=${lowRamAvailableMemoryMb ?: "-"}MB total=${lowRamTotalMemoryMb ?: "-"}MB " +
                 "memoryLow=$lowRamMemoryLow override=$lowRamOverride detected=$lowRamDetectedProfile " +
-                "effective=$lowRamEffectiveProfile qrMaxEdgePx=$qrMaxEdgePx polling=${slowPollingMultiplier}x"
+                "effective=$lowRamEffectiveProfile qrMaxEdgePx=$qrMaxEdgePx polling=${slowPollingMultiplier}x " +
+                "logMax=$diagnosticLogMaxEntries refreshCooldownMs=$manualRefreshCooldownMillis"
         )
         appendLine("Compatibility: family=$compatibilityFamily label=$compatibilityLabel")
         appendLine("Compatibility summary: $compatibilitySummary")
@@ -693,6 +707,8 @@ internal fun buildAdminDeviceFieldReport(
         lowRamEffectiveProfile = lowRamProfile.tier.name,
         qrMaxEdgePx = lowRamProfile.qrMaxEdgePx,
         slowPollingMultiplier = lowRamProfile.slowPollingMultiplier,
+        diagnosticLogMaxEntries = lowRamProfile.diagnosticLogMaxEntries,
+        manualRefreshCooldownMillis = lowRamProfile.manualRefreshCooldownMillis,
         compatibilityFamily = deviceCompatibilityProfile.family.name,
         compatibilityLabel = deviceCompatibilityProfile.vendorDisplayName,
         compatibilitySummary = redactDiagnosticDetail(deviceCompatibilityProfile.diagnosticSummary()),

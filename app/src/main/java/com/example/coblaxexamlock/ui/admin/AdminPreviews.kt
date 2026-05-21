@@ -321,7 +321,8 @@ fun ExamLockHomeScreenPreview() {
             onOpenAdmin = {},
             onOpenFastExam = {},
             directLinkLabel = "EXAM_SKANSATP",
-            onSecretTap = {}
+            onSecretTap = {},
+            onOpenPerformanceProfile = {}
         )
     }
 }

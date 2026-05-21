@@ -329,6 +329,7 @@ internal fun ExamLockHomeScreen(
     onOpenFastExam: () -> Unit,
     directLinkLabel: String,
     onSecretTap: () -> Unit,
+    onOpenPerformanceProfile: () -> Unit,
     showDeferredChrome: Boolean = true,
     modifier: Modifier = Modifier
 ) {
@@ -378,7 +379,8 @@ internal fun ExamLockHomeScreen(
             HomeHeroCard(
                 uiLanguage = uiLanguage,
                 onUiLanguageChange = onUiLanguageChange,
-                onSecretTap = onSecretTap
+                onSecretTap = onSecretTap,
+                onOpenPerformanceProfile = onOpenPerformanceProfile
             )
 
             Spacer(modifier = Modifier.height(if (compactHome) 12.dp else 18.dp))
@@ -528,7 +530,8 @@ private fun LightweightHomeGlyph(
 internal fun HomeHeroCard(
     uiLanguage: UiLanguage,
     onUiLanguageChange: (UiLanguage) -> Unit,
-    onSecretTap: () -> Unit
+    onSecretTap: () -> Unit,
+    onOpenPerformanceProfile: () -> Unit
 ) {
     val lowRamProfile = LocalLowRamProfile.current
     val compactHome = lowRamProfile.deferHeavyUi
@@ -551,10 +554,16 @@ internal fun HomeHeroCard(
             horizontalArrangement = Arrangement.SpaceBetween,
             verticalAlignment = Alignment.CenterVertically
         ) {
-            ProductionBuildBadge(
-                uiLanguage = uiLanguage,
-                onSecretTap = onSecretTap
-            )
+            Row(
+                verticalAlignment = Alignment.CenterVertically,
+                horizontalArrangement = Arrangement.spacedBy(8.dp)
+            ) {
+                ProductionBuildBadge(
+                    uiLanguage = uiLanguage,
+                    onSecretTap = onSecretTap
+                )
+                PerformanceProfileGearButton(onClick = onOpenPerformanceProfile)
+            }
 
             LanguageTogglePill(
                 currentLanguage = uiLanguage,
