@@ -142,7 +142,7 @@ private fun ExamRuntimeSessionMainContent(
                         attachExamParticipantCaptureBridge(participantCaptureBridge)
                         attachExamNativeFullscreenBridge(nativeFullscreenBridge)
                         installExamNativeFullscreenDocumentStartScriptIfSupported()
-                        if (lowRamProfile.enabled && Build.VERSION.SDK_INT >= Build.VERSION_CODES.O) {
+                        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O) {
                             runCatching {
                                 setRendererPriorityPolicy(
                                     WebView.RENDERER_PRIORITY_IMPORTANT,

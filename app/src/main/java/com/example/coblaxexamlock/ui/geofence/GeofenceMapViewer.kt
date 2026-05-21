@@ -173,6 +173,7 @@ import androidx.lifecycle.Lifecycle
 import androidx.lifecycle.LifecycleEventObserver
 import androidx.webkit.WebViewCompat
 import androidx.webkit.WebViewFeature
+import com.example.coblaxexamlock.LocalLowRamProfile
 import com.example.coblaxexamlock.GeofenceConfig
 import com.example.coblaxexamlock.GeofencePoint
 import com.example.coblaxexamlock.GeofenceRuntimeStatus
@@ -261,6 +262,17 @@ internal fun GeofenceMapViewerScreen(
     onRefreshLocation: () -> Unit,
     modifier: Modifier = Modifier
 ) {
+    val lowRamProfile = LocalLowRamProfile.current
+    if (lowRamProfile.ultra) {
+        GeofenceMapViewerTextFallback(
+            runtimeStatus = runtimeStatus,
+            isRefreshingLocation = isRefreshingLocation,
+            onDismiss = onDismiss,
+            onRefreshLocation = onRefreshLocation,
+            modifier = modifier
+        )
+        return
+    }
     BackHandler(onBack = onDismiss)
     val context = LocalContext.current
     var googleMap by remember { mutableStateOf<GoogleMap?>(null) }
@@ -772,6 +784,231 @@ internal fun GeofenceMapViewerScreen(
                             maxLines = 1
                         )
                     }
+                }
+            }
+        }
+    }
+}
+
+@Composable
+private fun GeofenceMapViewerTextFallback(
+    runtimeStatus: GeofenceRuntimeStatus,
+    isRefreshingLocation: Boolean,
+    onDismiss: () -> Unit,
+    onRefreshLocation: () -> Unit,
+    modifier: Modifier = Modifier
+) {
+    BackHandler(onBack = onDismiss)
+    val currentLatLng = runtimeStatus.evaluation.locationSnapshot?.let {
+        LatLng(it.latitude, it.longitude)
+    }
+    val summaryDistance = formatGeofenceDistance(runtimeStatus.evaluation.distanceMeters)
+    val summaryCoordinates = currentLatLng?.let { formatCoordinates(it.latitude, it.longitude) } ?: "-"
+    val providerText = runtimeStatus.evaluation.locationSnapshot?.provider?.ifBlank { "-" } ?: "-"
+    val accuracyText = runtimeStatus.evaluation.locationSnapshot?.accuracyMeters?.let {
+        String.format(Locale.US, "%.1f m", it)
+    } ?: "-"
+    val verdictText = runtimeStatus.securityStatus.finalVerdict.diagnosticLabel()
+    val fixQualityText = runtimeStatus.securityStatus.fixQualityStatus.verdict.diagnosticLabel()
+    val shapeText = runtimeStatus.evaluation.config?.shapeType?.name?.lowercase(Locale.US) ?: "-"
+    val policyText = runtimeStatus.policySource.diagnosticLabel()
+
+    Column(
+        modifier = modifier
+            .fillMaxSize()
+            .background(LockBackground)
+    ) {
+        Box(
+            modifier = Modifier
+                .clip(RoundedCornerShape(bottomStart = 14.dp, bottomEnd = 14.dp))
+                .background(Color.White)
+                .border(1.dp, LockOutline.copy(alpha = 0.5f), RoundedCornerShape(bottomStart = 14.dp, bottomEnd = 14.dp))
+        ) {
+            Column(
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .statusBarsPadding()
+                    .padding(horizontal = 10.dp, vertical = 8.dp),
+                verticalArrangement = Arrangement.spacedBy(6.dp)
+            ) {
+                Row(
+                    modifier = Modifier.fillMaxWidth(),
+                    horizontalArrangement = Arrangement.spacedBy(8.dp),
+                    verticalAlignment = Alignment.CenterVertically
+                ) {
+                    CompactBackIconButton(onClick = onDismiss)
+                    Text(
+                        text = tr("Geofence Summary", "Ringkasan Geofence"),
+                        color = LockTextPrimary,
+                        fontWeight = FontWeight.Bold,
+                        fontSize = 15.sp,
+                        modifier = Modifier.weight(1f),
+                        maxLines = 1
+                    )
+                    GeofenceViewerBadge(
+                        text = verdictText,
+                        backgroundColor = LockBlue.copy(alpha = 0.12f),
+                        textColor = LockBlueDeep
+                    )
+                }
+                Text(
+                    text = tr(
+                        "Lightweight view — interactive map disabled to save memory on this device.",
+                        "Tampilan ringan — peta interaktif dinonaktifkan untuk menghemat memori perangkat ini."
+                    ),
+                    color = LockTextMuted,
+                    fontSize = 9.sp,
+                    lineHeight = 11.sp,
+                    maxLines = 2
+                )
+            }
+        }
+
+        Column(
+            modifier = Modifier
+                .weight(1f)
+                .fillMaxWidth()
+                .padding(horizontal = 10.dp, vertical = 6.dp)
+                .verticalScroll(rememberScrollState()),
+            verticalArrangement = Arrangement.spacedBy(6.dp)
+        ) {
+            Row(
+                modifier = Modifier.fillMaxWidth(),
+                horizontalArrangement = Arrangement.spacedBy(4.dp)
+            ) {
+                CompactInfoMetricCard(modifier = Modifier.weight(1f), label = tr("Verdict", "Verdict"), value = verdictText)
+                CompactInfoMetricCard(modifier = Modifier.weight(1f), label = tr("Fix", "Fix"), value = fixQualityText)
+                CompactInfoMetricCard(modifier = Modifier.weight(1f), label = tr("Distance", "Jarak"), value = summaryDistance)
+            }
+            Row(
+                modifier = Modifier.fillMaxWidth(),
+                horizontalArrangement = Arrangement.spacedBy(4.dp)
+            ) {
+                CompactInfoMetricCard(modifier = Modifier.weight(1.25f), label = tr("Current", "Posisi"), value = summaryCoordinates)
+                CompactInfoMetricCard(modifier = Modifier.weight(0.85f), label = tr("Provider", "Provider"), value = providerText)
+                CompactInfoMetricCard(modifier = Modifier.weight(0.9f), label = tr("Accuracy", "Akurasi"), value = accuracyText)
+            }
+
+            Box(
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .clip(RoundedCornerShape(14.dp))
+                    .background(LockSurfaceSoft)
+                    .padding(horizontal = 10.dp, vertical = 8.dp)
+            ) {
+                Column(verticalArrangement = Arrangement.spacedBy(4.dp)) {
+                    Text(
+                        text = tr("Shape: $shapeText | Policy: $policyText", "Bentuk: $shapeText | Policy: $policyText"),
+                        color = LockTextPrimary,
+                        fontSize = 11.sp,
+                        fontWeight = FontWeight.SemiBold
+                    )
+                    val config = runtimeStatus.evaluation.config
+                    if (config != null) {
+                        when (config.shapeType) {
+                            GeofenceShapeType.Circle -> {
+                                val centers = effectiveCircleCenters(config)
+                                Text(
+                                    text = tr(
+                                        "Radius: ${String.format(Locale.US, "%.1f", config.radiusMeters)} m | Centers: ${centers.size}",
+                                        "Radius: ${String.format(Locale.US, "%.1f", config.radiusMeters)} m | Pusat: ${centers.size}"
+                                    ),
+                                    color = LockTextSecondary,
+                                    fontSize = 10.sp
+                                )
+                                centers.forEachIndexed { index, point ->
+                                    Text(
+                                        text = "  #${index + 1}: ${formatCoordinates(point.latitude, point.longitude)}",
+                                        color = LockTextMuted,
+                                        fontSize = 9.sp
+                                    )
+                                }
+                            }
+                            GeofenceShapeType.Polygon -> {
+                                Text(
+                                    text = tr("Vertices: ${config.vertices.size}", "Titik: ${config.vertices.size}"),
+                                    color = LockTextSecondary,
+                                    fontSize = 10.sp
+                                )
+                                config.vertices.forEachIndexed { index, vertex ->
+                                    Text(
+                                        text = "  #${index + 1}: ${formatCoordinates(vertex.latitude, vertex.longitude)}",
+                                        color = LockTextMuted,
+                                        fontSize = 9.sp
+                                    )
+                                }
+                            }
+                            else -> Unit
+                        }
+                    }
+                    Text(
+                        text = tr(
+                            "Violations: ${runtimeStatus.violationCount}",
+                            "Pelanggaran: ${runtimeStatus.violationCount}"
+                        ),
+                        color = if (runtimeStatus.violationCount > 0) Color(0xFFE14B4B) else LockTextSecondary,
+                        fontSize = 10.sp,
+                        fontWeight = if (runtimeStatus.violationCount > 0) FontWeight.Bold else FontWeight.Normal
+                    )
+                }
+            }
+        }
+
+        Box(
+            modifier = Modifier
+                .clip(RoundedCornerShape(topStart = 14.dp, topEnd = 14.dp))
+                .background(Color.White)
+                .border(1.dp, LockOutline.copy(alpha = 0.5f), RoundedCornerShape(topStart = 14.dp, topEnd = 14.dp))
+        ) {
+            Row(
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .navigationBarsPadding()
+                    .padding(horizontal = 8.dp, vertical = 6.dp),
+                horizontalArrangement = Arrangement.spacedBy(4.dp)
+            ) {
+                Button(
+                    onClick = onRefreshLocation,
+                    modifier = Modifier
+                        .weight(1f)
+                        .height(34.dp),
+                    enabled = !isRefreshingLocation,
+                    colors = ButtonDefaults.buttonColors(
+                        containerColor = LockBlue,
+                        contentColor = LockOnDark
+                    )
+                ) {
+                    if (isRefreshingLocation) {
+                        CircularProgressIndicator(
+                            modifier = Modifier.size(12.dp),
+                            strokeWidth = 2.dp,
+                            color = LockOnDark
+                        )
+                        Spacer(modifier = Modifier.width(6.dp))
+                    }
+                    Text(
+                        text = if (isRefreshingLocation) tr("Refreshing...", "Refreshing...") else tr("Refresh", "Refresh"),
+                        fontWeight = FontWeight.Bold,
+                        fontSize = 9.sp,
+                        maxLines = 1
+                    )
+                }
+                Button(
+                    onClick = onDismiss,
+                    modifier = Modifier
+                        .weight(1f)
+                        .height(34.dp),
+                    colors = ButtonDefaults.buttonColors(
+                        containerColor = LockGold,
+                        contentColor = LockTextPrimary
+                    )
+                ) {
+                    Text(
+                        tr("Close", "Tutup"),
+                        fontWeight = FontWeight.Bold,
+                        fontSize = 9.sp,
+                        maxLines = 1
+                    )
                 }
             }
         }

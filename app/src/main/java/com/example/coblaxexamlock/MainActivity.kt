@@ -45,6 +45,11 @@ class MainActivity : ComponentActivity() {
         com.example.coblaxexamlock.runtime.TelegramMessageQueueHolder.initialize(this)
         val lowRamProfile = resolveLowRamProfile(this)
         initialLowRamProfile = lowRamProfile
+        com.example.coblaxexamlock.runtime.SecurityDetectorCache.cacheTtlMultiplier = when {
+            lowRamProfile.ultra -> 3
+            lowRamProfile.enabled -> 2
+            else -> 1
+        }
         val nativePreflightStarted = shouldUseNativePreflightShell(lowRamProfile)
         if (nativePreflightStarted) {
             StartupTrace.mark("set_content_start", "native_preflight")

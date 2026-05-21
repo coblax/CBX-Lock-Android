@@ -70,6 +70,8 @@ import com.example.coblaxexamlock.ClipboardSnapshot
 import com.example.coblaxexamlock.config.AlarmAcknowledgeDedupWindowMillis
 import com.example.coblaxexamlock.config.AppSwitchSuppressionWindowMillis
 import com.example.coblaxexamlock.config.MaxNetworkTimelineEntries
+import com.example.coblaxexamlock.config.LowMaxNetworkTimelineEntries
+import com.example.coblaxexamlock.config.UltraMaxNetworkTimelineEntries
 import com.example.coblaxexamlock.config.NetworkUnstableFlipThreshold
 import com.example.coblaxexamlock.config.NetworkUnstableWindowMillis
 import com.example.coblaxexamlock.detachExamKeyboardBridge
@@ -1155,7 +1157,12 @@ internal fun ExamRuntimeSessionScreenImpl(
 
         fun appendNetworkTimelineEntry(entry: NetworkTimelineEntry) {
             networkTimeline.add(entry)
-            while (networkTimeline.size > MaxNetworkTimelineEntries) {
+            val effectiveMax = when {
+                lowRamProfile.ultra -> UltraMaxNetworkTimelineEntries
+                lowRamProfile.enabled -> LowMaxNetworkTimelineEntries
+                else -> MaxNetworkTimelineEntries
+            }
+            while (networkTimeline.size > effectiveMax) {
                 networkTimeline.removeAt(0)
             }
         }
@@ -2427,6 +2434,8 @@ internal fun ExamRuntimeSessionScreenImpl(
             if (!memoryAction.respond) {
                 return
             }
+
+            // --- Level 1: Standard cleanup (all pressure levels that respond) ---
             if (memoryAction.clearWarmLocation) {
                 reusableWarmLocationValidation = null
             }
@@ -2445,9 +2454,31 @@ internal fun ExamRuntimeSessionScreenImpl(
             if (memoryAction.clearActiveWebViewCache) {
                 runCatching { webViewInstance?.clearCache(false) }
             }
-            SecurityDetectorCache.invalidateStaticSecurity()
+
+            // --- Level 2: Aggressive cleanup (RUNNING_CRITICAL / COMPLETE) ---
+            val isCritical = MemoryPressureCoordinator.shouldClearActiveWebViewCache(level)
+            if (isCritical || lowRamProfile.ultra) {
+                networkFlapElapsedMs.clear()
+            }
+            if (isCritical) {
+                SecurityDetectorCache.invalidateAll()
+                // Truncate diagnostic events to 50% of max to free snapshot memory
+                val maxEvents = lowRamProfile.diagnosticLogMaxEntries
+                val truncateTarget = maxEvents / 2
+                if (diagnosticEvents.size > truncateTarget) {
+                    diagnosticEvents = diagnosticEvents.take(truncateTarget)
+                }
+                // Trim network timeline to last 3 entries
+                while (networkTimeline.size > 3) {
+                    networkTimeline.removeAt(0)
+                }
+            } else {
+                SecurityDetectorCache.invalidateStaticSecurity()
+            }
+
             val actions = memoryAction.diagnosticActions().joinToString(",")
-            val details = "trim_level=$level | exam_started=$examSessionStarted | " +
+            val escalation = if (isCritical) "critical" else "standard"
+            val details = "trim_level=$level | escalation=$escalation | exam_started=$examSessionStarted | " +
                 "low_ram=${lowRamProfile.enabled} | severe=${lowRamProfile.severe} | " +
                 "ultra=${lowRamProfile.ultra} | actions=$actions"
             lastRuntimeMemoryActionSummary = details.take(240)

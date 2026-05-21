@@ -11,7 +11,8 @@ import com.example.coblaxexamlock.readWebViewCompatibilityStatus as readWebViewC
 internal const val SecurityDetectorCacheTtlMillis = 2_500L
 
 internal class CachedDetectorValue<T>(
-    private val ttlMillis: Long,
+    private val baseTtlMillis: Long,
+    private val ttlMultiplier: () -> Int = { 1 },
     private val nowMillis: () -> Long = { SystemClock.elapsedRealtime() }
 ) {
     private val lock = Any()
@@ -23,7 +24,8 @@ internal class CachedDetectorValue<T>(
         if (!forceRefresh) {
             synchronized(lock) {
                 val now = nowMillis()
-                if (loaded && now - loadedAtMillis < ttlMillis) {
+                val effectiveTtl = baseTtlMillis * ttlMultiplier().coerceAtLeast(1)
+                if (loaded && now - loadedAtMillis < effectiveTtl) {
                     @Suppress("UNCHECKED_CAST")
                     return cachedValue as T
                 }
@@ -48,7 +50,8 @@ internal class CachedDetectorValue<T>(
 }
 
 internal class CachedDetectorMap<K, V>(
-    private val ttlMillis: Long,
+    private val baseTtlMillis: Long,
+    private val ttlMultiplier: () -> Int = { 1 },
     private val nowMillis: () -> Long = { SystemClock.elapsedRealtime() }
 ) {
     private data class Entry<V>(
@@ -63,8 +66,9 @@ internal class CachedDetectorMap<K, V>(
         if (!forceRefresh) {
             synchronized(lock) {
                 val now = nowMillis()
+                val effectiveTtl = baseTtlMillis * ttlMultiplier().coerceAtLeast(1)
                 val cached = cachedValues[key]
-                if (cached != null && now - cached.loadedAtMillis < ttlMillis) {
+                if (cached != null && now - cached.loadedAtMillis < effectiveTtl) {
                     return cached.value
                 }
             }
@@ -100,16 +104,21 @@ private data class SignatureIntegrityCacheEntry(
 )
 
 internal object SecurityDetectorCache {
-    private val packageInventory = CachedDetectorValue<InstalledPackageInventory>(SecurityDetectorCacheTtlMillis)
+    @Volatile
+    var cacheTtlMultiplier: Int = 1
+
+    private val ttlMultiplier: () -> Int = { cacheTtlMultiplier }
+
+    private val packageInventory = CachedDetectorValue<InstalledPackageInventory>(SecurityDetectorCacheTtlMillis, ttlMultiplier)
     private val packageMetadata =
-        CachedDetectorMap<String, InstalledPackageMetadata?>(SecurityDetectorCacheTtlMillis)
-    private val screenRecorderPackages = CachedDetectorValue<List<String>>(SecurityDetectorCacheTtlMillis)
-    private val screenRecorderReports = CachedDetectorValue<List<ScreenRecorderAppReport>>(SecurityDetectorCacheTtlMillis)
-    private val fakeLocationPackages = CachedDetectorValue<List<String>>(SecurityDetectorCacheTtlMillis)
-    private val externalDisplaySnapshot = CachedDetectorValue<ExternalDisplaySnapshot>(SecurityDetectorCacheTtlMillis)
-    private val webViewCompatibility = CachedDetectorValue<WebViewCompatibilityStatus>(SecurityDetectorCacheTtlMillis)
-    private val rootDetectionDetails = CachedDetectorValue<RootDetectionDetails>(SecurityDetectorCacheTtlMillis)
-    private val signatureIntegrity = CachedDetectorValue<SignatureIntegrityCacheEntry>(SecurityDetectorCacheTtlMillis)
+        CachedDetectorMap<String, InstalledPackageMetadata?>(SecurityDetectorCacheTtlMillis, ttlMultiplier)
+    private val screenRecorderPackages = CachedDetectorValue<List<String>>(SecurityDetectorCacheTtlMillis, ttlMultiplier)
+    private val screenRecorderReports = CachedDetectorValue<List<ScreenRecorderAppReport>>(SecurityDetectorCacheTtlMillis, ttlMultiplier)
+    private val fakeLocationPackages = CachedDetectorValue<List<String>>(SecurityDetectorCacheTtlMillis, ttlMultiplier)
+    private val externalDisplaySnapshot = CachedDetectorValue<ExternalDisplaySnapshot>(SecurityDetectorCacheTtlMillis, ttlMultiplier)
+    private val webViewCompatibility = CachedDetectorValue<WebViewCompatibilityStatus>(SecurityDetectorCacheTtlMillis, ttlMultiplier)
+    private val rootDetectionDetails = CachedDetectorValue<RootDetectionDetails>(SecurityDetectorCacheTtlMillis, ttlMultiplier)
+    private val signatureIntegrity = CachedDetectorValue<SignatureIntegrityCacheEntry>(SecurityDetectorCacheTtlMillis, ttlMultiplier)
 
     fun readPackageInventory(context: Context, forceRefresh: Boolean = false): InstalledPackageInventory {
         return packageInventory.read(forceRefresh) {
@@ -261,5 +270,11 @@ internal object SecurityDetectorCache {
         externalDisplaySnapshot.invalidate()
         rootDetectionDetails.invalidate()
         invalidateVirtualEnvironmentDiagnosticsCache()
+    }
+
+    fun invalidateAll() {
+        invalidateStaticSecurity()
+        webViewCompatibility.invalidate()
+        signatureIntegrity.invalidate()
     }
 }
