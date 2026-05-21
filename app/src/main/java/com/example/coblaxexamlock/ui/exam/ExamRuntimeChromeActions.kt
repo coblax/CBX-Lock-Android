@@ -13,11 +13,14 @@ internal fun buildExamRuntimeChromeActionsForSession(
     lockTaskRequestPending: Boolean,
     deviceCompatibilityProfile: DeviceCompatibilityProfile,
     isIndonesian: Boolean,
+    isCurrentlyLoading: () -> Boolean,
     lockTaskAlreadyActive: () -> Boolean,
     markTrustedRuntimeChromeAction: (String) -> Unit,
     clearWebViewError: () -> Unit,
     reloadWebView: () -> Unit,
+    stopWebViewLoading: () -> Unit,
     setLoadingProgress: (Float) -> Unit,
+    setWebViewStopRequested: (Boolean) -> Unit,
     setLastExamRefreshDecision: (String) -> Unit,
     setScreenPinningMessage: (String?) -> Unit,
     setShowExitExamDialog: (Boolean) -> Unit,
@@ -39,6 +42,20 @@ internal fun buildExamRuntimeChromeActionsForSession(
         },
         onRefreshPage = {
             markTrustedRuntimeChromeAction("webview_refresh")
+
+            // If the page is currently loading, stop it instead of refreshing again
+            if (isCurrentlyLoading()) {
+                setWebViewStopRequested(true)
+                stopWebViewLoading()
+                setLoadingProgress(1f)
+                recordAction(
+                    ExamRuntimeHardeningDiagnostics.ExamRefreshStoppedByUser,
+                    "user_cancelled_loading=true",
+                    DiagnosticEventLevel.INFO
+                )
+                return@ExamRuntimeChromeActions
+            }
+
             val refreshSafetyDecision = resolveExamRefreshSafetyDecision(
                 examSessionStarted = examSessionStarted,
                 screenPinningEnforced = screenPinningMode == ScreenPinningMode.Enforced && screenPinningAvailable,
@@ -75,6 +92,7 @@ internal fun buildExamRuntimeChromeActionsForSession(
                 )
             }
             if (refreshSafetyDecision.allowWebViewReload) {
+                setWebViewStopRequested(false)
                 clearWebViewError()
                 setLoadingProgress(0.05f)
                 launchExamServerProbe("manual_refresh", true)

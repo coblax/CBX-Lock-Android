@@ -432,6 +432,7 @@ internal fun ExamRuntimeSessionScreenImpl(
     val geofenceEnabled = geofenceConfigParseResult.enabled
     val officialApkUrl = adminSettings.officialApkUrl.trim()
     var loadingProgress by remember { mutableFloatStateOf(0f) }
+    var webViewStopRequested by remember { mutableStateOf(false) }
     var webViewInstance by remember { mutableStateOf<SecureExamWebView?>(null) }
     val flowUiState = rememberExamRuntimeFlowUiState(
         context = context,
@@ -4586,11 +4587,14 @@ internal fun ExamRuntimeSessionScreenImpl(
         lockTaskRequestPending = lockTaskRequestPending,
         deviceCompatibilityProfile = deviceCompatibilityProfile,
         isIndonesian = isIndonesian,
+        isCurrentlyLoading = { loadingProgress in 0f..0.98f },
         lockTaskAlreadyActive = { lockTaskBridge.active() },
         markTrustedRuntimeChromeAction = ::markTrustedRuntimeChromeAction,
         clearWebViewError = { webViewErrorMessage = null },
         reloadWebView = { webViewInstance?.reload() },
+        stopWebViewLoading = { webViewInstance?.stopLoading() },
         setLoadingProgress = { loadingProgress = it },
+        setWebViewStopRequested = { webViewStopRequested = it },
         setLastExamRefreshDecision = { lastExamRefreshDecision = it },
         setScreenPinningMessage = { screenPinningMessage = it },
         setShowExitExamDialog = { showExitExamDialog = it },
@@ -4887,6 +4891,7 @@ internal fun ExamRuntimeSessionScreenImpl(
         },
         onHideSystemKeyboard = ::hideSystemKeyboard,
         onWebViewLoadStart = { url ->
+            webViewStopRequested = false
             handleExamRuntimeWebViewLoadStart(
                 url = url,
                 useBuiltInExamKeyboard = useBuiltInExamKeyboard,
@@ -4934,7 +4939,9 @@ internal fun ExamRuntimeSessionScreenImpl(
                 rendererPriorityAtExit = rendererPriorityAtExit
             )
         },
-        onLoadingProgressChange = { loadingProgress = it },
+        onLoadingProgressChange = { progress ->
+            if (!webViewStopRequested) loadingProgress = progress
+        },
         onWebViewErrorMessageChange = { webViewErrorMessage = it },
         onShowCustomView = { view, callback ->
             if (view != null) {

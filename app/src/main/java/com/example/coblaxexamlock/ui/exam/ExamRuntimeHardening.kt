@@ -195,6 +195,7 @@ internal object ExamRuntimeHardeningDiagnostics {
     const val ExamRefreshPinningPendingBlocked = "EXAM_REFRESH_PINNING_PENDING_BLOCKED"
     const val ExamRefreshPinningInactiveBlocked = "EXAM_REFRESH_PINNING_INACTIVE_BLOCKED"
     const val ExamRefreshCompleted = "EXAM_REFRESH_COMPLETED"
+    const val ExamRefreshStoppedByUser = "EXAM_REFRESH_STOPPED_BY_USER"
     const val PinningStartRequested = "PINNING_START_REQUESTED"
     const val PinningDialogExpected = "PINNING_DIALOG_EXPECTED"
     const val PinningWaitStarted = "PINNING_WAIT_STARTED"
@@ -263,6 +264,7 @@ internal object ExamRuntimeHardeningDiagnostics {
         ExamRefreshPinningPendingBlocked,
         ExamRefreshPinningInactiveBlocked,
         ExamRefreshCompleted,
+        ExamRefreshStoppedByUser,
         PinningStartRequested,
         PinningDialogExpected,
         PinningWaitStarted,

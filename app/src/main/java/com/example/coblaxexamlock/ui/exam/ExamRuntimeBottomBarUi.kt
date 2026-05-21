@@ -2,7 +2,12 @@ package com.example.coblaxexamlock.ui.exam
 
 import android.util.Log
 import androidx.compose.animation.core.FastOutSlowInEasing
+import androidx.compose.animation.core.LinearEasing
+import androidx.compose.animation.core.RepeatMode
+import androidx.compose.animation.core.animateFloat
 import androidx.compose.animation.core.animateFloatAsState
+import androidx.compose.animation.core.infiniteRepeatable
+import androidx.compose.animation.core.rememberInfiniteTransition
 import androidx.compose.animation.core.tween
 import androidx.compose.foundation.background
 import androidx.compose.foundation.border
@@ -132,16 +137,25 @@ internal fun ExamWebViewBottomBar(
     val connectivityDescription = "$networkContentDescription. $serverContentDescription"
     val refreshContainerColor = if (isRefreshing) LockGold else LockBlue
 
-    // Refresh spin animation
-    val refreshRotation by animateFloatAsState(
-        targetValue = if (isRefreshing && !lowRamProfile.enabled) 360f else 0f,
-        animationSpec = if (isRefreshing && !lowRamProfile.enabled) {
-            tween(durationMillis = 800, easing = FastOutSlowInEasing)
-        } else {
-            tween(durationMillis = 0)
-        },
-        label = "refresh_rotation"
-    )
+    // Refresh spin animation — continuous rotation while loading
+    val infiniteTransition = rememberInfiniteTransition(label = "refresh_spin")
+    val refreshRotation by if (isRefreshing && !lowRamProfile.enabled) {
+        infiniteTransition.animateFloat(
+            initialValue = 0f,
+            targetValue = 360f,
+            animationSpec = infiniteRepeatable(
+                animation = tween(durationMillis = 800, easing = LinearEasing),
+                repeatMode = RepeatMode.Restart
+            ),
+            label = "refresh_rotation"
+        )
+    } else {
+        animateFloatAsState(
+            targetValue = 0f,
+            animationSpec = tween(durationMillis = 300, easing = FastOutSlowInEasing),
+            label = "refresh_rotation"
+        )
+    }
 
     BoxWithConstraints(modifier = modifier) {
         val layoutSpec = calculateExamFooterLayoutSpec(
