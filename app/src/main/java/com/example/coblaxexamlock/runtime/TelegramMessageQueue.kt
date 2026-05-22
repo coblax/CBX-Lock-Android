@@ -14,14 +14,15 @@ import kotlinx.coroutines.launch
 private const val MessageQueueTag = "TelegramMessageQueue"
 
 internal class TelegramMessageQueue(
-    private val context: Context,
+    context: Context,
     private val retryExecutor: TelegramRetryExecutor = TelegramRetryExecutor(),
     private val rateLimiter: TelegramRateLimiter = TelegramRateLimiter(),
-    private val persistentQueue: TelegramPersistentQueue = TelegramPersistentQueue(context),
+    private val persistentQueue: TelegramPersistentQueue = TelegramPersistentQueue(context.applicationContext),
     private val scope: CoroutineScope = CoroutineScope(Dispatchers.IO + SupervisorJob())
 ) {
+    private val appContext: Context = context.applicationContext
     private val flusher = TelegramQueueFlusher(
-        context = context.applicationContext,
+        context = appContext,
         queue = persistentQueue,
         retryExecutor = retryExecutor,
         rateLimiter = rateLimiter,
@@ -68,7 +69,7 @@ internal class TelegramMessageQueue(
     }
 
     private fun isNetworkAvailable(): Boolean {
-        val connectivityManager = context.getSystemService(ConnectivityManager::class.java) ?: return false
+        val connectivityManager = appContext.getSystemService(ConnectivityManager::class.java) ?: return false
         val network = connectivityManager.activeNetwork ?: return false
         val capabilities = connectivityManager.getNetworkCapabilities(network) ?: return false
         return capabilities.hasCapability(android.net.NetworkCapabilities.NET_CAPABILITY_INTERNET)

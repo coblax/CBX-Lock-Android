@@ -30,7 +30,7 @@ import com.example.coblaxexamlock.ui.theme.LockOutline
 internal fun PreparationNoticeStack(
     state: PreparationScreenState,
     actions: PreparationScreenActions,
-    runQuickFix: (QuickFixTarget?, String, () -> Unit) -> Unit
+    runQuickFix: (QuickFixTarget?, String, Boolean, () -> Unit) -> Unit
 ) {
     with(state) {
         with(actions) {
@@ -102,6 +102,7 @@ internal fun PreparationNoticeStack(
                         runQuickFix(
                             QuickFixTarget.WebView,
                             "webview_provider_recovery_fix",
+                            true,
                             onOpenWebViewProviderSettings
                         )
                     },

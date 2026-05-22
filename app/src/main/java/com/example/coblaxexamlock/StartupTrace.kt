@@ -22,12 +22,15 @@ internal object StartupTrace {
     fun <T> section(name: String, block: () -> T): T {
         val traceName = name.take(127)
         Trace.beginSection(traceName)
-        mark("${name}_start")
         return try {
+            mark("${name}_start")
             block()
         } finally {
-            mark("${name}_end")
-            Trace.endSection()
+            try {
+                mark("${name}_end")
+            } finally {
+                Trace.endSection()
+            }
         }
     }
 }

@@ -118,6 +118,14 @@ internal data class PreparationWizardStepPayload(
         get() = buildMode == PreparationWizardPayloadBuildMode.FullChecklist
 }
 
+internal data class WizardStepActionCoverage(
+    val hasIssue: Boolean,
+    val hasActionOrNotice: Boolean
+) {
+    val showManualFixHint: Boolean
+        get() = hasIssue && !hasActionOrNotice
+}
+
 internal fun resolvePreparationWizardPayloadBuildMode(
     lowRamProfile: LowRamProfile,
     showChecklistDetails: Boolean
@@ -147,6 +155,57 @@ internal fun createPreparationWizardStepPayload(
     )
 }
 
+internal fun WizardStep.preparationSection(): PreparationSection {
+    return when (this) {
+        WizardStep.DeviceSetup -> PreparationSection.DeviceSetup
+        WizardStep.Connectivity -> PreparationSection.Connectivity
+        WizardStep.DeviceHealth -> PreparationSection.DeviceHealth
+        WizardStep.RuntimeInteraction -> PreparationSection.RuntimeInteraction
+        WizardStep.DeviceIntegrity -> PreparationSection.DeviceIntegrity
+        WizardStep.Clipboard -> PreparationSection.Clipboard
+        WizardStep.Location -> PreparationSection.Location
+        WizardStep.DeviceLock -> PreparationSection.DeviceLock
+        WizardStep.RuntimeSecurity -> PreparationSection.RuntimeSecurity
+    }
+}
+
+internal fun resolveFirstIssueWizardStepIndex(
+    stepStates: List<WizardStepState>
+): Int {
+    return stepStates.indexOfFirst { it.issueCount > 0 }.takeIf { it >= 0 } ?: 0
+}
+
+internal fun resolveWizardStepIndexForAutoFocus(
+    currentStepIndex: Int,
+    stepStates: List<WizardStepState>,
+    userSelectedWizardStep: Boolean,
+    autoFocusApplied: Boolean
+): Int {
+    val boundedCurrentIndex = currentStepIndex.coerceIn(
+        0,
+        (stepStates.size - 1).coerceAtLeast(0)
+    )
+    return if (userSelectedWizardStep || autoFocusApplied) {
+        boundedCurrentIndex
+    } else {
+        resolveFirstIssueWizardStepIndex(stepStates)
+    }
+}
+
+internal fun resolveWizardStepActionCoverage(
+    stepState: WizardStepState?,
+    quickFixActions: List<PreparationQuickFixAction>
+): WizardStepActionCoverage {
+    val hasIssue = (stepState?.issueCount ?: 0) > 0
+    val hasActionOrNotice = quickFixActions.any {
+        it.code != QuickFixRefreshAllSecurityChecksCode
+    }
+    return WizardStepActionCoverage(
+        hasIssue = hasIssue,
+        hasActionOrNotice = hasActionOrNotice
+    )
+}
+
 /**
  * Builds wizard step states from the section health map.
  */
@@ -165,12 +224,14 @@ internal fun buildWizardStepStates(
 
 /**
  * Filters quick fix actions relevant to a specific wizard step.
- * Maps each step's section key to the related QuickFixTarget values.
+ * Section metadata is the source of truth; target/code-prefix matching stays as
+ * compatibility fallback for older tests and future actions that have not been tagged.
  */
 internal fun filterQuickFixActionsForStep(
     step: WizardStep,
     allActions: List<PreparationQuickFixAction>
 ): List<PreparationQuickFixAction> {
+    val relevantSection = step.preparationSection()
     val relevantTargets = when (step) {
         WizardStep.DeviceSetup -> emptySet<QuickFixTarget>() // keyboard/bluetooth fixes have null target
         WizardStep.Connectivity -> setOf(QuickFixTarget.Network)
@@ -197,12 +258,15 @@ internal fun filterQuickFixActionsForStep(
             "selinux_permissive", "virtual_env_detected", "quick_fix_15"
         )
         WizardStep.Clipboard -> listOf("clipboard")
+        WizardStep.RuntimeSecurity -> listOf("app_switch_violations")
         else -> emptyList()
     }
 
     return allActions.filter { action ->
         // Don't include the global "refresh all" in per-step view
         if (action.code == QuickFixRefreshAllSecurityChecksCode) return@filter false
+        // Match explicit section first
+        if (action.section == relevantSection) return@filter true
         // Match by target
         if (action.target != null && action.target in relevantTargets) return@filter true
         // Match by code prefix

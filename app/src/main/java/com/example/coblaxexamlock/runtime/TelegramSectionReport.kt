@@ -1,4 +1,4 @@
-﻿package com.example.coblaxexamlock.runtime
+package com.example.coblaxexamlock.runtime
 
 import android.content.Context
 import android.os.Build
@@ -136,8 +136,9 @@ internal suspend fun sendTelegramSectionReport(
     bypassMultiWindow: Boolean = false,
     multiWindowBypassTampered: Boolean = false,
     multiWindowViolationCount: Int = 0,
-    multiWindowDialogActive: Boolean = false
-): Result<Unit> = withContext(Dispatchers.IO) {
+    multiWindowDialogActive: Boolean = false,
+    compactReport: Boolean = false
+): Result<Unit> = withContext(LowRamDispatchers.detectorIo) {
     runCatching {
         val token = SecureStrings.telegramBotToken.trim()
         val chatId = SecureStrings.telegramBugChatId.trim()
@@ -203,7 +204,8 @@ internal suspend fun sendTelegramSectionReport(
                 null
             }
         val relevantEventCodes = diagnosticSectionEventCodes(section)
-        val relevantEvents = diagnosticEvents.filter { it.code in relevantEventCodes }.take(12)
+        val maxEvents = if (compactReport) 6 else 12
+        val relevantEvents = diagnosticEvents.filter { it.code in relevantEventCodes }.take(maxEvents)
         val message = buildString {
             appendLine("DIAGNOSTIK CBX LOCK - $sectionLabel")
             appendLine("Waktu: $timestamp")

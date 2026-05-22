@@ -3044,7 +3044,8 @@ internal fun ExamRuntimeSessionScreenImpl(
                     bypassMultiWindow = bypassMultiWindow,
                     multiWindowBypassTampered = adminSettings.multiWindowBypassTampered,
                     multiWindowViolationCount = securityUiState.multiWindowViolationCount.intValue,
-                    multiWindowDialogActive = securityUiState.showMultiWindowViolationDialog.value
+                    multiWindowDialogActive = securityUiState.showMultiWindowViolationDialog.value,
+                    compactReport = lowRamProfile.telegramCompactReport
                 ).onSuccess {
                     recordAction(code = "DIAGNOSTIC_SECTION_SENT", details = section.name)
                     bugReportFeedbackTitle = localized(uiLanguage, "Diagnostics sent", "Diagnostik terkirim")

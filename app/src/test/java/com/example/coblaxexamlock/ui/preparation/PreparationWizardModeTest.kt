@@ -91,6 +91,108 @@ class PreparationWizardModeTest {
         assertFalse(payload.fullChecklistBuilt)
     }
 
+    @Test
+    fun wizardFilteringUsesExplicitSectionMetadataFirst() {
+        val actionsBySection = WizardStep.entries.map { step ->
+            PreparationQuickFixAction(
+                code = "section_${step.name}",
+                text = step.name,
+                severity = QuickFixSeverity.Blocking,
+                target = null,
+                priority = 1,
+                section = step.preparationSection(),
+                onClick = {}
+            )
+        } + PreparationQuickFixAction(
+            code = QuickFixRefreshAllSecurityChecksCode,
+            text = "Refresh",
+            severity = QuickFixSeverity.Warning,
+            target = null,
+            priority = 900,
+            onClick = {}
+        )
+
+        WizardStep.entries.forEach { step ->
+            val filtered = filterQuickFixActionsForStep(step, actionsBySection)
+
+            assertEquals(listOf("section_${step.name}"), filtered.map { it.code })
+        }
+    }
+
+    @Test
+    fun firstIssueWizardStepIndexFocusesLocationIssue() {
+        val states = WizardStep.entries.map { step ->
+            WizardStepState(
+                step = step,
+                isCompleted = step != WizardStep.Location,
+                issueCount = if (step == WizardStep.Location) 1 else 0
+            )
+        }
+
+        assertEquals(
+            WizardStep.Location.ordinal,
+            resolveFirstIssueWizardStepIndex(states)
+        )
+    }
+
+    @Test
+    fun userSelectedWizardStepPreventsAutoFocusMove() {
+        val states = WizardStep.entries.map { step ->
+            WizardStepState(
+                step = step,
+                isCompleted = step != WizardStep.Location,
+                issueCount = if (step == WizardStep.Location) 1 else 0
+            )
+        }
+
+        assertEquals(
+            WizardStep.DeviceSetup.ordinal,
+            resolveWizardStepIndexForAutoFocus(
+                currentStepIndex = WizardStep.DeviceSetup.ordinal,
+                stepStates = states,
+                userSelectedWizardStep = true,
+                autoFocusApplied = false
+            )
+        )
+    }
+
+    @Test
+    fun wizardStepActionCoverageShowsHintWhenIssueHasNoAction() {
+        val coverage = resolveWizardStepActionCoverage(
+            stepState = WizardStepState(
+                step = WizardStep.Location,
+                isCompleted = false,
+                issueCount = 1
+            ),
+            quickFixActions = listOf(
+                PreparationQuickFixAction(
+                    code = QuickFixRefreshAllSecurityChecksCode,
+                    text = "Refresh",
+                    severity = QuickFixSeverity.Warning,
+                    target = null,
+                    priority = 900,
+                    onClick = {}
+                )
+            )
+        )
+
+        assertTrue(coverage.showManualFixHint)
+    }
+
+    @Test
+    fun wizardStepActionCoverageHidesHintWhenSectionHasNoIssue() {
+        val coverage = resolveWizardStepActionCoverage(
+            stepState = WizardStepState(
+                step = WizardStep.Location,
+                isCompleted = true,
+                issueCount = 0
+            ),
+            quickFixActions = emptyList()
+        )
+
+        assertFalse(coverage.showManualFixHint)
+    }
+
     private fun readiness(): PreparationChecklistReadiness =
         PreparationChecklistReadiness(
             keyboardReady = true,

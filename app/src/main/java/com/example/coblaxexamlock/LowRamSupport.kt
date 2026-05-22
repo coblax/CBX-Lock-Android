@@ -5,6 +5,7 @@ import android.content.ComponentCallbacks2
 import android.content.Context
 import com.example.coblaxexamlock.config.AdminKeyLowRamProfileOverride
 import com.example.coblaxexamlock.config.AdminPreferencesName
+import com.example.coblaxexamlock.runtime.SecurityDetectorCache
 import java.util.concurrent.CopyOnWriteArraySet
 
 private const val OneMegabyteBytes = 1024L * 1024L
@@ -34,6 +35,18 @@ private const val UltraExamServerProbeIntervalMillis = 120_000L
 private const val NormalDetectorMetadataCacheMaxEntries = 64
 private const val LowDetectorMetadataCacheMaxEntries = 24
 private const val UltraDetectorMetadataCacheMaxEntries = 8
+private const val NormalGeofenceEvalDebounceMillis = 0L
+private const val LowGeofenceEvalDebounceMillis = 2_000L
+private const val UltraGeofenceEvalDebounceMillis = 5_000L
+private const val NormalLocationUpdateIntervalMillis = 5_000L
+private const val LowLocationUpdateIntervalMillis = 8_000L
+private const val UltraLocationUpdateIntervalMillis = 15_000L
+private const val NormalDetectorParallelism = 4
+private const val LowDetectorParallelism = 2
+private const val UltraDetectorParallelism = 1
+private const val NormalTelegramFlushIntervalMillis = 30_000L
+private const val LowTelegramFlushIntervalMillis = 45_000L
+private const val UltraTelegramFlushIntervalMillis = 60_000L
 
 internal enum class LowRamTier {
     Normal,
@@ -73,7 +86,17 @@ internal data class LowRamProfile(
     val accessibilityLivenessPollMillis: Long = NormalAccessibilityLivenessPollMillis,
     val examServerProbeIntervalMillis: Long = NormalExamServerProbeIntervalMillis,
     val detectorMetadataCacheMaxEntries: Int = NormalDetectorMetadataCacheMaxEntries,
-    val disableNonEssentialAnimations: Boolean = false
+    val disableNonEssentialAnimations: Boolean = false,
+    val geofenceEvalDebounceMillis: Long = NormalGeofenceEvalDebounceMillis,
+    val locationUpdateIntervalMillis: Long = NormalLocationUpdateIntervalMillis,
+    val detectorParallelism: Int = NormalDetectorParallelism,
+    val telegramFlushIntervalMillis: Long = NormalTelegramFlushIntervalMillis,
+    val telegramCompactReport: Boolean = false,
+    val skipFrequentRecomposition: Boolean = false,
+    val disableRippleEffects: Boolean = false,
+    val lazyLoadAdminSections: Boolean = false,
+    val useSystemFont: Boolean = false,
+    val skipDisplayMetadataInScan: Boolean = false
 ) {
     val tier: LowRamTier
         get() = when {
@@ -82,25 +105,35 @@ internal data class LowRamProfile(
             else -> LowRamTier.Normal
         }
 
-    fun diagnosticSummary(): String {
-        return "enabled=$enabled" +
-            " severe=$severe" +
-            " ultra=$ultra" +
-            " total=${totalMemoryMb ?: "-"}MB" +
-            " avail=${availableMemoryMb ?: "-"}MB" +
-            " memoryLow=$memoryLow" +
-            " override=${lowRamOverride.name}" +
-            " detected=${detectedTier?.name ?: tier.name}" +
-            " effective=${tier.name}" +
-            " qrMaxEdgePx=$qrMaxEdgePx" +
-            " polling=${slowPollingMultiplier}x" +
-            " logMax=$diagnosticLogMaxEntries" +
-            " refreshCooldownMs=$manualRefreshCooldownMillis" +
-            " screenPinningPollMs=$screenPinningSteadyPollMillis" +
-            " accessibilityPollMs=$accessibilityLivenessPollMillis" +
-            " serverProbeMs=$examServerProbeIntervalMillis" +
-            " detectorCacheMax=$detectorMetadataCacheMaxEntries" +
-            " reduceMotion=$disableNonEssentialAnimations"
+    fun diagnosticSummary(): String = buildString {
+        append("enabled="); append(enabled)
+        append(" severe="); append(severe)
+        append(" ultra="); append(ultra)
+        append(" total="); append(totalMemoryMb ?: "-"); append("MB")
+        append(" avail="); append(availableMemoryMb ?: "-"); append("MB")
+        append(" memoryLow="); append(memoryLow)
+        append(" override="); append(lowRamOverride.name)
+        append(" detected="); append(detectedTier?.name ?: tier.name)
+        append(" effective="); append(tier.name)
+        append(" qrMaxEdgePx="); append(qrMaxEdgePx)
+        append(" polling="); append(slowPollingMultiplier); append("x")
+        append(" logMax="); append(diagnosticLogMaxEntries)
+        append(" refreshCooldownMs="); append(manualRefreshCooldownMillis)
+        append(" screenPinningPollMs="); append(screenPinningSteadyPollMillis)
+        append(" accessibilityPollMs="); append(accessibilityLivenessPollMillis)
+        append(" serverProbeMs="); append(examServerProbeIntervalMillis)
+        append(" detectorCacheMax="); append(detectorMetadataCacheMaxEntries)
+        append(" reduceMotion="); append(disableNonEssentialAnimations)
+        append(" geofenceDebounceMs="); append(geofenceEvalDebounceMillis)
+        append(" locationUpdateMs="); append(locationUpdateIntervalMillis)
+        append(" detectorParallelism="); append(detectorParallelism)
+        append(" telegramFlushMs="); append(telegramFlushIntervalMillis)
+        append(" telegramCompact="); append(telegramCompactReport)
+        append(" skipRecomposition="); append(skipFrequentRecomposition)
+        append(" noRipple="); append(disableRippleEffects)
+        append(" lazyAdmin="); append(lazyLoadAdminSections)
+        append(" systemFont="); append(useSystemFont)
+        append(" skipDisplayMeta="); append(skipDisplayMetadataInScan)
     }
 }
 
@@ -169,7 +202,17 @@ internal fun applyLowRamProfileOverride(
             accessibilityLivenessPollMillis = NormalAccessibilityLivenessPollMillis,
             examServerProbeIntervalMillis = NormalExamServerProbeIntervalMillis,
             detectorMetadataCacheMaxEntries = NormalDetectorMetadataCacheMaxEntries,
-            disableNonEssentialAnimations = false
+            disableNonEssentialAnimations = false,
+            geofenceEvalDebounceMillis = NormalGeofenceEvalDebounceMillis,
+            locationUpdateIntervalMillis = NormalLocationUpdateIntervalMillis,
+            detectorParallelism = NormalDetectorParallelism,
+            telegramFlushIntervalMillis = NormalTelegramFlushIntervalMillis,
+            telegramCompactReport = false,
+            skipFrequentRecomposition = false,
+            disableRippleEffects = false,
+            lazyLoadAdminSections = false,
+            useSystemFont = false,
+            skipDisplayMetadataInScan = false
         )
         LowRamProfileOverride.Low -> detectedProfile.copy(
             enabled = true,
@@ -186,7 +229,17 @@ internal fun applyLowRamProfileOverride(
             accessibilityLivenessPollMillis = LowAccessibilityLivenessPollMillis,
             examServerProbeIntervalMillis = LowExamServerProbeIntervalMillis,
             detectorMetadataCacheMaxEntries = LowDetectorMetadataCacheMaxEntries,
-            disableNonEssentialAnimations = true
+            disableNonEssentialAnimations = true,
+            geofenceEvalDebounceMillis = LowGeofenceEvalDebounceMillis,
+            locationUpdateIntervalMillis = LowLocationUpdateIntervalMillis,
+            detectorParallelism = LowDetectorParallelism,
+            telegramFlushIntervalMillis = LowTelegramFlushIntervalMillis,
+            telegramCompactReport = false,
+            skipFrequentRecomposition = false,
+            disableRippleEffects = true,
+            lazyLoadAdminSections = false,
+            useSystemFont = false,
+            skipDisplayMetadataInScan = false
         )
         LowRamProfileOverride.Ultra -> detectedProfile.copy(
             enabled = true,
@@ -203,7 +256,17 @@ internal fun applyLowRamProfileOverride(
             accessibilityLivenessPollMillis = UltraAccessibilityLivenessPollMillis,
             examServerProbeIntervalMillis = UltraExamServerProbeIntervalMillis,
             detectorMetadataCacheMaxEntries = UltraDetectorMetadataCacheMaxEntries,
-            disableNonEssentialAnimations = true
+            disableNonEssentialAnimations = true,
+            geofenceEvalDebounceMillis = UltraGeofenceEvalDebounceMillis,
+            locationUpdateIntervalMillis = UltraLocationUpdateIntervalMillis,
+            detectorParallelism = UltraDetectorParallelism,
+            telegramFlushIntervalMillis = UltraTelegramFlushIntervalMillis,
+            telegramCompactReport = true,
+            skipFrequentRecomposition = true,
+            disableRippleEffects = true,
+            lazyLoadAdminSections = true,
+            useSystemFont = true,
+            skipDisplayMetadataInScan = true
         )
     }
 }
@@ -311,7 +374,33 @@ internal fun calculateLowRamProfile(
             enabled -> LowDetectorMetadataCacheMaxEntries
             else -> NormalDetectorMetadataCacheMaxEntries
         },
-        disableNonEssentialAnimations = enabled
+        disableNonEssentialAnimations = enabled,
+        geofenceEvalDebounceMillis = when {
+            ultra -> UltraGeofenceEvalDebounceMillis
+            enabled -> LowGeofenceEvalDebounceMillis
+            else -> NormalGeofenceEvalDebounceMillis
+        },
+        locationUpdateIntervalMillis = when {
+            ultra -> UltraLocationUpdateIntervalMillis
+            enabled -> LowLocationUpdateIntervalMillis
+            else -> NormalLocationUpdateIntervalMillis
+        },
+        detectorParallelism = when {
+            ultra -> UltraDetectorParallelism
+            enabled -> LowDetectorParallelism
+            else -> NormalDetectorParallelism
+        },
+        telegramFlushIntervalMillis = when {
+            ultra -> UltraTelegramFlushIntervalMillis
+            enabled -> LowTelegramFlushIntervalMillis
+            else -> NormalTelegramFlushIntervalMillis
+        },
+        telegramCompactReport = ultra,
+        skipFrequentRecomposition = ultra,
+        disableRippleEffects = enabled,
+        lazyLoadAdminSections = ultra,
+        useSystemFont = ultra,
+        skipDisplayMetadataInScan = ultra
     )
 }
 
@@ -359,7 +448,17 @@ internal fun resolveRuntimePressureProfile(
         accessibilityLivenessPollMillis = UltraAccessibilityLivenessPollMillis,
         examServerProbeIntervalMillis = UltraExamServerProbeIntervalMillis,
         detectorMetadataCacheMaxEntries = UltraDetectorMetadataCacheMaxEntries,
-        disableNonEssentialAnimations = true
+        disableNonEssentialAnimations = true,
+        geofenceEvalDebounceMillis = UltraGeofenceEvalDebounceMillis,
+        locationUpdateIntervalMillis = UltraLocationUpdateIntervalMillis,
+        detectorParallelism = UltraDetectorParallelism,
+        telegramFlushIntervalMillis = UltraTelegramFlushIntervalMillis,
+        telegramCompactReport = true,
+        skipFrequentRecomposition = true,
+        disableRippleEffects = true,
+        lazyLoadAdminSections = true,
+        useSystemFont = true,
+        skipDisplayMetadataInScan = true
     )
 }
 
@@ -426,8 +525,25 @@ internal object MemoryPressureCoordinator {
 
     fun dispatchTrimMemory(level: Int) {
         lastTrimLevel = level
+        runCatching {
+            executeAggressiveCleanup(level)
+        }
         listeners.forEach { listener ->
             runCatching { listener(level) }
+        }
+    }
+
+    @Suppress("DEPRECATION")
+    private fun executeAggressiveCleanup(level: Int) {
+        when (level) {
+            ComponentCallbacks2.TRIM_MEMORY_RUNNING_LOW -> {
+                SecurityDetectorCache.invalidateStaticSecurity()
+            }
+            ComponentCallbacks2.TRIM_MEMORY_RUNNING_CRITICAL,
+            ComponentCallbacks2.TRIM_MEMORY_COMPLETE -> {
+                SecurityDetectorCache.invalidateAll()
+                System.gc()
+            }
         }
     }
 

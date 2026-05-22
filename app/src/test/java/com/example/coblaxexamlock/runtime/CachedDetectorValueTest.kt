@@ -130,6 +130,34 @@ class CachedDetectorValueTest {
     }
 
     @Test
+    fun packageMetadataDisplayFlagHonorsLowRamDefaultOnlyWhenCallerDoesNotDecide() {
+        assertFalse(
+            resolvePackageMetadataDisplayFlag(
+                includeDisplayMetadata = null,
+                skipDisplayMetadataDefault = true
+            )
+        )
+        assertTrue(
+            resolvePackageMetadataDisplayFlag(
+                includeDisplayMetadata = null,
+                skipDisplayMetadataDefault = false
+            )
+        )
+        assertTrue(
+            resolvePackageMetadataDisplayFlag(
+                includeDisplayMetadata = true,
+                skipDisplayMetadataDefault = true
+            )
+        )
+        assertFalse(
+            resolvePackageMetadataDisplayFlag(
+                includeDisplayMetadata = false,
+                skipDisplayMetadataDefault = false
+            )
+        )
+    }
+
+    @Test
     fun packageInventoryChangeHandlerInvalidatesOnlyForPackageActions() {
         var invalidations = 0
 

@@ -243,8 +243,6 @@ import java.util.Calendar
 import java.util.Date
 import java.util.Locale
 import java.util.TimeZone
-import java.util.concurrent.CountDownLatch
-import java.util.concurrent.TimeUnit
 import kotlin.coroutines.resume
 import kotlin.coroutines.resumeWithException
 import kotlin.math.roundToInt
@@ -258,7 +256,7 @@ import kotlinx.coroutines.withTimeoutOrNull
 
 @Suppress("AssignedValueIsNeverRead")
 @SuppressLint("SetJavaScriptEnabled")
-internal fun WebView.applyExamWebViewSettings(examUserAgent: String) {
+internal fun WebView.applyExamWebViewSettings(examUserAgent: String, lowRamProfile: LowRamProfile) {
     settings.apply {
         // The exam site requires JavaScript and DOM storage; surrounding
         // hardening stays in place, so this lint warning is intentionally suppressed.
@@ -270,6 +268,14 @@ internal fun WebView.applyExamWebViewSettings(examUserAgent: String) {
         builtInZoomControls = false
         displayZoomControls = false
         userAgentString = normalizeExamUserAgent(examUserAgent)
+
+        // Force media user gesture to prevent background auto-play resources
+        mediaPlaybackRequiresUserGesture = true
+
+        // For Low-RAM and Ultra-RAM tiers, disable offscreen pre-rendering to optimize heap consumption
+        if (lowRamProfile.enabled) {
+            offscreenPreRaster = false
+        }
     }
 }
 

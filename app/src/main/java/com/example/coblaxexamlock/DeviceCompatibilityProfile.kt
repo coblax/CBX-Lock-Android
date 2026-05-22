@@ -55,23 +55,23 @@ internal data class DeviceCompatibilityProfile(
             DeviceCompatibilityFamily.Generic -> "Android"
         }
 
-    fun diagnosticSummary(): String {
-        return "family=${family.name}" +
-            " | manufacturer=$manufacturer" +
-            " | brand=$brand" +
-            " | model=$model" +
-            " | sdk=$sdkInt" +
-            " | low_ram=${lowRamProfile.enabled}" +
-            " | severe=${lowRamProfile.severe}" +
-            " | ultra=${lowRamProfile.ultra}" +
-            " | low_ram_override=${lowRamProfile.lowRamOverride.name}" +
-            " | detected_profile=${lowRamProfile.detectedTier?.name ?: lowRamProfile.tier.name}" +
-            " | effective_profile=${lowRamProfile.tier.name}" +
-            " | total_ram_mb=${lowRamProfile.totalMemoryMb ?: "-"}" +
-            " | available_ram_mb=${lowRamProfile.availableMemoryMb ?: "-"}" +
-            " | memory_low=${lowRamProfile.memoryLow}" +
-            " | skip_pinning_if_active=$skipScreenPinningRequestWhenAlreadyActive" +
-            " | partial_overlay=${partialObscuredWebViewPolicy.name.lowercase(Locale.US)}"
+    fun diagnosticSummary(): String = buildString {
+        append("family="); append(family.name)
+        append(" | manufacturer="); append(manufacturer)
+        append(" | brand="); append(brand)
+        append(" | model="); append(model)
+        append(" | sdk="); append(sdkInt)
+        append(" | low_ram="); append(lowRamProfile.enabled)
+        append(" | severe="); append(lowRamProfile.severe)
+        append(" | ultra="); append(lowRamProfile.ultra)
+        append(" | low_ram_override="); append(lowRamProfile.lowRamOverride.name)
+        append(" | detected_profile="); append(lowRamProfile.detectedTier?.name ?: lowRamProfile.tier.name)
+        append(" | effective_profile="); append(lowRamProfile.tier.name)
+        append(" | total_ram_mb="); append(lowRamProfile.totalMemoryMb ?: "-")
+        append(" | available_ram_mb="); append(lowRamProfile.availableMemoryMb ?: "-")
+        append(" | memory_low="); append(lowRamProfile.memoryLow)
+        append(" | skip_pinning_if_active="); append(skipScreenPinningRequestWhenAlreadyActive)
+        append(" | partial_overlay="); append(partialObscuredWebViewPolicy.name.lowercase(Locale.US))
     }
 }
 

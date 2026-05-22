@@ -119,6 +119,7 @@ class PreparationStateSlicingTest {
         assertTrue(deferredNotice.isNotice)
         assertFalse(deferredNotice.enabled)
         assertEquals(QuickFixTarget.ScreenPinning, deferredNotice.target)
+        assertEquals(PreparationSection.DeviceLock, deferredNotice.section)
         assertTrue(deferredNotice.diagnosticDetails.orEmpty().contains("blockers=1"))
     }
 
@@ -151,7 +152,9 @@ class PreparationStateSlicingTest {
 
         assertTrue(actions.any { it.code == QuickFixScreenPinningDeferredCode })
         assertFalse(actions.any { it.code == QuickFixStartScreenPinningCode && it.enabled })
-        assertTrue(actions.first { it.code == "webview_provider_settings" }.opensExternalSettings)
+        val webViewFix = actions.first { it.code == "webview_provider_settings" }
+        assertTrue(webViewFix.opensExternalSettings)
+        assertEquals(PreparationSection.DeviceHealth, webViewFix.section)
     }
 
     @Test
@@ -170,6 +173,7 @@ class PreparationStateSlicingTest {
         assertFalse(startPinning.isNotice)
         assertEquals(QuickFixSeverity.Blocking, startPinning.severity)
         assertEquals(QuickFixTarget.ScreenPinning, startPinning.target)
+        assertEquals(PreparationSection.DeviceLock, startPinning.section)
         assertFalse(actions.any { it.code == QuickFixScreenPinningDeferredCode })
     }
 
@@ -189,6 +193,7 @@ class PreparationStateSlicingTest {
         assertTrue(accessibilityFix.opensExternalSettings)
         assertFalse(accessibilityFix.enabled)
         assertTrue(accessibilityFix.text.contains("Turn off Screen Pinning first"))
+        assertEquals(PreparationSection.RuntimeInteraction, accessibilityFix.section)
     }
 
     @Test
@@ -212,6 +217,173 @@ class PreparationStateSlicingTest {
         assertFalse(refreshNetwork.opensExternalSettings)
         assertTrue(refreshNetwork.enabled)
         assertFalse(refreshNetwork.isNotice)
+    }
+
+    @Test
+    fun wizardLocationStepIncludesAllLocationQuickFixActions() {
+        val permissionActions = filterQuickFixActionsForStep(
+            WizardStep.Location,
+            quickFixActionsFor(
+                preparationState(
+                    location = locationState(
+                        geofenceRuntimeStatus = geofenceRuntimeStatus(
+                            finalVerdict = GeofenceSecurityVerdict.PermissionMissing
+                        )
+                    )
+                )
+            )
+        )
+
+        assertTrue(
+            permissionActions.any {
+                it.priority == 40 &&
+                    it.target == QuickFixTarget.Location &&
+                    it.section == PreparationSection.Location
+            }
+        )
+
+        val outsideActions = filterQuickFixActionsForStep(
+            WizardStep.Location,
+            quickFixActionsFor(
+                preparationState(
+                    location = locationState(
+                        geofenceRuntimeStatus = geofenceRuntimeStatus(
+                            finalVerdict = GeofenceSecurityVerdict.Outside
+                        )
+                    )
+                )
+            )
+        )
+
+        assertTrue(
+            outsideActions.any {
+                it.priority == 50 &&
+                    it.target == QuickFixTarget.Location &&
+                    it.section == PreparationSection.Location
+            }
+        )
+        assertTrue(
+            outsideActions.any {
+                it.priority == 55 &&
+                    it.target == QuickFixTarget.Location &&
+                    it.section == PreparationSection.Location
+            }
+        )
+    }
+
+    @Test
+    fun wizardConnectivityStepIncludesNetworkRefreshActions() {
+        val actions = filterQuickFixActionsForStep(
+            WizardStep.Connectivity,
+            quickFixActionsFor(
+                preparationState(
+                    network = networkState(
+                        readinessStatus = networkReadinessStatus(
+                            verdict = NetworkReadinessVerdict.Unstable,
+                            userVerdict = NetworkReadinessUserVerdict.Unstable
+                        )
+                    )
+                )
+            )
+        )
+
+        assertTrue(
+            actions.any {
+                it.priority == 70 &&
+                    it.target == QuickFixTarget.Network &&
+                    it.section == PreparationSection.Connectivity
+            }
+        )
+    }
+
+    @Test
+    fun wizardRuntimeSecurityStepIncludesAppSwitchViolationFix() {
+        val actions = filterQuickFixActionsForStep(
+            WizardStep.RuntimeSecurity,
+            quickFixActionsFor(
+                preparationState(
+                    runtimeSecurity = runtimeSecurityState().copy(
+                        appSwitchStatus = runtimeSecurityState().appSwitchStatus.copy(
+                            violationCount = 1
+                        )
+                    )
+                )
+            )
+        )
+
+        assertTrue(
+            actions.any {
+                it.code == "app_switch_violations" &&
+                    it.section == PreparationSection.RuntimeSecurity
+            }
+        )
+    }
+
+    @Test
+    fun quickFixBuilderTagsDeviceSetupAndIntegrityActions() {
+        val actions = quickFixActionsFor(
+            preparationState(
+                device = deviceState().copy(
+                    usingBuiltInExamKeyboard = true,
+                    reinstallApkFixNeeded = true
+                )
+            )
+        )
+
+        assertTrue(
+            actions.any {
+                it.priority == 15 &&
+                    it.section == PreparationSection.DeviceIntegrity
+            }
+        )
+        assertTrue(
+            actions.any {
+                it.priority == 200 &&
+                    it.section == PreparationSection.DeviceSetup
+            }
+        )
+        assertTrue(
+            actions.any {
+                it.priority == 205 &&
+                    it.section == PreparationSection.DeviceSetup
+            }
+        )
+    }
+
+    @Test
+    fun quickFixBuilderTagsRuntimeSecurityActions() {
+        val actions = quickFixActionsFor(
+            preparationState(
+                runtimeSecurity = runtimeSecurityState().copy(
+                    screenRecorderPackages = listOf("recorder.app"),
+                    externalDisplayDetected = true,
+                    externalDisplayCount = 1,
+                    multiWindowDetected = true,
+                    multiWindowModeInfo = runtimeSecurityState().multiWindowModeInfo.copy(
+                        inMultiWindowMode = true
+                    )
+                )
+            )
+        )
+
+        assertTrue(
+            actions.any {
+                it.target == QuickFixTarget.ScreenRecorder &&
+                    it.section == PreparationSection.RuntimeSecurity
+            }
+        )
+        assertTrue(
+            actions.any {
+                it.target == QuickFixTarget.DisplayMirror &&
+                    it.section == PreparationSection.RuntimeSecurity
+            }
+        )
+        assertTrue(
+            actions.any {
+                it.target == QuickFixTarget.MultiWindow &&
+                    it.section == PreparationSection.RuntimeSecurity
+            }
+        )
     }
 
     @Test
@@ -315,7 +487,7 @@ class PreparationStateSlicingTest {
             fakeLocationReady = true,
             needsBluetoothPermission = false,
             accessibilityInspection = accessibilityInspection(),
-            runQuickFix = { _, _, action -> action() }
+            runQuickFix = { _, _, _, action -> action() }
         )
     }
 
@@ -528,10 +700,13 @@ class PreparationStateSlicingTest {
         )
     }
 
-    private fun locationState(): PreparationLocationState {
+    private fun locationState(
+        geofenceRuntimeStatus: GeofenceRuntimeStatus = geofenceRuntimeStatus(),
+        fakeLocationRuntimeStatus: FakeLocationRuntimeStatus = fakeLocationRuntimeStatus()
+    ): PreparationLocationState {
         return PreparationLocationState(
-            geofenceRuntimeStatus = geofenceRuntimeStatus(),
-            fakeLocationRuntimeStatus = fakeLocationRuntimeStatus(),
+            geofenceRuntimeStatus = geofenceRuntimeStatus,
+            fakeLocationRuntimeStatus = fakeLocationRuntimeStatus,
             isRefreshingGeofence = false,
             isWarmingLocation = false,
             lastGeofenceRefreshAt = null,
@@ -659,17 +834,36 @@ class PreparationStateSlicingTest {
         )
     }
 
-    private fun geofenceRuntimeStatus(): GeofenceRuntimeStatus {
+    private fun geofenceRuntimeStatus(
+        finalVerdict: GeofenceSecurityVerdict = GeofenceSecurityVerdict.Disabled
+    ): GeofenceRuntimeStatus {
+        val enabled = finalVerdict != GeofenceSecurityVerdict.Disabled
+        val permissionGranted = finalVerdict != GeofenceSecurityVerdict.PermissionMissing
+        val locationServicesEnabled = finalVerdict != GeofenceSecurityVerdict.LocationDisabled
+        val geofenceVerdict = when (finalVerdict) {
+            GeofenceSecurityVerdict.Disabled,
+            GeofenceSecurityVerdict.Bypassed -> GeofenceVerdict.Disabled
+            GeofenceSecurityVerdict.Inside -> GeofenceVerdict.Inside
+            GeofenceSecurityVerdict.Outside,
+            GeofenceSecurityVerdict.StaleFix,
+            GeofenceSecurityVerdict.LowAccuracy,
+            GeofenceSecurityVerdict.MissingAccuracy -> GeofenceVerdict.Outside
+            GeofenceSecurityVerdict.PermissionMissing,
+            GeofenceSecurityVerdict.PreciseRequired -> GeofenceVerdict.PermissionMissing
+            GeofenceSecurityVerdict.LocationDisabled -> GeofenceVerdict.LocationDisabled
+            GeofenceSecurityVerdict.NoFix -> GeofenceVerdict.NoFix
+            GeofenceSecurityVerdict.ConfigInvalid -> GeofenceVerdict.ConfigInvalid
+        }
         val evaluation = GeofenceEvaluation(
-            enabled = false,
+            enabled = enabled,
             config = null,
             configError = null,
-            permissionGranted = true,
-            locationServicesEnabled = true,
+            permissionGranted = permissionGranted,
+            locationServicesEnabled = locationServicesEnabled,
             locationSnapshot = null,
             closestCircleCenter = null,
             distanceMeters = null,
-            verdict = GeofenceVerdict.Disabled
+            verdict = geofenceVerdict
         )
         val fixQuality = LocationFixQualityStatus(
             snapshot = null,
@@ -683,9 +877,9 @@ class PreparationStateSlicingTest {
             securityStatus = GeofenceSecurityStatus(
                 geofenceEvaluation = evaluation,
                 bypassState = GeofenceBypassState.Inactive,
-                preciseLocationGranted = true,
+                preciseLocationGranted = finalVerdict != GeofenceSecurityVerdict.PreciseRequired,
                 fixQualityStatus = fixQuality,
-                finalVerdict = GeofenceSecurityVerdict.Disabled
+                finalVerdict = finalVerdict
             ),
             policySource = LocationPolicySource.DisabledNoPolicy,
             violationCount = 0,

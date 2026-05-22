@@ -20,7 +20,7 @@ internal fun buildPreparationQuickFixActions(
     fakeLocationReady: Boolean,
     needsBluetoothPermission: Boolean,
     accessibilityInspection: AccessibilityInspectionResult,
-    runQuickFix: (QuickFixTarget?, String, () -> Unit) -> Unit
+    runQuickFix: (QuickFixTarget?, String, Boolean, () -> Unit) -> Unit
 ): List<PreparationQuickFixAction> {
     with(state) {
         with(actions) {
@@ -136,6 +136,8 @@ internal fun buildPreparationQuickFixActions(
                     severity: QuickFixSeverity,
                     target: QuickFixTarget?,
                     priority: Int,
+                    section: PreparationSection? = null,
+                    fieldText: String? = null,
                     filled: Boolean = false,
                     loading: Boolean = false,
                     enabled: Boolean = true,
@@ -151,6 +153,13 @@ internal fun buildPreparationQuickFixActions(
                     } else {
                         text
                     }
+                    val resolvedFieldText = fieldText?.let { label ->
+                        if (externalBlockedByPinning) {
+                            "$label - ${t("Turn off Screen Pinning first", "Matikan Screen Pinning dulu")}"
+                        } else {
+                            label
+                        }
+                    }
                     add(
                         PreparationQuickFixAction(
                             code = actionCode,
@@ -159,6 +168,8 @@ internal fun buildPreparationQuickFixActions(
                             severity = severity,
                             target = target,
                             priority = priority,
+                            section = section,
+                            fieldText = resolvedFieldText,
                             filled = filled,
                             loading = loading,
                             enabled = enabled && !externalBlockedByPinning,
@@ -168,7 +179,7 @@ internal fun buildPreparationQuickFixActions(
                             onClick = if (isNotice) {
                                 {}
                             } else {
-                                { runQuickFix(target, actionCode, onClick) }
+                                { runQuickFix(target, actionCode, opensExternalSettings, onClick) }
                             }
                         )
                     )
@@ -181,6 +192,8 @@ internal fun buildPreparationQuickFixActions(
                         severity = QuickFixSeverity.Blocking,
                         target = QuickFixTarget.DeviceTime,
                         priority = 10,
+                        section = PreparationSection.DeviceHealth,
+                        fieldText = t("Fix Device Clock", "Perbaiki Jam Perangkat"),
                         filled = true,
                         opensExternalSettings = true,
                         onClick = onOpenDateTimeSettings
@@ -192,6 +205,8 @@ internal fun buildPreparationQuickFixActions(
                         severity = QuickFixSeverity.Blocking,
                         target = null,
                         priority = 15,
+                        section = PreparationSection.DeviceIntegrity,
+                        fieldText = t("Install Official APK", "Instal APK Resmi"),
                         filled = true,
                         onClick = onReinstallOfficialApk
                     )
@@ -203,6 +218,8 @@ internal fun buildPreparationQuickFixActions(
                         severity = QuickFixSeverity.Blocking,
                         target = QuickFixTarget.All,
                         priority = 20,
+                        section = PreparationSection.DeviceIntegrity,
+                        fieldText = t("Turn Off USB Debugging", "Matikan USB Debugging"),
                         opensExternalSettings = true,
                         onClick = onOpenDeveloperOptionsSettings
                     )
@@ -217,6 +234,8 @@ internal fun buildPreparationQuickFixActions(
                         severity = QuickFixSeverity.Blocking,
                         target = QuickFixTarget.All,
                         priority = 21,
+                        section = PreparationSection.DeviceIntegrity,
+                        fieldText = t("Check Developer Options", "Cek Developer Options"),
                         opensExternalSettings = true,
                         onClick = onOpenDeveloperOptionsSettings
                     )
@@ -231,6 +250,8 @@ internal fun buildPreparationQuickFixActions(
                         severity = QuickFixSeverity.Blocking,
                         target = QuickFixTarget.All,
                         priority = 25,
+                        section = PreparationSection.DeviceIntegrity,
+                        fieldText = t("Refresh Root Check", "Cek Ulang Root"),
                         onClick = onRefreshAllSecurityChecks
                     )
                 }
@@ -244,6 +265,8 @@ internal fun buildPreparationQuickFixActions(
                         severity = QuickFixSeverity.Blocking,
                         target = QuickFixTarget.All,
                         priority = 26,
+                        section = PreparationSection.DeviceIntegrity,
+                        fieldText = t("Contact Admin", "Hubungi Admin"),
                         onClick = onRefreshAllSecurityChecks
                     )
                 }
@@ -257,6 +280,8 @@ internal fun buildPreparationQuickFixActions(
                         severity = QuickFixSeverity.Blocking,
                         target = QuickFixTarget.All,
                         priority = 27,
+                        section = PreparationSection.DeviceIntegrity,
+                        fieldText = t("Use Physical Device", "Pakai HP Fisik"),
                         onClick = onRefreshAllSecurityChecks
                     )
                 }
@@ -270,6 +295,8 @@ internal fun buildPreparationQuickFixActions(
                         severity = QuickFixSeverity.Warning,
                         target = QuickFixTarget.All,
                         priority = 28,
+                        section = PreparationSection.RuntimeSecurity,
+                        fieldText = t("Refresh App Switch Check", "Cek Ulang App Switch"),
                         onClick = onRefreshAllSecurityChecks
                     )
                 }
@@ -280,6 +307,8 @@ internal fun buildPreparationQuickFixActions(
                         severity = if (fakeLocationReady) QuickFixSeverity.Warning else QuickFixSeverity.Blocking,
                         target = QuickFixTarget.Location,
                         priority = 30,
+                        section = PreparationSection.Location,
+                        fieldText = t("Turn Off Fake Location", "Matikan Lokasi Palsu"),
                         opensExternalSettings = true,
                         onClick = onOpenFakeLocationDeveloperOptionsSettings
                     )
@@ -291,6 +320,8 @@ internal fun buildPreparationQuickFixActions(
                         severity = QuickFixSeverity.Blocking,
                         target = QuickFixTarget.All,
                         priority = 35,
+                        section = PreparationSection.RuntimeInteraction,
+                        fieldText = t("Turn Off Accessibility", "Matikan Aksesibilitas"),
                         opensExternalSettings = true,
                         onClick = onOpenAccessibilitySettings
                     )
@@ -302,6 +333,8 @@ internal fun buildPreparationQuickFixActions(
                         severity = QuickFixSeverity.Blocking,
                         target = QuickFixTarget.All,
                         priority = 36,
+                        section = PreparationSection.RuntimeInteraction,
+                        fieldText = t("Enable Exam Guard", "Aktifkan Exam Guard"),
                         filled = true,
                         opensExternalSettings = true,
                         onClick = onOpenAccessibilitySettings
@@ -316,8 +349,14 @@ internal fun buildPreparationQuickFixActions(
                         },
                         reason = t("Geofence needs precise location to verify your exam position.", "Geofence butuh lokasi presisi untuk memverifikasi posisi ujian."),
                         severity = QuickFixSeverity.Blocking,
-                        target = null,
+                        target = QuickFixTarget.Location,
                         priority = 40,
+                        section = PreparationSection.Location,
+                        fieldText = if (showGeofenceRequestPermissionFix) {
+                            t("Allow Precise Location", "Izinkan Lokasi Presisi")
+                        } else {
+                            t("Allow Location", "Izinkan Lokasi")
+                        },
                         filled = true,
                         onClick = onRequestLocationPermission
                     )
@@ -328,6 +367,8 @@ internal fun buildPreparationQuickFixActions(
                         severity = QuickFixSeverity.Blocking,
                         target = QuickFixTarget.Location,
                         priority = 45,
+                        section = PreparationSection.Location,
+                        fieldText = t("Turn On Location", "Nyalakan Lokasi"),
                         opensExternalSettings = true,
                         onClick = onOpenLocationServicesSettings
                     )
@@ -340,8 +381,14 @@ internal fun buildPreparationQuickFixActions(
                             t("Refresh Location Now", "Refresh Lokasi Sekarang")
                         },
                         severity = if (geofenceReady && fakeLocationReady) QuickFixSeverity.Warning else QuickFixSeverity.Blocking,
-                        target = null,
+                        target = QuickFixTarget.Location,
                         priority = 50,
+                        section = PreparationSection.Location,
+                        fieldText = if (isRefreshingGeofence) {
+                            t("Checking Location...", "Sedang Cek Lokasi...")
+                        } else {
+                            t("Check Location Again", "Cek Ulang Lokasi")
+                        },
                         loading = isRefreshingGeofence,
                         enabled = !isRefreshingGeofence,
                         onClick = onRefreshGeofenceLocation
@@ -351,8 +398,10 @@ internal fun buildPreparationQuickFixActions(
                     addQuickFix(
                         text = t("Open Geofence Map", "Buka Peta Geofence"),
                         severity = if (geofenceReady) QuickFixSeverity.Warning else QuickFixSeverity.Blocking,
-                        target = null,
+                        target = QuickFixTarget.Location,
                         priority = 55,
+                        section = PreparationSection.Location,
+                        fieldText = t("Open Location Map", "Buka Peta Lokasi"),
                         onClick = onOpenGeofenceMapViewer
                     )
                 }
@@ -363,6 +412,8 @@ internal fun buildPreparationQuickFixActions(
                         severity = QuickFixSeverity.Blocking,
                         target = null,
                         priority = 60,
+                        section = PreparationSection.DeviceSetup,
+                        fieldText = t("Allow Bluetooth", "Izinkan Bluetooth"),
                         filled = true,
                         onClick = onGrantBluetoothPermission
                     )
@@ -374,6 +425,8 @@ internal fun buildPreparationQuickFixActions(
                         severity = QuickFixSeverity.Blocking,
                         target = QuickFixTarget.All,
                         priority = 65,
+                        section = PreparationSection.DeviceSetup,
+                        fieldText = t("Turn Off Bluetooth", "Matikan Bluetooth"),
                         opensExternalSettings = true,
                         onClick = onOpenBluetoothSettings
                     )
@@ -386,6 +439,8 @@ internal fun buildPreparationQuickFixActions(
                         severity = QuickFixSeverity.Warning,
                         target = QuickFixTarget.Network,
                         priority = 70,
+                        section = PreparationSection.Connectivity,
+                        fieldText = t("Turn Off Airplane Mode", "Matikan Mode Pesawat"),
                         opensExternalSettings = true,
                         onClick = onOpenAirplaneModeSettings
                     )
@@ -396,6 +451,8 @@ internal fun buildPreparationQuickFixActions(
                         severity = QuickFixSeverity.Blocking,
                         target = QuickFixTarget.Network,
                         priority = 70,
+                        section = PreparationSection.Connectivity,
+                        fieldText = t("Turn Off VPN", "Matikan VPN"),
                         filled = true,
                         opensExternalSettings = true,
                         onClick = onOpenVpnSettings
@@ -408,8 +465,14 @@ internal fun buildPreparationQuickFixActions(
                             t("Refresh Network Status", "Refresh Status Network")
                         },
                         severity = QuickFixSeverity.Warning,
-                        target = null,
+                        target = QuickFixTarget.Network,
                         priority = 70,
+                        section = PreparationSection.Connectivity,
+                        fieldText = if (isRefreshingNetwork) {
+                            t("Checking Network...", "Sedang Cek Jaringan...")
+                        } else {
+                            t("Check Network Again", "Cek Ulang Jaringan")
+                        },
                         loading = isRefreshingNetwork,
                         enabled = !isRefreshingNetwork,
                         onClick = onRefreshNetworkStatus
@@ -420,6 +483,8 @@ internal fun buildPreparationQuickFixActions(
                         severity = QuickFixSeverity.Warning,
                         target = QuickFixTarget.Network,
                         priority = 70,
+                        section = PreparationSection.Connectivity,
+                        fieldText = t("Open Internet Settings", "Buka Setelan Internet"),
                         opensExternalSettings = true,
                         onClick = onOpenInternetSettings
                     )
@@ -430,6 +495,8 @@ internal fun buildPreparationQuickFixActions(
                         severity = QuickFixSeverity.Warning,
                         target = QuickFixTarget.Network,
                         priority = 75,
+                        section = PreparationSection.Connectivity,
+                        fieldText = t("Open Wi-Fi Settings", "Buka Setelan Wi-Fi"),
                         opensExternalSettings = true,
                         onClick = onOpenWifiSettings
                     )
@@ -440,6 +507,8 @@ internal fun buildPreparationQuickFixActions(
                         severity = QuickFixSeverity.Warning,
                         target = QuickFixTarget.Network,
                         priority = 76,
+                        section = PreparationSection.Connectivity,
+                        fieldText = t("Open Cellular Settings", "Buka Setelan Seluler"),
                         opensExternalSettings = true,
                         onClick = onOpenCellularSettings
                     )
@@ -452,8 +521,14 @@ internal fun buildPreparationQuickFixActions(
                             t("Refresh Network Status", "Refresh Status Network")
                         },
                         severity = QuickFixSeverity.Warning,
-                        target = null,
+                        target = QuickFixTarget.Network,
                         priority = 80,
+                        section = PreparationSection.Connectivity,
+                        fieldText = if (isRefreshingNetwork) {
+                            t("Checking Network...", "Sedang Cek Jaringan...")
+                        } else {
+                            t("Check Network Again", "Cek Ulang Jaringan")
+                        },
                         loading = isRefreshingNetwork,
                         enabled = !isRefreshingNetwork,
                         onClick = onRefreshNetworkStatus
@@ -475,6 +550,8 @@ internal fun buildPreparationQuickFixActions(
                         },
                         target = QuickFixTarget.WebView,
                         priority = 90,
+                        section = PreparationSection.DeviceHealth,
+                        fieldText = t("Fix WebView", "Perbaiki WebView"),
                         filled = webViewHealthItem.verdict == PreExamHealthVerdict.Blocking,
                         opensExternalSettings = true,
                         onClick = onOpenWebViewProviderSettings
@@ -487,6 +564,8 @@ internal fun buildPreparationQuickFixActions(
                         severity = QuickFixSeverity.Warning,
                         target = null,
                         priority = 200,
+                        section = PreparationSection.DeviceSetup,
+                        fieldText = t("Choose Keyboard", "Pilih Keyboard"),
                         filled = true,
                         opensExternalSettings = true,
                         onClick = onChooseKeyboard
@@ -496,6 +575,8 @@ internal fun buildPreparationQuickFixActions(
                         severity = QuickFixSeverity.Warning,
                         target = QuickFixTarget.All,
                         priority = 205,
+                        section = PreparationSection.DeviceSetup,
+                        fieldText = t("Open Keyboard Settings", "Buka Pengaturan Keyboard"),
                         opensExternalSettings = true,
                         onClick = onOpenKeyboardSettings
                     )
@@ -506,6 +587,8 @@ internal fun buildPreparationQuickFixActions(
                         severity = QuickFixSeverity.Blocking,
                         target = QuickFixTarget.ScreenRecorder,
                         priority = 50,
+                        section = PreparationSection.RuntimeSecurity,
+                        fieldText = t("Close Screen Recorder", "Tutup Perekam Layar"),
                         opensExternalSettings = true,
                         onClick = onOpenAppSettings
                     )
@@ -516,6 +599,8 @@ internal fun buildPreparationQuickFixActions(
                         severity = QuickFixSeverity.Blocking,
                         target = QuickFixTarget.DisplayMirror,
                         priority = 45,
+                        section = PreparationSection.RuntimeSecurity,
+                        fieldText = t("Turn Off Cast or Mirror", "Matikan Cast/Mirroring"),
                         opensExternalSettings = true,
                         onClick = onOpenCastSettings
                     )
@@ -526,6 +611,8 @@ internal fun buildPreparationQuickFixActions(
                         severity = QuickFixSeverity.Blocking,
                         target = QuickFixTarget.MultiWindow,
                         priority = 40,
+                        section = PreparationSection.RuntimeSecurity,
+                        fieldText = t("Exit Split Screen", "Keluar Split Screen"),
                         onClick = onRefreshStatus
                     )
                 }
@@ -535,6 +622,8 @@ internal fun buildPreparationQuickFixActions(
                         severity = QuickFixSeverity.Warning,
                         target = QuickFixTarget.All,
                         priority = 220,
+                        section = PreparationSection.RuntimeInteraction,
+                        fieldText = t("Review Accessibility Risk", "Cek Risiko Aksesibilitas"),
                         opensExternalSettings = true,
                         onClick = onOpenOverlayAccessibilitySettings
                     )
@@ -545,6 +634,8 @@ internal fun buildPreparationQuickFixActions(
                         severity = QuickFixSeverity.Warning,
                         target = QuickFixTarget.All,
                         priority = 225,
+                        section = PreparationSection.RuntimeInteraction,
+                        fieldText = t("Turn Off Overlay Permission", "Matikan Izin Overlay"),
                         opensExternalSettings = true,
                         onClick = onOpenOverlaySettings
                     )
@@ -560,6 +651,8 @@ internal fun buildPreparationQuickFixActions(
                             severity = QuickFixSeverity.Blocking,
                             target = QuickFixTarget.ScreenPinning,
                             priority = 210,
+                            section = PreparationSection.DeviceLock,
+                            fieldText = t("Start Screen Pinning", "Aktifkan Screen Pinning"),
                             filled = true,
                             onClick = onStartScreenPinning
                         )
@@ -578,6 +671,7 @@ internal fun buildPreparationQuickFixActions(
                             severity = QuickFixSeverity.Warning,
                             target = QuickFixTarget.ScreenPinning,
                             priority = 210,
+                            section = PreparationSection.DeviceLock,
                             enabled = false,
                             isNotice = true,
                             diagnosticDetails = "blockers=${blockingActionsBeforePinning.size} | blocker_codes=$blockerCodes"
@@ -598,6 +692,11 @@ internal fun buildPreparationQuickFixActions(
                     severity = QuickFixSeverity.Warning,
                     target = null,
                     priority = 900,
+                    fieldText = if (isRefreshingGeofence || isRefreshingNetwork) {
+                        t("Checking All...", "Sedang Cek Semua...")
+                    } else {
+                        t("Check All Again", "Cek Ulang Semua")
+                    },
                     filled = false,
                     loading = isRefreshingGeofence || isRefreshingNetwork,
                     enabled = !(isRefreshingGeofence || isRefreshingNetwork),

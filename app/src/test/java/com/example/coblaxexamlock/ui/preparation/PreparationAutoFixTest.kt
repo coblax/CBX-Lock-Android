@@ -126,6 +126,63 @@ class PreparationAutoFixTest {
         assertEquals(QuickFixRefreshAllSecurityChecksCode, display.refresh?.code)
     }
 
+    @Test
+    fun actionDisplayTextUsesFieldTextOnlyForLowRamProfiles() {
+        val action = PreparationQuickFixAction(
+            code = "location_refresh",
+            text = "Refresh Location Now",
+            fieldText = "Cek Ulang Lokasi",
+            severity = QuickFixSeverity.Warning,
+            target = QuickFixTarget.Location,
+            priority = 50,
+            onClick = {}
+        )
+
+        assertEquals("Refresh Location Now", action.displayTextForProfile(LowRamProfile()))
+        assertEquals(
+            "Cek Ulang Lokasi",
+            action.displayTextForProfile(LowRamProfile(enabled = true))
+        )
+        assertEquals(
+            "Cek Ulang Lokasi",
+            action.displayTextForProfile(LowRamProfile(enabled = true, severe = true, ultra = true))
+        )
+    }
+
+    @Test
+    fun ultraDisplaySuppressesWarningsWhileGlobalBlockersRemain() {
+        val actions = listOf(
+            action("warn_1", QuickFixSeverity.Warning, 30),
+            action(QuickFixRefreshAllSecurityChecksCode, QuickFixSeverity.Warning, 900)
+        )
+
+        val display = selectPreparationQuickFixActionsForDisplay(
+            actions = actions,
+            lowRamProfile = LowRamProfile(enabled = true, severe = true, ultra = true),
+            hasGlobalBlockingIssues = true
+        )
+
+        assertEquals(QuickFixRefreshAllSecurityChecksCode, display.primary?.code)
+        assertTrue(display.warnings.isEmpty())
+    }
+
+    @Test
+    fun ultraDisplayShowsWarningPrimaryWhenNoBlockersRemain() {
+        val actions = listOf(
+            action("warn_1", QuickFixSeverity.Warning, 30),
+            action(QuickFixRefreshAllSecurityChecksCode, QuickFixSeverity.Warning, 900)
+        )
+
+        val display = selectPreparationQuickFixActionsForDisplay(
+            actions = actions,
+            lowRamProfile = LowRamProfile(enabled = true, severe = true, ultra = true),
+            hasGlobalBlockingIssues = false
+        )
+
+        assertEquals("warn_1", display.primary?.code)
+        assertEquals(QuickFixRefreshAllSecurityChecksCode, display.refresh?.code)
+    }
+
     private fun snapshot(vararg items: PreExamHealthItem): PreExamHealthSnapshot =
         PreExamHealthSnapshot(
             compatibilityFamily = DeviceCompatibilityFamily.Generic,

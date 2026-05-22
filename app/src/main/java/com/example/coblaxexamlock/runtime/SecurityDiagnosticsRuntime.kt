@@ -386,7 +386,7 @@ internal fun invalidateVirtualEnvironmentDiagnosticsCache() {
 internal suspend fun getVirtualEnvironmentDiagnosticsOnIo(
     context: Context,
     forceRefresh: Boolean = false
-): VirtualEnvironmentDiagnostics = withContext(Dispatchers.IO) {
+): VirtualEnvironmentDiagnostics = withContext(LowRamDispatchers.detectorIo) {
     getVirtualEnvironmentDiagnostics(
         context = context.applicationContext,
         forceRefresh = forceRefresh

@@ -1,10 +1,10 @@
 package com.example.coblaxexamlock.ui.exam
 
+import androidx.activity.compose.LocalActivity
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.DisposableEffect
 import androidx.compose.runtime.key
 import androidx.compose.ui.Modifier
-import androidx.compose.ui.platform.LocalContext
 import com.example.coblaxexamlock.ExamQrPayload
 import com.example.coblaxexamlock.MainActivity
 import com.example.coblaxexamlock.model.AdminSettings
@@ -24,7 +24,7 @@ internal fun ExamWebViewScreen(
     onExit: () -> Unit,
     modifier: Modifier = Modifier
 ) {
-    val mainActivity = LocalContext.current as? MainActivity
+    val mainActivity = LocalActivity.current as? MainActivity
     DisposableEffect(mainActivity) {
         mainActivity?.setExamPortraitMode(enabled = true)
         onDispose {

@@ -120,8 +120,8 @@ android {
         applicationId = "com.example.coblaxexamlock"
         minSdk = 24
         targetSdk = 36
-        versionCode = 333
-        versionName = "3.2.13"
+        versionCode = 336
+        versionName = "3.2.16"
         ndk {
             abiFilters += listOf("arm64-v8a", "armeabi-v7a", "x86_64")
         }

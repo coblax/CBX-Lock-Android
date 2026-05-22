@@ -36,6 +36,7 @@ import androidx.lifecycle.LifecycleEventObserver
 import com.example.coblaxexamlock.BuildConfig
 import com.example.coblaxexamlock.LocalLowRamProfile
 import com.example.coblaxexamlock.i18n.LocalUiLanguage
+import com.example.coblaxexamlock.i18n.localized
 import com.example.coblaxexamlock.i18n.tr
 import com.example.coblaxexamlock.inspectAccessibility
 import com.example.coblaxexamlock.isExamGuardAccessibilityAvailable
@@ -94,6 +95,7 @@ internal fun ExamSecurityPreparationScreenContent(
     val lifecycleOwner = LocalLifecycleOwner.current
     var pendingQuickFixTarget by rememberSaveable { mutableStateOf<QuickFixTarget?>(null) }
     var pendingQuickFixCode by rememberSaveable { mutableStateOf<String?>(null) }
+    var pendingQuickFixOpenedExternalSettings by rememberSaveable { mutableStateOf(false) }
     var quickFixFeedbackText by remember { mutableStateOf<String?>(null) }
     val refreshAllSecurityChecks by rememberUpdatedState(onRefreshAllSecurityChecks)
     val refreshPreparationStatus by rememberUpdatedState(onRefreshStatus)
@@ -164,19 +166,25 @@ internal fun ExamSecurityPreparationScreenContent(
             if (event != Lifecycle.Event.ON_RESUME) {
                 return@LifecycleEventObserver
             }
-            val target = pendingQuickFixTarget ?: return@LifecycleEventObserver
+            val target = pendingQuickFixTarget
+            val fixCode = pendingQuickFixCode
+            if (target == null && fixCode == null) {
+                return@LifecycleEventObserver
+            }
             pendingQuickFixTarget = null
-            when (target) {
-                QuickFixTarget.Network -> refreshNetworkStatus()
-                QuickFixTarget.Location -> refreshLocationStatus()
-                QuickFixTarget.DeviceTime,
-                QuickFixTarget.ScreenPinning,
-                QuickFixTarget.WebView,
-                QuickFixTarget.Battery,
-                QuickFixTarget.ScreenRecorder,
-                QuickFixTarget.DisplayMirror,
-                QuickFixTarget.MultiWindow -> refreshPreparationStatus()
-                QuickFixTarget.All -> refreshAllSecurityChecks()
+            if (target != null) {
+                when (target) {
+                    QuickFixTarget.Network -> refreshNetworkStatus()
+                    QuickFixTarget.Location -> refreshLocationStatus()
+                    QuickFixTarget.DeviceTime,
+                    QuickFixTarget.ScreenPinning,
+                    QuickFixTarget.WebView,
+                    QuickFixTarget.Battery,
+                    QuickFixTarget.ScreenRecorder,
+                    QuickFixTarget.DisplayMirror,
+                    QuickFixTarget.MultiWindow -> refreshPreparationStatus()
+                    QuickFixTarget.All -> refreshAllSecurityChecks()
+                }
             }
             // #12 Delayed re-check: some states (Bluetooth, ADB) need settling time
             manualRefreshScope.launch {
@@ -184,11 +192,16 @@ internal fun ExamSecurityPreparationScreenContent(
                 refreshPreparationStatus()
             }
             // #7 Return indicator: show brief feedback about which fix was attempted
-            val fixCode = pendingQuickFixCode
             if (fixCode != null) {
+                val openedExternalSettings = pendingQuickFixOpenedExternalSettings
                 pendingQuickFixCode = null
-                val fixLabel = fixCode.replace("_", " ").replaceFirstChar { it.uppercase() }
-                quickFixFeedbackText = "\u21a9 $fixLabel"
+                pendingQuickFixOpenedExternalSettings = false
+                quickFixFeedbackText = if (openedExternalSettings) {
+                    localized(uiLanguage, "Status checked again.", "Status dicek ulang.")
+                } else {
+                    val fixLabel = fixCode.replace("_", " ").replaceFirstChar { it.uppercase() }
+                    "\u21a9 $fixLabel"
+                }
                 manualRefreshScope.launch {
                     delay(3000L)
                     quickFixFeedbackText = null
@@ -200,12 +213,25 @@ internal fun ExamSecurityPreparationScreenContent(
             lifecycleOwner.lifecycle.removeObserver(observer)
         }
     }
-    fun runQuickFix(target: QuickFixTarget?, actionCode: String, action: () -> Unit) {
+    fun runQuickFix(
+        target: QuickFixTarget?,
+        actionCode: String,
+        opensExternalSettings: Boolean = false,
+        action: () -> Unit
+    ) {
         onAutoFixActionOpened(actionCode)
-        if (target != null) {
-            pendingQuickFixTarget = target
+        if (target != null || opensExternalSettings) {
+            pendingQuickFixTarget = target ?: QuickFixTarget.All
         }
         pendingQuickFixCode = actionCode
+        pendingQuickFixOpenedExternalSettings = opensExternalSettings
+        if (opensExternalSettings) {
+            quickFixFeedbackText = localized(
+                uiLanguage,
+                "Return to the app; status will be checked again.",
+                "Kembali ke aplikasi, status akan dicek ulang."
+            )
+        }
         action()
     }
     val autoFixSuggestions = remember(preExamHealthCheckSnapshot, deviceSurvivalPolicy) {
@@ -354,6 +380,16 @@ internal fun ExamSecurityPreparationScreenContent(
                     onSwitchToWizard = onSwitchToWizard
                 )
             }
+            quickFixFeedbackText?.let { feedbackText ->
+                item(key = "quick_fix_return_status") {
+                    PreparationNoticeCard(
+                        title = tr("Status", "Status"),
+                        message = feedbackText,
+                        accentColor = LockGold,
+                        backgroundColor = Color(0xFFFFF8E6)
+                    )
+                }
+            }
             item(key = "checklist_intro") {
                 PreparationChecklistIntroItem(
                     checklistTitle = checklistTitle,
@@ -470,8 +506,8 @@ internal fun ExamSecurityPreparationScreenContent(
                     PreparationNoticeCard(
                         title = tr("Ultra Low-RAM Mode", "Mode Ultra Low-RAM"),
                         message = tr(
-                            "Technical checklist details are hidden to keep this phone responsive. Open Detail Teknis from admin settings if a full audit is needed.",
-                            "Detail checklist teknis disembunyikan agar HP tetap responsif. Buka Detail Teknis dari pengaturan admin jika perlu audit lengkap."
+                            "Technical checklist details are hidden to keep this phone responsive. Open technical details only when a full audit is needed.",
+                            "Detail checklist teknis disembunyikan agar HP tetap responsif. Buka Detail Teknis hanya saat perlu audit lengkap."
                         ),
                         accentColor = LockGold,
                         backgroundColor = Color(0xFFFFF8E6)

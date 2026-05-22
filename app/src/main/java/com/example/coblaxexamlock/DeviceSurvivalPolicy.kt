@@ -51,20 +51,22 @@ internal data class DeviceSurvivalPolicy(
     val warningActionCount: Int
         get() = recommendedActions.size - blockingActionCount
 
-    fun diagnosticSummary(): String {
-        return "score=${score.name}" +
-            " | runtime=${runtimeTier.name}" +
-            " | ui=${uiTier.name}" +
-            " | start_allowed=$startExamAllowedByHealth" +
-            " | health_blocking=$healthBlockingCount" +
-            " | health_warning=$healthWarningCount" +
-            " | field_blocking=$fieldBlockedCount" +
-            " | field_warning=$fieldWarningCount" +
-            " | vendor=${vendorRiskLabel.ifBlank { "-" }}" +
-            " | webview=${webViewRiskLabel.ifBlank { "-" }}" +
-            " | actions=" + recommendedActions.joinToString(",") { action ->
+    fun diagnosticSummary(): String = buildString {
+        append("score="); append(score.name)
+        append(" | runtime="); append(runtimeTier.name)
+        append(" | ui="); append(uiTier.name)
+        append(" | start_allowed="); append(startExamAllowedByHealth)
+        append(" | health_blocking="); append(healthBlockingCount)
+        append(" | health_warning="); append(healthWarningCount)
+        append(" | field_blocking="); append(fieldBlockedCount)
+        append(" | field_warning="); append(fieldWarningCount)
+        append(" | vendor="); append(vendorRiskLabel.ifBlank { "-" })
+        append(" | webview="); append(webViewRiskLabel.ifBlank { "-" })
+        append(" | actions="); append(
+            recommendedActions.joinToString(",") { action ->
                 "${action.code}:${if (action.blocking) "block" else "warn"}"
             }.ifBlank { "-" }
+        )
     }
 }
 

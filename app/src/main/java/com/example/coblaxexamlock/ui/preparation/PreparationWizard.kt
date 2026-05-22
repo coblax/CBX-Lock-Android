@@ -62,6 +62,7 @@ import androidx.lifecycle.Lifecycle
 import androidx.lifecycle.LifecycleEventObserver
 import com.example.coblaxexamlock.LocalLowRamProfile
 import com.example.coblaxexamlock.i18n.LocalUiLanguage
+import com.example.coblaxexamlock.i18n.localized
 import com.example.coblaxexamlock.i18n.tr
 import com.example.coblaxexamlock.inspectAccessibility
 import com.example.coblaxexamlock.isExamGuardAccessibilityAvailable
@@ -111,6 +112,7 @@ internal fun PreparationWizardScreen(
             val lifecycleOwner = LocalLifecycleOwner.current
             var pendingQuickFixTarget by rememberSaveable { mutableStateOf<QuickFixTarget?>(null) }
             var pendingQuickFixCode by rememberSaveable { mutableStateOf<String?>(null) }
+            var pendingQuickFixOpenedExternalSettings by rememberSaveable { mutableStateOf(false) }
             var quickFixFeedbackText by remember { mutableStateOf<String?>(null) }
             val refreshAllSecurityChecks by rememberUpdatedState(onRefreshAllSecurityChecks)
             val refreshPreparationStatus by rememberUpdatedState(onRefreshStatus)
@@ -181,29 +183,40 @@ internal fun PreparationWizardScreen(
                     if (event != Lifecycle.Event.ON_RESUME) {
                         return@LifecycleEventObserver
                     }
-                    val target = pendingQuickFixTarget ?: return@LifecycleEventObserver
+                    val target = pendingQuickFixTarget
+                    val fixCode = pendingQuickFixCode
+                    if (target == null && fixCode == null) {
+                        return@LifecycleEventObserver
+                    }
                     pendingQuickFixTarget = null
-                    when (target) {
-                        QuickFixTarget.Network -> refreshNetworkStatus()
-                        QuickFixTarget.Location -> refreshLocationStatus()
-                        QuickFixTarget.DeviceTime,
-                        QuickFixTarget.ScreenPinning,
-                        QuickFixTarget.WebView,
-                        QuickFixTarget.Battery,
-                        QuickFixTarget.ScreenRecorder,
-                        QuickFixTarget.DisplayMirror,
-                        QuickFixTarget.MultiWindow -> refreshPreparationStatus()
-                        QuickFixTarget.All -> refreshAllSecurityChecks()
+                    if (target != null) {
+                        when (target) {
+                            QuickFixTarget.Network -> refreshNetworkStatus()
+                            QuickFixTarget.Location -> refreshLocationStatus()
+                            QuickFixTarget.DeviceTime,
+                            QuickFixTarget.ScreenPinning,
+                            QuickFixTarget.WebView,
+                            QuickFixTarget.Battery,
+                            QuickFixTarget.ScreenRecorder,
+                            QuickFixTarget.DisplayMirror,
+                            QuickFixTarget.MultiWindow -> refreshPreparationStatus()
+                            QuickFixTarget.All -> refreshAllSecurityChecks()
+                        }
                     }
                     manualRefreshScope.launch {
                         delay(600L)
                         refreshPreparationStatus()
                     }
-                    val fixCode = pendingQuickFixCode
                     if (fixCode != null) {
+                        val openedExternalSettings = pendingQuickFixOpenedExternalSettings
                         pendingQuickFixCode = null
-                        val fixLabel = fixCode.replace("_", " ").replaceFirstChar { it.uppercase() }
-                        quickFixFeedbackText = "\u21a9 $fixLabel"
+                        pendingQuickFixOpenedExternalSettings = false
+                        quickFixFeedbackText = if (openedExternalSettings) {
+                            localized(uiLanguage, "Status checked again.", "Status dicek ulang.")
+                        } else {
+                            val fixLabel = fixCode.replace("_", " ").replaceFirstChar { it.uppercase() }
+                            "\u21a9 $fixLabel"
+                        }
                         manualRefreshScope.launch {
                             delay(3000L)
                             quickFixFeedbackText = null
@@ -215,12 +228,25 @@ internal fun PreparationWizardScreen(
                     lifecycleOwner.lifecycle.removeObserver(observer)
                 }
             }
-            fun runQuickFix(target: QuickFixTarget?, actionCode: String, action: () -> Unit) {
+            fun runQuickFix(
+                target: QuickFixTarget?,
+                actionCode: String,
+                opensExternalSettings: Boolean = false,
+                action: () -> Unit
+            ) {
                 onAutoFixActionOpened(actionCode)
-                if (target != null) {
-                    pendingQuickFixTarget = target
+                if (target != null || opensExternalSettings) {
+                    pendingQuickFixTarget = target ?: QuickFixTarget.All
                 }
                 pendingQuickFixCode = actionCode
+                pendingQuickFixOpenedExternalSettings = opensExternalSettings
+                if (opensExternalSettings) {
+                    quickFixFeedbackText = localized(
+                        uiLanguage,
+                        "Return to the app; status will be checked again.",
+                        "Kembali ke aplikasi, status akan dicek ulang."
+                    )
+                }
                 action()
             }
 
@@ -259,6 +285,27 @@ internal fun PreparationWizardScreen(
             val steps = WizardStep.entries
 
             var currentStepIndex by rememberSaveable { mutableIntStateOf(0) }
+            var userSelectedWizardStep by rememberSaveable { mutableStateOf(false) }
+            var wizardAutoFocusApplied by rememberSaveable { mutableStateOf(false) }
+            val autoFocusedStepIndex = remember(
+                currentStepIndex,
+                wizardStepStates,
+                userSelectedWizardStep,
+                wizardAutoFocusApplied
+            ) {
+                resolveWizardStepIndexForAutoFocus(
+                    currentStepIndex = currentStepIndex,
+                    stepStates = wizardStepStates,
+                    userSelectedWizardStep = userSelectedWizardStep,
+                    autoFocusApplied = wizardAutoFocusApplied
+                )
+            }
+            LaunchedEffect(autoFocusedStepIndex, userSelectedWizardStep, wizardAutoFocusApplied) {
+                if (!userSelectedWizardStep && !wizardAutoFocusApplied) {
+                    currentStepIndex = autoFocusedStepIndex
+                    wizardAutoFocusApplied = true
+                }
+            }
             val currentStep = steps[currentStepIndex.coerceIn(steps.indices)]
             val currentStepState = wizardStepStates.getOrNull(currentStepIndex)
 
@@ -286,8 +333,17 @@ internal fun PreparationWizardScreen(
                     runQuickFix = ::runQuickFix
                 )
             }
-            val stepQuickFixActions = remember(currentStep, allQuickFixActions) {
-                filterQuickFixActionsForStep(currentStep, allQuickFixActions)
+            val stepQuickFixActions = remember(currentStep, currentStepState, allQuickFixActions) {
+                val filteredActions = filterQuickFixActionsForStep(currentStep, allQuickFixActions)
+                val refreshAction = allQuickFixActions.firstOrNull {
+                    it.code == QuickFixRefreshAllSecurityChecksCode
+                }
+                val stepHasIssue = (currentStepState?.issueCount ?: 0) > 0
+                if ((!stepHasIssue && filteredActions.isEmpty()) || refreshAction == null) {
+                    filteredActions
+                } else {
+                    filteredActions + refreshAction
+                }
             }
             val wizardPayloadBuildMode = remember(lowRamProfile.enabled, state.showChecklistDetails) {
                 resolvePreparationWizardPayloadBuildMode(
@@ -341,6 +397,19 @@ internal fun PreparationWizardScreen(
                     sectionText = stepChecklistText,
                     quickFixActions = stepQuickFixActions,
                     buildMode = wizardPayloadBuildMode
+                )
+            }
+            val hasGlobalBlockingQuickFix = remember(allQuickFixActions) {
+                allQuickFixActions.any {
+                    it.severity == QuickFixSeverity.Blocking &&
+                        !it.isNotice &&
+                        it.code != QuickFixRefreshAllSecurityChecksCode
+                }
+            }
+            val stepActionCoverage = remember(currentStepState, stepPayload.quickFixActions) {
+                resolveWizardStepActionCoverage(
+                    stepState = currentStepState,
+                    quickFixActions = stepPayload.quickFixActions
                 )
             }
 
@@ -407,7 +476,10 @@ internal fun PreparationWizardScreen(
                             steps = steps,
                             stepStates = wizardStepStates,
                             currentStepIndex = currentStepIndex,
-                            onStepClick = { index -> currentStepIndex = index }
+                            onStepClick = { index ->
+                                userSelectedWizardStep = true
+                                currentStepIndex = index
+                            }
                         )
                     }
 
@@ -439,7 +511,24 @@ internal fun PreparationWizardScreen(
                     if (stepPayload.quickFixActions.isNotEmpty()) {
                         item(key = "wizard_step_quick_fix") {
                             WizardStepQuickFixCard(
-                                actions = stepPayload.quickFixActions
+                                actions = stepPayload.quickFixActions,
+                                hasGlobalBlockingIssues = hasGlobalBlockingQuickFix
+                            )
+                        }
+                    }
+                    if (stepActionCoverage.showManualFixHint) {
+                        item(key = "wizard_manual_fix_hint_${currentStep.sectionKey}") {
+                            WizardManualFixHintCard()
+                        }
+                    }
+
+                    quickFixFeedbackText?.let { feedbackText ->
+                        item(key = "wizard_quick_fix_return_status") {
+                            PreparationNoticeCard(
+                                title = tr("Status", "Status"),
+                                message = feedbackText,
+                                accentColor = LockGold,
+                                backgroundColor = Color(0xFFFFF8E6)
                             )
                         }
                     }
@@ -463,10 +552,16 @@ internal fun PreparationWizardScreen(
                     startButtonColor = startButtonColor,
                     startButtonContentColor = startButtonContentColor,
                     onPrevious = {
-                        if (currentStepIndex > 0) currentStepIndex--
+                        if (currentStepIndex > 0) {
+                            userSelectedWizardStep = true
+                            currentStepIndex--
+                        }
                     },
                     onNext = {
-                        if (currentStepIndex < steps.lastIndex) currentStepIndex++
+                        if (currentStepIndex < steps.lastIndex) {
+                            userSelectedWizardStep = true
+                            currentStepIndex++
+                        }
                     },
                     onStartExam = onStartExam,
                     onBackHome = onBackHome,
@@ -926,12 +1021,44 @@ private fun WizardStepSectionContent(
 // ──────────────────────────────────────────────────────────────
 
 @Composable
+private fun WizardManualFixHintCard() {
+    PreparationNoticeCard(
+        title = tr("Manual Fix Needed", "Perbaikan Manual Dibutuhkan"),
+        message = tr(
+            "No automatic button is available for this section yet. Open Technical Details or press Refresh after the manual fix.",
+            "Belum ada tombol otomatis untuk bagian ini. Buka Detail Teknis atau tekan Refresh setelah perbaikan manual."
+        ),
+        accentColor = LockGoldDark,
+        backgroundColor = Color(0xFFFFF8E6)
+    )
+}
+
+@Composable
 private fun WizardStepQuickFixCard(
-    actions: List<PreparationQuickFixAction>
+    actions: List<PreparationQuickFixAction>,
+    hasGlobalBlockingIssues: Boolean
 ) {
-    val blockingActions = actions.filter { it.severity == QuickFixSeverity.Blocking && !it.isNotice }
-    val warningActions = actions.filter { it.severity == QuickFixSeverity.Warning && !it.isNotice }
-    val notices = actions.filter { it.isNotice }
+    val lowRamProfile = LocalLowRamProfile.current
+    val displayActions = remember(actions, lowRamProfile.enabled, lowRamProfile.ultra, hasGlobalBlockingIssues) {
+        selectPreparationQuickFixActionsForDisplay(
+            actions = actions,
+            lowRamProfile = lowRamProfile,
+            hasGlobalBlockingIssues = hasGlobalBlockingIssues
+        )
+    }
+    val visibleActions = remember(displayActions) {
+        buildList {
+            displayActions.primary
+                ?.takeIf { !it.isNotice }
+                ?.let(::add)
+            addAll(displayActions.blocking)
+            addAll(displayActions.warnings)
+            displayActions.refresh?.let(::add)
+        }.distinctBy { it.code }
+    }
+    val blockingActions = visibleActions.filter { it.severity == QuickFixSeverity.Blocking && !it.isNotice }
+    val warningActions = visibleActions.filter { it.severity == QuickFixSeverity.Warning && !it.isNotice }
+    val notices = displayActions.notices
 
     Column(
         modifier = Modifier
@@ -980,7 +1107,7 @@ private fun WizardStepQuickFixCard(
             val stepLabel = stepNumbers.getOrElse(stepIndex) { "${stepIndex + 1}." }
             stepIndex++
             PreparationAssistButton(
-                text = action.text,
+                text = action.displayTextForProfile(lowRamProfile),
                 labelPrefix = stepLabel,
                 compact = true,
                 filled = action.filled,
@@ -1002,7 +1129,7 @@ private fun WizardStepQuickFixCard(
             val stepLabel = stepNumbers.getOrElse(stepIndex) { "${stepIndex + 1}." }
             stepIndex++
             PreparationAssistButton(
-                text = action.text,
+                text = action.displayTextForProfile(lowRamProfile),
                 labelPrefix = stepLabel,
                 compact = true,
                 filled = false,

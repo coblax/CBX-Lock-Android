@@ -121,6 +121,9 @@ internal object SecurityDetectorCache {
     @Volatile
     var metadataCacheMaxEntries: Int = 64
 
+    @Volatile
+    var skipDisplayMetadataDefault: Boolean = false
+
     private val ttlMultiplier: () -> Int = { cacheTtlMultiplier }
     private val metadataMaxEntries: () -> Int = { metadataCacheMaxEntries }
 
@@ -150,20 +153,24 @@ internal object SecurityDetectorCache {
         packageName: String,
         forceRefresh: Boolean = false,
         packageInventory: InstalledPackageInventory? = null,
-        includeDisplayMetadata: Boolean = true
+        includeDisplayMetadata: Boolean? = null
     ): InstalledPackageMetadata? {
         val normalizedPackageName = packageName.trim()
         if (normalizedPackageName.isBlank()) {
             return null
         }
-        val cacheKey = "$normalizedPackageName|display=$includeDisplayMetadata"
+        val resolvedIncludeDisplayMetadata = resolvePackageMetadataDisplayFlag(
+            includeDisplayMetadata = includeDisplayMetadata,
+            skipDisplayMetadataDefault = skipDisplayMetadataDefault
+        )
+        val cacheKey = "$normalizedPackageName|display=$resolvedIncludeDisplayMetadata"
         return packageMetadata.read(cacheKey, forceRefresh) {
             val appContext = context.applicationContext
             resolveInstalledPackageMetadata(
                 context = appContext,
                 packageName = normalizedPackageName,
                 packageInventory = packageInventory ?: readPackageInventory(appContext, forceRefresh),
-                includeDisplayMetadata = includeDisplayMetadata
+                includeDisplayMetadata = resolvedIncludeDisplayMetadata
             )
         }
     }
@@ -302,3 +309,8 @@ internal object SecurityDetectorCache {
         signatureIntegrity.invalidate()
     }
 }
+
+internal fun resolvePackageMetadataDisplayFlag(
+    includeDisplayMetadata: Boolean?,
+    skipDisplayMetadataDefault: Boolean
+): Boolean = includeDisplayMetadata ?: !skipDisplayMetadataDefault

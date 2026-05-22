@@ -144,10 +144,12 @@ private fun ExamRuntimeSessionMainContent(
                         installExamNativeFullscreenDocumentStartScriptIfSupported()
                         if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O) {
                             runCatching {
-                                setRendererPriorityPolicy(
-                                    WebView.RENDERER_PRIORITY_IMPORTANT,
-                                    true
-                                )
+                                val priority = if (lowRamProfile.ultra) {
+                                    WebView.RENDERER_PRIORITY_BOUND
+                                } else {
+                                    WebView.RENDERER_PRIORITY_IMPORTANT
+                                }
+                                setRendererPriorityPolicy(priority, true)
                             }
                         }
                         attachExamKeyboardBridge(
@@ -161,12 +163,11 @@ private fun ExamRuntimeSessionMainContent(
                                 requestFocus()
                             }
                         }
-                        applyExamWebViewSettings(effectiveExamUserAgent)
+                        applyExamWebViewSettings(effectiveExamUserAgent, lowRamProfile)
                         webChromeClient = object : WebChromeClient() {
                             override fun onProgressChanged(view: WebView?, newProgress: Int) {
                                 onLoadingProgressChange(view, newProgress / 100f)
                             }
-
                             override fun onShowCustomView(
                                 view: View?,
                                 callback: CustomViewCallback?

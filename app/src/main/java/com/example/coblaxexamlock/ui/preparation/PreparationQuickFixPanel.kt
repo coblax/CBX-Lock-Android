@@ -44,7 +44,7 @@ internal fun PreparationQuickFixPanel(
     fakeLocationReady: Boolean,
     needsBluetoothPermission: Boolean,
     accessibilityInspection: AccessibilityInspectionResult,
-    runQuickFix: (QuickFixTarget?, String, () -> Unit) -> Unit,
+    runQuickFix: (QuickFixTarget?, String, Boolean, () -> Unit) -> Unit,
     modifier: Modifier = Modifier
 ) {
     val uiLanguage = LocalUiLanguage.current
@@ -184,7 +184,7 @@ internal fun PreparationQuickFixPanel(
                         val stepLabel = stepNumbers.getOrElse(stepIndex) { "${stepIndex + 1}." }
                         stepIndex++
                         PreparationAssistButton(
-                            text = primaryAction.text,
+                            text = primaryAction.displayTextForProfile(lowRamProfile),
                             labelPrefix = "$stepLabel ${tr("Fix First", "Perbaiki Dulu")}",
                             filled = true,
                             loading = primaryAction.loading,
@@ -223,7 +223,7 @@ internal fun PreparationQuickFixPanel(
                             val stepLabel = stepNumbers.getOrElse(stepIndex) { "${stepIndex + 1}." }
                             stepIndex++
                             PreparationAssistButton(
-                                text = action.text,
+                                text = action.displayTextForProfile(lowRamProfile),
                                 labelPrefix = stepLabel,
                                 compact = true,
                                 filled = action.filled,
@@ -264,7 +264,7 @@ internal fun PreparationQuickFixPanel(
                             val stepLabel = stepNumbers.getOrElse(stepIndex) { "${stepIndex + 1}." }
                             stepIndex++
                             PreparationAssistButton(
-                                text = action.text,
+                                text = action.displayTextForProfile(lowRamProfile),
                                 labelPrefix = stepLabel,
                                 compact = true,
                                 filled = action.filled,
@@ -285,7 +285,7 @@ internal fun PreparationQuickFixPanel(
 
                     if (refreshQuickFixAction != null) {
                         PreparationAssistButton(
-                            text = refreshQuickFixAction.text,
+                            text = refreshQuickFixAction.displayTextForProfile(lowRamProfile),
                             compact = true,
                             filled = false,
                             loading = refreshQuickFixAction.loading,

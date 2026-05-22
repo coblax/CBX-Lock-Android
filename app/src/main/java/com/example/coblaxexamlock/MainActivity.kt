@@ -71,6 +71,8 @@ class MainActivity : ComponentActivity() {
             else -> 1
         }
         SecurityDetectorCache.metadataCacheMaxEntries = lowRamProfile.detectorMetadataCacheMaxEntries
+        SecurityDetectorCache.skipDisplayMetadataDefault = lowRamProfile.skipDisplayMetadataInScan
+        com.example.coblaxexamlock.runtime.LowRamDispatchers.detectorParallelism = lowRamProfile.detectorParallelism
     }
 
     private fun shouldUseNativePreflightShell(lowRamProfile: LowRamProfile): Boolean {
