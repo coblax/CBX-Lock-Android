@@ -46,7 +46,8 @@ internal fun PreparationChecklistHeader(
     safeCount: Int,
     canStartExam: Boolean,
     firstBlockingReason: String?,
-    onBackHome: () -> Unit
+    onBackHome: () -> Unit,
+    onSwitchToWizard: () -> Unit = {}
 ) {
     val shape = RoundedCornerShape(if (severeLowRamPreparation) 20.dp else 24.dp)
     Box(
@@ -108,6 +109,25 @@ internal fun PreparationChecklistHeader(
                             fontSize = 10.sp,
                             fontWeight = FontWeight.ExtraBold,
                             letterSpacing = 0.8.sp
+                        )
+                    }
+
+                    Spacer(modifier = Modifier.weight(1f))
+
+                    // Wizard mode toggle
+                    Box(
+                        modifier = Modifier
+                            .clip(RoundedCornerShape(999.dp))
+                            .background(LockSurfaceSoft)
+                            .border(1.dp, LockOutline.copy(alpha = 0.60f), RoundedCornerShape(999.dp))
+                            .clickable(onClick = onSwitchToWizard)
+                            .padding(horizontal = 10.dp, vertical = 5.dp)
+                    ) {
+                        Text(
+                            text = "\uD83E\uDDED " + tr("Wizard", "Wizard"),
+                            color = LockBlueDeep,
+                            fontSize = 10.sp,
+                            fontWeight = FontWeight.Bold
                         )
                     }
                 }

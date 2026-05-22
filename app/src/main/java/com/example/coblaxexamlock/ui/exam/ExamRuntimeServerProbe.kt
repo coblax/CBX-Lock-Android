@@ -2,6 +2,7 @@ package com.example.coblaxexamlock.ui.exam
 
 import android.os.SystemClock
 import com.example.coblaxexamlock.BuildConfig
+import com.example.coblaxexamlock.LowRamProfile
 import com.example.coblaxexamlock.model.DiagnosticEventLevel
 import java.net.HttpURLConnection
 import java.net.URL
@@ -11,6 +12,9 @@ import kotlinx.coroutines.withContext
 internal const val ExamServerProbeIntervalMillis = 30_000L
 private const val ExamServerProbeTimeoutMillis = 3_500
 private const val ExamServerProbeSlowThresholdMillis = 3_000L
+
+internal fun examServerProbeIntervalMillis(lowRamProfile: LowRamProfile): Long =
+    lowRamProfile.examServerProbeIntervalMillis
 
 private data class ExamServerHttpProbeOutcome(
     val method: String,

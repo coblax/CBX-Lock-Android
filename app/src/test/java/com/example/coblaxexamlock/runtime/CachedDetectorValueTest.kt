@@ -13,7 +13,7 @@ class CachedDetectorValueTest {
         var now = 1_000L
         var calls = 0
         val cache = CachedDetectorValue<Int>(
-            ttlMillis = 500L,
+            baseTtlMillis = 500L,
             nowMillis = { now }
         )
 
@@ -27,7 +27,7 @@ class CachedDetectorValueTest {
     fun forceRefreshAlwaysReloadsValue() {
         var calls = 0
         val cache = CachedDetectorValue<Int>(
-            ttlMillis = 500L,
+            baseTtlMillis = 500L,
             nowMillis = { 1_000L }
         )
 
@@ -41,7 +41,7 @@ class CachedDetectorValueTest {
         var now = 1_000L
         var calls = 0
         val cache = CachedDetectorValue<Int>(
-            ttlMillis = 500L,
+            baseTtlMillis = 500L,
             nowMillis = { now }
         )
 
@@ -55,7 +55,7 @@ class CachedDetectorValueTest {
     fun invalidateClearsCachedValue() {
         var calls = 0
         val cache = CachedDetectorValue<Int>(
-            ttlMillis = 500L,
+            baseTtlMillis = 500L,
             nowMillis = { 1_000L }
         )
 
@@ -70,7 +70,7 @@ class CachedDetectorValueTest {
         var now = 1_000L
         var calls = 0
         val cache = CachedDetectorMap<String, Int>(
-            ttlMillis = 500L,
+            baseTtlMillis = 500L,
             nowMillis = { now }
         )
 
@@ -87,7 +87,7 @@ class CachedDetectorValueTest {
     fun cachedDetectorMapInvalidateClearsAllKeys() {
         var calls = 0
         val cache = CachedDetectorMap<String, Int>(
-            ttlMillis = 500L,
+            baseTtlMillis = 500L,
             nowMillis = { 1_000L }
         )
 
@@ -100,10 +100,27 @@ class CachedDetectorValueTest {
     }
 
     @Test
+    fun cachedDetectorMapEvictsLeastRecentlyUsedEntryOverBudget() {
+        var calls = 0
+        val cache = CachedDetectorMap<String, Int>(
+            baseTtlMillis = 500L,
+            maxEntries = { 2 },
+            nowMillis = { 1_000L }
+        )
+
+        assertEquals(1, cache.read("a") { ++calls })
+        assertEquals(2, cache.read("b") { ++calls })
+        assertEquals(1, cache.read("a") { ++calls })
+        assertEquals(3, cache.read("c") { ++calls })
+        assertEquals(4, cache.read("b") { ++calls })
+        assertEquals(4, calls)
+    }
+
+    @Test
     fun cachedDetectorMapCachesMissingMetadataNull() {
         var calls = 0
         val cache = CachedDetectorMap<String, InstalledPackageMetadata?>(
-            ttlMillis = 500L,
+            baseTtlMillis = 500L,
             nowMillis = { 1_000L }
         )
 

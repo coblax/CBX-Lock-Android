@@ -26,6 +26,8 @@ import com.example.coblaxexamlock.EXTRA_ACCESSIBILITY_GUARD_FOREIGN_PACKAGE
 import com.example.coblaxexamlock.EXTRA_ACCESSIBILITY_GUARD_REASON
 import com.example.coblaxexamlock.EXTRA_ACCESSIBILITY_GUARD_VIOLATION_COUNT
 import com.example.coblaxexamlock.ExamAlarmSeverity
+import com.example.coblaxexamlock.LocalLowRamProfile
+import com.example.coblaxexamlock.LowRamProfile
 import com.example.coblaxexamlock.ActivityLockTaskBridge
 import com.example.coblaxexamlock.AccessibilityExamGuardStore
 import com.example.coblaxexamlock.alarmSeverityForAppSwitchViolationCount
@@ -94,6 +96,7 @@ internal fun AccessibilityExamGuardLivenessEffect(
     accessibilityGuardFallbackActive: Boolean,
     recordAction: (code: String, details: String, level: DiagnosticEventLevel) -> Unit
 ) {
+    val lowRamProfile = LocalLowRamProfile.current
     val reportedDisabled = remember(examSessionStarted, accessibilityGuardFallbackActive) {
         AtomicBoolean(false)
     }
@@ -157,13 +160,13 @@ internal fun AccessibilityExamGuardLivenessEffect(
         }
     }
 
-    LaunchedEffect(context, examSessionStarted, accessibilityGuardFallbackActive) {
+    LaunchedEffect(context, examSessionStarted, accessibilityGuardFallbackActive, lowRamProfile.accessibilityLivenessPollMillis) {
         if (!examSessionStarted || !accessibilityGuardFallbackActive) {
             return@LaunchedEffect
         }
         val appContext = context.applicationContext
         while (true) {
-            delay(AccessibilityGuardLivenessPollMillis)
+            delay(accessibilityGuardLivenessPollMillis(lowRamProfile))
             reportDisabled(appContext, "liveness_poll")
         }
     }
@@ -232,6 +235,9 @@ internal fun accessibilityGuardEventCodeForReason(reason: String?): String {
 }
 
 private const val AccessibilityGuardLivenessPollMillis = 1_000L
+
+internal fun accessibilityGuardLivenessPollMillis(lowRamProfile: LowRamProfile): Long =
+    lowRamProfile.accessibilityLivenessPollMillis
 
 internal fun launchAccessibilityGuardFallbackExamStart(
     context: Context,

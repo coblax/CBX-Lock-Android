@@ -24,6 +24,7 @@ import com.example.coblaxexamlock.config.AdminKeyFastExamLabel
 import com.example.coblaxexamlock.config.AdminPreferencesName
 import com.example.coblaxexamlock.config.FastExamName
 import com.example.coblaxexamlock.config.SecretTapWindowMs
+import com.example.coblaxexamlock.runtime.SecurityDetectorCache
 import com.example.coblaxexamlock.ui.app.AppContent
 import com.example.coblaxexamlock.ui.theme.COBLAXEXAMLOCKTheme
 import java.lang.ref.WeakReference
@@ -45,11 +46,7 @@ class MainActivity : ComponentActivity() {
         com.example.coblaxexamlock.runtime.TelegramMessageQueueHolder.initialize(this)
         val lowRamProfile = resolveLowRamProfile(this)
         initialLowRamProfile = lowRamProfile
-        com.example.coblaxexamlock.runtime.SecurityDetectorCache.cacheTtlMultiplier = when {
-            lowRamProfile.ultra -> 3
-            lowRamProfile.enabled -> 2
-            else -> 1
-        }
+        applyLowRamRuntimeTuning(lowRamProfile)
         val nativePreflightStarted = shouldUseNativePreflightShell(lowRamProfile)
         if (nativePreflightStarted) {
             StartupTrace.mark("set_content_start", "native_preflight")
@@ -65,6 +62,15 @@ class MainActivity : ComponentActivity() {
             StartupTrace.mark("set_content_start", "compose")
             startComposeContent()
         }
+    }
+
+    private fun applyLowRamRuntimeTuning(lowRamProfile: LowRamProfile) {
+        SecurityDetectorCache.cacheTtlMultiplier = when {
+            lowRamProfile.ultra -> 3
+            lowRamProfile.enabled -> 2
+            else -> 1
+        }
+        SecurityDetectorCache.metadataCacheMaxEntries = lowRamProfile.detectorMetadataCacheMaxEntries
     }
 
     private fun shouldUseNativePreflightShell(lowRamProfile: LowRamProfile): Boolean {
@@ -359,6 +365,7 @@ class MainActivity : ComponentActivity() {
                     detectedProfile = detectedProfile,
                     override = selectedOverride
                 )
+                applyLowRamRuntimeTuning(initialLowRamProfile ?: detectedProfile)
                 when {
                     isLowRamProfileOverrideRisky(detectedProfile, selectedOverride) -> {
                         Toast.makeText(

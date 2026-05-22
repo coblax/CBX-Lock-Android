@@ -230,6 +230,8 @@ import com.example.coblaxexamlock.persistence.saveAdminSettings
 import com.example.coblaxexamlock.persistence.saveUiLanguage
 import com.example.coblaxexamlock.resolveDetectedLowRamProfile
 import com.example.coblaxexamlock.resolveLowRamProfile
+import com.example.coblaxexamlock.resolveRuntimePressureProfile
+import com.example.coblaxexamlock.runtime.SecurityDetectorCache
 import com.example.coblaxexamlock.runtime.decodeQrPayloadFromImageUri
 import com.example.coblaxexamlock.save.ExamQrPayloadSaver
 import com.example.coblaxexamlock.ui.admin.AdminPasswordDialog
@@ -338,6 +340,14 @@ private fun parseAppRecoveryRoute(rawValue: String?): AppRecoveryRoute =
         ?.let { value -> runCatching { AppRecoveryRoute.valueOf(value) }.getOrNull() }
         ?: AppRecoveryRoute.Home
 
+private fun readLowRamRuntimeMemoryInfo(context: Context): ActivityManager.MemoryInfo? {
+    val activityManager = context.applicationContext.getSystemService(ActivityManager::class.java)
+        ?: return null
+    return ActivityManager.MemoryInfo().also { info ->
+        runCatching { activityManager.getMemoryInfo(info) }
+    }
+}
+
 private fun isFreshAdminFlowUiState(uiState: AdminFlowUiState): Boolean = uiState == AdminFlowUiState()
 
 private fun detectProcessDeathRecovery(
@@ -440,6 +450,9 @@ internal fun AppHostRuntimeContent(
     var lowRamProfile by remember(context, initialLowRamProfile) {
         mutableStateOf(initialLowRamProfile ?: resolveLowRamProfile(context))
     }
+    LaunchedEffect(lowRamProfile) {
+        applyLowRamRuntimeDetectorBudget(lowRamProfile)
+    }
     val deviceCompatibilityProfile = remember(lowRamProfile) {
         currentDeviceCompatibilityProfile(lowRamProfile)
     }
@@ -493,6 +506,7 @@ internal fun AppHostRuntimeContent(
 
     val directLinkLabel = homeAdminSettings.fastExamLabel.trim().ifBlank { FastExamName }
     val directLinkUrl = homeAdminSettings.fastExamUrl.trim().ifBlank { SecureStrings.fastExamUrl }
+    val latestLowRamProfile by rememberUpdatedState(lowRamProfile)
 
     fun cacheAdminSettings(loaded: AdminSettings): AdminSettings {
         adminSettings = loaded
@@ -500,6 +514,7 @@ internal fun AppHostRuntimeContent(
             detectedProfile = detectedLowRamProfile,
             override = loaded.lowRamProfileOverride
         )
+        applyLowRamRuntimeDetectorBudget(lowRamProfile)
         homeAdminSettings = HomeAdminSettings(
             fastExamUrl = loaded.fastExamUrl,
             fastExamLabel = loaded.fastExamLabel
@@ -535,6 +550,7 @@ internal fun AppHostRuntimeContent(
             detectedProfile = detectedLowRamProfile,
             override = normalized.lowRamProfileOverride
         )
+        applyLowRamRuntimeDetectorBudget(lowRamProfile)
         homeAdminSettings = HomeAdminSettings(
             fastExamUrl = normalized.fastExamUrl,
             fastExamLabel = normalized.fastExamLabel
@@ -550,6 +566,7 @@ internal fun AppHostRuntimeContent(
             detectedProfile = detectedLowRamProfile,
             override = override
         )
+        applyLowRamRuntimeDetectorBudget(lowRamProfile)
         adminSettings?.let { cachedSettings ->
             updateAdminSettings(cachedSettings.copy(lowRamProfileOverride = override))
             return
@@ -698,10 +715,30 @@ internal fun AppHostRuntimeContent(
         }
     }
 
-    DisposableEffect(lowRamProfile) {
+    DisposableEffect(context) {
         val listener: (Int) -> Unit = { level ->
+            val baseProfile = latestLowRamProfile
+            val memoryInfo = readLowRamRuntimeMemoryInfo(context)
+            val escalatedProfile = resolveRuntimePressureProfile(
+                baseProfile = baseProfile,
+                trimLevel = level,
+                availableMemoryBytes = memoryInfo?.availMem,
+                memoryLow = memoryInfo?.lowMemory == true
+            )
+            if (escalatedProfile != baseProfile) {
+                lowRamProfile = escalatedProfile
+                applyLowRamRuntimeDetectorBudget(escalatedProfile)
+                SecurityDetectorCache.invalidateStaticSecurity()
+                Log.i(
+                    ExamRuntimeHardeningLogTag,
+                    "code=LOW_RAM_RUNTIME_ESCALATED level=INFO details=trim=$level " +
+                        "| avail=${escalatedProfile.availableMemoryMb ?: "-"}MB " +
+                        "| detectorCacheMax=${escalatedProfile.detectorMetadataCacheMaxEntries}"
+                )
+            }
+            val effectiveProfile = if (escalatedProfile != baseProfile) escalatedProfile else baseProfile
             if (
-                lowRamProfile.enabled &&
+                effectiveProfile.enabled &&
                 latestCurrentScreen == AppScreen.Home &&
                 MemoryPressureCoordinator.shouldReleaseUiBitmaps(level)
             ) {

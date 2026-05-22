@@ -22,6 +22,18 @@ private const val UltraDiagnosticLogMaxEntries = 8
 private const val NormalManualRefreshCooldownMillis = 0L
 private const val LowManualRefreshCooldownMillis = 800L
 private const val UltraManualRefreshCooldownMillis = 1_200L
+private const val NormalScreenPinningSteadyPollMillis = 1_000L
+private const val LowScreenPinningSteadyPollMillis = 2_000L
+private const val UltraScreenPinningSteadyPollMillis = 4_000L
+private const val NormalAccessibilityLivenessPollMillis = 1_000L
+private const val LowAccessibilityLivenessPollMillis = 2_500L
+private const val UltraAccessibilityLivenessPollMillis = 5_000L
+private const val NormalExamServerProbeIntervalMillis = 30_000L
+private const val LowExamServerProbeIntervalMillis = 60_000L
+private const val UltraExamServerProbeIntervalMillis = 120_000L
+private const val NormalDetectorMetadataCacheMaxEntries = 64
+private const val LowDetectorMetadataCacheMaxEntries = 24
+private const val UltraDetectorMetadataCacheMaxEntries = 8
 
 internal enum class LowRamTier {
     Normal,
@@ -56,7 +68,12 @@ internal data class LowRamProfile(
     val deferHeavyUi: Boolean = false,
     val slowPollingMultiplier: Int = 1,
     val diagnosticLogMaxEntries: Int = NormalDiagnosticLogMaxEntries,
-    val manualRefreshCooldownMillis: Long = NormalManualRefreshCooldownMillis
+    val manualRefreshCooldownMillis: Long = NormalManualRefreshCooldownMillis,
+    val screenPinningSteadyPollMillis: Long = NormalScreenPinningSteadyPollMillis,
+    val accessibilityLivenessPollMillis: Long = NormalAccessibilityLivenessPollMillis,
+    val examServerProbeIntervalMillis: Long = NormalExamServerProbeIntervalMillis,
+    val detectorMetadataCacheMaxEntries: Int = NormalDetectorMetadataCacheMaxEntries,
+    val disableNonEssentialAnimations: Boolean = false
 ) {
     val tier: LowRamTier
         get() = when {
@@ -78,7 +95,12 @@ internal data class LowRamProfile(
             " qrMaxEdgePx=$qrMaxEdgePx" +
             " polling=${slowPollingMultiplier}x" +
             " logMax=$diagnosticLogMaxEntries" +
-            " refreshCooldownMs=$manualRefreshCooldownMillis"
+            " refreshCooldownMs=$manualRefreshCooldownMillis" +
+            " screenPinningPollMs=$screenPinningSteadyPollMillis" +
+            " accessibilityPollMs=$accessibilityLivenessPollMillis" +
+            " serverProbeMs=$examServerProbeIntervalMillis" +
+            " detectorCacheMax=$detectorMetadataCacheMaxEntries" +
+            " reduceMotion=$disableNonEssentialAnimations"
     }
 }
 
@@ -142,7 +164,12 @@ internal fun applyLowRamProfileOverride(
             deferHeavyUi = false,
             slowPollingMultiplier = 1,
             diagnosticLogMaxEntries = NormalDiagnosticLogMaxEntries,
-            manualRefreshCooldownMillis = NormalManualRefreshCooldownMillis
+            manualRefreshCooldownMillis = NormalManualRefreshCooldownMillis,
+            screenPinningSteadyPollMillis = NormalScreenPinningSteadyPollMillis,
+            accessibilityLivenessPollMillis = NormalAccessibilityLivenessPollMillis,
+            examServerProbeIntervalMillis = NormalExamServerProbeIntervalMillis,
+            detectorMetadataCacheMaxEntries = NormalDetectorMetadataCacheMaxEntries,
+            disableNonEssentialAnimations = false
         )
         LowRamProfileOverride.Low -> detectedProfile.copy(
             enabled = true,
@@ -154,7 +181,12 @@ internal fun applyLowRamProfileOverride(
             deferHeavyUi = true,
             slowPollingMultiplier = 2,
             diagnosticLogMaxEntries = LowDiagnosticLogMaxEntries,
-            manualRefreshCooldownMillis = LowManualRefreshCooldownMillis
+            manualRefreshCooldownMillis = LowManualRefreshCooldownMillis,
+            screenPinningSteadyPollMillis = LowScreenPinningSteadyPollMillis,
+            accessibilityLivenessPollMillis = LowAccessibilityLivenessPollMillis,
+            examServerProbeIntervalMillis = LowExamServerProbeIntervalMillis,
+            detectorMetadataCacheMaxEntries = LowDetectorMetadataCacheMaxEntries,
+            disableNonEssentialAnimations = true
         )
         LowRamProfileOverride.Ultra -> detectedProfile.copy(
             enabled = true,
@@ -166,7 +198,12 @@ internal fun applyLowRamProfileOverride(
             deferHeavyUi = true,
             slowPollingMultiplier = 6,
             diagnosticLogMaxEntries = UltraDiagnosticLogMaxEntries,
-            manualRefreshCooldownMillis = UltraManualRefreshCooldownMillis
+            manualRefreshCooldownMillis = UltraManualRefreshCooldownMillis,
+            screenPinningSteadyPollMillis = UltraScreenPinningSteadyPollMillis,
+            accessibilityLivenessPollMillis = UltraAccessibilityLivenessPollMillis,
+            examServerProbeIntervalMillis = UltraExamServerProbeIntervalMillis,
+            detectorMetadataCacheMaxEntries = UltraDetectorMetadataCacheMaxEntries,
+            disableNonEssentialAnimations = true
         )
     }
 }
@@ -253,7 +290,76 @@ internal fun calculateLowRamProfile(
             ultra -> UltraManualRefreshCooldownMillis
             enabled -> LowManualRefreshCooldownMillis
             else -> NormalManualRefreshCooldownMillis
-        }
+        },
+        screenPinningSteadyPollMillis = when {
+            ultra -> UltraScreenPinningSteadyPollMillis
+            enabled -> LowScreenPinningSteadyPollMillis
+            else -> NormalScreenPinningSteadyPollMillis
+        },
+        accessibilityLivenessPollMillis = when {
+            ultra -> UltraAccessibilityLivenessPollMillis
+            enabled -> LowAccessibilityLivenessPollMillis
+            else -> NormalAccessibilityLivenessPollMillis
+        },
+        examServerProbeIntervalMillis = when {
+            ultra -> UltraExamServerProbeIntervalMillis
+            enabled -> LowExamServerProbeIntervalMillis
+            else -> NormalExamServerProbeIntervalMillis
+        },
+        detectorMetadataCacheMaxEntries = when {
+            ultra -> UltraDetectorMetadataCacheMaxEntries
+            enabled -> LowDetectorMetadataCacheMaxEntries
+            else -> NormalDetectorMetadataCacheMaxEntries
+        },
+        disableNonEssentialAnimations = enabled
+    )
+}
+
+@Suppress("DEPRECATION")
+internal fun shouldEscalateRuntimeLowRamProfile(
+    trimLevel: Int? = null,
+    availableMemoryBytes: Long? = null,
+    memoryLow: Boolean = false
+): Boolean {
+    val availableMemoryMb = availableMemoryBytes
+        ?.takeIf { it > 0L }
+        ?.let { it / OneMegabyteBytes }
+    return memoryLow ||
+        availableMemoryMb?.let { it <= UltraLowRamAvailableMemoryMb } == true ||
+        trimLevel == ComponentCallbacks2.TRIM_MEMORY_RUNNING_CRITICAL ||
+        trimLevel == ComponentCallbacks2.TRIM_MEMORY_COMPLETE
+}
+
+@Suppress("DEPRECATION")
+internal fun resolveRuntimePressureProfile(
+    baseProfile: LowRamProfile,
+    trimLevel: Int? = null,
+    availableMemoryBytes: Long? = null,
+    memoryLow: Boolean = false
+): LowRamProfile {
+    if (!shouldEscalateRuntimeLowRamProfile(trimLevel, availableMemoryBytes, memoryLow)) {
+        return baseProfile
+    }
+    val availableMemoryMb = availableMemoryBytes
+        ?.takeIf { it > 0L }
+        ?.let { it / OneMegabyteBytes }
+        ?: baseProfile.availableMemoryMb
+    return baseProfile.copy(
+        enabled = true,
+        severe = true,
+        ultra = true,
+        availableMemoryMb = availableMemoryMb,
+        memoryLow = baseProfile.memoryLow || memoryLow,
+        qrMaxEdgePx = UltraQrMaxEdgePx,
+        deferHeavyUi = true,
+        slowPollingMultiplier = 6,
+        diagnosticLogMaxEntries = UltraDiagnosticLogMaxEntries,
+        manualRefreshCooldownMillis = UltraManualRefreshCooldownMillis,
+        screenPinningSteadyPollMillis = UltraScreenPinningSteadyPollMillis,
+        accessibilityLivenessPollMillis = UltraAccessibilityLivenessPollMillis,
+        examServerProbeIntervalMillis = UltraExamServerProbeIntervalMillis,
+        detectorMetadataCacheMaxEntries = UltraDetectorMetadataCacheMaxEntries,
+        disableNonEssentialAnimations = true
     )
 }
 
@@ -324,6 +430,8 @@ internal object MemoryPressureCoordinator {
             runCatching { listener(level) }
         }
     }
+
+    fun latestTrimLevel(): Int? = lastTrimLevel
 
     @Suppress("DEPRECATION")
     fun dispatchLowMemory() {

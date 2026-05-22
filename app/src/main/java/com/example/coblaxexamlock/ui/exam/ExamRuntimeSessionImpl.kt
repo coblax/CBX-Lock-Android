@@ -17,6 +17,7 @@ import android.view.View
 import android.view.ViewGroup
 import android.webkit.WebChromeClient
 import android.webkit.WebView
+import android.webkit.WebViewClient
 import android.widget.FrameLayout
 import androidx.activity.ComponentActivity
 import androidx.activity.compose.BackHandler
@@ -171,6 +172,7 @@ import com.example.coblaxexamlock.PreviousExamSessionBreadcrumbStore
 import com.example.coblaxexamlock.readClipboardSnapshotFull
 import com.example.coblaxexamlock.readClipboardSnapshotLite
 import com.example.coblaxexamlock.resolveExpectedSigningFingerprints
+import com.example.coblaxexamlock.resolveRuntimePressureProfile
 import com.example.coblaxexamlock.ReverseEngineeringGuard
 import com.example.coblaxexamlock.RootBypassResolver
 import com.example.coblaxexamlock.RootBypassState
@@ -436,6 +438,8 @@ internal fun ExamRuntimeSessionScreenImpl(
     var loadingProgress by remember { mutableFloatStateOf(0f) }
     var webViewStopRequested by remember { mutableStateOf(false) }
     var webViewInstance by remember { mutableStateOf<SecureExamWebView?>(null) }
+    var webViewGeneration by remember { mutableStateOf(0L) }
+    var destroyedWebViewGeneration by remember { mutableStateOf<Long?>(null) }
     val flowUiState = rememberExamRuntimeFlowUiState(
         context = context,
         bypassKeyboardPolicy = bypassKeyboardPolicy
@@ -806,7 +810,7 @@ internal fun ExamRuntimeSessionScreenImpl(
             return if (withinWarmupWindow) {
                 ScreenPinningMonitorWarmupIntervalMillis
             } else {
-                ScreenPinningMonitorSteadyIntervalMillis
+                screenPinningMonitorSteadyIntervalMillis(lowRamProfile)
             }
         }
 
@@ -1823,7 +1827,7 @@ internal fun ExamRuntimeSessionScreenImpl(
                 markChecking = examServerStatus == ExamServerFooterStatus.Checking
             )
             firstProbe = false
-            delay(ExamServerProbeIntervalMillis)
+            delay(examServerProbeIntervalMillis(lowRamProfile))
         }
     }
 
@@ -2235,6 +2239,37 @@ internal fun ExamRuntimeSessionScreenImpl(
             lockTaskBridge.engage(allowLockTask = false)
         }
 
+        fun destroyExamWebViewInstance(view: SecureExamWebView) {
+            runCatching { view.stopLoading() }
+            runCatching { view.detachExamKeyboardBridge() }
+            runCatching { view.detachExamParticipantCaptureBridge() }
+            runCatching { view.detachExamNativeFullscreenBridge() }
+            runCatching { view.prepareForFreshExamSession() }
+            runCatching { view.webChromeClient = null }
+            runCatching { view.webViewClient = WebViewClient() }
+            runCatching { (view.parent as? ViewGroup)?.removeView(view) }
+            runCatching { view.removeAllViews() }
+            runCatching { view.destroy() }
+        }
+
+        fun recordStaleWebViewCallbackIgnored(callbackName: String, view: WebView?) {
+            recordAction(
+                code = ExamRuntimeHardeningDiagnostics.WebViewStaleCallbackIgnored,
+                details = "callback=$callbackName | active_generation=$webViewGeneration | " +
+                    "has_active=${if (webViewInstance != null) "yes" else "no"} | " +
+                    "has_callback_view=${if (view != null) "yes" else "no"}",
+                level = DiagnosticEventLevel.WARNING
+            )
+        }
+
+        fun shouldIgnoreStaleWebViewCallback(callbackName: String, view: WebView?): Boolean {
+            if (view == null || view === webViewInstance) {
+                return false
+            }
+            recordStaleWebViewCallbackIgnored(callbackName, view)
+            return true
+        }
+
         fun cleanupActiveExamWebViewInstance() {
             fullScreenCustomView?.let { view ->
                 runCatching { fullScreenContainer.removeView(view) }
@@ -2243,16 +2278,14 @@ internal fun ExamRuntimeSessionScreenImpl(
             fullScreenCustomViewCallback = null
             fullScreenCustomView = null
             hasEditableFocus = false
-            webViewInstance?.apply {
-                runCatching { stopLoading() }
-                runCatching { detachExamKeyboardBridge() }
-                runCatching { detachExamParticipantCaptureBridge() }
-                runCatching { detachExamNativeFullscreenBridge() }
-                runCatching { prepareForFreshExamSession() }
-                runCatching { removeAllViews() }
-                runCatching { destroy() }
+            val activeWebView = webViewInstance ?: return
+            if (!shouldRunExamWebViewCleanup(webViewGeneration, destroyedWebViewGeneration)) {
+                webViewInstance = null
+                return
             }
+            destroyedWebViewGeneration = webViewGeneration
             webViewInstance = null
+            destroyExamWebViewInstance(activeWebView)
         }
 
         suspend fun clearExamSessionOnExit(
@@ -2365,12 +2398,13 @@ internal fun ExamRuntimeSessionScreenImpl(
             didCrash: Boolean,
             rendererPriorityAtExit: Int?
         ): Boolean {
-            examRuntimeRecoveryState = ExamRuntimeRecoveryState.RendererGone
             val details = buildString {
                 append("did_crash=")
                 append(if (didCrash) "yes" else "no")
                 append(" | priority_at_exit=")
                 append(rendererPriorityAtExit ?: "-")
+                append(" | active_generation=")
+                append(webViewGeneration)
                 append(" | low_ram=")
                 append(if (lowRamProfile.enabled) "yes" else "no")
                 append(" | severe=")
@@ -2379,24 +2413,23 @@ internal fun ExamRuntimeSessionScreenImpl(
                 append(if (lowRamProfile.ultra) "yes" else "no")
                 append(" | recovery=manual_safe")
             }
+            if (view != null && view !== webViewInstance) {
+                recordAction(
+                    code = ExamRuntimeHardeningDiagnostics.WebViewRendererGoneStale,
+                    details = details,
+                    level = DiagnosticEventLevel.WARNING
+                )
+                destroyExamWebViewInstance(view)
+                return true
+            }
+            examRuntimeRecoveryState = ExamRuntimeRecoveryState.RendererGone
             recordAction(
                 code = ExamRuntimeHardeningDiagnostics.WebViewRendererGone,
                 details = details,
                 level = DiagnosticEventLevel.ERROR
             )
             examRuntimeRecoveryState = ExamRuntimeRecoveryState.CleanupInFlight
-            if (view != null && view !== webViewInstance) {
-                runCatching {
-                    view.stopLoading()
-                    view.detachExamKeyboardBridge()
-                    view.detachExamParticipantCaptureBridge()
-                    view.detachExamNativeFullscreenBridge()
-                    view.removeAllViews()
-                    view.destroy()
-                }
-            } else {
-                cleanupActiveExamWebViewInstance()
-            }
+            cleanupActiveExamWebViewInstance()
             mainActivity?.setExamLockMode(enabled = false, allowLockTask = false)
             lockTaskBridge.disengage()
             disarmExamRuntimeMonitoring()
@@ -2433,6 +2466,22 @@ internal fun ExamRuntimeSessionScreenImpl(
             )
             if (!memoryAction.respond) {
                 return
+            }
+            val escalatedProfile = resolveRuntimePressureProfile(
+                baseProfile = lowRamProfile,
+                trimLevel = level
+            )
+            if (escalatedProfile.ultra && !lowRamProfile.ultra) {
+                SecurityDetectorCache.invalidateStaticSecurity()
+                recordAction(
+                    code = "LOW_RAM_RUNTIME_ESCALATED",
+                    details = "trim_level=$level | runtime_profile=Ultra | " +
+                        "screen_pinning_poll_ms=${escalatedProfile.screenPinningSteadyPollMillis} | " +
+                        "accessibility_poll_ms=${escalatedProfile.accessibilityLivenessPollMillis} | " +
+                        "server_probe_ms=${escalatedProfile.examServerProbeIntervalMillis} | " +
+                        "detector_cache_max=${escalatedProfile.detectorMetadataCacheMaxEntries}",
+                    level = DiagnosticEventLevel.WARNING
+                )
             }
 
             // --- Level 1: Standard cleanup (all pressure levels that respond) ---
@@ -2532,6 +2581,8 @@ internal fun ExamRuntimeSessionScreenImpl(
         didCrash: Boolean,
         rendererPriorityAtExit: Int?
     ): Boolean = runtimeMonitoringOps.handleWebViewRendererGone(view, didCrash, rendererPriorityAtExit)
+    fun shouldIgnoreStaleWebViewCallback(callbackName: String, view: WebView?): Boolean =
+        runtimeMonitoringOps.shouldIgnoreStaleWebViewCallback(callbackName, view)
     fun handleRuntimeTrimMemory(level: Int) = runtimeMonitoringOps.handleRuntimeTrimMemory(level)
     RuntimeRecoveryAndMemoryEffects(
         pendingDirectLinkSaveLog = pendingDirectLinkSaveLog,
@@ -4911,17 +4962,26 @@ internal fun ExamRuntimeSessionScreenImpl(
         },
         onShowBuiltInExamKeyboardChange = { showBuiltInExamKeyboard = it },
         onWebViewInstanceChange = { nextWebView ->
-            val wasMissing = webViewInstance == null
+            val currentWebView = webViewInstance
+            val wasMissing = currentWebView == null
+            if (nextWebView != null && nextWebView !== currentWebView) {
+                webViewGeneration = nextExamWebViewGeneration(webViewGeneration)
+                destroyedWebViewGeneration = null
+            }
             webViewInstance = nextWebView
             if (wasMissing && nextWebView != null) {
                 writePreviousSessionBreadcrumb(
                     code = PreviousExamSessionBreadcrumbCodes.WebViewCreated,
-                    details = "provider=${webViewCompatibilityStatus.packageName} | score=${deviceSurvivalPolicy.score.name}"
+                    details = "provider=${webViewCompatibilityStatus.packageName} | " +
+                        "score=${deviceSurvivalPolicy.score.name} | generation=$webViewGeneration"
                 )
             }
         },
         onHideSystemKeyboard = ::hideSystemKeyboard,
-        onWebViewLoadStart = { url ->
+        onWebViewLoadStart = loadStart@{ view, url ->
+            if (shouldIgnoreStaleWebViewCallback("load_start", view)) {
+                return@loadStart
+            }
             webViewStopRequested = false
             handleExamRuntimeWebViewLoadStart(
                 url = url,
@@ -4934,7 +4994,10 @@ internal fun ExamRuntimeSessionScreenImpl(
                 setShowBuiltInExamKeyboard = { showBuiltInExamKeyboard = it }
             )
         },
-        onWebViewLoadFinish = { view, url ->
+        onWebViewLoadFinish = loadFinish@{ view, url ->
+            if (shouldIgnoreStaleWebViewCallback("load_finish", view)) {
+                return@loadFinish
+            }
             handleExamRuntimeWebViewLoadFinish(
                 view = view,
                 url = url,
@@ -4947,7 +5010,10 @@ internal fun ExamRuntimeSessionScreenImpl(
                 hideSystemKeyboard = ::hideSystemKeyboard
             )
         },
-        onWebViewLoadError = { description ->
+        onWebViewLoadError = loadError@{ view, description ->
+            if (shouldIgnoreStaleWebViewCallback("load_error", view)) {
+                return@loadError
+            }
             handleExamRuntimeWebViewLoadError(
                 description = description,
                 recordAction = { code, details, level -> recordAction(code, details, level) },
@@ -4955,7 +5021,10 @@ internal fun ExamRuntimeSessionScreenImpl(
                 setExamServerStatus = { examServerStatus = it }
             )
         },
-        onWebViewHttpError = { statusCode ->
+        onWebViewHttpError = httpError@{ view, statusCode ->
+            if (shouldIgnoreStaleWebViewCallback("http_error", view)) {
+                return@httpError
+            }
             handleExamRuntimeWebViewHttpError(
                 statusCode = statusCode,
                 recordAction = { code, details, level -> recordAction(code, details, level) },
@@ -4970,7 +5039,10 @@ internal fun ExamRuntimeSessionScreenImpl(
                 rendererPriorityAtExit = rendererPriorityAtExit
             )
         },
-        onLoadingProgressChange = { progress ->
+        onLoadingProgressChange = loadingProgressChange@{ view, progress ->
+            if (shouldIgnoreStaleWebViewCallback("progress", view)) {
+                return@loadingProgressChange
+            }
             if (!webViewStopRequested) loadingProgress = progress
         },
         onWebViewErrorMessageChange = { webViewErrorMessage = it },

@@ -68,6 +68,7 @@ private inline fun <T> debugMeasurePreparationWork(label: String, block: () -> T
 internal fun ExamSecurityPreparationScreenContent(
     state: PreparationScreenState,
     actions: PreparationScreenActions,
+    onSwitchToWizard: () -> Unit = {},
     modifier: Modifier = Modifier
 ) {
     with(state) {
@@ -349,7 +350,8 @@ internal fun ExamSecurityPreparationScreenContent(
                     safeCount = readinessSummary.safeCount,
                     canStartExam = canStartExam,
                     firstBlockingReason = firstBlockingReason,
-                    onBackHome = onBackHome
+                    onBackHome = onBackHome,
+                    onSwitchToWizard = onSwitchToWizard
                 )
             }
             item(key = "checklist_intro") {

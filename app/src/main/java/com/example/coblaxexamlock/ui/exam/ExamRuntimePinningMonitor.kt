@@ -7,6 +7,7 @@ import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.rememberUpdatedState
 import com.example.coblaxexamlock.ActivityLockTaskBridge
 import com.example.coblaxexamlock.FatalSecuritySignal
+import com.example.coblaxexamlock.LowRamProfile
 import com.example.coblaxexamlock.MainActivity
 import com.example.coblaxexamlock.model.DiagnosticEventLevel
 import com.example.coblaxexamlock.PinningActivationPurpose
@@ -23,6 +24,9 @@ internal const val ScreenPinningMonitorWarmupIntervalMillis = 300L
 internal const val ScreenPinningMonitorSteadyIntervalMillis = 1_000L
 internal const val ScreenPinningMonitorWarmupWindowMillis = 5_000L
 private const val ScreenPinningMonitorStartupGraceMillis = 12_000L
+
+internal fun screenPinningMonitorSteadyIntervalMillis(lowRamProfile: LowRamProfile): Long =
+    lowRamProfile.screenPinningSteadyPollMillis
 
 @Composable
 internal fun RuntimeScreenPinningMonitorEffect(

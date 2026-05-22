@@ -35,6 +35,19 @@ internal data class ExamRuntimeMemoryAction(
     }
 }
 
+internal fun nextExamWebViewGeneration(currentGeneration: Long): Long =
+    currentGeneration + 1L
+
+internal fun isCurrentExamWebViewGeneration(
+    callbackGeneration: Long,
+    activeGeneration: Long
+): Boolean = callbackGeneration == activeGeneration
+
+internal fun shouldRunExamWebViewCleanup(
+    activeGeneration: Long,
+    destroyedGeneration: Long?
+): Boolean = destroyedGeneration != activeGeneration
+
 internal fun resolveExamRuntimeMemoryAction(
     shouldRespondToPressure: Boolean,
     examSessionStarted: Boolean,
@@ -137,6 +150,8 @@ internal fun resolveExamRefreshSafetyDecision(
 
 internal object ExamRuntimeHardeningDiagnostics {
     const val WebViewRendererGone = "WEBVIEW_RENDERER_GONE"
+    const val WebViewRendererGoneStale = "WEBVIEW_RENDERER_GONE_STALE"
+    const val WebViewStaleCallbackIgnored = "WEBVIEW_STALE_CALLBACK_IGNORED"
     const val WebViewRecoveryReady = "WEBVIEW_RECOVERY_READY"
     const val WebViewExitCleanupStarted = "WEBVIEW_EXIT_CLEANUP_STARTED"
     const val WebViewExitCleanupSucceeded = "WEBVIEW_EXIT_CLEANUP_SUCCEEDED"
@@ -206,6 +221,8 @@ internal object ExamRuntimeHardeningDiagnostics {
 
     private val qaLogCodes = setOf(
         WebViewRendererGone,
+        WebViewRendererGoneStale,
+        WebViewStaleCallbackIgnored,
         WebViewRecoveryReady,
         WebViewExitCleanupStarted,
         WebViewExitCleanupSucceeded,

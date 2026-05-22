@@ -71,9 +71,14 @@ class ExamDiagnosticSnapshotTest {
             lowRamDetectedProfile = "Ultra",
             lowRamEffectiveProfile = "Ultra",
             qrMaxEdgePx = 720,
-            slowPollingMultiplier = 4,
+            slowPollingMultiplier = 6,
             diagnosticLogMaxEntries = 12,
             manualRefreshCooldownMillis = 1200L,
+            screenPinningSteadyPollMillis = 4000L,
+            accessibilityLivenessPollMillis = 5000L,
+            examServerProbeIntervalMillis = 120000L,
+            detectorMetadataCacheMaxEntries = 8,
+            disableNonEssentialAnimations = true,
             compatibilityFamily = "SamsungLegacyTablet",
             compatibilityLabel = "Samsung legacy tablet",
             compatibilitySummary = "family=SamsungLegacyTablet",
@@ -123,5 +128,10 @@ class ExamDiagnosticSnapshotTest {
         assertTrue(json.contains("effectiveProfile"))
         assertTrue(json.contains("diagnosticLogMaxEntries"))
         assertTrue(json.contains("manualRefreshCooldownMillis"))
+        assertTrue(json.contains("screenPinningSteadyPollMillis"))
+        assertTrue(json.contains("accessibilityLivenessPollMillis"))
+        assertTrue(json.contains("examServerProbeIntervalMillis"))
+        assertTrue(json.contains("detectorMetadataCacheMaxEntries"))
+        assertTrue(json.contains("disableNonEssentialAnimations"))
     }
 }

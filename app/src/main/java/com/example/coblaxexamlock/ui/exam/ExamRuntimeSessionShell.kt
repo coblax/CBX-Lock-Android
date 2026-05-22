@@ -78,12 +78,12 @@ private fun ExamRuntimeSessionMainContent(
     onShowBuiltInExamKeyboardChange: (Boolean) -> Unit,
     onWebViewInstanceChange: (SecureExamWebView?) -> Unit,
     onHideSystemKeyboard: () -> Unit,
-    onWebViewLoadStart: (String?) -> Unit,
+    onWebViewLoadStart: (WebView?, String?) -> Unit,
     onWebViewLoadFinish: (WebView?, String?) -> Unit,
-    onWebViewLoadError: (String) -> Unit,
-    onWebViewHttpError: (Int?) -> Unit,
+    onWebViewLoadError: (WebView?, String) -> Unit,
+    onWebViewHttpError: (WebView?, Int?) -> Unit,
     onWebViewRenderProcessGone: (SecureExamWebView?, Boolean, Int?) -> Boolean,
-    onLoadingProgressChange: (Float) -> Unit,
+    onLoadingProgressChange: (WebView?, Float) -> Unit,
     onWebViewErrorMessageChange: (String?) -> Unit,
     onShowCustomView: (View?, WebChromeClient.CustomViewCallback?) -> Unit,
     onHideCustomView: () -> Unit,
@@ -164,7 +164,7 @@ private fun ExamRuntimeSessionMainContent(
                         applyExamWebViewSettings(effectiveExamUserAgent)
                         webChromeClient = object : WebChromeClient() {
                             override fun onProgressChanged(view: WebView?, newProgress: Int) {
-                                onLoadingProgressChange(newProgress / 100f)
+                                onLoadingProgressChange(view, newProgress / 100f)
                             }
 
                             override fun onShowCustomView(
@@ -202,7 +202,7 @@ private fun ExamRuntimeSessionMainContent(
                                 url: String?,
                                 favicon: android.graphics.Bitmap?
                             ) {
-                                onWebViewLoadStart(url)
+                                onWebViewLoadStart(view, url)
                             }
 
                             override fun onPageFinished(view: WebView?, url: String?) {
@@ -216,6 +216,7 @@ private fun ExamRuntimeSessionMainContent(
                             ) {
                                 if (request?.isForMainFrame == true) {
                                     onWebViewLoadError(
+                                        view,
                                         error?.description?.toString() ?: "Halaman ujian gagal dimuat."
                                     )
                                 }
@@ -227,7 +228,7 @@ private fun ExamRuntimeSessionMainContent(
                                 errorResponse: WebResourceResponse?
                             ) {
                                 if (request?.isForMainFrame == true) {
-                                    onWebViewHttpError(errorResponse?.statusCode)
+                                    onWebViewHttpError(view, errorResponse?.statusCode)
                                 }
                             }
 
@@ -354,12 +355,12 @@ internal fun ExamRuntimeSessionRenderedUi(
     onShowBuiltInExamKeyboardChange: (Boolean) -> Unit,
     onWebViewInstanceChange: (SecureExamWebView?) -> Unit,
     onHideSystemKeyboard: () -> Unit,
-    onWebViewLoadStart: (String?) -> Unit,
+    onWebViewLoadStart: (WebView?, String?) -> Unit,
     onWebViewLoadFinish: (WebView?, String?) -> Unit,
-    onWebViewLoadError: (String) -> Unit,
-    onWebViewHttpError: (Int?) -> Unit,
+    onWebViewLoadError: (WebView?, String) -> Unit,
+    onWebViewHttpError: (WebView?, Int?) -> Unit,
     onWebViewRenderProcessGone: (SecureExamWebView?, Boolean, Int?) -> Boolean,
-    onLoadingProgressChange: (Float) -> Unit,
+    onLoadingProgressChange: (WebView?, Float) -> Unit,
     onWebViewErrorMessageChange: (String?) -> Unit,
     onShowCustomView: (View?, WebChromeClient.CustomViewCallback?) -> Unit,
     onHideCustomView: () -> Unit,

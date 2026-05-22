@@ -29,6 +29,7 @@ import com.example.coblaxexamlock.persistence.readSavedUiLanguage
 import com.example.coblaxexamlock.persistence.saveUiLanguage
 import com.example.coblaxexamlock.resolveDetectedLowRamProfile
 import com.example.coblaxexamlock.resolveLowRamProfile
+import com.example.coblaxexamlock.runtime.SecurityDetectorCache
 import com.example.coblaxexamlock.saveLowRamProfileOverride
 import com.example.coblaxexamlock.ui.admin.ExamLockLowRamHomeScreen
 import com.example.coblaxexamlock.ui.admin.PublicPerformanceProfileDialog
@@ -43,6 +44,15 @@ internal fun shouldStartRuntimeImmediately(
     initialHomeActionRaw: String?
 ): Boolean = !lowRamProfile.deferHeavyUi || initialHomeActionRaw != null
 
+internal fun applyLowRamRuntimeDetectorBudget(lowRamProfile: LowRamProfile) {
+    SecurityDetectorCache.cacheTtlMultiplier = when {
+        lowRamProfile.ultra -> 3
+        lowRamProfile.enabled -> 2
+        else -> 1
+    }
+    SecurityDetectorCache.metadataCacheMaxEntries = lowRamProfile.detectorMetadataCacheMaxEntries
+}
+
 @Composable
 internal fun AppContent(
     initialHomeActionRaw: String? = null,
@@ -54,6 +64,9 @@ internal fun AppContent(
     }
     var lowRamProfile by remember(context, initialLowRamProfile) {
         mutableStateOf(initialLowRamProfile ?: resolveLowRamProfile(context))
+    }
+    LaunchedEffect(lowRamProfile) {
+        applyLowRamRuntimeDetectorBudget(lowRamProfile)
     }
     val deviceCompatibilityProfile = remember(lowRamProfile) {
         currentDeviceCompatibilityProfile(lowRamProfile)
@@ -178,6 +191,7 @@ internal fun AppContent(
                             detectedProfile = detectedLowRamProfile,
                             override = override
                         )
+                        applyLowRamRuntimeDetectorBudget(lowRamProfile)
                     },
                     onDismiss = { showPerformanceProfileDialog = false }
                 )

@@ -1,5 +1,6 @@
 package com.example.coblaxexamlock
 
+import android.content.ComponentCallbacks2
 import android.graphics.Bitmap
 import com.example.coblaxexamlock.runtime.calculateBitmapSampleSize
 import com.example.coblaxexamlock.runtime.qrDecodePreferredBitmapConfig
@@ -74,6 +75,11 @@ class LowRamSupportTest {
         assertFalse(normal.ultra)
         assertEquals(1, normal.slowPollingMultiplier)
         assertEquals(2560, normal.qrMaxEdgePx)
+        assertEquals(1_000L, normal.screenPinningSteadyPollMillis)
+        assertEquals(1_000L, normal.accessibilityLivenessPollMillis)
+        assertEquals(30_000L, normal.examServerProbeIntervalMillis)
+        assertEquals(64, normal.detectorMetadataCacheMaxEntries)
+        assertFalse(normal.disableNonEssentialAnimations)
         assertEquals(768L, normal.totalMemoryMb)
         assertEquals(468L, normal.availableMemoryMb)
         assertEquals(LowRamTier.Ultra, normal.detectedTier)
@@ -86,16 +92,26 @@ class LowRamSupportTest {
         assertEquals(1024, low.qrMaxEdgePx)
         assertEquals(16, low.diagnosticLogMaxEntries)
         assertEquals(800L, low.manualRefreshCooldownMillis)
+        assertEquals(2_000L, low.screenPinningSteadyPollMillis)
+        assertEquals(2_500L, low.accessibilityLivenessPollMillis)
+        assertEquals(60_000L, low.examServerProbeIntervalMillis)
+        assertEquals(24, low.detectorMetadataCacheMaxEntries)
+        assertTrue(low.disableNonEssentialAnimations)
         assertEquals(LowRamTier.Ultra, low.detectedTier)
 
         val ultra = applyLowRamProfileOverride(detected, LowRamProfileOverride.Ultra)
         assertTrue(ultra.enabled)
         assertTrue(ultra.severe)
         assertTrue(ultra.ultra)
-        assertEquals(4, ultra.slowPollingMultiplier)
+        assertEquals(6, ultra.slowPollingMultiplier)
         assertEquals(720, ultra.qrMaxEdgePx)
-        assertEquals(12, ultra.diagnosticLogMaxEntries)
+        assertEquals(8, ultra.diagnosticLogMaxEntries)
         assertEquals(1_200L, ultra.manualRefreshCooldownMillis)
+        assertEquals(4_000L, ultra.screenPinningSteadyPollMillis)
+        assertEquals(5_000L, ultra.accessibilityLivenessPollMillis)
+        assertEquals(120_000L, ultra.examServerProbeIntervalMillis)
+        assertEquals(8, ultra.detectorMetadataCacheMaxEntries)
+        assertTrue(ultra.disableNonEssentialAnimations)
         assertEquals(LowRamTier.Ultra, ultra.detectedTier)
     }
 
@@ -125,6 +141,11 @@ class LowRamSupportTest {
         assertEquals(1, profile.slowPollingMultiplier)
         assertEquals(20, profile.diagnosticLogMaxEntries)
         assertEquals(0L, profile.manualRefreshCooldownMillis)
+        assertEquals(1_000L, profile.screenPinningSteadyPollMillis)
+        assertEquals(1_000L, profile.accessibilityLivenessPollMillis)
+        assertEquals(30_000L, profile.examServerProbeIntervalMillis)
+        assertEquals(64, profile.detectorMetadataCacheMaxEntries)
+        assertFalse(profile.disableNonEssentialAnimations)
     }
 
     @Test
@@ -143,6 +164,11 @@ class LowRamSupportTest {
         assertEquals(2, profile.slowPollingMultiplier)
         assertEquals(16, profile.diagnosticLogMaxEntries)
         assertEquals(800L, profile.manualRefreshCooldownMillis)
+        assertEquals(2_000L, profile.screenPinningSteadyPollMillis)
+        assertEquals(2_500L, profile.accessibilityLivenessPollMillis)
+        assertEquals(60_000L, profile.examServerProbeIntervalMillis)
+        assertEquals(24, profile.detectorMetadataCacheMaxEntries)
+        assertTrue(profile.disableNonEssentialAnimations)
     }
 
     @Test
@@ -158,9 +184,14 @@ class LowRamSupportTest {
         assertTrue(profile.ultra)
         assertEquals(720, profile.qrMaxEdgePx)
         assertTrue(profile.deferHeavyUi)
-        assertEquals(4, profile.slowPollingMultiplier)
-        assertEquals(12, profile.diagnosticLogMaxEntries)
+        assertEquals(6, profile.slowPollingMultiplier)
+        assertEquals(8, profile.diagnosticLogMaxEntries)
         assertEquals(1_200L, profile.manualRefreshCooldownMillis)
+        assertEquals(4_000L, profile.screenPinningSteadyPollMillis)
+        assertEquals(5_000L, profile.accessibilityLivenessPollMillis)
+        assertEquals(120_000L, profile.examServerProbeIntervalMillis)
+        assertEquals(8, profile.detectorMetadataCacheMaxEntries)
+        assertTrue(profile.disableNonEssentialAnimations)
     }
 
     @Test
@@ -175,7 +206,7 @@ class LowRamSupportTest {
         assertTrue(profile.severe)
         assertTrue(profile.ultra)
         assertEquals(720, profile.qrMaxEdgePx)
-        assertEquals(4, profile.slowPollingMultiplier)
+        assertEquals(6, profile.slowPollingMultiplier)
     }
 
     @Test
@@ -207,7 +238,7 @@ class LowRamSupportTest {
         assertEquals(2_048L, profile.totalMemoryMb)
         assertEquals(468L, profile.availableMemoryMb)
         assertEquals(720, profile.qrMaxEdgePx)
-        assertEquals(4, profile.slowPollingMultiplier)
+        assertEquals(6, profile.slowPollingMultiplier)
     }
 
     @Test
@@ -245,5 +276,28 @@ class LowRamSupportTest {
 
         assertEquals(8, sampleSize)
         assertEquals(Bitmap.Config.RGB_565, qrDecodePreferredBitmapConfig(severeProfile))
+        assertEquals(Bitmap.Config.RGB_565, QrCodeGenerator.DefaultBitmapConfig)
+    }
+
+    @Test
+    fun runtimePressureEscalatesProfileToUltra() {
+        val base = LowRamProfile(enabled = true, severe = false, ultra = false)
+
+        val trimEscalated = resolveRuntimePressureProfile(
+            baseProfile = base,
+            trimLevel = ComponentCallbacks2.TRIM_MEMORY_RUNNING_CRITICAL
+        )
+        assertTrue(trimEscalated.ultra)
+        assertEquals(6, trimEscalated.slowPollingMultiplier)
+        assertEquals(4_000L, trimEscalated.screenPinningSteadyPollMillis)
+        assertEquals(8, trimEscalated.detectorMetadataCacheMaxEntries)
+
+        val memoryEscalated = resolveRuntimePressureProfile(
+            baseProfile = LowRamProfile(),
+            availableMemoryBytes = 512L * 1024L * 1024L
+        )
+        assertTrue(memoryEscalated.enabled)
+        assertTrue(memoryEscalated.severe)
+        assertTrue(memoryEscalated.ultra)
     }
 }

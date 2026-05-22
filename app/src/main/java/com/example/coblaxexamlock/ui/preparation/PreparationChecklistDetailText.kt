@@ -54,8 +54,11 @@ internal fun buildPreparationChecklistDetailText(
     state: PreparationScreenState,
     uiLanguage: UiLanguage,
     accessibilityInspection: AccessibilityInspectionResult,
-    accessibilityGuardEnabled: Boolean
+    accessibilityGuardEnabled: Boolean,
+    activeWizardStep: WizardStep? = null
 ): PreparationChecklistDetailText = with(state) {
+    fun shouldBuildFor(step: WizardStep): Boolean =
+        activeWizardStep == null || activeWizardStep == step
     val enabledAccessibilityPackages =
         if (showChecklistDetails) accessibilityInspection.activePackages else emptyList()
     val allowedAccessibilityServices =
@@ -68,7 +71,7 @@ internal fun buildPreparationChecklistDetailText(
         if (showChecklistDetails) accessibilityInspection.riskyPackages else emptyList()
     fun preparationDetailOrNull(english: () -> String, indonesian: () -> String): String? =
         preparationDetailOrNull(showChecklistDetails, uiLanguage, english, indonesian)
-    val keyboardDetail = preparationDetailOrNull(
+    val keyboardDetail = if (shouldBuildFor(WizardStep.DeviceSetup)) preparationDetailOrNull(
         english = {
         "Checked:\n" +
             "- Default input method package from Settings.Secure.DEFAULT_INPUT_METHOD\n" +
@@ -95,8 +98,8 @@ internal fun buildPreparationChecklistDetailText(
             "- Tidak diizinkan -> fallback ke keyboard internal\n" +
             "- Jika berubah saat ujian -> pelanggaran + alarm"
         }
-    )
-    val bluetoothDetail = preparationDetailOrNull(
+    ) else null
+    val bluetoothDetail = if (shouldBuildFor(WizardStep.DeviceSetup)) preparationDetailOrNull(
         english = {
         "Checked:\n" +
             "- Permission BLUETOOTH_CONNECT (Android 12+)\n" +
@@ -115,15 +118,19 @@ internal fun buildPreparationChecklistDetailText(
             "- Mulai ujian diblokir jika izin belum ada atau Bluetooth aktif\n" +
             "- Jika aktif saat ujian -> pelanggaran + alarm"
         }
-    )
-    val accessibilityActionDetail = if (!bypassAccessibility && accessibilityInspection.blockingServiceActive) {
+    ) else null
+    val accessibilityActionDetail = if (
+        shouldBuildFor(WizardStep.RuntimeInteraction) &&
+        !bypassAccessibility &&
+        accessibilityInspection.blockingServiceActive
+    ) {
         accessibilityBlockingCauseText(accessibilityInspection, uiLanguage) +
             "\n" +
             accessibilityBlockingFixText(accessibilityInspection, uiLanguage)
     } else {
         null
     }
-    val accessibilityAuditDetail = preparationDetailOrNull(
+    val accessibilityAuditDetail = if (shouldBuildFor(WizardStep.RuntimeInteraction)) preparationDetailOrNull(
         english = {
         "Checked:\n" +
             "- AccessibilityManager.isEnabled\n" +
@@ -170,12 +177,12 @@ internal fun buildPreparationChecklistDetailText(
             "- Mulai ujian diblokir jika aksesibilitas aktif\n" +
             "- Jika aktif saat ujian -> peringatan + alarm"
         }
-    )
+    ) else null
     val accessibilityDetail = appendPreparationAuditDetail(
         actionDetail = accessibilityActionDetail,
         auditDetail = accessibilityAuditDetail
     )
-    val overlayDetail = preparationDetailOrNull(
+    val overlayDetail = if (shouldBuildFor(WizardStep.RuntimeInteraction)) preparationDetailOrNull(
         english = {
         "Checked:\n" +
             "- Confirmed signal: obscured/partially obscured touch on SecureExamWebView\n" +
@@ -222,8 +229,8 @@ internal fun buildPreparationChecklistDetailText(
             "- Risiko heuristik hanya mengubah status warning dan quick fix\n" +
             "- Obscured touch atau fokus hilang mencurigakan memicu alarm + dialog acknowledge"
         }
-    )
-    val developerDetail = preparationDetailOrNull(
+    ) else null
+    val developerDetail = if (shouldBuildFor(WizardStep.DeviceIntegrity)) preparationDetailOrNull(
         english = {
         "Checked:\n" +
             "- Settings.Global.DEVELOPMENT_SETTINGS_ENABLED = ${adbInspection.developerOptionsRawValue}\n" +
@@ -244,8 +251,8 @@ internal fun buildPreparationChecklistDetailText(
             "- Mulai ujian diblokir jika Developer Mode atau ADB aktif\n" +
             "- Jika aktif saat ujian -> peringatan + alarm"
         }
-    )
-    val rootDetail = preparationDetailOrNull(
+    ) else null
+    val rootDetail = if (shouldBuildFor(WizardStep.DeviceIntegrity)) preparationDetailOrNull(
         english = {
         "Checked:\n" +
             "- Build tags contain test-keys\n" +
@@ -278,8 +285,8 @@ internal fun buildPreparationChecklistDetailText(
             "- Mulai ujian diblokir jika indikator root ditemukan\n" +
             "- Jika terdeteksi saat ujian -> peringatan + alarm"
         }
-    )
-    val signatureDetail = preparationDetailOrNull(
+    ) else null
+    val signatureDetail = if (shouldBuildFor(WizardStep.DeviceIntegrity)) preparationDetailOrNull(
         english = {
         "Checked:\n" +
             "- SHA-256 fingerprint of signing certificate\n" +
@@ -294,8 +301,8 @@ internal fun buildPreparationChecklistDetailText(
             "Dampak:\n" +
             "- Tidak cocok -> blok mulai ujian dan sarankan reinstall APK resmi"
         }
-    )
-    val virtualEnvironmentDetail = preparationDetailOrNull(
+    ) else null
+    val virtualEnvironmentDetail = if (shouldBuildFor(WizardStep.DeviceIntegrity)) preparationDetailOrNull(
         english = {
         "Checked:\n" +
             "- Build.FINGERPRINT tokens: ${preparationListSummary(VirtualFingerprintTokens)}\n" +
@@ -328,8 +335,8 @@ internal fun buildPreparationChecklistDetailText(
             "- Mulai ujian diblokir jika emulator/VM terdeteksi\n" +
             "- Jika terdeteksi saat ujian -> peringatan + alarm"
         }
-    )
-    val clipboardDetail = preparationDetailOrNull(
+    ) else null
+    val clipboardDetail = if (shouldBuildFor(WizardStep.Clipboard)) preparationDetailOrNull(
         english = {
         "Checked:\n" +
             "- Clipboard monitoring arms as soon as START EXAM MODE is pressed\n" +
@@ -366,8 +373,8 @@ internal fun buildPreparationChecklistDetailText(
             "Dampak:\n" +
         "- Perubahan clipboard memicu alarm (tidak memblokir start)"
         }
-    )
-    val screenPinningDetail = preparationDetailOrNull(
+    ) else null
+    val screenPinningDetail = if (shouldBuildFor(WizardStep.DeviceLock)) preparationDetailOrNull(
         english = {
         "Checked:\n" +
             "- lock_to_app_enabled from Settings.System then Settings.Secure\n" +
@@ -390,8 +397,8 @@ internal fun buildPreparationChecklistDetailText(
             "- Tidak tersedia -> Start Exam diblokir; gunakan perangkat yang mendukung atau bypass Secret Admin\n" +
             "- Jika bypass aktif -> lewati alur pin/lock-task"
         }
-    )
-    val accessibilityGuardDetail = preparationDetailOrNull(
+    ) else null
+    val accessibilityGuardDetail = if (shouldBuildFor(WizardStep.DeviceLock)) preparationDetailOrNull(
         english = {
         "Checked:\n" +
             "- CBX Lock Exam Guard accessibility service enabled: ${if (accessibilityGuardEnabled) "Yes" else "No"}\n" +
@@ -412,8 +419,8 @@ internal fun buildPreparationChecklistDetailText(
             "- Jika wajib tetapi nonaktif -> Start Exam diblokir\n" +
             "- Saat mode fallback, app switch dicatat dan app kembali ke ujian dengan alarm eskalatif"
         }
-    )
-    val appSwitchDetail = preparationDetailOrNull(
+    ) else null
+    val appSwitchDetail = if (shouldBuildFor(WizardStep.RuntimeSecurity)) preparationDetailOrNull(
         english = {
         "Checked:\n" +
             "- App Switch monitoring arms as soon as START EXAM MODE is pressed\n" +
@@ -468,7 +475,7 @@ internal fun buildPreparationChecklistDetailText(
             "- Jika screen pinning dibypass/tidak aktif, App Switch tetap aktif sebagai fallback guard\n" +
             "- Jika bypass aktif -> monitoring App Switch dilewati"
         }
-    )
+    ) else null
 
 
     PreparationChecklistDetailText(

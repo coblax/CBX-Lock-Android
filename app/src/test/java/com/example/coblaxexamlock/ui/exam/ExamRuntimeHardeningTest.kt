@@ -46,6 +46,37 @@ class ExamRuntimeHardeningTest {
     }
 
     @Test
+    fun activeExamTrimNeverDestroysActiveWebView() {
+        val action = resolveExamRuntimeMemoryAction(
+            shouldRespondToPressure = true,
+            examSessionStarted = true,
+            hasFullscreenCustomView = false,
+            clearActiveWebViewCacheAllowed = true
+        )
+
+        assertTrue(action.keepActiveWebView)
+        assertFalse(action.cleanupInactiveWebView)
+    }
+
+    @Test
+    fun webViewGenerationRejectsStaleCallbacks() {
+        val activeGeneration = nextExamWebViewGeneration(0L)
+        val staleGeneration = activeGeneration - 1L
+
+        assertTrue(isCurrentExamWebViewGeneration(activeGeneration, activeGeneration))
+        assertFalse(isCurrentExamWebViewGeneration(staleGeneration, activeGeneration))
+    }
+
+    @Test
+    fun webViewCleanupRunsOncePerGeneration() {
+        val generation = nextExamWebViewGeneration(3L)
+
+        assertTrue(shouldRunExamWebViewCleanup(generation, destroyedGeneration = null))
+        assertTrue(shouldRunExamWebViewCleanup(generation, destroyedGeneration = generation - 1L))
+        assertFalse(shouldRunExamWebViewCleanup(generation, destroyedGeneration = generation))
+    }
+
+    @Test
     fun preparationTrimCanCleanupInactiveWebView() {
         val action = resolveExamRuntimeMemoryAction(
             shouldRespondToPressure = true,

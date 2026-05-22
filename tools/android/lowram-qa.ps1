@@ -13,6 +13,8 @@ param(
     [switch]$SetViewport720x1280,
     [int]$PostInstallSettleSeconds = 0,
     [int]$IdleSeconds = 30,
+    [ValidateSet("Home", "Preparation", "ExamRuntime", "Full")]
+    [string]$Flow = "Home",
     [switch]$TraceStartup,
     [int]$StartupTraceSeconds = 45,
     [ValidateSet("None", "AppHealth", "StrictDevice")]
@@ -82,6 +84,119 @@ function Invoke-Adb([string]$adb, [string]$serial, [string[]]$arguments) {
         $fullArgs.Add($argument)
     }
     & $adb @fullArgs
+}
+
+function Read-UiDumpRaw([string]$adb, [string]$serial, [string]$outDir, [string]$name) {
+    $devicePath = "/sdcard/cbx-lowram-ui.xml"
+    Invoke-Adb $adb $serial @("shell", "uiautomator", "dump", $devicePath) | Out-Null
+    $raw = Invoke-Adb $adb $serial @("shell", "cat", $devicePath)
+    Invoke-Adb $adb $serial @("shell", "rm", "-f", $devicePath) | Out-Null
+    Write-TextFile (Join-Path $outDir $name) $raw
+    return ($raw -join "`n")
+}
+
+function Get-UiNodeCenterByText([string]$uiDump, [string[]]$candidates) {
+    if (-not $uiDump.Trim()) {
+        return $null
+    }
+    $nodes = $uiDump -split "<node "
+    foreach ($node in $nodes) {
+        $haystack = ""
+        if ($node -match "text=`"([^`"]*)`"") {
+            $haystack += " $($matches[1])"
+        }
+        if ($node -match "content-desc=`"([^`"]*)`"") {
+            $haystack += " $($matches[1])"
+        }
+        foreach ($candidate in $candidates) {
+            if ($haystack -and $haystack.IndexOf($candidate, [System.StringComparison]::OrdinalIgnoreCase) -ge 0) {
+                if ($node -match "bounds=`"\[(\d+),(\d+)\]\[(\d+),(\d+)\]`"") {
+                    return [ordered]@{
+                        x = [int]((([int]$matches[1]) + ([int]$matches[3])) / 2)
+                        y = [int]((([int]$matches[2]) + ([int]$matches[4])) / 2)
+                        text = $candidate
+                    }
+                }
+            }
+        }
+    }
+    return $null
+}
+
+function Invoke-TapByText(
+    [string]$adb,
+    [string]$serial,
+    [string]$outDir,
+    [string]$dumpName,
+    [string[]]$candidates
+) {
+    $raw = Read-UiDumpRaw $adb $serial $outDir $dumpName
+    $center = Get-UiNodeCenterByText $raw $candidates
+    if ($null -eq $center) {
+        return $false
+    }
+    Invoke-Adb $adb $serial @("shell", "input", "tap", "$($center.x)", "$($center.y)") | Out-Null
+    return $true
+}
+
+function Invoke-LowRamFlow(
+    [string]$adb,
+    [string]$serial,
+    [string]$packageName,
+    [string]$flow,
+    [string]$outDir
+) {
+    $events = New-Object System.Collections.Generic.List[string]
+    $events.Add("flow=$flow")
+    if ($flow -eq "Home") {
+        Write-TextFile (Join-Path $outDir "flow.txt") $events
+        return
+    }
+
+    Start-Sleep -Seconds 2
+    $openedPreparation = Invoke-TapByText $adb $serial $outDir "ui-home.xml" @(
+        "Direct Link",
+        "DIRECT LINK",
+        "EXAM_SKANSATP",
+        "Fast Exam",
+        "Ujian Cepat",
+        "Scan QR",
+        "Scan Exam"
+    )
+    $events.Add("open_preparation=$openedPreparation")
+    Start-Sleep -Seconds 5
+
+    if ($flow -eq "Preparation") {
+        Write-TextFile (Join-Path $outDir "flow.txt") $events
+        return
+    }
+
+    $startedExam = Invoke-TapByText $adb $serial $outDir "ui-preparation.xml" @(
+        "Start Exam Mode",
+        "Mulai Mode Ujian",
+        "Start Exam",
+        "Mulai Ujian",
+        "Mulai"
+    )
+    $events.Add("start_exam=$startedExam")
+    Start-Sleep -Seconds 8
+
+    if ($flow -eq "Full") {
+        $exitTapped = Invoke-TapByText $adb $serial $outDir "ui-runtime.xml" @(
+            "Exit",
+            "Keluar",
+            "Selesai",
+            "Home"
+        )
+        $events.Add("exit_best_effort=$exitTapped")
+        if (-not $exitTapped) {
+            Invoke-Adb $adb $serial @("shell", "input", "keyevent", "BACK") | Out-Null
+            $events.Add("exit_back_key=true")
+        }
+        Start-Sleep -Seconds 2
+    }
+
+    Write-TextFile (Join-Path $outDir "flow.txt") $events
 }
 
 function Resolve-LaunchComponent([string]$adb, [string]$serial, [string]$packageName) {
@@ -465,7 +580,8 @@ function Write-Summary(
     [string]$variant,
     [string]$apkPath,
     [string]$component,
-    [int]$idleSeconds
+    [int]$idleSeconds,
+    [string]$flow
 ) {
     $escapedPackage = [regex]::Escape($packageName)
     $startLines = Read-ArtifactLines $outDir "am-start-W.txt"
@@ -486,7 +602,7 @@ function Write-Summary(
         $filteredLogcat = $logcatLines | Where-Object {
             $_ -match $escapedPackage -or
             $_ -match "FATAL EXCEPTION|ANR in|AndroidRuntime|WebView|crash|Exception|lowmemorykiller|Application Not Responding" -or
-            $_ -match "ExamRuntimeHardening|WEBVIEW_RENDERER_GONE|WEBVIEW_RECOVERY_READY|WEBVIEW_EXIT_CLEANUP_|WEBVIEW_PROVIDER_HEALTH_|MEMORY_TRIM_HANDLED|DIAGNOSTIC_EXPORT_|NETWORK_DNS_PROBE_FAILED|NETWORK_CAPTIVE_PORTAL_DETECTED|VENDOR_CHECKLIST_OPENED|DEVICE_COMPAT_PROFILE_RESOLVED|PRE_EXAM_HEALTH_CHECK_|SCREEN_PINNING_ALREADY_ACTIVE|SCREEN_PINNING_REQUEST_SKIPPED_ALREADY_ACTIVE|OVERLAY_TOUCH_WARNING|OVERLAY_TOUCH_SUPPRESSED|SAMSUNG_LEGACY_PROFILE_ACTIVE|PINNING_[A-Z_]+|OVERLAY_PARTIAL_LEGACY_WARNING|START_EXAM_BLOCKED_HEALTH_CHECK|FIELD_READINESS_TEST_|DEVICE_SURVIVAL_POLICY_RESOLVED|COMPATIBILITY_SCORE_UPDATED|PREPARATION_AUTOFIX_|PREVIOUS_SESSION_|EXAM_REFRESH_|EXAM_FOOTER_LAYOUT_MODE"
+            $_ -match "ExamRuntimeHardening|WEBVIEW_RENDERER_GONE|WEBVIEW_RECOVERY_READY|WEBVIEW_EXIT_CLEANUP_|WEBVIEW_PROVIDER_HEALTH_|MEMORY_TRIM_HANDLED|LOW_RAM_RUNTIME_ESCALATED|DIAGNOSTIC_EXPORT_|NETWORK_DNS_PROBE_FAILED|NETWORK_CAPTIVE_PORTAL_DETECTED|VENDOR_CHECKLIST_OPENED|DEVICE_COMPAT_PROFILE_RESOLVED|PRE_EXAM_HEALTH_CHECK_|SCREEN_PINNING_ALREADY_ACTIVE|SCREEN_PINNING_REQUEST_SKIPPED_ALREADY_ACTIVE|OVERLAY_TOUCH_WARNING|OVERLAY_TOUCH_SUPPRESSED|SAMSUNG_LEGACY_PROFILE_ACTIVE|PINNING_[A-Z_]+|OVERLAY_PARTIAL_LEGACY_WARNING|START_EXAM_BLOCKED_HEALTH_CHECK|FIELD_READINESS_TEST_|DEVICE_SURVIVAL_POLICY_RESOLVED|COMPATIBILITY_SCORE_UPDATED|PREPARATION_AUTOFIX_|PREVIOUS_SESSION_|EXAM_REFRESH_|EXAM_FOOTER_LAYOUT_MODE"
         }
         Write-TextFile (Join-Path $outDir "logcat-filtered.txt") $filteredLogcat
     }
@@ -634,6 +750,7 @@ function Write-Summary(
         launchComponent = $resolvedComponent
         outDir = (Resolve-Path $outDir).Path
         idleSeconds = $idleSeconds
+        flow = $flow
         perfettoTrace = if ($perfettoTrace) { $perfettoTrace.FullName } else { $null }
         totalTimeMs = $totalTime
         waitTimeMs = $waitTime
@@ -778,6 +895,7 @@ function Write-Summary(
         "- Timestamp: $($summary.timestamp)",
         "- Package: $packageName",
         "- Variant: $variant",
+        "- Flow: $flow",
         "- Device serial: $(if ($resolvedSerial.Trim()) { $resolvedSerial.Trim() } else { '(default adb device)' })",
         "- Launch component: $resolvedComponent",
         "- Perfetto trace: $(if ($perfettoTrace) { $perfettoTrace.Name } else { 'not captured' })",
@@ -973,7 +1091,8 @@ if ($ParseExisting) {
         -variant $Variant `
         -apkPath $ApkPath `
         -component "" `
-        -idleSeconds $IdleSeconds
+        -idleSeconds $IdleSeconds `
+        -flow $Flow
     Write-Output "Low-RAM QA artifacts: $OutDir"
     Write-Output "Launch metric: $(if ($summary.launchMetricMs -ne $null) { "$($summary.launchMetricMs) ms ($($summary.launchMetricSource))" } else { 'not parsed' })"
     Write-Output "App Home ready: $(if ($summary.appHomeReadyMs -ne $null) { "$($summary.appHomeReadyMs) ms" } else { 'not parsed' })"
@@ -1080,12 +1199,15 @@ $component = Resolve-LaunchComponent $adb $Serial $Package
 $startLines = Invoke-Adb $adb $Serial @("shell", "am", "start", "-W", "-n", $component)
 Write-TextFile (Join-Path $OutDir "am-start-W.txt") $startLines
 
-if ($IdleSeconds -gt 0) {
-    Start-Sleep -Seconds $IdleSeconds
+$effectiveIdleSeconds = if ($Flow -eq "Full" -and $IdleSeconds -lt 60) { 60 } else { $IdleSeconds }
+Invoke-LowRamFlow $adb $Serial $Package $Flow $OutDir
+
+if ($effectiveIdleSeconds -gt 0) {
+    Start-Sleep -Seconds $effectiveIdleSeconds
 }
 
 if ($TraceStartup -and $startupTraceStarted) {
-    $minimumExtraWaitSeconds = [Math]::Max(0, $StartupTraceSeconds - $IdleSeconds + 2)
+    $minimumExtraWaitSeconds = [Math]::Max(0, $StartupTraceSeconds - $effectiveIdleSeconds + 2)
     if ($minimumExtraWaitSeconds -gt 0) {
         Start-Sleep -Seconds $minimumExtraWaitSeconds
     }
@@ -1129,7 +1251,7 @@ Write-TextFile (Join-Path $OutDir "logcat-full.txt") $logcatLines
 $filteredLogcat = $logcatLines | Where-Object {
     $_ -match [regex]::Escape($Package) -or
     $_ -match "FATAL EXCEPTION|ANR in|AndroidRuntime|WebView|crash|Exception|lowmemorykiller|Application Not Responding" -or
-    $_ -match "ExamRuntimeHardening|WEBVIEW_RENDERER_GONE|WEBVIEW_RECOVERY_READY|WEBVIEW_EXIT_CLEANUP_|WEBVIEW_PROVIDER_HEALTH_|MEMORY_TRIM_HANDLED|DIAGNOSTIC_EXPORT_|NETWORK_DNS_PROBE_FAILED|NETWORK_CAPTIVE_PORTAL_DETECTED|VENDOR_CHECKLIST_OPENED|DEVICE_COMPAT_PROFILE_RESOLVED|PRE_EXAM_HEALTH_CHECK_|SCREEN_PINNING_ALREADY_ACTIVE|SCREEN_PINNING_REQUEST_SKIPPED_ALREADY_ACTIVE|OVERLAY_TOUCH_WARNING|OVERLAY_TOUCH_SUPPRESSED|SAMSUNG_LEGACY_PROFILE_ACTIVE|PINNING_[A-Z_]+|OVERLAY_PARTIAL_LEGACY_WARNING|START_EXAM_BLOCKED_HEALTH_CHECK|FIELD_READINESS_TEST_|DEVICE_SURVIVAL_POLICY_RESOLVED|COMPATIBILITY_SCORE_UPDATED|PREPARATION_AUTOFIX_|PREVIOUS_SESSION_|EXAM_REFRESH_|EXAM_FOOTER_LAYOUT_MODE"
+    $_ -match "ExamRuntimeHardening|WEBVIEW_RENDERER_GONE|WEBVIEW_RECOVERY_READY|WEBVIEW_EXIT_CLEANUP_|WEBVIEW_PROVIDER_HEALTH_|MEMORY_TRIM_HANDLED|LOW_RAM_RUNTIME_ESCALATED|DIAGNOSTIC_EXPORT_|NETWORK_DNS_PROBE_FAILED|NETWORK_CAPTIVE_PORTAL_DETECTED|VENDOR_CHECKLIST_OPENED|DEVICE_COMPAT_PROFILE_RESOLVED|PRE_EXAM_HEALTH_CHECK_|SCREEN_PINNING_ALREADY_ACTIVE|SCREEN_PINNING_REQUEST_SKIPPED_ALREADY_ACTIVE|OVERLAY_TOUCH_WARNING|OVERLAY_TOUCH_SUPPRESSED|SAMSUNG_LEGACY_PROFILE_ACTIVE|PINNING_[A-Z_]+|OVERLAY_PARTIAL_LEGACY_WARNING|START_EXAM_BLOCKED_HEALTH_CHECK|FIELD_READINESS_TEST_|DEVICE_SURVIVAL_POLICY_RESOLVED|COMPATIBILITY_SCORE_UPDATED|PREPARATION_AUTOFIX_|PREVIOUS_SESSION_|EXAM_REFRESH_|EXAM_FOOTER_LAYOUT_MODE"
 }
 Write-TextFile (Join-Path $OutDir "logcat-filtered.txt") $filteredLogcat
 
@@ -1141,7 +1263,8 @@ $summary = Write-Summary `
     -variant $Variant `
     -apkPath $ApkPath `
     -component $component `
-    -idleSeconds $IdleSeconds
+    -idleSeconds $effectiveIdleSeconds `
+    -flow $Flow
 
 Write-Output "Low-RAM QA artifacts: $OutDir"
 Write-Output "Launch metric: $(if ($summary.launchMetricMs -ne $null) { "$($summary.launchMetricMs) ms ($($summary.launchMetricSource))" } else { 'not parsed' })"

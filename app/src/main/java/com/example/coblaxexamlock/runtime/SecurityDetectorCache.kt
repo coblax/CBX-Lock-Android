@@ -7,6 +7,7 @@ import com.example.coblaxexamlock.SignatureIntegrityResult
 import com.example.coblaxexamlock.WebViewCompatibilityStatus
 import com.example.coblaxexamlock.model.RootDetectionDetails
 import com.example.coblaxexamlock.readWebViewCompatibilityStatus as readWebViewCompatibilityStatusFresh
+import java.util.LinkedHashMap
 
 internal const val SecurityDetectorCacheTtlMillis = 2_500L
 
@@ -52,6 +53,7 @@ internal class CachedDetectorValue<T>(
 internal class CachedDetectorMap<K, V>(
     private val baseTtlMillis: Long,
     private val ttlMultiplier: () -> Int = { 1 },
+    private val maxEntries: () -> Int = { Int.MAX_VALUE },
     private val nowMillis: () -> Long = { SystemClock.elapsedRealtime() }
 ) {
     private data class Entry<V>(
@@ -60,7 +62,7 @@ internal class CachedDetectorMap<K, V>(
     )
 
     private val lock = Any()
-    private val cachedValues = mutableMapOf<K, Entry<V>>()
+    private val cachedValues = LinkedHashMap<K, Entry<V>>(16, 0.75f, true)
 
     fun read(key: K, forceRefresh: Boolean = false, loader: () -> V): V {
         if (!forceRefresh) {
@@ -79,6 +81,7 @@ internal class CachedDetectorMap<K, V>(
                 loadedAtMillis = nowMillis(),
                 value = value
             )
+            trimToMaxEntriesLocked()
         }
         return value
     }
@@ -86,6 +89,14 @@ internal class CachedDetectorMap<K, V>(
     fun invalidate() {
         synchronized(lock) {
             cachedValues.clear()
+        }
+    }
+
+    private fun trimToMaxEntriesLocked() {
+        val limit = maxEntries().coerceAtLeast(1)
+        while (cachedValues.size > limit) {
+            val eldestKey = cachedValues.entries.iterator().next().key
+            cachedValues.remove(eldestKey)
         }
     }
 }
@@ -107,11 +118,19 @@ internal object SecurityDetectorCache {
     @Volatile
     var cacheTtlMultiplier: Int = 1
 
+    @Volatile
+    var metadataCacheMaxEntries: Int = 64
+
     private val ttlMultiplier: () -> Int = { cacheTtlMultiplier }
+    private val metadataMaxEntries: () -> Int = { metadataCacheMaxEntries }
 
     private val packageInventory = CachedDetectorValue<InstalledPackageInventory>(SecurityDetectorCacheTtlMillis, ttlMultiplier)
     private val packageMetadata =
-        CachedDetectorMap<String, InstalledPackageMetadata?>(SecurityDetectorCacheTtlMillis, ttlMultiplier)
+        CachedDetectorMap<String, InstalledPackageMetadata?>(
+            SecurityDetectorCacheTtlMillis,
+            ttlMultiplier,
+            metadataMaxEntries
+        )
     private val screenRecorderPackages = CachedDetectorValue<List<String>>(SecurityDetectorCacheTtlMillis, ttlMultiplier)
     private val screenRecorderReports = CachedDetectorValue<List<ScreenRecorderAppReport>>(SecurityDetectorCacheTtlMillis, ttlMultiplier)
     private val fakeLocationPackages = CachedDetectorValue<List<String>>(SecurityDetectorCacheTtlMillis, ttlMultiplier)
@@ -130,19 +149,21 @@ internal object SecurityDetectorCache {
         context: Context,
         packageName: String,
         forceRefresh: Boolean = false,
-        packageInventory: InstalledPackageInventory? = null
+        packageInventory: InstalledPackageInventory? = null,
+        includeDisplayMetadata: Boolean = true
     ): InstalledPackageMetadata? {
         val normalizedPackageName = packageName.trim()
         if (normalizedPackageName.isBlank()) {
             return null
         }
-        return packageMetadata.read(normalizedPackageName, forceRefresh) {
+        val cacheKey = "$normalizedPackageName|display=$includeDisplayMetadata"
+        return packageMetadata.read(cacheKey, forceRefresh) {
             val appContext = context.applicationContext
             resolveInstalledPackageMetadata(
                 context = appContext,
                 packageName = normalizedPackageName,
                 packageInventory = packageInventory ?: readPackageInventory(appContext, forceRefresh),
-                includeDisplayMetadata = true
+                includeDisplayMetadata = includeDisplayMetadata
             )
         }
     }
@@ -159,7 +180,8 @@ internal object SecurityDetectorCache {
                         context = appContext,
                         packageName = packageName,
                         forceRefresh = forceRefresh,
-                        packageInventory = inventory
+                        packageInventory = inventory,
+                        includeDisplayMetadata = false
                     )
                 }
             )
@@ -178,7 +200,8 @@ internal object SecurityDetectorCache {
                         context = appContext,
                         packageName = packageName,
                         forceRefresh = forceRefresh,
-                        packageInventory = inventory
+                        packageInventory = inventory,
+                        includeDisplayMetadata = true
                     )
                 }
             )
@@ -197,7 +220,8 @@ internal object SecurityDetectorCache {
                         context = appContext,
                         packageName = packageName,
                         forceRefresh = forceRefresh,
-                        packageInventory = inventory
+                        packageInventory = inventory,
+                        includeDisplayMetadata = false
                     )
                 }
             )

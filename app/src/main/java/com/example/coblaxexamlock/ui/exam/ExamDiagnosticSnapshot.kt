@@ -64,6 +64,11 @@ internal data class ExamDiagnosticSnapshot(
     val slowPollingMultiplier: Int,
     val diagnosticLogMaxEntries: Int,
     val manualRefreshCooldownMillis: Long,
+    val screenPinningSteadyPollMillis: Long,
+    val accessibilityLivenessPollMillis: Long,
+    val examServerProbeIntervalMillis: Long,
+    val detectorMetadataCacheMaxEntries: Int,
+    val disableNonEssentialAnimations: Boolean,
     val compatibilityFamily: String,
     val compatibilityLabel: String,
     val compatibilityManufacturer: String,
@@ -139,7 +144,12 @@ internal data class ExamDiagnosticSnapshot(
             "qrMaxEdgePx" to qrMaxEdgePx,
             "slowPollingMultiplier" to slowPollingMultiplier,
             "diagnosticLogMaxEntries" to diagnosticLogMaxEntries,
-            "manualRefreshCooldownMillis" to manualRefreshCooldownMillis
+            "manualRefreshCooldownMillis" to manualRefreshCooldownMillis,
+            "screenPinningSteadyPollMillis" to screenPinningSteadyPollMillis,
+            "accessibilityLivenessPollMillis" to accessibilityLivenessPollMillis,
+            "examServerProbeIntervalMillis" to examServerProbeIntervalMillis,
+            "detectorMetadataCacheMaxEntries" to detectorMetadataCacheMaxEntries,
+            "disableNonEssentialAnimations" to disableNonEssentialAnimations
         ),
         "compatibility" to mapOf(
             "family" to compatibilityFamily,
@@ -236,7 +246,10 @@ internal data class ExamDiagnosticSnapshot(
                 "avail=${lowRamAvailableMemoryMb ?: "-"}MB total=${lowRamTotalMemoryMb ?: "-"}MB " +
                 "memoryLow=$lowRamMemoryLow override=$lowRamOverride detected=$lowRamDetectedProfile " +
                 "effective=$lowRamEffectiveProfile qrMaxEdgePx=$qrMaxEdgePx polling=${slowPollingMultiplier}x " +
-                "logMax=$diagnosticLogMaxEntries refreshCooldownMs=$manualRefreshCooldownMillis"
+                "logMax=$diagnosticLogMaxEntries refreshCooldownMs=$manualRefreshCooldownMillis " +
+                "pinningPollMs=$screenPinningSteadyPollMillis accessibilityPollMs=$accessibilityLivenessPollMillis " +
+                "serverProbeMs=$examServerProbeIntervalMillis detectorCacheMax=$detectorMetadataCacheMaxEntries " +
+                "reduceMotion=$disableNonEssentialAnimations"
         )
         appendLine("Compatibility: family=$compatibilityFamily label=$compatibilityLabel model=$compatibilityManufacturer/$compatibilityBrand/$compatibilityModel sdk=$compatibilitySdkInt skipPinningIfActive=$screenPinningSkipRequestWhenAlreadyActive")
         appendLine("Device survival: score=$survivalScore summary=$survivalPolicySummary")
@@ -331,6 +344,11 @@ internal fun buildExamDiagnosticSnapshot(input: ExamDiagnosticSnapshotInput): Ex
         slowPollingMultiplier = input.lowRamProfile.slowPollingMultiplier,
         diagnosticLogMaxEntries = input.lowRamProfile.diagnosticLogMaxEntries,
         manualRefreshCooldownMillis = input.lowRamProfile.manualRefreshCooldownMillis,
+        screenPinningSteadyPollMillis = input.lowRamProfile.screenPinningSteadyPollMillis,
+        accessibilityLivenessPollMillis = input.lowRamProfile.accessibilityLivenessPollMillis,
+        examServerProbeIntervalMillis = input.lowRamProfile.examServerProbeIntervalMillis,
+        detectorMetadataCacheMaxEntries = input.lowRamProfile.detectorMetadataCacheMaxEntries,
+        disableNonEssentialAnimations = input.lowRamProfile.disableNonEssentialAnimations,
         compatibilityFamily = compatibility.family.name,
         compatibilityLabel = compatibility.vendorDisplayName,
         compatibilityManufacturer = compatibility.manufacturer,
@@ -425,6 +443,11 @@ internal fun buildAdminExamDiagnosticSnapshot(
         slowPollingMultiplier = lowRamProfile.slowPollingMultiplier,
         diagnosticLogMaxEntries = lowRamProfile.diagnosticLogMaxEntries,
         manualRefreshCooldownMillis = lowRamProfile.manualRefreshCooldownMillis,
+        screenPinningSteadyPollMillis = lowRamProfile.screenPinningSteadyPollMillis,
+        accessibilityLivenessPollMillis = lowRamProfile.accessibilityLivenessPollMillis,
+        examServerProbeIntervalMillis = lowRamProfile.examServerProbeIntervalMillis,
+        detectorMetadataCacheMaxEntries = lowRamProfile.detectorMetadataCacheMaxEntries,
+        disableNonEssentialAnimations = lowRamProfile.disableNonEssentialAnimations,
         compatibilityFamily = deviceCompatibilityProfile.family.name,
         compatibilityLabel = deviceCompatibilityProfile.vendorDisplayName,
         compatibilityManufacturer = deviceCompatibilityProfile.manufacturer,
@@ -505,6 +528,11 @@ internal data class ExamDeviceFieldReport(
     val slowPollingMultiplier: Int,
     val diagnosticLogMaxEntries: Int,
     val manualRefreshCooldownMillis: Long,
+    val screenPinningSteadyPollMillis: Long,
+    val accessibilityLivenessPollMillis: Long,
+    val examServerProbeIntervalMillis: Long,
+    val detectorMetadataCacheMaxEntries: Int,
+    val disableNonEssentialAnimations: Boolean,
     val compatibilityFamily: String,
     val compatibilityLabel: String,
     val compatibilitySummary: String,
@@ -568,7 +596,12 @@ internal data class ExamDeviceFieldReport(
             "qrMaxEdgePx" to qrMaxEdgePx,
             "slowPollingMultiplier" to slowPollingMultiplier,
             "diagnosticLogMaxEntries" to diagnosticLogMaxEntries,
-            "manualRefreshCooldownMillis" to manualRefreshCooldownMillis
+            "manualRefreshCooldownMillis" to manualRefreshCooldownMillis,
+            "screenPinningSteadyPollMillis" to screenPinningSteadyPollMillis,
+            "accessibilityLivenessPollMillis" to accessibilityLivenessPollMillis,
+            "examServerProbeIntervalMillis" to examServerProbeIntervalMillis,
+            "detectorMetadataCacheMaxEntries" to detectorMetadataCacheMaxEntries,
+            "disableNonEssentialAnimations" to disableNonEssentialAnimations
         ),
         "compatibility" to mapOf(
             "family" to compatibilityFamily,
@@ -640,7 +673,10 @@ internal data class ExamDeviceFieldReport(
                 "avail=${lowRamAvailableMemoryMb ?: "-"}MB total=${lowRamTotalMemoryMb ?: "-"}MB " +
                 "memoryLow=$lowRamMemoryLow override=$lowRamOverride detected=$lowRamDetectedProfile " +
                 "effective=$lowRamEffectiveProfile qrMaxEdgePx=$qrMaxEdgePx polling=${slowPollingMultiplier}x " +
-                "logMax=$diagnosticLogMaxEntries refreshCooldownMs=$manualRefreshCooldownMillis"
+                "logMax=$diagnosticLogMaxEntries refreshCooldownMs=$manualRefreshCooldownMillis " +
+                "pinningPollMs=$screenPinningSteadyPollMillis accessibilityPollMs=$accessibilityLivenessPollMillis " +
+                "serverProbeMs=$examServerProbeIntervalMillis detectorCacheMax=$detectorMetadataCacheMaxEntries " +
+                "reduceMotion=$disableNonEssentialAnimations"
         )
         appendLine("Compatibility: family=$compatibilityFamily label=$compatibilityLabel")
         appendLine("Compatibility summary: $compatibilitySummary")
@@ -709,6 +745,11 @@ internal fun buildAdminDeviceFieldReport(
         slowPollingMultiplier = lowRamProfile.slowPollingMultiplier,
         diagnosticLogMaxEntries = lowRamProfile.diagnosticLogMaxEntries,
         manualRefreshCooldownMillis = lowRamProfile.manualRefreshCooldownMillis,
+        screenPinningSteadyPollMillis = lowRamProfile.screenPinningSteadyPollMillis,
+        accessibilityLivenessPollMillis = lowRamProfile.accessibilityLivenessPollMillis,
+        examServerProbeIntervalMillis = lowRamProfile.examServerProbeIntervalMillis,
+        detectorMetadataCacheMaxEntries = lowRamProfile.detectorMetadataCacheMaxEntries,
+        disableNonEssentialAnimations = lowRamProfile.disableNonEssentialAnimations,
         compatibilityFamily = deviceCompatibilityProfile.family.name,
         compatibilityLabel = deviceCompatibilityProfile.vendorDisplayName,
         compatibilitySummary = redactDiagnosticDetail(deviceCompatibilityProfile.diagnosticSummary()),
