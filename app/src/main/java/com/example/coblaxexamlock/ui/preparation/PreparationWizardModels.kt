@@ -126,11 +126,12 @@ internal data class WizardStepActionCoverage(
         get() = hasIssue && !hasActionOrNotice
 }
 
+@Suppress("UNUSED_PARAMETER")
 internal fun resolvePreparationWizardPayloadBuildMode(
     lowRamProfile: LowRamProfile,
     showChecklistDetails: Boolean
 ): PreparationWizardPayloadBuildMode {
-    return if (!lowRamProfile.enabled || showChecklistDetails) {
+    return if (!lowRamProfile.enabled) {
         PreparationWizardPayloadBuildMode.FullChecklist
     } else {
         PreparationWizardPayloadBuildMode.ActiveStepOnly

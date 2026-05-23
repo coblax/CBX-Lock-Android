@@ -29,6 +29,7 @@ import com.example.coblaxexamlock.persistence.readSavedUiLanguage
 import com.example.coblaxexamlock.persistence.saveUiLanguage
 import com.example.coblaxexamlock.resolveDetectedLowRamProfile
 import com.example.coblaxexamlock.resolveLowRamProfile
+import com.example.coblaxexamlock.runtime.LowRamDispatchers
 import com.example.coblaxexamlock.runtime.SecurityDetectorCache
 import com.example.coblaxexamlock.saveLowRamProfileOverride
 import com.example.coblaxexamlock.ui.admin.ExamLockLowRamHomeScreen
@@ -51,6 +52,8 @@ internal fun applyLowRamRuntimeDetectorBudget(lowRamProfile: LowRamProfile) {
         else -> 1
     }
     SecurityDetectorCache.metadataCacheMaxEntries = lowRamProfile.detectorMetadataCacheMaxEntries
+    SecurityDetectorCache.skipDisplayMetadataDefault = lowRamProfile.skipDisplayMetadataInScan
+    LowRamDispatchers.detectorParallelism = lowRamProfile.detectorParallelism
 }
 
 @Composable
@@ -187,11 +190,12 @@ internal fun AppContent(
                     effectiveProfile = lowRamProfile,
                     onOverrideChange = { override ->
                         saveLowRamProfileOverride(context, override)
-                        lowRamProfile = applyLowRamProfileOverride(
+                        val updatedProfile = applyLowRamProfileOverride(
                             detectedProfile = detectedLowRamProfile,
                             override = override
                         )
-                        applyLowRamRuntimeDetectorBudget(lowRamProfile)
+                        lowRamProfile = updatedProfile
+                        applyLowRamRuntimeDetectorBudget(updatedProfile)
                     },
                     onDismiss = { showPerformanceProfileDialog = false }
                 )

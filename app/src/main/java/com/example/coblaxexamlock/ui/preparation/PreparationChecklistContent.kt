@@ -35,6 +35,7 @@ import androidx.lifecycle.Lifecycle
 import androidx.lifecycle.LifecycleEventObserver
 import com.example.coblaxexamlock.BuildConfig
 import com.example.coblaxexamlock.LocalLowRamProfile
+import com.example.coblaxexamlock.LowRamProfile
 import com.example.coblaxexamlock.i18n.LocalUiLanguage
 import com.example.coblaxexamlock.i18n.localized
 import com.example.coblaxexamlock.i18n.tr
@@ -65,6 +66,11 @@ private inline fun <T> debugMeasurePreparationWork(label: String, block: () -> T
     }
 }
 
+internal fun shouldBuildFullPreparationChecklistText(
+    lowRamProfile: LowRamProfile,
+    showFullChecklist: Boolean
+): Boolean = showFullChecklist && !lowRamProfile.enabled
+
 @Composable
 internal fun ExamSecurityPreparationScreenContent(
     state: PreparationScreenState,
@@ -80,6 +86,7 @@ internal fun ExamSecurityPreparationScreenContent(
     val severeLowRamPreparation = lowRamProfile.severe
     val ultraLowRamPreparation = lowRamProfile.ultra
     val showFullChecklist = !ultraLowRamPreparation || showChecklistDetails
+    val useLazyChecklistSectionText = lowRamProfile.enabled
     val accessibilityInspection = remember(
         context,
         accessibilityServiceEnabled,
@@ -286,10 +293,11 @@ internal fun ExamSecurityPreparationScreenContent(
         accessibilityGuardAvailable,
         accessibilityGuardRequired,
         needsBluetoothPermission,
-        showFullChecklist
+        showFullChecklist,
+        useLazyChecklistSectionText
     ) {
         debugMeasurePreparationWork("buildPreparationChecklistText") {
-            if (showFullChecklist) {
+            if (shouldBuildFullPreparationChecklistText(lowRamProfile, showFullChecklist)) {
                 buildPreparationChecklistText(
                     state = state,
                     uiLanguage = uiLanguage,
@@ -301,6 +309,42 @@ internal fun ExamSecurityPreparationScreenContent(
                 )
             } else {
                 null
+            }
+        }
+    }
+    @Composable
+    fun rememberChecklistTextForStep(step: WizardStep): PreparationChecklistText? {
+        if (!showFullChecklist) {
+            return null
+        }
+        checklistText?.let { return it }
+        return remember(
+            step,
+            state.session,
+            state.network,
+            state.device,
+            state.location,
+            state.runtimeSecurity,
+            state.bypass,
+            state.diagnostics,
+            uiLanguage,
+            accessibilityInspection,
+            accessibilityGuardEnabled,
+            accessibilityGuardAvailable,
+            accessibilityGuardRequired,
+            needsBluetoothPermission
+        ) {
+            debugMeasurePreparationWork("buildPreparationWizardStepText:${step.name}") {
+                buildPreparationWizardStepText(
+                    step = step,
+                    state = state,
+                    uiLanguage = uiLanguage,
+                    accessibilityInspection = accessibilityInspection,
+                    accessibilityGuardEnabled = accessibilityGuardEnabled,
+                    accessibilityGuardAvailable = accessibilityGuardAvailable,
+                    accessibilityGuardRequired = accessibilityGuardRequired,
+                    needsBluetoothPermission = needsBluetoothPermission
+                )
             }
         }
     }
@@ -397,108 +441,125 @@ internal fun ExamSecurityPreparationScreenContent(
                     telegramHelperText = telegramHelperText
                 )
             }
-            val visibleChecklistText = checklistText
-            if (visibleChecklistText != null) {
+            if (showFullChecklist) {
                 item(key = "checklist_device_setup") {
                     CollapsibleChecklistSection("checklist_device_setup", sectionHealthMap["checklist_device_setup"]) {
-                        PreparationDeviceSetupSection(
-                            device = state.device,
-                            bypass = state.bypass,
-                            text = visibleChecklistText,
-                            sendingSection = state.session.sendingSection,
-                            needsBluetoothPermission = needsBluetoothPermission,
-                            onRequestSectionReport = actions.session.onRequestSectionReport
-                        )
+                        rememberChecklistTextForStep(WizardStep.DeviceSetup)?.let { visibleChecklistText ->
+                            PreparationDeviceSetupSection(
+                                device = state.device,
+                                bypass = state.bypass,
+                                text = visibleChecklistText,
+                                sendingSection = state.session.sendingSection,
+                                needsBluetoothPermission = needsBluetoothPermission,
+                                onRequestSectionReport = actions.session.onRequestSectionReport
+                            )
+                        }
                     }
                 }
                 item(key = "checklist_connectivity") {
                     CollapsibleChecklistSection("checklist_connectivity", sectionHealthMap["checklist_connectivity"]) {
-                        PreparationConnectivitySection(
-                            text = visibleChecklistText,
-                            sendingSection = state.session.sendingSection,
-                            onRequestSectionReport = actions.session.onRequestSectionReport
-                        )
+                        rememberChecklistTextForStep(WizardStep.Connectivity)?.let { visibleChecklistText ->
+                            PreparationConnectivitySection(
+                                text = visibleChecklistText,
+                                sendingSection = state.session.sendingSection,
+                                onRequestSectionReport = actions.session.onRequestSectionReport
+                            )
+                        }
                     }
                 }
                 item(key = "checklist_device_health") {
                     CollapsibleChecklistSection("checklist_device_health", sectionHealthMap["checklist_device_health"]) {
-                        PreparationDeviceHealthSection(
-                            device = state.device,
-                            bypass = state.bypass,
-                            text = visibleChecklistText,
-                            sendingSection = state.session.sendingSection,
-                            onRequestSectionReport = actions.session.onRequestSectionReport
-                        )
+                        rememberChecklistTextForStep(WizardStep.DeviceHealth)?.let { visibleChecklistText ->
+                            PreparationDeviceHealthSection(
+                                device = state.device,
+                                bypass = state.bypass,
+                                text = visibleChecklistText,
+                                sendingSection = state.session.sendingSection,
+                                onRequestSectionReport = actions.session.onRequestSectionReport
+                            )
+                        }
                     }
                 }
                 item(key = "checklist_runtime_interaction") {
                     CollapsibleChecklistSection("checklist_runtime_interaction", sectionHealthMap["checklist_runtime_interaction"]) {
-                        PreparationRuntimeInteractionSection(
-                            runtimeSecurity = state.runtimeSecurity,
-                            bypass = state.bypass,
-                            text = visibleChecklistText,
-                            sendingSection = state.session.sendingSection,
-                            accessibilityInspection = accessibilityInspection,
-                            onRequestSectionReport = actions.session.onRequestSectionReport
-                        )
+                        rememberChecklistTextForStep(WizardStep.RuntimeInteraction)?.let { visibleChecklistText ->
+                            PreparationRuntimeInteractionSection(
+                                runtimeSecurity = state.runtimeSecurity,
+                                bypass = state.bypass,
+                                text = visibleChecklistText,
+                                sendingSection = state.session.sendingSection,
+                                accessibilityInspection = accessibilityInspection,
+                                onRequestSectionReport = actions.session.onRequestSectionReport
+                            )
+                        }
                     }
                 }
                 item(key = "checklist_device_integrity") {
                     CollapsibleChecklistSection("checklist_device_integrity", sectionHealthMap["checklist_device_integrity"]) {
-                        PreparationDeviceIntegritySection(
-                            device = state.device,
-                            bypass = state.bypass,
-                            text = visibleChecklistText,
-                            sendingSection = state.session.sendingSection,
-                            onRequestSectionReport = actions.session.onRequestSectionReport
-                        )
+                        rememberChecklistTextForStep(WizardStep.DeviceIntegrity)?.let { visibleChecklistText ->
+                            PreparationDeviceIntegritySection(
+                                device = state.device,
+                                bypass = state.bypass,
+                                text = visibleChecklistText,
+                                sendingSection = state.session.sendingSection,
+                                onRequestSectionReport = actions.session.onRequestSectionReport
+                            )
+                        }
                     }
                 }
                 item(key = "checklist_runtime_clipboard") {
                     CollapsibleChecklistSection("checklist_runtime_clipboard", sectionHealthMap["checklist_runtime_clipboard"]) {
-                        PreparationRuntimeClipboardSection(
-                            runtimeSecurity = state.runtimeSecurity,
-                            bypass = state.bypass,
-                            text = visibleChecklistText,
-                            sendingSection = state.session.sendingSection,
-                            onRequestSectionReport = actions.session.onRequestSectionReport
-                        )
+                        rememberChecklistTextForStep(WizardStep.Clipboard)?.let { visibleChecklistText ->
+                            PreparationRuntimeClipboardSection(
+                                runtimeSecurity = state.runtimeSecurity,
+                                bypass = state.bypass,
+                                text = visibleChecklistText,
+                                sendingSection = state.session.sendingSection,
+                                onRequestSectionReport = actions.session.onRequestSectionReport
+                            )
+                        }
                     }
                 }
                 item(key = "checklist_location") {
                     CollapsibleChecklistSection("checklist_location", sectionHealthMap["checklist_location"]) {
-                        PreparationLocationSection(
-                            location = state.location,
-                            bypass = state.bypass,
-                            text = visibleChecklistText,
-                            sendingSection = state.session.sendingSection,
-                            onRequestSectionReport = actions.session.onRequestSectionReport
-                        )
+                        rememberChecklistTextForStep(WizardStep.Location)?.let { visibleChecklistText ->
+                            PreparationLocationSection(
+                                location = state.location,
+                                bypass = state.bypass,
+                                text = visibleChecklistText,
+                                sendingSection = state.session.sendingSection,
+                                onRequestSectionReport = actions.session.onRequestSectionReport
+                            )
+                        }
                     }
                 }
                 item(key = "checklist_device_lock") {
                     CollapsibleChecklistSection("checklist_device_lock", sectionHealthMap["checklist_device_lock"]) {
-                        PreparationDeviceLockSection(
-                            device = state.device,
-                            bypass = state.bypass,
-                            text = visibleChecklistText,
-                            sendingSection = state.session.sendingSection,
-                            accessibilityGuardAvailable = accessibilityGuardAvailable,
-                            accessibilityGuardRequired = accessibilityGuardRequired,
-                            accessibilityGuardEnabled = accessibilityGuardEnabled,
-                            onRequestSectionReport = actions.session.onRequestSectionReport
-                        )
+                        rememberChecklistTextForStep(WizardStep.DeviceLock)?.let { visibleChecklistText ->
+                            PreparationDeviceLockSection(
+                                device = state.device,
+                                bypass = state.bypass,
+                                text = visibleChecklistText,
+                                sendingSection = state.session.sendingSection,
+                                accessibilityGuardAvailable = accessibilityGuardAvailable,
+                                accessibilityGuardRequired = accessibilityGuardRequired,
+                                accessibilityGuardEnabled = accessibilityGuardEnabled,
+                                onRequestSectionReport = actions.session.onRequestSectionReport
+                            )
+                        }
                     }
                 }
                 item(key = "checklist_runtime_static_security") {
                     CollapsibleChecklistSection("checklist_runtime_static_security", sectionHealthMap["checklist_runtime_static_security"]) {
-                        PreparationRuntimeStaticSecuritySection(
-                            runtimeSecurity = state.runtimeSecurity,
-                            bypass = state.bypass,
-                            text = visibleChecklistText,
-                            sendingSection = state.session.sendingSection,
-                            onRequestSectionReport = actions.session.onRequestSectionReport
-                        )
+                        rememberChecklistTextForStep(WizardStep.RuntimeSecurity)?.let { visibleChecklistText ->
+                            PreparationRuntimeStaticSecuritySection(
+                                runtimeSecurity = state.runtimeSecurity,
+                                bypass = state.bypass,
+                                text = visibleChecklistText,
+                                sendingSection = state.session.sendingSection,
+                                onRequestSectionReport = actions.session.onRequestSectionReport
+                            )
+                        }
                     }
                 }
             } else {

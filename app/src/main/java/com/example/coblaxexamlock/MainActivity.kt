@@ -24,8 +24,8 @@ import com.example.coblaxexamlock.config.AdminKeyFastExamLabel
 import com.example.coblaxexamlock.config.AdminPreferencesName
 import com.example.coblaxexamlock.config.FastExamName
 import com.example.coblaxexamlock.config.SecretTapWindowMs
-import com.example.coblaxexamlock.runtime.SecurityDetectorCache
 import com.example.coblaxexamlock.ui.app.AppContent
+import com.example.coblaxexamlock.ui.app.applyLowRamRuntimeDetectorBudget
 import com.example.coblaxexamlock.ui.theme.COBLAXEXAMLOCKTheme
 import java.lang.ref.WeakReference
 
@@ -65,14 +65,7 @@ class MainActivity : ComponentActivity() {
     }
 
     private fun applyLowRamRuntimeTuning(lowRamProfile: LowRamProfile) {
-        SecurityDetectorCache.cacheTtlMultiplier = when {
-            lowRamProfile.ultra -> 3
-            lowRamProfile.enabled -> 2
-            else -> 1
-        }
-        SecurityDetectorCache.metadataCacheMaxEntries = lowRamProfile.detectorMetadataCacheMaxEntries
-        SecurityDetectorCache.skipDisplayMetadataDefault = lowRamProfile.skipDisplayMetadataInScan
-        com.example.coblaxexamlock.runtime.LowRamDispatchers.detectorParallelism = lowRamProfile.detectorParallelism
+        applyLowRamRuntimeDetectorBudget(lowRamProfile)
     }
 
     private fun shouldUseNativePreflightShell(lowRamProfile: LowRamProfile): Boolean {

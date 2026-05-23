@@ -1,0 +1,760 @@
+package com.example.coblaxexamlock.ui.exam
+
+import android.content.Context
+import android.os.SystemClock
+import androidx.compose.runtime.MutableState
+import com.example.coblaxexamlock.AccessibilityExamGuardStore
+import com.example.coblaxexamlock.ActivityLockTaskBridge
+import com.example.coblaxexamlock.AdbInspection
+import com.example.coblaxexamlock.AppSwitchSuppressionReason
+import com.example.coblaxexamlock.DeviceTimeSecurityStatus
+import com.example.coblaxexamlock.DeviceCompatibilityProfile
+import com.example.coblaxexamlock.ExamAlarmSeverity
+import com.example.coblaxexamlock.ExamPolicyEngine
+import com.example.coblaxexamlock.ExamQrPayload
+import com.example.coblaxexamlock.ExamScheduleValidator
+import com.example.coblaxexamlock.FakeLocationBypassState
+import com.example.coblaxexamlock.GeofenceBypassState
+import com.example.coblaxexamlock.GeofenceConfigParseResult
+import com.example.coblaxexamlock.GeofenceSecurityStatus
+import com.example.coblaxexamlock.LocationPolicySource
+import com.example.coblaxexamlock.LocationSpoofSecurityStatus
+import com.example.coblaxexamlock.OverlayRiskResult
+import com.example.coblaxexamlock.PinningActivationGraceWindowMillis
+import com.example.coblaxexamlock.PinningActivationPurpose
+import com.example.coblaxexamlock.PinningActivationState
+import com.example.coblaxexamlock.RootSecurityStatus
+import com.example.coblaxexamlock.ScreenPinningEnforcer
+import com.example.coblaxexamlock.ScreenPinningMode
+import com.example.coblaxexamlock.ScreenPinningSignals
+import com.example.coblaxexamlock.SignatureIntegrityResult
+import com.example.coblaxexamlock.SplitLocationSecurityStatus
+import com.example.coblaxexamlock.TrustedNetworkTimeCoordinator
+import com.example.coblaxexamlock.WebViewCompatibilityStatus
+import com.example.coblaxexamlock.evaluateFakeLocationSecurity
+import com.example.coblaxexamlock.evaluateGeofenceSecurity
+import com.example.coblaxexamlock.evaluateLocationFixQuality
+import com.example.coblaxexamlock.i18n.localized
+import com.example.coblaxexamlock.isExamGuardAccessibilityAvailable
+import com.example.coblaxexamlock.isExamGuardAccessibilityEnabled
+import com.example.coblaxexamlock.model.ExamBatteryStatus
+import com.example.coblaxexamlock.model.DiagnosticEventLevel
+import com.example.coblaxexamlock.model.NetworkReadinessStatus
+import com.example.coblaxexamlock.runtime.SecurityDetectorCache
+import com.example.coblaxexamlock.runtime.getExternalDisplayCount
+import com.example.coblaxexamlock.runtime.getVirtualEnvironmentDiagnosticsOnIo
+import com.example.coblaxexamlock.runtime.hasFineLocationPermission
+import com.example.coblaxexamlock.runtime.hasLocationPermissionForWifi
+import com.example.coblaxexamlock.runtime.isInAnySplitMode
+import com.example.coblaxexamlock.runtime.isLocationServicesEnabled
+import com.example.coblaxexamlock.runtime.readNetworkReadinessStatus
+import com.example.coblaxexamlock.runtime.requiresBluetoothExamPermission
+import com.example.coblaxexamlock.ui.preparation.PreExamHealthCheckInput
+import com.example.coblaxexamlock.ui.preparation.buildPreExamHealthSnapshot
+import com.example.coblaxexamlock.ui.preparation.preExamHealthStartBlocker
+import kotlinx.coroutines.CoroutineScope
+import kotlinx.coroutines.launch
+
+internal class ExamRuntimeStartBlockCallbacks(
+    val recordAction: (String, String, DiagnosticEventLevel) -> Unit,
+    val setSecurityIssueDialogTitle: (String) -> Unit,
+    val setSecurityIssueDialogMessage: (String) -> Unit
+)
+
+internal fun applyExamRuntimeStartBlockMessage(
+    message: StartExamBlockMessage,
+    level: DiagnosticEventLevel = DiagnosticEventLevel.WARNING,
+    callbacks: ExamRuntimeStartBlockCallbacks
+) {
+    callbacks.recordAction(message.code, message.details, level)
+    callbacks.setSecurityIssueDialogTitle(message.title)
+    callbacks.setSecurityIssueDialogMessage(message.message)
+}
+
+internal class ExamRuntimeStartPrecheckCallbacks(
+    val recordAction: (String, String, DiagnosticEventLevel) -> Unit,
+    val applyVirtualEnvironmentDiagnostics: (com.example.coblaxexamlock.model.VirtualEnvironmentDiagnostics, Boolean) -> Unit,
+    val refreshReverseEngineeringStatus: () -> Unit,
+    val refreshIntegrityGuard: () -> Unit,
+    val refreshScreenPinningDiagnostics: () -> Unit,
+    val refreshKeyboardSecurity: (Boolean) -> Unit,
+    val refreshBluetoothSecurity: (Boolean) -> Unit,
+    val refreshDeviceIntegritySecurity: (Boolean) -> Unit,
+    val applyStartExamBlockMessage: (StartExamBlockMessage) -> Unit,
+    val refreshDeviceTimeSecurity: (String, Boolean) -> DeviceTimeSecurityStatus,
+    val applyNetworkReadinessStatus: (String, NetworkReadinessStatus) -> Unit,
+    val checkSignatureIntegrity: (Boolean) -> SignatureIntegrityResult,
+    val currentGeofenceEventDetails: (String, GeofenceSecurityStatus) -> String,
+    val currentFakeLocationEventDetails: (String, LocationSpoofSecurityStatus) -> String,
+    val requestBluetoothPermission: () -> Unit,
+    val requestLocationPermission: () -> Unit,
+    val launchFinalLocationValidation: (Long) -> Unit,
+    val debugLogExamStart: (String) -> Unit
+)
+
+internal suspend fun runExamRuntimeStartPrechecks(
+    context: Context,
+    uiLanguage: com.example.coblaxexamlock.model.UiLanguage,
+    payload: ExamQrPayload,
+    lockTaskBridge: ActivityLockTaskBridge,
+    screenPinningMode: ScreenPinningMode,
+    screenPinningAvailable: Boolean,
+    deviceCompatibilityProfile: DeviceCompatibilityProfile,
+    overlayRiskResult: OverlayRiskResult,
+    webViewCompatibilityStatus: WebViewCompatibilityStatus,
+    webViewRecoveryStateName: String,
+    batteryStatus: ExamBatteryStatus,
+    geofenceConfigParseResult: GeofenceConfigParseResult,
+    effectiveLocationPolicySource: LocationPolicySource,
+    geofenceBypassState: GeofenceBypassState,
+    fakeLocationBypassState: FakeLocationBypassState,
+    flowUiState: ExamRuntimeFlowUiState,
+    securityUiState: ExamRuntimeSecurityUiState,
+    adminUiState: ExamRuntimeAdminUiState,
+    accessibilityGuardEnabledState: MutableState<Boolean>,
+    bypassScreenPinning: Boolean,
+    bypassOverlay: Boolean,
+    bypassVpn: Boolean,
+    bypassDeviceTime: Boolean,
+    bypassKeyboardPolicy: Boolean,
+    bypassBluetooth: Boolean,
+    bypassAccessibility: Boolean,
+    bypassAdb: Boolean,
+    bypassVirtualEnvironment: Boolean,
+    bypassRoot: Boolean,
+    bypassScreenRecorder: Boolean,
+    bypassDisplayMirror: Boolean,
+    bypassMultiWindow: Boolean,
+    bypassGeofence: Boolean,
+    bypassFakeLocation: Boolean,
+    callbacks: ExamRuntimeStartPrecheckCallbacks
+) {
+    if (flowUiState.webViewSessionResetInFlight.value) {
+        return
+    }
+    val startExamPressedAt = SystemClock.elapsedRealtime()
+    flowUiState.webViewSessionResetError.value = null
+    callbacks.recordAction("START_EXAM_PRESSED", "-", DiagnosticEventLevel.INFO)
+    val startVirtualEnvironmentDiagnostics = getVirtualEnvironmentDiagnosticsOnIo(
+        context = context,
+        forceRefresh = true
+    )
+    callbacks.applyVirtualEnvironmentDiagnostics(startVirtualEnvironmentDiagnostics, false)
+    debugMeasureExamStartWork("startExamSession:tampers") {
+        callbacks.refreshReverseEngineeringStatus()
+        callbacks.refreshIntegrityGuard()
+    }
+    if (securityUiState.tamperDetected.value || securityUiState.integrityTamperDetected.value) {
+        callbacks.applyStartExamBlockMessage(resolveStartExamTamperBlockMessage(uiLanguage))
+        return
+    }
+
+    callbacks.refreshScreenPinningDiagnostics()
+    val latestAccessibilityGuardAvailable = isExamGuardAccessibilityAvailable(context)
+    val latestAccessibilityGuardEnabled = isExamGuardAccessibilityEnabled(context)
+    accessibilityGuardEnabledState.value = latestAccessibilityGuardEnabled
+    val screenPinningBlock = resolveStartExamScreenPinningBlockMessage(
+        uiLanguage = uiLanguage,
+        screenPinningMode = screenPinningMode,
+        screenPinningAvailable = screenPinningAvailable,
+        screenPinningActive = lockTaskBridge.active(),
+        accessibilityGuardAvailable = latestAccessibilityGuardAvailable,
+        accessibilityGuardEnabled = latestAccessibilityGuardEnabled
+    )
+    if (screenPinningBlock != null) {
+        callbacks.applyStartExamBlockMessage(screenPinningBlock)
+        return
+    } else if (
+        screenPinningMode == ScreenPinningMode.Enforced &&
+        !screenPinningAvailable &&
+        latestAccessibilityGuardEnabled
+    ) {
+        callbacks.recordAction(
+            "ACCESSIBILITY_GUARD_ENABLED_REQUIRED",
+            "screen_pinning_available=false | accessibility_guard_enabled=true",
+            DiagnosticEventLevel.INFO
+        )
+    }
+
+    debugMeasureExamStartWork("startExamSession:device_prechecks") {
+        callbacks.refreshScreenPinningDiagnostics()
+        accessibilityGuardEnabledState.value = isExamGuardAccessibilityEnabled(context)
+        callbacks.refreshKeyboardSecurity(false)
+        callbacks.refreshBluetoothSecurity(false)
+        callbacks.refreshDeviceIntegritySecurity(false)
+    }
+    val devicePrecheckScreenPinningBlock = resolveStartExamScreenPinningBlockMessage(
+        uiLanguage = uiLanguage,
+        screenPinningMode = screenPinningMode,
+        screenPinningAvailable = screenPinningAvailable,
+        screenPinningActive = lockTaskBridge.active(),
+        accessibilityGuardAvailable = isExamGuardAccessibilityAvailable(context),
+        accessibilityGuardEnabled = accessibilityGuardEnabledState.value,
+        phaseSuffix = "phase=device_prechecks"
+    )
+    if (devicePrecheckScreenPinningBlock != null) {
+        callbacks.applyStartExamBlockMessage(devicePrecheckScreenPinningBlock)
+        return
+    }
+
+    val startDeviceTimeStatus = callbacks.refreshDeviceTimeSecurity("start_exam_precheck", true)
+    val startDeviceTimeBlock = resolveStartExamDeviceTimeBlockMessage(
+        uiLanguage = uiLanguage,
+        trigger = "start_exam_precheck",
+        status = startDeviceTimeStatus
+    )
+    if (startDeviceTimeBlock != null) {
+        callbacks.applyStartExamBlockMessage(startDeviceTimeBlock)
+        return
+    }
+
+    val startNetworkStatus = readNetworkReadinessStatus(context)
+    callbacks.applyNetworkReadinessStatus("start_exam_precheck", startNetworkStatus)
+    if (!bypassVpn) {
+        val startVpnBlock = resolveStartExamVpnBlockMessage(
+            uiLanguage = uiLanguage,
+            status = startNetworkStatus
+        )
+        if (startVpnBlock != null) {
+            callbacks.applyStartExamBlockMessage(startVpnBlock)
+            return
+        }
+    }
+
+    val startHealthSnapshot = buildPreExamHealthSnapshot(
+        PreExamHealthCheckInput(
+            compatibilityProfile = deviceCompatibilityProfile,
+            screenPinningAvailable = screenPinningAvailable,
+            screenPinningActive = lockTaskBridge.active(),
+            screenPinningBypassed = bypassScreenPinning,
+            accessibilityGuardAvailable = isExamGuardAccessibilityAvailable(context),
+            accessibilityGuardEnabled = accessibilityGuardEnabledState.value,
+            overlayRiskResult = overlayRiskResult,
+            overlayBypassed = bypassOverlay,
+            networkReadinessStatus = startNetworkStatus,
+            vpnBypassed = bypassVpn,
+            webViewCompatibilityStatus = webViewCompatibilityStatus,
+            webViewRecoveryState = webViewRecoveryStateName,
+            webViewSessionResetInFlight = flowUiState.webViewSessionResetInFlight.value,
+            webViewSessionResetError = flowUiState.webViewSessionResetError.value,
+            geofenceRuntimeStatus = buildExamRuntimeGeofenceStatus(
+                geofenceStatus = securityUiState.geofenceSecurityStatus.value,
+                policySource = effectiveLocationPolicySource,
+                violationCount = flowUiState.geofenceViolationCount.intValue,
+                lastTrigger = flowUiState.lastGeofenceTrigger.value,
+                lastDetectedAt = flowUiState.lastGeofenceAt.value,
+                lastContext = flowUiState.lastGeofenceContext.value
+            ),
+            geofenceBypassed = bypassGeofence,
+            fakeLocationRuntimeStatus = buildExamRuntimeFakeLocationStatus(
+                fakeLocationStatus = securityUiState.fakeLocationSecurityStatus.value,
+                violationCount = flowUiState.fakeLocationViolationCount.intValue,
+                lastTrigger = flowUiState.lastFakeLocationTrigger.value,
+                lastDetectedAt = flowUiState.lastFakeLocationAt.value,
+                lastContext = flowUiState.lastFakeLocationContext.value
+            ),
+            fakeLocationBypassed = bypassFakeLocation,
+            deviceTimeSecurityStatus = startDeviceTimeStatus,
+            deviceTimeBypassed = bypassDeviceTime,
+            batteryStatus = batteryStatus,
+            generatedAtElapsedMs = SystemClock.elapsedRealtime()
+        )
+    )
+    val healthBlocker = preExamHealthStartBlocker(startHealthSnapshot)
+    if (healthBlocker != null) {
+        callbacks.recordAction(
+            ExamRuntimeHardeningDiagnostics.StartExamBlockedHealthCheck,
+            "category=${healthBlocker.category.name} | verdict=${healthBlocker.verdict.name} | detail=${healthBlocker.detail}",
+            DiagnosticEventLevel.WARNING
+        )
+        adminUiState.securityIssueDialogTitle.value = localized(
+            uiLanguage,
+            "Pre-Exam Health Check",
+            "Health Check Sebelum Ujian"
+        )
+        adminUiState.securityIssueDialogMessage.value = buildString {
+            append(healthBlocker.title)
+            append("\n\n")
+            append(healthBlocker.detail)
+            if (!healthBlocker.quickFix.isNullOrBlank()) {
+                append("\n\n")
+                append(healthBlocker.quickFix)
+            }
+        }
+        return
+    }
+
+    val signatureResult = debugMeasureExamStartWork("startExamSession:signature_check") {
+        callbacks.checkSignatureIntegrity(true)
+    }
+    if (ExamPolicyEngine.shouldBlock(signatureResult)) {
+        callbacks.recordAction("START_EXAM_BLOCKED_SIGNATURE", "-", DiagnosticEventLevel.WARNING)
+        return
+    }
+
+    val builtInKeyboardNeeded = !bypassKeyboardPolicy && !flowUiState.lastKeyboardAllowed.value
+    val bluetoothPermissionReady =
+        securityUiState.bluetoothPermissionGranted.value || !requiresBluetoothExamPermission()
+    flowUiState.useBuiltInExamKeyboard.value = builtInKeyboardNeeded
+    flowUiState.showBuiltInExamKeyboard.value = builtInKeyboardNeeded
+    flowUiState.builtInKeyboardShiftEnabled.value = false
+
+    if (!bypassBluetooth) {
+        if (!bluetoothPermissionReady) {
+            callbacks.requestBluetoothPermission()
+            return
+        }
+        if (securityUiState.bluetoothEnabled.value) {
+            securityUiState.showBluetoothViolationDialog.value = true
+            return
+        }
+    }
+
+    val staticSecurityBlock = resolveStartExamStaticSecurityBlockMessage(
+        bypassAccessibility = bypassAccessibility,
+        accessibilityServiceEnabled = securityUiState.accessibilityServiceEnabled.value,
+        bypassAdb = bypassAdb,
+        developerOptionsEnabled = securityUiState.developerOptionsEnabled.value,
+        bypassVirtualEnvironment = bypassVirtualEnvironment,
+        virtualEnvironmentDetected = securityUiState.virtualEnvironmentDetected.value,
+        adbEnabled = securityUiState.adbEnabled.value,
+        adbInsecureSystemProperty = securityUiState.adbInspection.value.insecureSystemProperty,
+        bypassRoot = bypassRoot,
+        rootSecurityStatus = securityUiState.rootSecurityStatus.value,
+        bypassScreenRecorder = bypassScreenRecorder,
+        screenRecorderPackages = SecurityDetectorCache.readScreenRecorderPackages(
+            context = context,
+            forceRefresh = true
+        ),
+        bypassDisplayMirror = bypassDisplayMirror,
+        externalDisplayDetected = getExternalDisplayCount(context) > 0,
+        bypassMultiWindow = bypassMultiWindow,
+        multiWindowDetected = isInAnySplitMode(context)
+    )
+    if (staticSecurityBlock != null) {
+        callbacks.applyStartExamBlockMessage(staticSecurityBlock)
+        return
+    }
+
+    val geofenceEnabled = geofenceConfigParseResult.enabled
+    if (geofenceEnabled && !bypassGeofence && geofenceConfigParseResult.config == null) {
+        val status = evaluateGeofenceSecurity(
+            configResult = geofenceConfigParseResult,
+            permissionGranted = hasLocationPermissionForWifi(context),
+            preciseLocationGranted = hasFineLocationPermission(context),
+            locationServicesEnabled = isLocationServicesEnabled(context),
+            locationSnapshot = null,
+            bypassState = geofenceBypassState
+        )
+        securityUiState.geofenceSecurityStatus.value = status
+        securityUiState.geofenceEvaluation.value = status.geofenceEvaluation
+        callbacks.applyStartExamBlockMessage(
+            resolveStartExamGeofenceConfigBlockMessage(
+                uiLanguage = uiLanguage,
+                details = callbacks.currentGeofenceEventDetails("start_exam", status)
+            )
+        )
+        return
+    }
+
+    val coarseOrFineGranted = hasLocationPermissionForWifi(context)
+    val preciseLocationGranted = hasFineLocationPermission(context)
+    val preciseLocationRequiredForStart = geofenceEnabled && !bypassGeofence
+    if (
+        (preciseLocationRequiredForStart && !preciseLocationGranted) ||
+        (!preciseLocationRequiredForStart && !bypassFakeLocation && !coarseOrFineGranted)
+    ) {
+        flowUiState.pendingStartExamAfterLocationPermission.value = true
+        flowUiState.geofencePermissionRequestInFlight.value = true
+        callbacks.recordAction(
+            "LOCATION_PERMISSION_REQUESTED",
+            "trigger=start_exam",
+            DiagnosticEventLevel.WARNING
+        )
+        callbacks.requestLocationPermission()
+        callbacks.debugLogExamStart(
+            "startExamSession waiting for location permission after ${SystemClock.elapsedRealtime() - startExamPressedAt} ms"
+        )
+        return
+    }
+
+    if (!bypassGeofence && geofenceEnabled && !isLocationServicesEnabled(context)) {
+        val status = evaluateGeofenceSecurity(
+            configResult = geofenceConfigParseResult,
+            permissionGranted = true,
+            preciseLocationGranted = true,
+            locationServicesEnabled = false,
+            locationSnapshot = null,
+            bypassState = geofenceBypassState
+        )
+        securityUiState.geofenceSecurityStatus.value = status
+        securityUiState.geofenceEvaluation.value = status.geofenceEvaluation
+        callbacks.applyStartExamBlockMessage(
+            resolveStartExamGeofenceLocationDisabledBlockMessage(
+                uiLanguage = uiLanguage,
+                details = callbacks.currentGeofenceEventDetails("start_exam", status)
+            )
+        )
+        return
+    }
+
+    if (!bypassFakeLocation && !isLocationServicesEnabled(context)) {
+        val status = evaluateFakeLocationSecurity(
+            monitoringEnabled = true,
+            permissionGranted = hasLocationPermissionForWifi(context),
+            locationServicesEnabled = false,
+            locationSnapshot = null,
+            fixQualityStatus = evaluateLocationFixQuality(null),
+            developerOptionsEnabled = securityUiState.developerOptionsEnabled.value,
+            suspiciousFakeLocationPackages =
+                SecurityDetectorCache.readSuspiciousFakeLocationPackages(
+                    context = context,
+                    forceRefresh = true
+                ),
+            bypassState = fakeLocationBypassState
+        )
+        securityUiState.fakeLocationSecurityStatus.value = status
+        callbacks.applyStartExamBlockMessage(
+            resolveStartExamFakeLocationServicesDisabledBlockMessage(
+                uiLanguage = uiLanguage,
+                details = callbacks.currentFakeLocationEventDetails("start_exam", status)
+            )
+        )
+        return
+    }
+
+    callbacks.launchFinalLocationValidation(startExamPressedAt)
+}
+
+internal class ExamRuntimeCompleteStartCallbacks(
+    val setAccessibilityGuardFallbackActive: (Boolean) -> Unit,
+    val setAccessibilityGuardLastReason: (String?) -> Unit,
+    val setAccessibilityGuardLastForeignPackage: (String?) -> Unit,
+    val setAccessibilityGuardLastEventType: (String?) -> Unit,
+    val setAccessibilityGuardLastDetectedAt: (String?) -> Unit,
+    val setAccessibilityGuardAlarmSeverity: (String) -> Unit,
+    val setForcedExitViolationCount: (Int) -> Unit,
+    val setPendingForcedExitViolation: (Boolean) -> Unit,
+    val setShowForcedExitAlarm: (Boolean) -> Unit,
+    val setLockTaskStateBeforePinningRequest: (String) -> Unit,
+    val setLockTaskStateAfterPinningRequest: (String) -> Unit,
+    val setScreenPinningRequestOutcome: (String) -> Unit,
+    val setScreenPinningDialogLikelyShown: (Boolean) -> Unit,
+    val setScreenPinningUserActionInference: (String) -> Unit,
+    val setScreenPinningActivationDurationMs: (Long?) -> Unit,
+    val setExamSessionCancelledByPinningFailure: (Boolean) -> Unit,
+    val setLockTaskRequestPending: (Boolean) -> Unit,
+    val setPinningActivationState: (PinningActivationState) -> Unit,
+    val setPinningActivationStartedAtElapsedMs: (Long?) -> Unit,
+    val setPinningSuppressedTransitionCount: (Int) -> Unit,
+    val setScreenPinningMessage: (String?) -> Unit,
+    val setWebViewErrorMessage: (String?) -> Unit,
+    val setExitOnSecurityIssueDialogDismiss: (Boolean) -> Unit,
+    val resetPreparationSecurityEpisodes: () -> Unit,
+    val prepareCleanExamWebViewSessionForStart: suspend () -> Boolean,
+    val armExamRuntimeMonitoring: (String) -> Unit,
+    val finalizeExamSessionStart: (Boolean) -> Unit,
+    val clearAppSwitchSuppression: () -> Unit,
+    val setAppSwitchSuppression: (AppSwitchSuppressionReason) -> Unit,
+    val applyStartExamBlockMessage: (StartExamBlockMessage) -> Unit,
+    val recordAction: (String, String, DiagnosticEventLevel) -> Unit
+)
+
+internal fun completeExamRuntimeStartAfterPrechecks(
+    context: Context,
+    lockTaskBridge: ActivityLockTaskBridge,
+    coroutineScope: CoroutineScope,
+    uiLanguage: com.example.coblaxexamlock.model.UiLanguage,
+    isIndonesian: Boolean,
+    screenPinningMode: ScreenPinningMode,
+    screenPinningAvailable: Boolean,
+    accessibilityGuardEnabled: Boolean,
+    lockTaskRequestPending: Boolean,
+    geofenceStartValidationInFlight: Boolean,
+    webViewSessionResetInFlight: Boolean,
+    examGuardArmed: Boolean,
+    deviceCompatibilityProfile: com.example.coblaxexamlock.DeviceCompatibilityProfile,
+    callbacks: ExamRuntimeCompleteStartCallbacks
+) {
+    if (lockTaskRequestPending || geofenceStartValidationInFlight || webViewSessionResetInFlight) {
+        return
+    }
+
+    if (
+        screenPinningMode == ScreenPinningMode.Enforced &&
+        !screenPinningAvailable &&
+        accessibilityGuardEnabled
+    ) {
+        launchAccessibilityGuardFallbackExamStart(
+            context = context,
+            lockTaskBridge = lockTaskBridge,
+            coroutineScope = coroutineScope,
+            examGuardArmed = examGuardArmed,
+            updateFallbackUiState = { beforeState ->
+                callbacks.setAccessibilityGuardFallbackActive(true)
+                callbacks.setAccessibilityGuardLastReason(null)
+                callbacks.setAccessibilityGuardLastForeignPackage(null)
+                callbacks.setAccessibilityGuardLastEventType(null)
+                callbacks.setAccessibilityGuardLastDetectedAt(null)
+                callbacks.setAccessibilityGuardAlarmSeverity(ExamAlarmSeverity.Warning.name)
+                callbacks.setForcedExitViolationCount(0)
+                callbacks.setPendingForcedExitViolation(false)
+                callbacks.setShowForcedExitAlarm(false)
+                callbacks.setLockTaskStateBeforePinningRequest(beforeState)
+                callbacks.setLockTaskStateAfterPinningRequest(beforeState)
+                callbacks.setScreenPinningRequestOutcome("Accessibility guard fallback")
+                callbacks.setScreenPinningDialogLikelyShown(false)
+                callbacks.setScreenPinningUserActionInference("Tidak diminta; Accessibility Exam Guard aktif")
+                callbacks.setScreenPinningActivationDurationMs(0L)
+                callbacks.setExamSessionCancelledByPinningFailure(false)
+                callbacks.setLockTaskRequestPending(false)
+                callbacks.setPinningActivationState(PinningActivationState.ActiveConfirmed)
+                callbacks.setPinningActivationStartedAtElapsedMs(null)
+                callbacks.setPinningSuppressedTransitionCount(0)
+                callbacks.setScreenPinningMessage(null)
+                callbacks.setWebViewErrorMessage(null)
+                callbacks.setExitOnSecurityIssueDialogDismiss(false)
+            },
+            recordAction = { code, details, level -> callbacks.recordAction(code, details, level) },
+            clearAppSwitchSuppression = callbacks.clearAppSwitchSuppression,
+            resetPreparationSecurityEpisodes = callbacks.resetPreparationSecurityEpisodes,
+            prepareCleanExamWebViewSessionForStart = callbacks.prepareCleanExamWebViewSessionForStart,
+            armExamRuntimeMonitoring = callbacks.armExamRuntimeMonitoring,
+            finalizeExamSessionStart = callbacks.finalizeExamSessionStart,
+            onCleanSessionFailed = { callbacks.setAccessibilityGuardFallbackActive(false) }
+        )
+        return
+    }
+
+    AccessibilityExamGuardStore.disarm(context)
+    callbacks.setAccessibilityGuardFallbackActive(false)
+
+    if (screenPinningMode == ScreenPinningMode.Bypassed) {
+        val bypassState = ScreenPinningEnforcer.launchState(screenPinningMode, lockTaskBridge)
+        callbacks.recordAction(bypassState.eventCode, bypassState.eventDetails, DiagnosticEventLevel.INFO)
+        callbacks.setLockTaskStateBeforePinningRequest(bypassState.beforeState)
+        callbacks.setLockTaskStateAfterPinningRequest(bypassState.afterState)
+        callbacks.setScreenPinningRequestOutcome(bypassState.outcome)
+        callbacks.setScreenPinningDialogLikelyShown(bypassState.dialogLikelyShown)
+        callbacks.setScreenPinningUserActionInference(bypassState.userActionInference)
+        callbacks.setScreenPinningActivationDurationMs(bypassState.activationDurationMs)
+        callbacks.setExamSessionCancelledByPinningFailure(false)
+        callbacks.setLockTaskRequestPending(false)
+        callbacks.setPinningActivationState(PinningActivationState.Idle)
+        callbacks.setPinningActivationStartedAtElapsedMs(null)
+        callbacks.setPinningSuppressedTransitionCount(0)
+        callbacks.clearAppSwitchSuppression()
+        callbacks.setScreenPinningMessage(null)
+        callbacks.setWebViewErrorMessage(null)
+        callbacks.setExitOnSecurityIssueDialogDismiss(false)
+        callbacks.resetPreparationSecurityEpisodes()
+        coroutineScope.launch {
+            if (!callbacks.prepareCleanExamWebViewSessionForStart()) {
+                return@launch
+            }
+            if (!examGuardArmed) {
+                callbacks.armExamRuntimeMonitoring("start_exam_pressed")
+            }
+            callbacks.finalizeExamSessionStart(false)
+        }
+        return
+    }
+
+    if (lockTaskBridge.active()) {
+        val activeState = lockTaskBridge.stateLabel()
+        callbacks.setLockTaskStateBeforePinningRequest(activeState)
+        callbacks.setLockTaskStateAfterPinningRequest(activeState)
+        callbacks.setScreenPinningRequestOutcome(ScreenPinningSignals.successOutcome())
+        callbacks.setScreenPinningDialogLikelyShown(false)
+        callbacks.setScreenPinningUserActionInference("Sudah aktif; request pinning dilewati")
+        callbacks.setScreenPinningActivationDurationMs(0L)
+        callbacks.setExamSessionCancelledByPinningFailure(false)
+        callbacks.setLockTaskRequestPending(false)
+        callbacks.setPinningActivationState(PinningActivationState.ActiveConfirmed)
+        callbacks.setPinningActivationStartedAtElapsedMs(null)
+        callbacks.setPinningSuppressedTransitionCount(0)
+        callbacks.clearAppSwitchSuppression()
+        callbacks.setScreenPinningMessage(null)
+        callbacks.setWebViewErrorMessage(null)
+        callbacks.setExitOnSecurityIssueDialogDismiss(false)
+        callbacks.recordAction(
+            ScreenPinningSignals.eventActive(),
+            "already_active_before_request | state=$activeState",
+            DiagnosticEventLevel.INFO
+        )
+        callbacks.recordAction(
+            ExamRuntimeHardeningDiagnostics.ScreenPinningAlreadyActive,
+            "state=$activeState | request_pending=false",
+            DiagnosticEventLevel.INFO
+        )
+        callbacks.recordAction(
+            ExamRuntimeHardeningDiagnostics.ScreenPinningRequestSkippedAlreadyActive,
+            "state=$activeState | policy_skip_if_active=${deviceCompatibilityProfile.skipScreenPinningRequestWhenAlreadyActive}",
+            DiagnosticEventLevel.INFO
+        )
+        callbacks.recordAction(
+            ExamRuntimeHardeningDiagnostics.PinningActiveConfirmed,
+            "already_active_before_request=true | state=$activeState | duration_ms=0",
+            DiagnosticEventLevel.INFO
+        )
+        callbacks.resetPreparationSecurityEpisodes()
+        if (!examGuardArmed) {
+            callbacks.armExamRuntimeMonitoring("start_exam_pressed_pinning_already_active")
+        }
+        lockTaskBridge.engage(allowLockTask = false)
+        coroutineScope.launch {
+            if (!callbacks.prepareCleanExamWebViewSessionForStart()) {
+                return@launch
+            }
+            callbacks.finalizeExamSessionStart(true)
+        }
+        return
+    }
+
+    if (screenPinningMode == ScreenPinningMode.Enforced && screenPinningAvailable) {
+        callbacks.applyStartExamBlockMessage(
+            resolveStartExamScreenPinningBlockMessage(
+                uiLanguage = uiLanguage,
+                screenPinningMode = screenPinningMode,
+                screenPinningAvailable = screenPinningAvailable,
+                screenPinningActive = false,
+                accessibilityGuardAvailable = isExamGuardAccessibilityAvailable(context),
+                accessibilityGuardEnabled = accessibilityGuardEnabled,
+                phaseSuffix = "phase=final_precheck"
+            ) ?: StartExamBlockMessage(
+                code = ExamRuntimeHardeningDiagnostics.StartExamBlockedScreenPinningInactive,
+                details = "screen_pinning_available=true | lock_task_active=false | bypass=false | phase=final_precheck",
+                title = localized(uiLanguage, "Start Screen Pinning First", "Start Screen Pinning Dulu"),
+                message = localized(
+                    uiLanguage,
+                    "Start Screen Pinning first from Preparation, confirm the Android dialog, then press Start Exam.",
+                    "Jalankan Start Screen Pinning dulu dari Preparation, konfirmasi dialog Android, lalu tekan Mulai Ujian."
+                )
+            )
+        )
+        return
+    }
+
+    if (!examGuardArmed) {
+        callbacks.armExamRuntimeMonitoring("start_exam_pressed")
+    }
+
+    val requestState = ScreenPinningEnforcer.launchState(screenPinningMode, lockTaskBridge)
+    callbacks.setLockTaskStateBeforePinningRequest(requestState.beforeState)
+    callbacks.setLockTaskStateAfterPinningRequest(requestState.afterState)
+    callbacks.setScreenPinningRequestOutcome(requestState.outcome)
+    callbacks.setScreenPinningDialogLikelyShown(requestState.dialogLikelyShown)
+    callbacks.setScreenPinningUserActionInference(requestState.userActionInference)
+    callbacks.setScreenPinningActivationDurationMs(requestState.activationDurationMs)
+    callbacks.setExamSessionCancelledByPinningFailure(false)
+    callbacks.setLockTaskRequestPending(true)
+    callbacks.setPinningActivationState(PinningActivationState.Requested)
+    callbacks.setPinningActivationStartedAtElapsedMs(SystemClock.elapsedRealtime())
+    callbacks.setPinningSuppressedTransitionCount(0)
+    callbacks.recordAction(requestState.eventCode, requestState.eventDetails, DiagnosticEventLevel.INFO)
+    callbacks.recordAction(
+        ExamRuntimeHardeningDiagnostics.PinningStartRequested,
+        "before=${requestState.beforeState} | state=${requestState.afterState} | grace_ms=$PinningActivationGraceWindowMillis",
+        DiagnosticEventLevel.INFO
+    )
+    callbacks.recordAction(
+        ExamRuntimeHardeningDiagnostics.PinningDialogExpected,
+        "screen_pinning_dialog_expected=true | keep_app_foreground=true",
+        DiagnosticEventLevel.INFO
+    )
+    callbacks.setAppSwitchSuppression(AppSwitchSuppressionReason.ScreenPinningRequest)
+    callbacks.setScreenPinningMessage(
+        ScreenPinningEnforcer.activatingMessage(
+            isIndonesian = isIndonesian,
+            purpose = PinningActivationPurpose.ExamStart
+        )
+    )
+    callbacks.setWebViewErrorMessage(null)
+    callbacks.setExitOnSecurityIssueDialogDismiss(false)
+}
+
+internal class ExamRuntimeStartLocationValidationCallbacks(
+    val isGeofenceStartValidationInFlight: () -> Boolean,
+    val setGeofenceStartValidationInFlight: (Boolean) -> Unit,
+    val resolveStartExamLocationValidation: suspend () -> SplitLocationSecurityStatus,
+    val currentGeofenceEventDetails: (String, GeofenceSecurityStatus) -> String,
+    val currentFakeLocationEventDetails: (String, LocationSpoofSecurityStatus) -> String,
+    val applyStartExamBlockMessage: (StartExamBlockMessage) -> Unit,
+    val refreshDeviceTimeSecurity: (String, Boolean) -> DeviceTimeSecurityStatus,
+    val completeStartExamSessionAfterPrechecks: () -> Unit,
+    val debugLogExamStart: (String) -> Unit
+)
+
+internal fun launchExamRuntimeStartLocationValidation(
+    context: Context,
+    coroutineScope: CoroutineScope,
+    uiLanguage: com.example.coblaxexamlock.model.UiLanguage,
+    payload: ExamQrPayload,
+    bypassGeofence: Boolean,
+    bypassFakeLocation: Boolean,
+    startExamPressedAt: Long,
+    callbacks: ExamRuntimeStartLocationValidationCallbacks
+) {
+    if (callbacks.isGeofenceStartValidationInFlight()) {
+        return
+    }
+
+    callbacks.setGeofenceStartValidationInFlight(true)
+    coroutineScope.launch {
+        val latestLocationStatus = debugMeasureExamStartSuspendWork("startExamSession:location_validation") {
+            callbacks.resolveStartExamLocationValidation()
+        }
+        callbacks.setGeofenceStartValidationInFlight(false)
+        val locationBlockMessage = resolveStartExamLocationBlockMessage(
+            uiLanguage = uiLanguage,
+            latestLocationStatus = latestLocationStatus,
+            bypassGeofence = bypassGeofence,
+            bypassFakeLocation = bypassFakeLocation,
+            geofenceDetails = { geofenceStatus ->
+                callbacks.currentGeofenceEventDetails("start_exam", geofenceStatus)
+            },
+            fakeLocationDetails = { fakeLocationStatus ->
+                callbacks.currentFakeLocationEventDetails("start_exam", fakeLocationStatus)
+            }
+        )
+        if (locationBlockMessage != null) {
+            callbacks.applyStartExamBlockMessage(locationBlockMessage)
+            return@launch
+        }
+
+        val finalDeviceTimeStatus = callbacks.refreshDeviceTimeSecurity(
+            "start_exam_final",
+            false
+        )
+        val finalDeviceTimeBlock = resolveStartExamDeviceTimeBlockMessage(
+            uiLanguage = uiLanguage,
+            trigger = "start_exam_final",
+            status = finalDeviceTimeStatus
+        )
+        if (finalDeviceTimeBlock != null) {
+            callbacks.applyStartExamBlockMessage(finalDeviceTimeBlock)
+            return@launch
+        }
+        val networkNowMillis = TrustedNetworkTimeCoordinator.currentNetworkNowMillis(context)
+        val scheduleValidationResult = ExamScheduleValidator.validateAfterDeviceTimeCheck(
+            payload = payload,
+            deviceTimeStatus = finalDeviceTimeStatus,
+            networkNowMillis = networkNowMillis
+        )
+        val scheduleBlock = resolveStartExamScheduleBlockMessage(
+            uiLanguage = uiLanguage,
+            payload = payload,
+            validationResult = scheduleValidationResult,
+            networkNowMillis = networkNowMillis,
+            deviceTimeStatus = finalDeviceTimeStatus
+        )
+        if (scheduleBlock != null) {
+            callbacks.applyStartExamBlockMessage(scheduleBlock)
+            return@launch
+        }
+        callbacks.debugLogExamStart(
+            "startExamSession passed all prechecks in ${SystemClock.elapsedRealtime() - startExamPressedAt} ms"
+        )
+        callbacks.completeStartExamSessionAfterPrechecks()
+    }
+}

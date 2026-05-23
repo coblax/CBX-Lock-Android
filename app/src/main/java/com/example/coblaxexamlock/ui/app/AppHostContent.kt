@@ -546,11 +546,12 @@ internal fun AppHostRuntimeContent(
     fun updateAdminSettings(updated: AdminSettings) {
         val normalized = updated.copy(examUserAgent = updated.effectiveExamUserAgent())
         adminSettings = normalized
-        lowRamProfile = applyLowRamProfileOverride(
+        val updatedProfile = applyLowRamProfileOverride(
             detectedProfile = detectedLowRamProfile,
             override = normalized.lowRamProfileOverride
         )
-        applyLowRamRuntimeDetectorBudget(lowRamProfile)
+        lowRamProfile = updatedProfile
+        applyLowRamRuntimeDetectorBudget(updatedProfile)
         homeAdminSettings = HomeAdminSettings(
             fastExamUrl = normalized.fastExamUrl,
             fastExamLabel = normalized.fastExamLabel
@@ -562,11 +563,12 @@ internal fun AppHostRuntimeContent(
     }
 
     fun updateLowRamProfileOverride(override: LowRamProfileOverride) {
-        lowRamProfile = applyLowRamProfileOverride(
+        val updatedProfile = applyLowRamProfileOverride(
             detectedProfile = detectedLowRamProfile,
             override = override
         )
-        applyLowRamRuntimeDetectorBudget(lowRamProfile)
+        lowRamProfile = updatedProfile
+        applyLowRamRuntimeDetectorBudget(updatedProfile)
         adminSettings?.let { cachedSettings ->
             updateAdminSettings(cachedSettings.copy(lowRamProfileOverride = override))
             return

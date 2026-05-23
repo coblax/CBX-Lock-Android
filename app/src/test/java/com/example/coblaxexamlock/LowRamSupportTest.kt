@@ -4,6 +4,7 @@ import android.content.ComponentCallbacks2
 import android.graphics.Bitmap
 import com.example.coblaxexamlock.runtime.calculateBitmapSampleSize
 import com.example.coblaxexamlock.runtime.qrDecodePreferredBitmapConfig
+import com.example.coblaxexamlock.runtime.shouldSkipQrFullBitmapScanAfterFallback
 import org.junit.Assert.assertEquals
 import org.junit.Assert.assertFalse
 import org.junit.Assert.assertTrue
@@ -277,6 +278,59 @@ class LowRamSupportTest {
         assertEquals(8, sampleSize)
         assertEquals(Bitmap.Config.RGB_565, qrDecodePreferredBitmapConfig(severeProfile))
         assertEquals(Bitmap.Config.RGB_565, QrCodeGenerator.DefaultBitmapConfig)
+    }
+
+    @Test
+    fun ultraQrSkipsFullBitmapScanOnlyForTallExportImages() {
+        val ultraProfile = LowRamProfile(enabled = true, severe = true, ultra = true)
+        val lowProfile = LowRamProfile(enabled = true)
+
+        assertTrue(
+            shouldSkipQrFullBitmapScanAfterFallback(
+                lowRamProfile = ultraProfile,
+                width = 720,
+                height = 1320
+            )
+        )
+        assertFalse(
+            shouldSkipQrFullBitmapScanAfterFallback(
+                lowRamProfile = ultraProfile,
+                width = 720,
+                height = 720
+            )
+        )
+        assertFalse(
+            shouldSkipQrFullBitmapScanAfterFallback(
+                lowRamProfile = lowProfile,
+                width = 720,
+                height = 1320
+            )
+        )
+    }
+
+    @Test
+    fun ultraWebViewSessionResetSkipsFullHttpCacheWithoutExistingWebView() {
+        val ultraProfile = LowRamProfile(enabled = true, severe = true, ultra = true)
+        val normalProfile = LowRamProfile()
+
+        assertFalse(
+            shouldClearWebViewHttpCacheForSessionReset(
+                lowRamProfile = ultraProfile,
+                hasExistingWebView = false
+            )
+        )
+        assertTrue(
+            shouldClearWebViewHttpCacheForSessionReset(
+                lowRamProfile = ultraProfile,
+                hasExistingWebView = true
+            )
+        )
+        assertTrue(
+            shouldClearWebViewHttpCacheForSessionReset(
+                lowRamProfile = normalProfile,
+                hasExistingWebView = false
+            )
+        )
     }
 
     @Test

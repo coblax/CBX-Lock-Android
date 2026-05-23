@@ -17,7 +17,6 @@ import android.view.View
 import android.view.ViewGroup
 import android.webkit.WebChromeClient
 import android.webkit.WebView
-import android.webkit.WebViewClient
 import android.widget.FrameLayout
 import androidx.activity.ComponentActivity
 import androidx.activity.compose.BackHandler
@@ -60,7 +59,6 @@ import com.example.coblaxexamlock.AppSwitchStatus
 import com.example.coblaxexamlock.AppSwitchSuppressionReason
 import com.example.coblaxexamlock.buildAlarmSessionIdentity
 import com.example.coblaxexamlock.BuildConfig
-import com.example.coblaxexamlock.buildDeviceSurvivalPolicy
 import com.example.coblaxexamlock.buildRootSecurityStatus
 import com.example.coblaxexamlock.clearExamWebViewSessionData
 import com.example.coblaxexamlock.ClipboardBypassResolver
@@ -75,10 +73,6 @@ import com.example.coblaxexamlock.config.LowMaxNetworkTimelineEntries
 import com.example.coblaxexamlock.config.UltraMaxNetworkTimelineEntries
 import com.example.coblaxexamlock.config.NetworkUnstableFlipThreshold
 import com.example.coblaxexamlock.config.NetworkUnstableWindowMillis
-import com.example.coblaxexamlock.detachExamKeyboardBridge
-import com.example.coblaxexamlock.detachExamNativeFullscreenBridge
-import com.example.coblaxexamlock.detachExamParticipantCaptureBridge
-import com.example.coblaxexamlock.DeviceSurvivalPolicy
 import com.example.coblaxexamlock.DeviceTimeBaseline
 import com.example.coblaxexamlock.DeviceTimeBypassResolver
 import com.example.coblaxexamlock.DeviceTimeBypassState
@@ -116,7 +110,6 @@ import com.example.coblaxexamlock.inspectAccessibility
 import com.example.coblaxexamlock.inspectAdb
 import com.example.coblaxexamlock.inspectDeviceTimeSecurity
 import com.example.coblaxexamlock.IntegrityGuard
-import com.example.coblaxexamlock.isExamGuardAccessibilityAvailable
 import com.example.coblaxexamlock.isExamGuardAccessibilityEnabled
 import com.example.coblaxexamlock.LocalDeviceCompatibilityProfile
 import com.example.coblaxexamlock.LocalLowRamProfile
@@ -165,7 +158,6 @@ import com.example.coblaxexamlock.PinningActivationPurpose
 import com.example.coblaxexamlock.PinningActivationGraceWindowMillis
 import com.example.coblaxexamlock.PinningActivationState
 import com.example.coblaxexamlock.platform.openExternalUrl
-import com.example.coblaxexamlock.prepareForFreshExamSession
 import com.example.coblaxexamlock.PreviousExamSessionBreadcrumb
 import com.example.coblaxexamlock.PreviousExamSessionBreadcrumbCodes
 import com.example.coblaxexamlock.PreviousExamSessionBreadcrumbStore
@@ -214,8 +206,6 @@ import com.example.coblaxexamlock.TrustedNetworkTimeCoordinator
 import com.example.coblaxexamlock.VpnBypassResolver
 import com.example.coblaxexamlock.VpnBypassState
 import com.example.coblaxexamlock.ui.geofence.effectiveCircleCenters
-import com.example.coblaxexamlock.ui.preparation.buildPreExamHealthSnapshot
-import com.example.coblaxexamlock.ui.preparation.PreExamHealthCheckInput
 import com.example.coblaxexamlock.ui.preparation.preExamHealthStartBlocker
 import com.example.coblaxexamlock.ui.theme.LockBackground
 import com.example.coblaxexamlock.WebViewCompatibilityStatus
@@ -435,11 +425,12 @@ internal fun ExamRuntimeSessionScreenImpl(
     }
     val geofenceEnabled = geofenceConfigParseResult.enabled
     val officialApkUrl = adminSettings.officialApkUrl.trim()
-    var loadingProgress by remember { mutableFloatStateOf(0f) }
-    var webViewStopRequested by remember { mutableStateOf(false) }
-    var webViewInstance by remember { mutableStateOf<SecureExamWebView?>(null) }
-    var webViewGeneration by remember { mutableStateOf(0L) }
-    var destroyedWebViewGeneration by remember { mutableStateOf<Long?>(null) }
+    val webViewUiState = rememberExamRuntimeWebViewUiState(context)
+    var loadingProgress by webViewUiState.loadingProgress
+    var webViewStopRequested by webViewUiState.stopRequested
+    var webViewInstance by webViewUiState.instance
+    var webViewGeneration by webViewUiState.generation
+    var destroyedWebViewGeneration by webViewUiState.destroyedGeneration
     val flowUiState = rememberExamRuntimeFlowUiState(
         context = context,
         bypassKeyboardPolicy = bypassKeyboardPolicy
@@ -454,13 +445,15 @@ internal fun ExamRuntimeSessionScreenImpl(
     var screenPinningMessage by flowUiState.screenPinningMessage
     var showExitExamDialog by flowUiState.showExitExamDialog
     var webViewErrorMessage by flowUiState.webViewErrorMessage
-    var examServerStatus by rememberSaveable(payload.examUrl) {
+    val examServerStatusState = rememberSaveable(payload.examUrl) {
         mutableStateOf(ExamServerFooterStatus.Checking)
     }
+    var examServerStatus by examServerStatusState
     LaunchedEffect(examSessionRecoveryNonce, examSessionStarted) {
         onExamSessionStartedStateChange(examSessionStarted)
     }
-    var baseNetworkReadiness by remember { mutableStateOf(readNetworkReadinessStatus(context)) }
+    val baseNetworkReadinessState = remember { mutableStateOf(readNetworkReadinessStatus(context)) }
+    var baseNetworkReadiness by baseNetworkReadinessState
     val networkUiState = rememberExamRuntimeNetworkUiState(baseNetworkReadiness)
     val networkTimeline = remember { mutableStateListOf<NetworkTimelineEntry>() }
     val networkFlapElapsedMs = remember { mutableStateListOf<Long>() }
@@ -490,26 +483,19 @@ internal fun ExamRuntimeSessionScreenImpl(
     val networkMainHandler = remember { Handler(Looper.getMainLooper()) }
     val clipboardMainHandler = remember { Handler(Looper.getMainLooper()) }
     val overlayMainHandler = remember { Handler(Looper.getMainLooper()) }
-    var fullScreenCustomView by remember { mutableStateOf<View?>(null) }
-    var fullScreenCustomViewCallback by remember { mutableStateOf<WebChromeClient.CustomViewCallback?>(null) }
-    val fullScreenContainer = remember {
-        FrameLayout(context).apply {
-            layoutParams = ViewGroup.LayoutParams(
-                ViewGroup.LayoutParams.MATCH_PARENT,
-                ViewGroup.LayoutParams.MATCH_PARENT
-            )
-            setBackgroundColor(LockBackground.toArgb())
-        }
-    }
+    var fullScreenCustomView by webViewUiState.fullScreenCustomView
+    var fullScreenCustomViewCallback by webViewUiState.fullScreenCustomViewCallback
+    val fullScreenContainer = webViewUiState.fullScreenContainer
+    fullScreenContainer.setBackgroundColor(LockBackground.toArgb())
     var useBuiltInExamKeyboard by flowUiState.useBuiltInExamKeyboard
     var exitSessionClearInFlight by flowUiState.exitSessionClearInFlight
-    var exitSessionClearRequested by rememberSaveable { mutableStateOf(false) }
-    var exitSessionClearDeferred by remember {
+    val exitSessionClearRequestedState = rememberSaveable { mutableStateOf(false) }
+    var exitSessionClearRequested by exitSessionClearRequestedState
+    val exitSessionClearDeferredState = remember {
         mutableStateOf<CompletableDeferred<Result<Unit>>?>(null)
     }
-    var examRuntimeRecoveryState by rememberSaveable {
-        mutableStateOf(ExamRuntimeRecoveryState.Idle)
-    }
+    var exitSessionClearDeferred by exitSessionClearDeferredState
+    var examRuntimeRecoveryState by webViewUiState.recoveryState
     val lastTrustedRuntimeChromeActionElapsedMsState = rememberSaveable {
         mutableStateOf<Long?>(null)
     }
@@ -518,9 +504,8 @@ internal fun ExamRuntimeSessionScreenImpl(
         mutableStateOf<String?>(null)
     }
     var lastTrustedRuntimeChromeActionReason by lastTrustedRuntimeChromeActionReasonState
-    var lastRuntimeMemoryActionSummary by rememberSaveable {
-        mutableStateOf<String?>(null)
-    }
+    val runtimeCacheState = rememberExamRuntimeRuntimeCacheState()
+    var lastRuntimeMemoryActionSummary by runtimeCacheState.lastRuntimeMemoryActionSummary
     var showBuiltInExamKeyboard by flowUiState.showBuiltInExamKeyboard
     var sideArrowControlsVisible by flowUiState.sideArrowControlsVisible
     var hasEditableFocus by flowUiState.hasEditableFocus
@@ -627,7 +612,7 @@ internal fun ExamRuntimeSessionScreenImpl(
             fakeLocationBypassState = fakeLocationBypassState
         )
     }
-    var deviceTimeSecurityStatus by remember(
+    val deviceTimeSecurityStatusState = remember(
         deviceTimeBaseline,
         deviceTimeBypassState
     ) {
@@ -639,7 +624,9 @@ internal fun ExamRuntimeSessionScreenImpl(
             )
         )
     }
-    var lastDeviceTimeDiagnosticKey by rememberSaveable { mutableStateOf<String?>(null) }
+    var deviceTimeSecurityStatus by deviceTimeSecurityStatusState
+    val lastDeviceTimeDiagnosticKeyState = rememberSaveable { mutableStateOf<String?>(null) }
+    var lastDeviceTimeDiagnosticKey by lastDeviceTimeDiagnosticKeyState
     val clipboardUiState = rememberExamRuntimeClipboardUiState(context)
     var clipboardSignature by clipboardUiState.clipboardSignature
     var clipboardDecisionFingerprint by clipboardUiState.clipboardDecisionFingerprint
@@ -759,12 +746,8 @@ internal fun ExamRuntimeSessionScreenImpl(
         ExamAlarmController(context.applicationContext)
     }
     val coroutineScope = rememberCoroutineScope()
-    var reverseEngineeringRefreshCache by remember {
-        mutableStateOf<RuntimeReverseEngineeringRefreshCache?>(null)
-    }
-    var integrityRefreshCache by remember {
-        mutableStateOf<RuntimeIntegrityRefreshCache?>(null)
-    }
+    var reverseEngineeringRefreshCache by runtimeCacheState.reverseEngineeringRefreshCache
+    var integrityRefreshCache by runtimeCacheState.integrityRefreshCache
     var lastAlarmAcknowledgeDedupKey by adminUiState.lastAlarmAcknowledgeDedupKey
     var lastAlarmAcknowledgeAtElapsedMs by adminUiState.lastAlarmAcknowledgeAtElapsedMs
     val isKeyboardAllowed = bypassKeyboardPolicy || isAllowedExamKeyboard(context, currentKeyboardPackage)
@@ -785,858 +768,46 @@ internal fun ExamRuntimeSessionScreenImpl(
             baseNetworkReadiness
         }
     val networkStatus = networkReadinessStatus.examStatus
-    class RuntimeDiagnosticsOps {
-        fun currentNetworkPollingIntervalMillis(): Long {
-            val baseInterval = if (
-                !networkStatus.isConnected ||
-                networkUnstableEpisodeStartedElapsedMs != null
-            ) {
-                NetworkReadinessPollingUnstableIntervalMillis
-            } else {
-                NetworkReadinessPollingStableIntervalMillis
-            }
-            return baseInterval * lowRamProfile.slowPollingMultiplier
-        }
-
-        fun currentScreenPinningMonitorIntervalMillis(nowElapsedMs: Long = SystemClock.elapsedRealtime()): Long {
-            val sessionStartedAt = examSessionStartedAtElapsedMs
-            val withinWarmupWindow =
-                lockTaskRequestPending ||
-                    (
-                        sessionStartedAt != null &&
-                            (nowElapsedMs - sessionStartedAt).coerceAtLeast(0L) <=
-                            ScreenPinningMonitorWarmupWindowMillis
-                        )
-            return if (withinWarmupWindow) {
-                ScreenPinningMonitorWarmupIntervalMillis
-            } else {
-                screenPinningMonitorSteadyIntervalMillis(lowRamProfile)
-            }
-        }
-
-        val currentOfflineDurationMs = if (
-            examSessionStarted &&
-                !networkStatus.isConnected &&
-                offlineStartedAtElapsedMs != null
-        ) {
-            (SystemClock.elapsedRealtime() - offlineStartedAtElapsedMs!!).coerceAtLeast(0L)
-        } else {
-            null
-        }
-        val offlineRuntimeStatus = ExamOfflineRuntimeStatus(
-            offlineActive = examSessionStarted && !networkStatus.isConnected && offlineStartedAtElapsedMs != null,
-            offlineStartedAt = offlineStartedAtTimestamp,
-            currentOfflineDurationMs = currentOfflineDurationMs,
-            offlineWarningShown = offlineWarningShown,
-            lastOfflineWarningAt = lastOfflineWarningAt,
-            lastOfflineDurationMs = lastOfflineDurationMs
-        )
-        val networkTimelinePreview = networkTimeline.takeLast(5).asReversed()
-        val networkUnstableRuntimeStatus = NetworkUnstableRuntimeStatus(
-            unstableActive = networkUnstableEpisodeStartedElapsedMs != null,
-            episodeStartedAt = networkUnstableEpisodeStartedAt,
-            flapCount = networkUnstableFlapCount,
-            lastFlapAt = networkUnstableLastFlapAt,
-            warningShown = networkUnstableWarningShown,
-            lastWarningAt = lastNetworkUnstableWarningAt,
-            lastTransportLabel = networkUnstableLastTransportLabel
-        )
-        val geofenceRuntimeStatus = GeofenceRuntimeStatus(
-            evaluation = geofenceEvaluation,
-            securityStatus = geofenceSecurityStatus,
-            policySource = effectiveLocationPolicySource,
-            violationCount = geofenceViolationCount,
-            lastTrigger = lastGeofenceTrigger,
-            lastDetectedAt = lastGeofenceAt,
-            lastContext = lastGeofenceContext
-        )
-        val fakeLocationRuntimeStatus = FakeLocationRuntimeStatus(
-            securityStatus = fakeLocationSecurityStatus,
-            violationCount = fakeLocationViolationCount,
-            lastTrigger = lastFakeLocationTrigger,
-            lastDetectedAt = lastFakeLocationAt,
-            lastContext = lastFakeLocationContext
-        )
-        val overlayShieldStatus = OverlayShieldStatus(
-            supported = Build.VERSION.SDK_INT >= Build.VERSION_CODES.S,
-            requested = overlayShieldRequested,
-            lastApplySucceeded = overlayShieldLastApplySucceeded,
-            lastApplyAt = overlayShieldLastAppliedAt
-        )
-        val clipboardRuntimeStatus = ClipboardRuntimeStatus(
-            lastObservedAt = lastClipboardObservedAt,
-            lastConfirmedAt = lastClipboardConfirmedAt,
-            lastObservedSignature = lastClipboardObservedSignature,
-            lastDecision = lastClipboardDecision,
-            baselineSemanticSignature = lastClipboardBaselineSemanticSignature,
-            detectedSemanticSignature = lastClipboardDetectedSemanticSignature,
-            currentSemanticSignature = clipboardDecisionSemanticSignature
-        )
-        val appSwitchLockTaskActive = lockTaskBridge.active()
-        val appSwitchProtectionMode = AppSwitchMonitor.protectionModeOf(
-            bypassState = appSwitchBypassState,
-            screenPinningMode = screenPinningMode,
-            guardArmed = examGuardArmed,
-            lockTaskActive = appSwitchLockTaskActive
-        )
-        val appSwitchStatus = AppSwitchMonitor.statusOf(
-            bypassState = appSwitchBypassState,
-            runtimeMonitoringActive = AppSwitchMonitor.shouldMonitor(
-                hostAvailable = mainActivity != null,
-                guardArmed = examGuardArmed,
-                bypassState = appSwitchBypassState
-            ),
-            protectionMode = appSwitchProtectionMode,
-            lockTaskActive = appSwitchLockTaskActive,
-            violationCount = forcedExitViolationCount,
-            pendingViolation = pendingForcedExitViolation,
-            lastTrigger = lastAppSwitchTrigger,
-            lastDetectedAt = lastAppSwitchAt,
-            lastContext = lastAppSwitchContext,
-            accessibilityGuardEnabled = accessibilityGuardEnabled,
-            accessibilityFallbackActive = accessibilityGuardFallbackActive,
-            accessibilityViolationCount = AccessibilityExamGuardStore.snapshot(context).violationCount,
-            accessibilityLastReason = accessibilityGuardLastReason,
-            accessibilityLastForeignPackage = accessibilityGuardLastForeignPackage,
-            accessibilityLastEventType = accessibilityGuardLastEventType,
-            accessibilityLastDetectedAt = accessibilityGuardLastDetectedAt,
-            accessibilityAlarmSeverity = accessibilityGuardAlarmSeverity
-        )
-
-        fun currentDiagnosticScreen(): String {
-            return examRuntimeDiagnosticScreen(
-                lockTaskRequestPending = lockTaskRequestPending,
-                examSessionStarted = examSessionStarted,
-                examRuntimeMonitoringArmed = examRuntimeMonitoringArmed
-            )
-        }
-
-        fun writePreviousSessionBreadcrumb(
-            code: String,
-            details: String = "-"
-        ) {
-            runCatching {
-                PreviousExamSessionBreadcrumbStore.append(
-                    context = context,
-                    code = code,
-                    details = details
-                )
-            }
-            if (ExamRuntimeHardeningDiagnostics.shouldLogForQa(
-                    ExamRuntimeHardeningDiagnostics.PreviousSessionBreadcrumbWritten
-                )
-            ) {
-                Log.i(
-                    ExamRuntimeHardeningLogTag,
-                    "code=${ExamRuntimeHardeningDiagnostics.PreviousSessionBreadcrumbWritten} " +
-                        "level=INFO details=event=$code | ${details.ifBlank { "-" }}"
-                )
-            }
-            diagnosticEvents = prependDiagnosticEvent(
-                existingEvents = diagnosticEvents,
-                code = ExamRuntimeHardeningDiagnostics.PreviousSessionBreadcrumbWritten,
-                details = "event=$code | ${details.ifBlank { "-" }}",
-                level = DiagnosticEventLevel.INFO,
-                screen = currentDiagnosticScreen(),
-                appStartedAtElapsedMs = appStartedAtElapsedMs,
-                examSessionStartedAtElapsedMs = examSessionStartedAtElapsedMs,
-                maxEntries = lowRamProfile.diagnosticLogMaxEntries
-            )
-        }
-
-        fun maybeWritePreviousSessionBreadcrumb(
-            code: String,
-            details: String
-        ) {
-            val breadcrumbCode = when (code) {
-                ExamRuntimeHardeningDiagnostics.ScreenPinningAlreadyActive ->
-                    PreviousExamSessionBreadcrumbCodes.ScreenPinningActive
-                ExamRuntimeHardeningDiagnostics.ScreenPinningRequestSkippedAlreadyActive ->
-                    PreviousExamSessionBreadcrumbCodes.ScreenPinningSkipped
-                ExamRuntimeHardeningDiagnostics.WebViewRendererGone ->
-                    PreviousExamSessionBreadcrumbCodes.RendererGone
-                ExamRuntimeHardeningDiagnostics.WebViewExitCleanupStarted ->
-                    PreviousExamSessionBreadcrumbCodes.CleanupStarted
-                ExamRuntimeHardeningDiagnostics.WebViewExitCleanupSucceeded ->
-                    PreviousExamSessionBreadcrumbCodes.CleanupSucceeded
-                ExamRuntimeHardeningDiagnostics.WebViewExitCleanupTimeout ->
-                    PreviousExamSessionBreadcrumbCodes.CleanupTimeout
-                else -> null
-            }
-            if (breadcrumbCode != null) {
-                writePreviousSessionBreadcrumb(breadcrumbCode, details)
-            }
-        }
-
-        fun clearAppSwitchSuppression() {
-            appSwitchSuppressionReason = null
-            appSwitchSuppressedUntilElapsedMs = null
-        }
-
-        fun setAppSwitchSuppression(
-            reason: AppSwitchSuppressionReason,
-            durationMs: Long = AppSwitchSuppressionWindowMillis
-        ) {
-            appSwitchSuppressionReason = reason
-            appSwitchSuppressedUntilElapsedMs = SystemClock.elapsedRealtime() + durationMs
-        }
-
-        fun currentAppSwitchSuppressionReason(): AppSwitchSuppressionReason? {
-            return resolveAppSwitchSuppressionReason(
-                reason = appSwitchSuppressionReason,
-                expiresAtElapsedMs = appSwitchSuppressedUntilElapsedMs
-            )
-        }
-
-        fun currentAppSwitchEventDetails(
-            signal: AppSwitchSignal,
-            suppressionReason: AppSwitchSuppressionReason? = null
-        ): String {
-            return buildAppSwitchEventDetails(
-                signal = signal,
-                appSwitchStatus = appSwitchStatus,
-                screenPinningMode = screenPinningMode,
-                lockTaskActive = lockTaskBridge.active(),
-                suppressionReason = suppressionReason
-            )
-        }
-
-        fun currentOverlayEventDetails(
-            signal: OverlaySignal,
-            extraContext: String? = null
-        ): String {
-            return buildOverlayEventDetails(
-                signal = signal,
-                overlayShieldStatus = overlayShieldStatus,
-                appSwitchStatus = appSwitchStatus,
-                pendingForcedExitViolation = pendingForcedExitViolation,
-                appSwitchLifecycleResumePending = appSwitchLifecycleResumePending,
-                overlayWindowHasFocus = overlayWindowHasFocus,
-                suppressionReason = currentAppSwitchSuppressionReason(),
-                hasFullScreenCustomView = fullScreenCustomView != null,
-                extraContext = extraContext
-            )
-        }
-
-        fun currentInternalDialogReason(): String? {
-            return resolveInternalDialogReason(
-                showOfflineWarningDialog = showOfflineWarningDialog,
-                showNetworkUnstableDialog = showNetworkUnstableDialog,
-                showForcedExitAlarm = showForcedExitAlarm,
-                showKeyboardViolationDialog = showKeyboardViolationDialog,
-                showOverlayViolationDialog = showOverlayViolationDialog,
-                showGeofenceViolationDialog = showGeofenceViolationDialog,
-                showFakeLocationViolationDialog = showFakeLocationViolationDialog,
-                showBluetoothViolationDialog = showBluetoothViolationDialog,
-                showScreenRecorderViolationDialog = securityUiState.showScreenRecorderViolationDialog.value,
-                showDisplayMirrorViolationDialog = securityUiState.showDisplayMirrorViolationDialog.value,
-                showMultiWindowViolationDialog = securityUiState.showMultiWindowViolationDialog.value,
-                showClipboardViolationDialog = showClipboardViolationDialog,
-                showExitExamDialog = showExitExamDialog,
-                pendingSectionPresent = pendingSection != null,
-                securityIssueDialogMessagePresent = securityIssueDialogMessage != null,
-                bugReportFeedbackMessagePresent = bugReportFeedbackMessage != null
-            )
-        }
-
-        fun recordOverlayEvent(
-            code: String,
-            signal: OverlaySignal,
-            level: DiagnosticEventLevel = DiagnosticEventLevel.INFO,
-            extraContext: String? = null
-        ) {
-            val details = currentOverlayEventDetails(signal, extraContext)
-            lastOverlayTrigger = signal.diagnosticLabel()
-            lastOverlayAt = diagnosticTimestamp()
-            lastOverlayContext = details
-            diagnosticEvents = prependDiagnosticEvent(
-                existingEvents = diagnosticEvents,
-                code = code,
-                details = details,
-                level = level,
-                screen = currentDiagnosticScreen(),
-                appStartedAtElapsedMs = appStartedAtElapsedMs,
-                examSessionStartedAtElapsedMs = examSessionStartedAtElapsedMs,
-                maxEntries = lowRamProfile.diagnosticLogMaxEntries
-            )
-        }
-
-        fun recordAction(
-            code: String,
-            details: String = "-",
-            level: DiagnosticEventLevel = DiagnosticEventLevel.INFO
-        ) {
-            maybeWritePreviousSessionBreadcrumb(code, details)
-            if (ExamRuntimeHardeningDiagnostics.shouldLogForQa(code)) {
-                Log.i(
-                    ExamRuntimeHardeningLogTag,
-                    "code=$code level=${level.name} details=${details.ifBlank { "-" }}"
-                )
-            }
-            diagnosticEvents = prependDiagnosticEvent(
-                existingEvents = diagnosticEvents,
-                code = code,
-                details = details,
-                level = level,
-                screen = currentDiagnosticScreen(),
-                appStartedAtElapsedMs = appStartedAtElapsedMs,
-                examSessionStartedAtElapsedMs = examSessionStartedAtElapsedMs,
-                maxEntries = lowRamProfile.diagnosticLogMaxEntries
-            )
-        }
-
-        fun currentGeofenceEventDetails(
-            trigger: String,
-            geofenceStatus: GeofenceSecurityStatus,
-            extraContext: String? = null
-        ): String {
-            return buildGeofenceEventDetails(
-                trigger = trigger,
-                geofenceStatus = geofenceStatus,
-                policySource = effectiveLocationPolicySource,
-                extraContext = extraContext
-            )
-        }
-
-        fun currentFakeLocationEventDetails(
-            trigger: String,
-            fakeLocationStatus: LocationSpoofSecurityStatus,
-            extraContext: String? = null
-        ): String {
-            return buildFakeLocationEventDetails(
-                trigger = trigger,
-                fakeLocationStatus = fakeLocationStatus,
-                extraContext = extraContext
-            )
-        }
-
-        fun currentNetworkEventDetails(
-            trigger: String,
-            status: NetworkReadinessStatus,
-            extraContext: String? = null
-        ): String {
-            return buildNetworkEventDetails(
-                trigger = trigger,
-                status = status,
-                extraContext = extraContext
-            )
-        }
-
-        fun refreshDeviceTimeSecurity(
-            trigger: String,
-            emitDiagnosticEvent: Boolean = true
-        ): DeviceTimeSecurityStatus {
-            val refreshedStatus = inspectDeviceTimeSecurity(
-                context = context,
-                baseline = deviceTimeBaseline,
-                bypassState = deviceTimeBypassState
-            )
-            deviceTimeSecurityStatus = refreshedStatus
-            if (emitDiagnosticEvent) {
-                val eventCode = when {
-                    refreshedStatus.bypassState == DeviceTimeBypassState.Tampered ->
-                        "DEVICE_TIME_BYPASS_TAMPER_DETECTED"
-                    refreshedStatus.finalVerdict == DeviceTimeSecurityVerdict.AutoTimeDisabled ->
-                        "DEVICE_TIME_AUTO_DISABLED"
-                    refreshedStatus.finalVerdict == DeviceTimeSecurityVerdict.AutoTimeZoneDisabled ->
-                        "DEVICE_TIME_AUTO_TIME_ZONE_DISABLED"
-                    refreshedStatus.finalVerdict == DeviceTimeSecurityVerdict.ClockDriftDetected ->
-                        "DEVICE_TIME_DRIFT_DETECTED"
-                    else -> null
-                }
-                val eventKey = eventCode?.plus("|")?.plus(refreshedStatus.finalVerdict.name)
-                if (eventCode != null && eventKey != lastDeviceTimeDiagnosticKey) {
-                    recordAction(
-                        code = eventCode,
-                        details = buildDeviceTimeEventDetails(trigger, refreshedStatus),
-                        level = DiagnosticEventLevel.WARNING
-                    )
-                    lastDeviceTimeDiagnosticKey = eventKey
-                } else if (eventCode == null) {
-                    lastDeviceTimeDiagnosticKey = null
-                }
-            }
-            return refreshedStatus
-        }
-
-        fun appendNetworkTimelineEntry(entry: NetworkTimelineEntry) {
-            networkTimeline.add(entry)
-            val effectiveMax = when {
-                lowRamProfile.ultra -> UltraMaxNetworkTimelineEntries
-                lowRamProfile.enabled -> LowMaxNetworkTimelineEntries
-                else -> MaxNetworkTimelineEntries
-            }
-            while (networkTimeline.size > effectiveMax) {
-                networkTimeline.removeAt(0)
-            }
-        }
-
-        fun applyNetworkReadinessStatus(
-            source: String,
-            refreshedStatus: NetworkReadinessStatus
-        ) {
-            val previousStatus = baseNetworkReadiness
-            val coreStateChanged =
-                previousStatus.examStatus.isConnected != refreshedStatus.examStatus.isConnected ||
-                    previousStatus.transportLabel != refreshedStatus.transportLabel ||
-                    previousStatus.diagnostics.isValidated != refreshedStatus.diagnostics.isValidated ||
-                    previousStatus.diagnostics.isCaptivePortal != refreshedStatus.diagnostics.isCaptivePortal ||
-                    previousStatus.diagnostics.isVpnActive != refreshedStatus.diagnostics.isVpnActive ||
-                    previousStatus.diagnostics.isAirplaneModeEnabled != refreshedStatus.diagnostics.isAirplaneModeEnabled ||
-                    previousStatus.verdict != refreshedStatus.verdict ||
-                    previousStatus.userFacingVerdict != refreshedStatus.userFacingVerdict ||
-                    previousStatus.dnsProbeStatus.verdict != refreshedStatus.dnsProbeStatus.verdict
-            if (!coreStateChanged) {
-                return
-            }
-            baseNetworkReadiness = refreshedStatus
-
-            if (refreshedStatus.examStatus.isConnected) {
-                lastConnectedNetworkLabel = refreshedStatus.transportLabel
-            }
-
-            if (refreshedStatus.diagnostics.isCaptivePortal) {
-                recordAction(
-                    code = ExamRuntimeHardeningDiagnostics.NetworkCaptivePortalDetected,
-                    details = currentNetworkEventDetails(
-                        trigger = source,
-                        status = refreshedStatus
-                    ),
-                    level = DiagnosticEventLevel.WARNING
-                )
-            }
-            if (!previousStatus.diagnostics.isVpnActive && refreshedStatus.diagnostics.isVpnActive) {
-                recordAction(
-                    code = ExamRuntimeHardeningDiagnostics.NetworkVpnDetected,
-                    details = currentNetworkEventDetails(
-                        trigger = source,
-                        status = refreshedStatus,
-                        extraContext = "bypass=${if (bypassVpn) "yes" else "no"}"
-                    ),
-                    level = if (bypassVpn) DiagnosticEventLevel.INFO else DiagnosticEventLevel.WARNING
-                )
-            } else if (previousStatus.diagnostics.isVpnActive && !refreshedStatus.diagnostics.isVpnActive) {
-                recordAction(
-                    code = ExamRuntimeHardeningDiagnostics.NetworkVpnCleared,
-                    details = currentNetworkEventDetails(
-                        trigger = source,
-                        status = refreshedStatus
-                    ),
-                    level = DiagnosticEventLevel.INFO
-                )
-            }
-            if (
-                refreshedStatus.dnsProbeStatus.verdict == NetworkDnsProbeVerdict.Failed ||
-                refreshedStatus.dnsProbeStatus.verdict == NetworkDnsProbeVerdict.Timeout
-            ) {
-                recordAction(
-                    code = ExamRuntimeHardeningDiagnostics.NetworkDnsProbeFailed,
-                    details = currentNetworkEventDetails(
-                        trigger = source,
-                        status = refreshedStatus,
-                        extraContext = "dns=${refreshedStatus.dnsProbeStatus.verdict.name.lowercase(Locale.US)}"
-                    ),
-                    level = DiagnosticEventLevel.WARNING
-                )
-            }
-
-            if (coreStateChanged) {
-                val timelineTimestamp = diagnosticTimestamp()
-                appendNetworkTimelineEntry(
-                    NetworkTimelineEntry(
-                        timestamp = timelineTimestamp,
-                        source = source,
-                        transportLabel = refreshedStatus.transportLabel,
-                        connected = refreshedStatus.examStatus.isConnected,
-                        validated = refreshedStatus.diagnostics.isValidated,
-                        captivePortal = refreshedStatus.diagnostics.isCaptivePortal,
-                        summary = buildString {
-                            append(refreshedStatus.verdict.name)
-                            append(" | ")
-                            append(refreshedStatus.examStatus.detail.ifBlank { "-" })
-                        }
-                    )
-                )
-                lastNetworkChangeAt = timelineTimestamp
-                lastNetworkChangeSource = source
-            }
-
-            val flapRelevantChanged =
-                    previousStatus.examStatus.isConnected != refreshedStatus.examStatus.isConnected ||
-                    previousStatus.transportLabel != refreshedStatus.transportLabel ||
-                    previousStatus.diagnostics.isValidated != refreshedStatus.diagnostics.isValidated ||
-                    previousStatus.diagnostics.isVpnActive != refreshedStatus.diagnostics.isVpnActive
-
-            if (flapRelevantChanged) {
-                val nowElapsed = SystemClock.elapsedRealtime()
-                val flapTimestamp = diagnosticTimestamp()
-                networkFlapElapsedMs.add(nowElapsed)
-                while (
-                    networkFlapElapsedMs.isNotEmpty() &&
-                    nowElapsed - networkFlapElapsedMs.first() > NetworkUnstableWindowMillis
-                ) {
-                    networkFlapElapsedMs.removeAt(0)
-                }
-                networkUnstableLastFlapAt = flapTimestamp
-                networkUnstableLastFlapElapsedMs = nowElapsed
-                networkUnstableLastTransportLabel = refreshedStatus.transportLabel
-                networkUnstableFlapCount = networkFlapElapsedMs.size
-
-                if (
-                    networkFlapElapsedMs.size >= NetworkUnstableFlipThreshold &&
-                    networkUnstableEpisodeStartedElapsedMs == null
-                ) {
-                    networkUnstableEpisodeStartedElapsedMs = nowElapsed
-                    networkUnstableEpisodeStartedAt = flapTimestamp
-                    networkUnstableWarningShown = false
-                    recordAction(
-                        code = "NETWORK_UNSTABLE_EPISODE_STARTED",
-                        details = currentNetworkEventDetails(
-                            trigger = source,
-                            status = refreshedStatus,
-                            extraContext = "flap_count=${networkFlapElapsedMs.size}"
-                        ),
-                        level = DiagnosticEventLevel.WARNING
-                    )
-                }
-            }
-
-            if (
-                examSessionStarted &&
-                networkUnstableEpisodeStartedElapsedMs != null &&
-                !networkUnstableWarningShown
-            ) {
-                networkUnstableWarningShown = true
-                lastNetworkUnstableWarningAt = diagnosticTimestamp()
-                showNetworkUnstableDialog = true
-                recordAction(
-                    code = "NETWORK_UNSTABLE_WARNING_SHOWN",
-                    details = currentNetworkEventDetails(
-                        trigger = source,
-                        status = refreshedStatus,
-                        extraContext = "flap_count=${networkUnstableFlapCount}"
-                    ),
-                    level = DiagnosticEventLevel.WARNING
-                )
-            }
-        }
-
-        fun updateNetworkReadiness(source: String) {
-            applyNetworkReadinessStatus(source, readNetworkReadinessStatus(context))
-        }
-
-        fun launchNetworkManualRefresh(trigger: String) {
-            if (networkManualRefreshInFlight) {
-                return
-            }
-            coroutineScope.launch {
-                networkManualRefreshInFlight = true
-                applyNetworkReadinessStatus(
-                    trigger,
-                    readNetworkReadinessStatusWithProbe(context)
-                )
-                delay(250L)
-                networkManualRefreshInFlight = false
-            }
-        }
-
-        suspend fun evaluateLocationSecurityNow(preferFresh: Boolean): SplitLocationSecurityStatus {
-            val permissionGranted = hasLocationPermissionForWifi(context)
-            val preciseGranted = hasFineLocationPermission(context)
-            val servicesEnabled = isLocationServicesEnabled(context)
-            val developerOptionsForLocation = inspectAdb(context).developerOptionsEnabled
-            val geofenceSnapshotRequired =
-                geofenceConfigParseResult.enabled &&
-                    geofenceConfigParseResult.config != null &&
-                    geofenceBypassState != GeofenceBypassState.Active &&
-                    permissionGranted &&
-                    servicesEnabled
-            val fakeLocationSnapshotRequired =
-                fakeLocationBypassState != FakeLocationBypassState.Active &&
-                    permissionGranted &&
-                    servicesEnabled
-            val locationSnapshot =
-                if (
-                    geofenceSnapshotRequired ||
-                    fakeLocationSnapshotRequired
-                ) {
-                    acquireBestEffortLocationSnapshot(
-                        context = context,
-                        preferFresh = preferFresh,
-                        geofenceConfig = geofenceConfigParseResult.config.takeIf { geofenceSnapshotRequired }
-                    )
-                } else {
-                    null
-                }
-            val latestGeofenceStatus = evaluateGeofenceSecurity(
-                configResult = geofenceConfigParseResult,
-                permissionGranted = permissionGranted,
-                preciseLocationGranted = preciseGranted,
-                locationServicesEnabled = servicesEnabled,
-                locationSnapshot = locationSnapshot,
-                bypassState = geofenceBypassState
-            )
-            val latestFakeLocationStatus = evaluateFakeLocationSecurity(
-                monitoringEnabled = true,
-                permissionGranted = permissionGranted,
-                locationServicesEnabled = servicesEnabled,
-                locationSnapshot = locationSnapshot,
-                fixQualityStatus = latestGeofenceStatus.fixQualityStatus,
-                developerOptionsEnabled = developerOptionsForLocation,
-                suspiciousFakeLocationPackages =
-                    SecurityDetectorCache.readSuspiciousFakeLocationPackages(context),
-                bypassState = fakeLocationBypassState
-            )
-            geofenceEvaluation = latestGeofenceStatus.geofenceEvaluation
-            geofenceSecurityStatus = latestGeofenceStatus
-            fakeLocationSecurityStatus = latestFakeLocationStatus
-            return SplitLocationSecurityStatus(
-                geofenceStatus = latestGeofenceStatus,
-                fakeLocationStatus = latestFakeLocationStatus
-            )
-        }
-
-        fun applyGeofenceRuntimeEvaluation(
-            geofenceStatus: GeofenceSecurityStatus,
-            trigger: String
-        ) {
-            val evaluation = geofenceStatus.geofenceEvaluation
-            if (!evaluation.enabled) {
-                geofenceRuntimeEpisodeKey = null
-                return
-            }
-
-            if (!geofenceStatus.blocking) {
-                val previousEpisode = geofenceRuntimeEpisodeKey
-                if (previousEpisode != null) {
-                    recordAction(
-                        code = "GEOFENCE_RUNTIME_RECOVERED",
-                        details = currentGeofenceEventDetails(
-                            trigger = trigger,
-                            geofenceStatus = geofenceStatus,
-                            extraContext = "previous_verdict=$previousEpisode"
-                        ),
-                        level = DiagnosticEventLevel.INFO
-                    )
-                }
-                geofenceRuntimeEpisodeKey = null
-                return
-            }
-
-            val nextEpisodeKey = geofenceStatus.finalVerdict.diagnosticLabel()
-            if (geofenceRuntimeEpisodeKey == nextEpisodeKey) {
-                return
-            }
-
-            geofenceRuntimeEpisodeKey = nextEpisodeKey
-            val eventCode = when (geofenceStatus.finalVerdict) {
-                GeofenceSecurityVerdict.Outside -> "GEOFENCE_RUNTIME_OUTSIDE"
-                GeofenceSecurityVerdict.PreciseRequired -> "GEOFENCE_RUNTIME_PRECISE_REQUIRED"
-                else -> "GEOFENCE_RUNTIME_LOCATION_UNAVAILABLE"
-            }
-            val details = currentGeofenceEventDetails(trigger = trigger, geofenceStatus = geofenceStatus)
-            lastGeofenceTrigger = trigger
-            lastGeofenceAt = diagnosticTimestamp()
-            lastGeofenceContext = details
-            geofenceViolationCount += 1
-            showGeofenceViolationDialog = true
-            recordAction(
-                code = eventCode,
-                details = details,
-                level = DiagnosticEventLevel.SECURITY
-            )
-            examAlarmController.start()
-        }
-
-        fun applyFakeLocationRuntimeEvaluation(
-            fakeLocationStatus: LocationSpoofSecurityStatus,
-            trigger: String
-        ) {
-            if (!fakeLocationStatus.monitoringEnabled) {
-                fakeLocationRuntimeEpisodeKey = null
-                return
-            }
-
-            if (!fakeLocationStatus.blocking) {
-                val previousEpisode = fakeLocationRuntimeEpisodeKey
-                if (previousEpisode != null) {
-                    recordAction(
-                        code = "FAKE_LOCATION_RUNTIME_RECOVERED",
-                        details = currentFakeLocationEventDetails(
-                            trigger = trigger,
-                            fakeLocationStatus = fakeLocationStatus,
-                            extraContext = "previous_verdict=$previousEpisode"
-                        ),
-                        level = DiagnosticEventLevel.INFO
-                    )
-                }
-                fakeLocationRuntimeEpisodeKey = null
-                return
-            }
-
-            val nextEpisodeKey = buildString {
-                append(fakeLocationStatus.finalVerdict.diagnosticLabel())
-                append(':')
-                append(fakeLocationStatus.confidenceTier.diagnosticLabel())
-            }
-            if (fakeLocationRuntimeEpisodeKey == nextEpisodeKey) {
-                return
-            }
-
-            fakeLocationRuntimeEpisodeKey = nextEpisodeKey
-            val eventCode = when (fakeLocationStatus.finalVerdict) {
-                LocationSpoofSecurityVerdict.PermissionRequired -> "FAKE_LOCATION_RUNTIME_PERMISSION_REQUIRED"
-                LocationSpoofSecurityVerdict.LocationServicesDisabled -> "FAKE_LOCATION_RUNTIME_LOCATION_SERVICES_REQUIRED"
-                LocationSpoofSecurityVerdict.LocationUnavailable -> "FAKE_LOCATION_RUNTIME_LOCATION_UNAVAILABLE"
-                else -> "FAKE_LOCATION_RUNTIME_SPOOF_DETECTED"
-            }
-            val details = currentFakeLocationEventDetails(
-                trigger = trigger,
-                fakeLocationStatus = fakeLocationStatus
-            )
-            lastFakeLocationTrigger = trigger
-            lastFakeLocationAt = diagnosticTimestamp()
-            lastFakeLocationContext = details
-            fakeLocationViolationCount += 1
-            showFakeLocationViolationDialog = true
-            recordAction(
-                code = eventCode,
-                details = details,
-                level = DiagnosticEventLevel.SECURITY
-            )
-            examAlarmController.start()
-        }
-
-        suspend fun refreshGeofenceStatus(
-            preferFresh: Boolean,
-            trigger: String,
-            allowRuntimeViolation: Boolean
-        ): SplitLocationSecurityStatus {
-            val latestLocationStatus = evaluateLocationSecurityNow(preferFresh = preferFresh)
-            if (examSessionStarted && geofenceEnabled && allowRuntimeViolation && !bypassGeofence) {
-                applyGeofenceRuntimeEvaluation(
-                    geofenceStatus = latestLocationStatus.geofenceStatus,
-                    trigger = trigger
-                )
-            } else if (!latestLocationStatus.geofenceStatus.geofenceEvaluation.enabled || !examSessionStarted) {
-                geofenceRuntimeEpisodeKey = null
-            }
-            if (
-                examSessionStarted &&
-                allowRuntimeViolation &&
-                latestLocationStatus.fakeLocationStatus.monitoringEnabled &&
-                !bypassFakeLocation
-            ) {
-                applyFakeLocationRuntimeEvaluation(
-                    fakeLocationStatus = latestLocationStatus.fakeLocationStatus,
-                    trigger = trigger
-                )
-            } else if (!latestLocationStatus.fakeLocationStatus.monitoringEnabled || !examSessionStarted) {
-                fakeLocationRuntimeEpisodeKey = null
-            }
-            if (
-                latestLocationStatus.fakeLocationStatus.monitoringEnabled &&
-                latestLocationStatus.fakeLocationStatus.bypassState != FakeLocationBypassState.Active &&
-                latestLocationStatus.fakeLocationStatus.warningOnly &&
-                latestLocationStatus.fakeLocationStatus.suspiciousFakeLocationPackages.isNotEmpty()
-            ) {
-                val warningKey = buildString {
-                    append(latestLocationStatus.fakeLocationStatus.confidenceTier.diagnosticLabel())
-                    append(':')
-                    append(latestLocationStatus.fakeLocationStatus.suspiciousFakeLocationPackages.joinToString())
-                }
-                if (warningKey != lastFakeLocationWarningKey) {
-                    recordAction(
-                        code = "FAKE_LOCATION_PACKAGE_WARNING",
-                        details = currentFakeLocationEventDetails(
-                            trigger = trigger,
-                            fakeLocationStatus = latestLocationStatus.fakeLocationStatus
-                        ),
-                        level = DiagnosticEventLevel.WARNING
-                    )
-                    lastFakeLocationWarningKey = warningKey
-                }
-            } else {
-                lastFakeLocationWarningKey = null
-            }
-            return latestLocationStatus
-        }
-
-        fun buildCurrentWarmLocationValidationKey(): String {
-            return buildWarmLocationValidationKey(
-                permissionGranted = hasLocationPermissionForWifi(context),
-                locationServicesEnabled = isLocationServicesEnabled(context),
-                policySignature = warmLocationPolicySignature
-            )
-        }
-
-        fun invalidateWarmLocationValidationCache() {
-            reusableWarmLocationValidation = null
-        }
-
-        suspend fun resolveStartExamLocationValidation(): SplitLocationSecurityStatus {
-            val currentValidationKey = buildCurrentWarmLocationValidationKey()
-            val reusableWarmLocationForStart = reusableWarmLocationValidation?.takeIf {
-                it.isReusableForStart(currentValidationKey = currentValidationKey)
-            }
-            if (reusableWarmLocationForStart != null) {
-                val warmAgeMs = (
-                    SystemClock.elapsedRealtime() - reusableWarmLocationForStart.completedAtElapsedMs
-                ).coerceAtLeast(0L)
-                debugLogExamStart(
-                    "startExamSession reused warm location validation prepared ${warmAgeMs} ms ago"
-                )
-                geofenceEvaluation = reusableWarmLocationForStart.result.geofenceStatus.geofenceEvaluation
-                geofenceSecurityStatus = reusableWarmLocationForStart.result.geofenceStatus
-                fakeLocationSecurityStatus = reusableWarmLocationForStart.result.fakeLocationStatus
-                return reusableWarmLocationForStart.result
-            }
-
-            val forcedRefreshReason = reusableWarmLocationValidation
-                ?.reuseFailureReason(currentValidationKey = currentValidationKey)
-                ?: "no_warm_validation"
-            debugLogExamStart(
-                "startExamSession forcing full location validation (reason=$forcedRefreshReason)"
-            )
-            return refreshGeofenceStatus(
-                preferFresh = true,
-                trigger = "start_exam_validation",
-                allowRuntimeViolation = false
-            )
-        }
-
-        fun launchLocationSecurityManualRefresh(trigger: String) {
-            if (geofenceManualRefreshInFlight) {
-                return
-            }
-            invalidateWarmLocationValidationCache()
-            geofenceManualRefreshInFlight = true
-            coroutineScope.launch {
-                try {
-                    val refreshedStatus = debugMeasureExamStartSuspendWork("locationRefresh:$trigger") {
-                        refreshGeofenceStatus(
-                            preferFresh = true,
-                            trigger = trigger,
-                            allowRuntimeViolation = false
-                        )
-                    }
-                    val refreshedAt = diagnosticTimestamp()
-                    val validationKey = buildCurrentWarmLocationValidationKey()
-                    lastGeofenceRefreshAt = refreshedAt
-                    reusableWarmLocationValidation = WarmLocationValidationCache(
-                        result = refreshedStatus,
-                        validationKey = validationKey,
-                        completedAtElapsedMs = SystemClock.elapsedRealtime(),
-                        completedAtTimestamp = refreshedAt
-                    ).takeIf { it.isReusableForStart(currentValidationKey = validationKey) }
-                } finally {
-                    geofenceManualRefreshInFlight = false
-                }
-            }
-        }
-
-    }
-    val runtimeDiagnosticsOps = RuntimeDiagnosticsOps()
+    val runtimeDiagnosticsOps = ExamRuntimeDiagnosticsOps(
+        context = context,
+        coroutineScope = coroutineScope,
+        lockTaskBridge = lockTaskBridge,
+        mainActivity = mainActivity,
+        lowRamProfile = lowRamProfile,
+        screenPinningMode = screenPinningMode,
+        appSwitchBypassState = appSwitchBypassState,
+        effectiveLocationPolicySource = effectiveLocationPolicySource,
+        deviceTimeBaseline = deviceTimeBaseline,
+        deviceTimeBypassState = deviceTimeBypassState,
+        geofenceConfigParseResult = geofenceConfigParseResult,
+        geofenceBypassState = geofenceBypassState,
+        fakeLocationBypassState = fakeLocationBypassState,
+        bypassVpn = bypassVpn,
+        bypassGeofence = bypassGeofence,
+        bypassFakeLocation = bypassFakeLocation,
+        warmLocationPolicySignature = warmLocationPolicySignature,
+        networkReadinessStatus = networkReadinessStatus,
+        baseNetworkReadinessState = baseNetworkReadinessState,
+        networkUiState = networkUiState,
+        networkTimeline = networkTimeline,
+        networkFlapElapsedMs = networkFlapElapsedMs,
+        flowUiState = flowUiState,
+        securityUiState = securityUiState,
+        clipboardUiState = clipboardUiState,
+        adminUiState = adminUiState,
+        webViewUiState = webViewUiState,
+        locationWarmupUiState = locationWarmupUiState,
+        deviceTimeSecurityStatusState = deviceTimeSecurityStatusState,
+        lastDeviceTimeDiagnosticKeyState = lastDeviceTimeDiagnosticKeyState,
+        accessibilityGuardEnabledState = accessibilityGuardEnabledState,
+        accessibilityGuardFallbackActiveState = accessibilityGuardFallbackActiveState,
+        accessibilityGuardLastReasonState = accessibilityGuardLastReasonState,
+        accessibilityGuardLastForeignPackageState = accessibilityGuardLastForeignPackageState,
+        accessibilityGuardLastEventTypeState = accessibilityGuardLastEventTypeState,
+        accessibilityGuardLastDetectedAtState = accessibilityGuardLastDetectedAtState,
+        accessibilityGuardAlarmSeverityState = accessibilityGuardAlarmSeverityState,
+        examAlarmController = examAlarmController
+    )
     val currentOfflineDurationMs = runtimeDiagnosticsOps.currentOfflineDurationMs
     val offlineRuntimeStatus = runtimeDiagnosticsOps.offlineRuntimeStatus
     val networkTimelinePreview = runtimeDiagnosticsOps.networkTimelinePreview
@@ -1897,651 +1068,42 @@ internal fun ExamRuntimeSessionScreenImpl(
             }
         }
 
-    class RuntimeMonitoringOps {
-        fun armExamRuntimeMonitoring(reason: String) {
-            examRuntimeMonitoringArmed = true
-            recordAction(
-                code = "EXAM_RUNTIME_GUARDS_ARMED",
-                details = "reason=$reason | screen_pinning_mode=${screenPinningMode.name.lowercase()}",
-                level = DiagnosticEventLevel.INFO
-            )
-        }
-
-        fun disarmExamRuntimeMonitoring() {
-            examRuntimeMonitoringArmed = false
-            if (accessibilityGuardFallbackActive || AccessibilityExamGuardStore.snapshot(context).armed) {
-                AccessibilityExamGuardStore.disarm(context)
-                recordAction(
-                    code = "ACCESSIBILITY_GUARD_DISARMED",
-                    details = "reason=runtime_monitoring_disarmed",
-                    level = DiagnosticEventLevel.INFO
-                )
+    val runtimeMonitoringOps = ExamRuntimeMonitoringOps(
+        context = context,
+        componentActivity = componentActivity,
+        coroutineScope = coroutineScope,
+        lockTaskBridge = lockTaskBridge,
+        lowRamProfile = lowRamProfile,
+        screenPinningMode = screenPinningMode,
+        uiLanguage = uiLanguage,
+        mainActivity = mainActivity,
+        examAlarmController = examAlarmController,
+        webViewUiState = webViewUiState,
+        runtimeCacheState = runtimeCacheState,
+        flowUiState = flowUiState,
+        adminUiState = adminUiState,
+        securityUiState = securityUiState,
+        clipboardUiState = clipboardUiState,
+        accessibilityGuardFallbackActiveState = accessibilityGuardFallbackActiveState,
+        clipboardBypassState = clipboardBypassState,
+        bypassClipboard = bypassClipboard,
+        clipboardMainHandler = clipboardMainHandler,
+        overlayMainHandler = overlayMainHandler,
+        networkFlapElapsedMs = networkFlapElapsedMs,
+        networkTimeline = networkTimeline,
+        locationWarmupUiState = locationWarmupUiState,
+        exitCleanupState = ExamRuntimeExitCleanupStateAccess(
+            requested = exitSessionClearRequestedState,
+            deferred = exitSessionClearDeferredState
+        ),
+        callbacks = ExamRuntimeMonitoringCallbacks(
+            currentAppSwitchEventDetails = { signal -> currentAppSwitchEventDetails(signal) },
+            clearAppSwitchSuppression = ::clearAppSwitchSuppression,
+            recordAction = { code, details, level ->
+                recordAction(code = code, details = details, level = level)
             }
-            accessibilityGuardFallbackActive = false
-            appSwitchLifecycleResumePending = false
-            clipboardResumeCheckRunnable?.let(clipboardMainHandler::removeCallbacks)
-            clipboardResumeCheckRunnable = null
-            overlayFocusLossConfirmRunnable?.let(overlayMainHandler::removeCallbacks)
-            overlayFocusLossConfirmRunnable = null
-            overlayWindowFocusLossPending = false
-            clipboardResumeCheckPending = false
-            clipboardPreBackgroundFingerprint = null
-            clipboardPreBackgroundSignature = null
-            clipboardPreBackgroundSemanticSignature = null
-            participantContext = null
-        }
-
-        fun recordAppSwitchEvent(
-            code: String,
-            signal: AppSwitchSignal,
-            level: DiagnosticEventLevel = DiagnosticEventLevel.INFO,
-            updateLastDetectedAt: Boolean = true
-        ) {
-            val details = currentAppSwitchEventDetails(signal)
-            lastAppSwitchTrigger = signal.diagnosticLabel()
-            if (updateLastDetectedAt) {
-                lastAppSwitchAt = diagnosticTimestamp()
-            }
-            lastAppSwitchContext = details
-            recordAction(
-                code = code,
-                details = details,
-                level = level
-            )
-        }
-
-        fun acknowledgeRuntimeAlarm(
-            type: AlarmAcknowledgeType,
-            violationCount: Int,
-            buildPayload: (detailRef: String) -> AlarmAcknowledgePayload,
-            onUiAcknowledge: () -> Unit
-        ) {
-            val detailRef = latestAlarmDetailRef(
-                diagnosticEvents = diagnosticEvents,
-                type = type
-            )
-            val alarmPayload = buildPayload(detailRef)
-            onUiAcknowledge()
-
-            if (!examGuardArmed && !examSessionStarted) {
-                return
-            }
-
-            val dedupeKey = listOf(
-                alarmPayload.alarmType.wireName,
-                violationCount.toString(),
-                alarmPayload.examName,
-                alarmPayload.examUrlHost,
-                alarmPayload.examUrlHashShort
-            ).joinToString("|")
-            val nowElapsedMs = SystemClock.elapsedRealtime()
-            if (
-                lastAlarmAcknowledgeDedupKey == dedupeKey &&
-                nowElapsedMs - lastAlarmAcknowledgeAtElapsedMs <= AlarmAcknowledgeDedupWindowMillis
-            ) {
-                return
-            }
-
-            lastAlarmAcknowledgeDedupKey = dedupeKey
-            lastAlarmAcknowledgeAtElapsedMs = nowElapsedMs
-            recordAction(
-                code = "ALARM_ACKNOWLEDGED",
-                details = buildAlarmAckEventDetails(
-                    payload = alarmPayload,
-                    result = "queued"
-                ),
-                level = DiagnosticEventLevel.INFO
-            )
-
-            coroutineScope.launch {
-                sendTelegramAlarmAcknowledge(alarmPayload)
-                    .onSuccess {
-                        recordAction(
-                            code = "ALARM_ACK_TG_SENT",
-                            details = buildAlarmAckEventDetails(
-                                payload = alarmPayload,
-                                result = "sent"
-                            ),
-                            level = DiagnosticEventLevel.INFO
-                        )
-                    }
-                    .onFailure { error ->
-                        val errorSummary = error.message?.take(160)
-                            ?: error.javaClass.simpleName.take(160)
-                        recordAction(
-                            code = "ALARM_ACK_TG_FAILED",
-                            details = buildAlarmAckEventDetails(
-                                payload = alarmPayload,
-                                result = "failed",
-                                extra = "error=$errorSummary"
-                            ),
-                            level = DiagnosticEventLevel.ERROR
-                        )
-                    }
-            }
-        }
-
-        fun confirmClipboardViolation(
-            snapshot: ClipboardSnapshot,
-            decision: ClipboardChangeDecision,
-            eventSuffix: String,
-            updateObservedSnapshot: Boolean,
-            baselineSemanticSignatureOverride: String? = null
-        ) {
-            val eventTimestamp = diagnosticTimestamp()
-            val baselineSemanticSignature =
-                baselineSemanticSignatureOverride ?: clipboardDecisionSemanticSignature
-            val diagnosticSnapshot =
-                if (snapshot.rawSignature.isBlank()) readClipboardSnapshotFull(context) else snapshot
-            clipboardSignature = diagnosticSnapshot.rawSignature
-            clipboardDecisionFingerprint = diagnosticSnapshot.decisionFingerprint
-            clipboardDecisionSemanticSignature = diagnosticSnapshot.semanticSignature
-            if (updateObservedSnapshot) {
-                lastClipboardObservedAt = eventTimestamp
-                lastClipboardObservedSignature = diagnosticSnapshot.rawSignature.ifBlank { null }
-            }
-            lastClipboardBaselineSemanticSignature = baselineSemanticSignature.ifBlank { null }
-            lastClipboardDetectedSemanticSignature = diagnosticSnapshot.semanticSignature.ifBlank { null }
-            lastClipboardConfirmedAt = eventTimestamp
-            lastClipboardDecision = decision.diagnosticLabel()
-            recordAction(
-                code = "CLIPBOARD_CHANGED",
-                details = "decision=${decision.diagnosticLabel()};source=$eventSuffix",
-                level = DiagnosticEventLevel.SECURITY
-            )
-            lastClipboardChangeEvent = "$eventTimestamp - Clipboard berubah saat sesi ujian ($eventSuffix)"
-            clipboardViolationCount += 1
-            showClipboardViolationDialog = true
-            examAlarmController.start()
-        }
-
-        fun armClipboardResumeCheck(reason: String) {
-            if (clipboardBypassState == ClipboardBypassState.Active || bypassClipboard) {
-                clipboardResumeCheckPending = false
-                clipboardPreBackgroundFingerprint = null
-                clipboardPreBackgroundSignature = null
-                clipboardPreBackgroundSemanticSignature = null
-                return
-            }
-            val beforeBackgroundSnapshot = readClipboardSnapshotLite(context)
-            clipboardPreBackgroundFingerprint = beforeBackgroundSnapshot.decisionFingerprint
-            clipboardPreBackgroundSignature = null
-            clipboardPreBackgroundSemanticSignature = beforeBackgroundSnapshot.semanticSignature.ifBlank { null }
-            clipboardResumeCheckPending = true
-            lastClipboardDecision = "resume_check_armed:$reason"
-        }
-
-        fun applyFatalSecuritySignal(signal: FatalSecuritySignal) {
-            recordAction(
-                code = signal.eventCode,
-                details = signal.details,
-                level = DiagnosticEventLevel.SECURITY
-            )
-            examSessionCancelledByPinningFailure = true
-            lockTaskRequestPending = false
-            clearAppSwitchSuppression()
-            disarmExamRuntimeMonitoring()
-            pendingForcedExitViolation = false
-            showForcedExitAlarm = false
-            screenPinningMessage = null
-            showBuiltInExamKeyboard = false
-            hasEditableFocus = false
-            securityIssueDialogTitle = signal.title
-            securityIssueDialogMessage = signal.message
-            exitOnSecurityIssueDialogDismiss = true
-            examSessionStarted = false
-            examSessionStartedAtElapsedMs = null
-            webViewErrorMessage = null
-            lockTaskBridge.disengage()
-            examAlarmController.start()
-        }
-
-        fun refreshReverseEngineeringStatus() {
-            val cachedResult = reverseEngineeringRefreshCache
-            val result =
-                if (cachedResult != null && cachedResult.isFresh()) {
-                    cachedResult.result
-                } else {
-                    ReverseEngineeringGuard.inspect(context).also { refreshed ->
-                        reverseEngineeringRefreshCache = RuntimeReverseEngineeringRefreshCache(
-                            result = refreshed,
-                            capturedAtElapsedMs = SystemClock.elapsedRealtime()
-                        )
-                    }
-                }
-            tamperDetected = result.tamperDetected
-            tamperSummary = result.summary()
-            if (result.tamperDetected && tamperSummary != tamperLastLoggedSummary) {
-                recordAction(
-                    code = "TAMPER_DETECTED",
-                    details = tamperSummary,
-                    level = DiagnosticEventLevel.SECURITY
-                )
-                tamperLastLoggedSummary = tamperSummary
-            }
-            if (!result.tamperDetected && tamperLastLoggedSummary != null) {
-                tamperLastLoggedSummary = null
-            }
-        }
-
-        fun refreshIntegrityGuard() {
-            val cachedResult = integrityRefreshCache
-            val result =
-                if (cachedResult != null && cachedResult.isFreshFor(integrityBaselineFingerprint)) {
-                    cachedResult.result
-                } else {
-                    IntegrityGuard.check(context, integrityBaselineFingerprint).also { refreshed ->
-                        integrityRefreshCache = RuntimeIntegrityRefreshCache(
-                            result = refreshed,
-                            baselineFingerprint = integrityBaselineFingerprint,
-                            capturedAtElapsedMs = SystemClock.elapsedRealtime()
-                        )
-                    }
-                }
-            if (integrityBaselineFingerprint.isNullOrBlank() &&
-                result.currentFingerprint.isNotBlank() &&
-                result.currentFingerprint != "-"
-            ) {
-                integrityBaselineFingerprint = result.currentFingerprint
-            }
-            integrityTamperDetected = !result.ok
-            integritySummary = result.details
-            integrityPublicSummary = buildIntegrityPublicSummary(result.issues)
-            val issueSignature = integritySummary.ifBlank { "-" }
-            if (!result.ok && issueSignature != integrityLastLoggedSummary) {
-                val issueSet = result.issues.toSet()
-                if ("dex_hash_mismatch" in issueSet) {
-                    recordAction(
-                        code = "TAMPER_APK_HASH",
-                        details = integritySummary,
-                        level = DiagnosticEventLevel.SECURITY
-                    )
-                }
-                if ("signature_changed" in issueSet) {
-                    recordAction(
-                        code = "TAMPER_SIGNATURE_CHANGED",
-                        details = integritySummary,
-                        level = DiagnosticEventLevel.SECURITY
-                    )
-                }
-                if (issueSet.any { it.startsWith("sysprop_") } || "test_keys" in issueSet) {
-                    recordAction(
-                        code = "TAMPER_SYSTEM_PROP",
-                        details = integritySummary,
-                        level = DiagnosticEventLevel.SECURITY
-                    )
-                }
-                if ("hook_class" in issueSet) {
-                    recordAction(
-                        code = "TAMPER_HOOK_CLASS",
-                        details = integritySummary,
-                        level = DiagnosticEventLevel.SECURITY
-                    )
-                }
-                integrityLastLoggedSummary = issueSignature
-            }
-            if (result.ok && integrityLastLoggedSummary != null) {
-                integrityLastLoggedSummary = null
-            }
-        }
-
-        fun hideSystemKeyboard() {
-            val inputMethodManager = context.getSystemService(InputMethodManager::class.java)
-            webViewInstance?.windowToken?.let { windowToken ->
-                inputMethodManager?.hideSoftInputFromWindow(windowToken, 0)
-            }
-            componentActivity.currentFocus?.windowToken?.let { windowToken ->
-                inputMethodManager?.hideSoftInputFromWindow(windowToken, 0)
-            }
-        }
-
-        fun showSystemKeyboard() {
-            if (useBuiltInExamKeyboard) {
-                return
-            }
-            val inputMethodManager = context.getSystemService(InputMethodManager::class.java) ?: return
-            webViewInstance?.post {
-                webViewInstance?.isFocusable = true
-                webViewInstance?.isFocusableInTouchMode = true
-                webViewInstance?.requestFocus(View.FOCUS_DOWN)
-                webViewInstance?.requestFocus()
-                webViewInstance?.let { inputMethodManager.showSoftInput(it, InputMethodManager.SHOW_IMPLICIT) }
-            }
-        }
-
-        fun showCustomView(view: View, callback: WebChromeClient.CustomViewCallback?) {
-            if (fullScreenCustomView != null) {
-                callback?.onCustomViewHidden()
-                return
-            }
-            fullScreenCustomView = view
-            fullScreenCustomViewCallback = callback
-            webViewInstance?.visibility = View.GONE
-            (view.parent as? ViewGroup)?.removeView(view)
-            fullScreenContainer.removeAllViews()
-            fullScreenContainer.addView(
-                view,
-                FrameLayout.LayoutParams(
-                    ViewGroup.LayoutParams.MATCH_PARENT,
-                    ViewGroup.LayoutParams.MATCH_PARENT
-                )
-            )
-            lockTaskBridge.engage(allowLockTask = false)
-        }
-
-        fun hideCustomView() {
-            val view = fullScreenCustomView ?: return
-            fullScreenContainer.removeView(view)
-            fullScreenCustomViewCallback?.onCustomViewHidden()
-            fullScreenCustomViewCallback = null
-            fullScreenCustomView = null
-            webViewInstance?.visibility = View.VISIBLE
-            lockTaskBridge.engage(allowLockTask = false)
-        }
-
-        fun destroyExamWebViewInstance(view: SecureExamWebView) {
-            runCatching { view.stopLoading() }
-            runCatching { view.detachExamKeyboardBridge() }
-            runCatching { view.detachExamParticipantCaptureBridge() }
-            runCatching { view.detachExamNativeFullscreenBridge() }
-            runCatching { view.prepareForFreshExamSession() }
-            runCatching { view.webChromeClient = null }
-            runCatching { view.webViewClient = WebViewClient() }
-            runCatching { (view.parent as? ViewGroup)?.removeView(view) }
-            runCatching { view.removeAllViews() }
-            runCatching { view.destroy() }
-        }
-
-        fun recordStaleWebViewCallbackIgnored(callbackName: String, view: WebView?) {
-            recordAction(
-                code = ExamRuntimeHardeningDiagnostics.WebViewStaleCallbackIgnored,
-                details = "callback=$callbackName | active_generation=$webViewGeneration | " +
-                    "has_active=${if (webViewInstance != null) "yes" else "no"} | " +
-                    "has_callback_view=${if (view != null) "yes" else "no"}",
-                level = DiagnosticEventLevel.WARNING
-            )
-        }
-
-        fun shouldIgnoreStaleWebViewCallback(callbackName: String, view: WebView?): Boolean {
-            if (view == null || view === webViewInstance) {
-                return false
-            }
-            recordStaleWebViewCallbackIgnored(callbackName, view)
-            return true
-        }
-
-        fun cleanupActiveExamWebViewInstance() {
-            fullScreenCustomView?.let { view ->
-                runCatching { fullScreenContainer.removeView(view) }
-                runCatching { fullScreenCustomViewCallback?.onCustomViewHidden() }
-            }
-            fullScreenCustomViewCallback = null
-            fullScreenCustomView = null
-            hasEditableFocus = false
-            val activeWebView = webViewInstance ?: return
-            if (!shouldRunExamWebViewCleanup(webViewGeneration, destroyedWebViewGeneration)) {
-                webViewInstance = null
-                return
-            }
-            destroyedWebViewGeneration = webViewGeneration
-            webViewInstance = null
-            destroyExamWebViewInstance(activeWebView)
-        }
-
-        suspend fun clearExamSessionOnExit(
-            reason: String,
-            waitForResult: Boolean
-        ): Result<Unit> {
-            val requestDetails = "reason=$reason | wait=${if (waitForResult) "yes" else "no"}"
-            when (
-                resolveExamRuntimeExitCleanupDecision(
-                    ExamRuntimeExitCleanupSnapshot(
-                        requested = exitSessionClearRequested,
-                        inFlight = exitSessionClearInFlight
-                    )
-                )
-            ) {
-                ExamRuntimeExitCleanupDecision.JoinInFlight -> {
-                    recordAction(
-                        code = ExamRuntimeHardeningDiagnostics.WebViewExitCleanupJoined,
-                        details = requestDetails
-                    )
-                    return if (waitForResult) {
-                        exitSessionClearDeferred?.await() ?: Result.success(Unit)
-                    } else {
-                        Result.success(Unit)
-                    }
-                }
-
-                ExamRuntimeExitCleanupDecision.AlreadyCompleted -> {
-                    recordAction(
-                        code = ExamRuntimeHardeningDiagnostics.WebViewExitCleanupSkipped,
-                        details = requestDetails
-                    )
-                    return Result.success(Unit)
-                }
-
-                ExamRuntimeExitCleanupDecision.StartCleanup -> Unit
-            }
-
-            val cleanupCompletion = CompletableDeferred<Result<Unit>>()
-            exitSessionClearDeferred = cleanupCompletion
-            exitSessionClearRequested = true
-            exitSessionClearInFlight = true
-            examRuntimeRecoveryState = ExamRuntimeRecoveryState.CleanupInFlight
-
-            val existingWebView = if (waitForResult) webViewInstance else null
-            val details = buildString {
-                append(requestDetails)
-                append(" | webview=")
-                append(if (existingWebView != null) "present" else "none")
-            }
-            recordAction(
-                code = ExamRuntimeHardeningDiagnostics.WebViewExitCleanupStarted,
-                details = details
-            )
-
-            val clearResult = try {
-                clearExamWebViewSessionData(
-                    context = context.applicationContext,
-                    existingWebView = existingWebView
-                )
-            } catch (throwable: Throwable) {
-                Result.failure(throwable)
-            }
-
-            if (waitForResult) {
-                cleanupActiveExamWebViewInstance()
-            }
-            exitSessionClearInFlight = false
-            exitSessionClearDeferred = null
-            examRuntimeRecoveryState = ExamRuntimeRecoveryState.Idle
-
-            if (clearResult.isSuccess) {
-                recordAction(
-                    code = ExamRuntimeHardeningDiagnostics.WebViewExitCleanupSucceeded,
-                    details = details
-                )
-            } else {
-                val error = clearResult.exceptionOrNull()
-                val errorSummary = error?.message?.take(160)
-                    ?: error?.javaClass?.simpleName?.take(160)
-                    ?: "unknown"
-                val failureCode =
-                    if (errorSummary.contains("Timed out", ignoreCase = true)) {
-                        ExamRuntimeHardeningDiagnostics.WebViewExitCleanupTimeout
-                    } else {
-                        ExamRuntimeHardeningDiagnostics.WebViewExitCleanupFailed
-                    }
-                recordAction(
-                    code = failureCode,
-                    details = "$details | error=$errorSummary",
-                    level = DiagnosticEventLevel.ERROR
-                )
-            }
-            cleanupCompletion.complete(clearResult)
-
-            return clearResult
-        }
-
-        fun launchExitSessionClearBestEffort(reason: String) {
-            componentActivity.lifecycleScope.launch {
-                clearExamSessionOnExit(
-                    reason = reason,
-                    waitForResult = false
-                )
-            }
-        }
-
-        fun handleWebViewRendererGone(
-            view: SecureExamWebView?,
-            didCrash: Boolean,
-            rendererPriorityAtExit: Int?
-        ): Boolean {
-            val details = buildString {
-                append("did_crash=")
-                append(if (didCrash) "yes" else "no")
-                append(" | priority_at_exit=")
-                append(rendererPriorityAtExit ?: "-")
-                append(" | active_generation=")
-                append(webViewGeneration)
-                append(" | low_ram=")
-                append(if (lowRamProfile.enabled) "yes" else "no")
-                append(" | severe=")
-                append(if (lowRamProfile.severe) "yes" else "no")
-                append(" | ultra=")
-                append(if (lowRamProfile.ultra) "yes" else "no")
-                append(" | recovery=manual_safe")
-            }
-            if (view != null && view !== webViewInstance) {
-                recordAction(
-                    code = ExamRuntimeHardeningDiagnostics.WebViewRendererGoneStale,
-                    details = details,
-                    level = DiagnosticEventLevel.WARNING
-                )
-                destroyExamWebViewInstance(view)
-                return true
-            }
-            examRuntimeRecoveryState = ExamRuntimeRecoveryState.RendererGone
-            recordAction(
-                code = ExamRuntimeHardeningDiagnostics.WebViewRendererGone,
-                details = details,
-                level = DiagnosticEventLevel.ERROR
-            )
-            examRuntimeRecoveryState = ExamRuntimeRecoveryState.CleanupInFlight
-            cleanupActiveExamWebViewInstance()
-            mainActivity?.setExamLockMode(enabled = false, allowLockTask = false)
-            lockTaskBridge.disengage()
-            disarmExamRuntimeMonitoring()
-            clearAppSwitchSuppression()
-            examAlarmController.stop()
-            lockTaskRequestPending = false
-            examSessionStarted = false
-            examSessionStartedAtElapsedMs = null
-            showBuiltInExamKeyboard = false
-            hasEditableFocus = false
-            loadingProgress = 0f
-            webViewErrorMessage = null
-            webViewSessionResetInFlight = false
-            webViewSessionResetError = localized(
-                uiLanguage,
-                "The exam page stopped and was closed safely. Press Start Exam Mode again to reopen a clean session.",
-                "Halaman ujian berhenti dan sudah ditutup dengan aman. Tekan Mulai Ujian lagi untuk membuka sesi bersih."
-            )
-            examRuntimeRecoveryState = ExamRuntimeRecoveryState.ReadyToRetry
-            recordAction(
-                code = ExamRuntimeHardeningDiagnostics.WebViewRecoveryReady,
-                details = details,
-                level = DiagnosticEventLevel.WARNING
-            )
-            return true
-        }
-
-        fun handleRuntimeTrimMemory(level: Int) {
-            val memoryAction = resolveExamRuntimeMemoryAction(
-                shouldRespondToPressure = MemoryPressureCoordinator.shouldRespondToPressure(level),
-                examSessionStarted = examSessionStarted,
-                hasFullscreenCustomView = fullScreenCustomView != null,
-                clearActiveWebViewCacheAllowed = MemoryPressureCoordinator.shouldClearActiveWebViewCache(level)
-            )
-            if (!memoryAction.respond) {
-                return
-            }
-            val escalatedProfile = resolveRuntimePressureProfile(
-                baseProfile = lowRamProfile,
-                trimLevel = level
-            )
-            if (escalatedProfile.ultra && !lowRamProfile.ultra) {
-                SecurityDetectorCache.invalidateStaticSecurity()
-                recordAction(
-                    code = "LOW_RAM_RUNTIME_ESCALATED",
-                    details = "trim_level=$level | runtime_profile=Ultra | " +
-                        "screen_pinning_poll_ms=${escalatedProfile.screenPinningSteadyPollMillis} | " +
-                        "accessibility_poll_ms=${escalatedProfile.accessibilityLivenessPollMillis} | " +
-                        "server_probe_ms=${escalatedProfile.examServerProbeIntervalMillis} | " +
-                        "detector_cache_max=${escalatedProfile.detectorMetadataCacheMaxEntries}",
-                    level = DiagnosticEventLevel.WARNING
-                )
-            }
-
-            // --- Level 1: Standard cleanup (all pressure levels that respond) ---
-            if (memoryAction.clearWarmLocation) {
-                reusableWarmLocationValidation = null
-            }
-            if (memoryAction.clearReverseEngineeringCache) {
-                reverseEngineeringRefreshCache = null
-            }
-            if (memoryAction.clearIntegrityCache) {
-                integrityRefreshCache = null
-            }
-            if (memoryAction.clearUnusedFullscreenContainer) {
-                runCatching { fullScreenContainer.removeAllViews() }
-            }
-            if (memoryAction.cleanupInactiveWebView) {
-                cleanupActiveExamWebViewInstance()
-            }
-            if (memoryAction.clearActiveWebViewCache) {
-                runCatching { webViewInstance?.clearCache(false) }
-            }
-
-            // --- Level 2: Aggressive cleanup (RUNNING_CRITICAL / COMPLETE) ---
-            val isCritical = MemoryPressureCoordinator.shouldClearActiveWebViewCache(level)
-            if (isCritical || lowRamProfile.ultra) {
-                networkFlapElapsedMs.clear()
-            }
-            if (isCritical) {
-                SecurityDetectorCache.invalidateAll()
-                // Truncate diagnostic events to 50% of max to free snapshot memory
-                val maxEvents = lowRamProfile.diagnosticLogMaxEntries
-                val truncateTarget = maxEvents / 2
-                if (diagnosticEvents.size > truncateTarget) {
-                    diagnosticEvents = diagnosticEvents.take(truncateTarget)
-                }
-                // Trim network timeline to last 3 entries
-                while (networkTimeline.size > 3) {
-                    networkTimeline.removeAt(0)
-                }
-            } else {
-                SecurityDetectorCache.invalidateStaticSecurity()
-            }
-
-            val actions = memoryAction.diagnosticActions().joinToString(",")
-            val escalation = if (isCritical) "critical" else "standard"
-            val details = "trim_level=$level | escalation=$escalation | exam_started=$examSessionStarted | " +
-                "low_ram=${lowRamProfile.enabled} | severe=${lowRamProfile.severe} | " +
-                "ultra=${lowRamProfile.ultra} | actions=$actions"
-            lastRuntimeMemoryActionSummary = details.take(240)
-            recordAction(
-                code = ExamRuntimeHardeningDiagnostics.MemoryTrimHandled,
-                details = details
-            )
-            Log.i(
-                RuntimeMemoryPerfTag,
-                details
-            )
-        }
-    }
-    val runtimeMonitoringOps = RuntimeMonitoringOps()
+        )
+    )
     fun armExamRuntimeMonitoring(reason: String) = runtimeMonitoringOps.armExamRuntimeMonitoring(reason)
     fun disarmExamRuntimeMonitoring() = runtimeMonitoringOps.disarmExamRuntimeMonitoring()
     fun recordAppSwitchEvent(
@@ -2664,417 +1226,41 @@ internal fun ExamRuntimeSessionScreenImpl(
         }
     }
 
-    class RuntimeSecurityOps {
-        fun refreshKeyboardSecurity(triggerViolation: Boolean) {
-            val latestPackage = getCurrentInputMethodPackage(context).orEmpty()
-            val latestLabel = resolveKeyboardAppLabel(context, latestPackage)
-            val allowedNow = if (bypassKeyboardPolicy) true else isAllowedExamKeyboard(context, latestPackage)
-
-            if (bypassKeyboardPolicy) {
-                currentKeyboardPackage = latestPackage
-                currentKeyboardLabel = latestLabel
-                lastKeyboardAllowed = true
-                if (!examSessionStarted) {
-                    useBuiltInExamKeyboard = false
-                    showBuiltInExamKeyboard = false
-                    hasEditableFocus = false
-                }
-                return
-            }
-
-            if (!examSessionStarted && allowedNow) {
-                useBuiltInExamKeyboard = false
-            }
-
-            if (triggerViolation && !useBuiltInExamKeyboard && lastKeyboardAllowed && !allowedNow) {
-                recordAction(
-                    code = "KEYBOARD_POLICY_VIOLATION",
-                    details = latestPackage,
-                    level = DiagnosticEventLevel.SECURITY
-                )
-                keyboardViolationCount += 1
-                showKeyboardViolationDialog = true
-                examAlarmController.start()
-            }
-
-            currentKeyboardPackage = latestPackage
-            currentKeyboardLabel = latestLabel
-            lastKeyboardAllowed = allowedNow
-        }
-
-        fun refreshBluetoothSecurity(triggerViolation: Boolean) {
-            bluetoothPermissionGranted = hasBluetoothExamPermission(context)
-            val enabledNow = if (bluetoothPermissionGranted) {
-                isBluetoothEnabledForExam(context)
-            } else {
-                false
-            }
-
-            if (!bypassBluetooth && triggerViolation && examSessionStarted && enabledNow) {
-                recordAction(
-                    code = "BLUETOOTH_ENABLED_DURING_EXAM",
-                    level = DiagnosticEventLevel.SECURITY
-                )
-                bluetoothViolationCount += 1
-                showBluetoothViolationDialog = true
-                examAlarmController.start()
-            }
-
-            bluetoothEnabled = enabledNow
-        }
-
-        fun refreshScreenPinningDiagnostics() {
-            screenPinningAvailable = ScreenPinningPlatformBridge.isAvailable()
-            screenPinningEnabledInSystem = ScreenPinningPlatformBridge.readSystemSetting(context)
-            val currentLockTaskState = lockTaskBridge.stateLabel()
-            lockTaskStateAfterPinningRequest = currentLockTaskState
-            if (screenPinningRequestOutcome == "Belum diminta") {
-                lockTaskStateBeforePinningRequest = currentLockTaskState
-            }
-        }
-
-        fun checkSignatureIntegrity(triggerViolation: Boolean): SignatureIntegrityResult {
-            val expectedFingerprints = resolveExpectedSigningFingerprints(
-                isDebugBuild = BuildConfig.DEBUG,
-                releaseFingerprint = SecureStrings.signingFingerprintRelease,
-                debugFingerprint = SecureStrings.signingFingerprintDebug
-            )
-            val result = SecurityDetectorCache.checkSignatureIntegrity(
-                context = context,
-                expectedFingerprints = expectedFingerprints,
-                forceRefresh = triggerViolation
-            )
-            signatureMismatchDetected = !result.isMatch
-            if (!result.isMatch && triggerViolation) {
-                recordAction(
-                    code = "SIGNATURE_MISMATCH_DETECTED",
-                    details = result.reason,
-                    level = DiagnosticEventLevel.SECURITY
-                )
-                securityIssueDialogTitle = localized(
-                    uiLanguage,
-                    "App Integrity Warning",
-                    "Integritas Aplikasi Bermasalah"
-                )
-                securityIssueDialogMessage = localized(
-                    uiLanguage,
-                    "The app signature does not match the official release. Reinstall the official APK.",
-                    "Signature aplikasi tidak cocok dengan APK resmi. Instal ulang APK resmi."
-                )
-            }
-            return result
-        }
-
-        fun applyVirtualEnvironmentDiagnostics(
-            diagnostics: VirtualEnvironmentDiagnostics,
-            triggerViolation: Boolean
-        ) {
-            val latestVirtualEnvironmentDetected = diagnostics.detected
-            if (
-                triggerViolation &&
-                examSessionStarted &&
-                !bypassVirtualEnvironment &&
-                !virtualEnvironmentDetected &&
-                latestVirtualEnvironmentDetected
-            ) {
-                recordAction(
-                    code = "VIRTUAL_ENVIRONMENT_DETECTED",
-                    details = diagnostics.indicators.joinToString().ifBlank { "-" },
-                    level = DiagnosticEventLevel.SECURITY
-                )
-                securityIssueDialogTitle = "Virtual Environment Terdeteksi"
-                securityIssueDialogMessage =
-                    "Perangkat ini terdeteksi berjalan di emulator/VM. Gunakan perangkat fisik untuk melanjutkan ujian."
-                examAlarmController.start()
-            }
-            virtualEnvironmentDetected = latestVirtualEnvironmentDetected
-        }
-
-        fun refreshDeviceIntegritySecurity(triggerViolation: Boolean) {
-            val latestAccessibilityInspection = inspectAccessibility(context)
-            val latestAccessibilityServiceEnabled = latestAccessibilityInspection.blockingServiceActive
-            val latestAdbInspection = inspectAdb(context)
-            val rootDetectionDetails = SecurityDetectorCache.readRootDetectionDetails(
-                context = context,
-                forceRefresh = triggerViolation
-            )
-            val latestRootSecurityStatus = buildRootSecurityStatus(rootDetectionDetails)
-            val cachedVirtualEnvironmentDiagnostics = getCachedVirtualEnvironmentDiagnostics()
-            checkSignatureIntegrity(triggerViolation)
-
-            if (triggerViolation && examSessionStarted) {
-                if (!bypassAccessibility && !accessibilityServiceEnabled && latestAccessibilityServiceEnabled) {
-                    recordAction(
-                        code = "ACCESSIBILITY_ENABLED_DURING_EXAM",
-                        level = DiagnosticEventLevel.SECURITY
-                    )
-                    securityIssueDialogTitle = "Accessibility Service Terdeteksi"
-                    securityIssueDialogMessage =
-                        "Aksesibilitas aktif saat ujian berjalan. Nonaktifkan accessibility service agar ujian tetap aman."
-                    examAlarmController.start()
-                }
-
-                if (!bypassAdb && !developerOptionsEnabled && latestAdbInspection.developerOptionsEnabled) {
-                    recordAction(
-                        code = "DEVELOPER_OPTIONS_ENABLED_DURING_EXAM",
-                        level = DiagnosticEventLevel.SECURITY
-                    )
-                    securityIssueDialogTitle = "Developer Mode Aktif"
-                    securityIssueDialogMessage =
-                        "Developer Mode terdeteksi aktif saat ujian berjalan. Nonaktifkan sebelum melanjutkan."
-                    examAlarmController.start()
-                }
-
-                if (!bypassAdb && !adbEnabled && latestAdbInspection.adbEnabled) {
-                    recordAction(
-                        code = "ADB_ENABLED_DURING_EXAM",
-                        level = DiagnosticEventLevel.SECURITY
-                    )
-                    securityIssueDialogTitle = "USB Debugging (ADB) Aktif"
-                    securityIssueDialogMessage =
-                        "USB debugging terdeteksi aktif saat ujian berjalan. Nonaktifkan ADB sebelum melanjutkan."
-                    examAlarmController.start()
-                }
-
-                if (!bypassRoot && !rootDetected && latestRootSecurityStatus.detected) {
-                    recordAction(
-                        code = "ROOT_INDICATOR_DETECTED",
-                        level = DiagnosticEventLevel.SECURITY
-                    )
-                    securityIssueDialogTitle = "Root Device Terdeteksi"
-                    securityIssueDialogMessage = buildRootIssueMessage(latestRootSecurityStatus.details)
-                    examAlarmController.start()
-                }
-            }
-
-            accessibilityInspection = latestAccessibilityInspection
-            accessibilityServiceEnabled = latestAccessibilityServiceEnabled
-            accessibilityGuardEnabled = isExamGuardAccessibilityEnabled(context)
-            adbInspection = latestAdbInspection
-            developerOptionsEnabled = latestAdbInspection.developerOptionsEnabled
-            adbEnabled = latestAdbInspection.adbEnabled
-            rootSecurityStatus = latestRootSecurityStatus
-            rootDetected = latestRootSecurityStatus.detected
-            selinuxPermissiveWarning = latestRootSecurityStatus.selinuxPermissive
-            if (cachedVirtualEnvironmentDiagnostics != null) {
-                applyVirtualEnvironmentDiagnostics(cachedVirtualEnvironmentDiagnostics, triggerViolation)
-            } else {
-                coroutineScope.launch {
-                    val diagnostics = getVirtualEnvironmentDiagnosticsOnIo(
-                        context = context,
-                        forceRefresh = triggerViolation
-                    )
-                    applyVirtualEnvironmentDiagnostics(diagnostics, triggerViolation)
-                }
-            }
-        }
-
-        fun launchTelegramSectionReport(section: DiagnosticSection) {
-            if (sendingSection != null) {
-                return
-            }
-            val sectionLabel = diagnosticSectionLabel(section, uiLanguage)
-            val latestAccessibilityInspection = inspectAccessibility(context)
-            val latestOverlayRiskResult = OverlayRiskAnalyzer.inspect(
-                bypassed = overlayBypassState == OverlayBypassState.Active,
-                accessibilityEnabled = latestAccessibilityInspection.blockingServiceActive,
-                riskyAccessibilityPackages = latestAccessibilityInspection.riskyPackages,
-                violationCount = overlayViolationCount,
-                shieldStatus = overlayShieldStatus,
-                lastTrigger = lastOverlayTrigger,
-                lastDetectedAt = lastOverlayAt,
-                lastContext = lastOverlayContext
-            )
-            val latestAdbInspection = inspectAdb(context)
-            val latestRootSecurityStatus = buildRootSecurityStatus(
-                SecurityDetectorCache.readRootDetectionDetails(
-                    context = context,
-                    forceRefresh = section == DiagnosticSection.Root
-                )
-            )
-            val latestAppSwitchStatus = AppSwitchMonitor.statusOf(
-                bypassState = appSwitchBypassState,
-                runtimeMonitoringActive = AppSwitchMonitor.shouldMonitor(
-                    hostAvailable = mainActivity != null,
-                    guardArmed = examGuardArmed,
-                    bypassState = appSwitchBypassState
-                ),
-                protectionMode = AppSwitchMonitor.protectionModeOf(
-                    bypassState = appSwitchBypassState,
-                    screenPinningMode = screenPinningMode,
-                    guardArmed = examGuardArmed,
-                    lockTaskActive = lockTaskBridge.active()
-                ),
-                lockTaskActive = lockTaskBridge.active(),
-                violationCount = forcedExitViolationCount,
-                pendingViolation = pendingForcedExitViolation,
-                lastTrigger = lastAppSwitchTrigger,
-                lastDetectedAt = lastAppSwitchAt,
-                lastContext = lastAppSwitchContext,
-                accessibilityGuardEnabled = accessibilityGuardEnabled,
-                accessibilityFallbackActive = accessibilityGuardFallbackActive,
-                accessibilityViolationCount = AccessibilityExamGuardStore.snapshot(context).violationCount,
-                accessibilityLastReason = accessibilityGuardLastReason,
-                accessibilityLastForeignPackage = accessibilityGuardLastForeignPackage,
-                accessibilityLastEventType = accessibilityGuardLastEventType,
-                accessibilityLastDetectedAt = accessibilityGuardLastDetectedAt,
-                accessibilityAlarmSeverity = accessibilityGuardAlarmSeverity
-            )
-            recordAction(code = "DIAGNOSTIC_SECTION_REQUESTED", details = section.name)
-            refreshScreenPinningDiagnostics()
-            refreshKeyboardSecurity(triggerViolation = false)
-            refreshBluetoothSecurity(triggerViolation = false)
-            refreshDeviceIntegritySecurity(triggerViolation = false)
-            refreshIntegrityGuard()
-            refreshRuntimeStaticSecurityForSession(
-                context = context,
-                examSessionStarted = examSessionStarted,
-                bypassScreenRecorder = bypassScreenRecorder,
-                bypassDisplayMirror = bypassDisplayMirror,
-                bypassMultiWindow = bypassMultiWindow,
-                securityUiState = securityUiState,
-                trigger = "diagnostic_request",
-                recordAction = ::recordAction,
-                startAlarm = examAlarmController::start,
-                forceRefresh = true
-            )
-            val latestDeviceTimeStatus = refreshDeviceTimeSecurity(
-                trigger = "diagnostic_request",
-                emitDiagnosticEvent = false
-            )
-            sendingSection = section
-
-            coroutineScope.launch {
-                val latestLocationStatus = refreshGeofenceStatus(
-                    preferFresh = false,
-                    trigger = "diagnostic_request",
-                    allowRuntimeViolation = false
-                )
-                val latestGeofenceRuntimeStatus = GeofenceRuntimeStatus(
-                    evaluation = latestLocationStatus.geofenceStatus.geofenceEvaluation,
-                    securityStatus = latestLocationStatus.geofenceStatus,
-                    policySource = effectiveLocationPolicySource,
-                    violationCount = geofenceViolationCount,
-                    lastTrigger = lastGeofenceTrigger,
-                    lastDetectedAt = lastGeofenceAt,
-                    lastContext = lastGeofenceContext
-                )
-                val latestFakeLocationRuntimeStatus = FakeLocationRuntimeStatus(
-                    securityStatus = latestLocationStatus.fakeLocationStatus,
-                    violationCount = fakeLocationViolationCount,
-                    lastTrigger = lastFakeLocationTrigger,
-                    lastDetectedAt = lastFakeLocationAt,
-                    lastContext = lastFakeLocationContext
-                )
-                sendTelegramSectionReport(
-                    context = context,
-                    section = section,
-                    examName = payload.examName,
-                    examUserAgent = effectiveExamUserAgent,
-                    examUserAgentSource = if (adminSettings.usesDefaultExamUserAgent()) "default" else "custom",
-                    participantContext = participantContext,
-                    examSessionStarted = examSessionStarted,
-                    examRuntimeGuardsArmed = examGuardArmed,
-                    adminOverridesSummary = adminOverridesSummary,
-                    keyboardPackage = currentKeyboardPackage,
-                    keyboardAllowed = isKeyboardAllowed,
-                    usingBuiltInExamKeyboard = useBuiltInExamKeyboard,
-                    bluetoothPermissionGranted = bluetoothPermissionGranted,
-                    bluetoothEnabled = bluetoothEnabled,
-                    accessibilityServiceEnabled = accessibilityServiceEnabled,
-                    bypassAccessibility = bypassAccessibility,
-                    accessibilityBypassTampered = adminSettings.accessibilityBypassTampered,
-                    adbInspection = latestAdbInspection,
-                    adbBypassState = adbBypassState,
-                    rootSecurityStatus = latestRootSecurityStatus,
-                    rootBypassState = rootBypassState,
-                    clipboardSignature = clipboardSignature,
-                    clipboardViolationCount = clipboardViolationCount,
-                    lastClipboardChangeEvent = lastClipboardChangeEvent,
-                    networkStatus = networkStatus,
-                    clipboardRuntimeStatus = clipboardRuntimeStatus,
-                    offlineRuntimeStatus = offlineRuntimeStatus,
-                    geofenceRuntimeStatus = latestGeofenceRuntimeStatus,
-                    fakeLocationRuntimeStatus = latestFakeLocationRuntimeStatus,
-                    overlayViolationCount = overlayViolationCount,
-                    overlayRiskResult = latestOverlayRiskResult,
-                    overlayBypassTampered = adminSettings.overlayBypassTampered,
-                    appSwitchStatus = latestAppSwitchStatus,
-                    appSwitchBypassTampered = adminSettings.appSwitchBypassTampered,
-                    screenPinningAvailable = screenPinningAvailable,
-                    screenPinningEnabledInSystem = screenPinningEnabledInSystem,
-                    lockTaskStateBeforePinningRequest = lockTaskStateBeforePinningRequest,
-                    lockTaskStateAfterPinningRequest = lockTaskStateAfterPinningRequest,
-                    screenPinningRequestOutcome = screenPinningRequestOutcome,
-                    screenPinningDialogLikelyShown = screenPinningDialogLikelyShown,
-                    screenPinningUserActionInference = screenPinningUserActionInference,
-                    screenPinningActivationDurationMs = screenPinningActivationDurationMs,
-                    examSessionCancelledByPinningFailure = examSessionCancelledByPinningFailure,
-                    isScreenPinningActive = lockTaskBridge.active(),
-                    bypassScreenPinning = bypassScreenPinning,
-                    bypassOverlay = bypassOverlay,
-                    bypassAppSwitch = bypassAppSwitch,
-                    deviceTimeSecurityStatus = latestDeviceTimeStatus,
-                    bypassDeviceTime = bypassDeviceTime,
-                    bypassVpn = bypassVpn,
-                    vpnBypassTampered = adminSettings.vpnBypassTampered,
-                    integritySummary = integrityPublicSummary,
-                    diagnosticEvents = diagnosticEvents,
-                    uiLanguage = uiLanguage,
-                    webViewCompatibilityStatus = webViewCompatibilityStatus,
-                    lastExamRefreshDecision = lastExamRefreshDecision,
-                    networkReadinessStatus = networkReadinessStatus,
-                    networkUnstableRuntimeStatus = networkUnstableRuntimeStatus,
-                    networkTimelinePreview = networkTimelinePreview,
-                    lastNetworkChangeAt = lastNetworkChangeAt,
-                    lastNetworkChangeSource = lastNetworkChangeSource,
-                    lastConnectedNetworkLabel = lastConnectedNetworkLabel,
-                    screenRecorderPackages = securityUiState.screenRecorderPackages.value,
-                    bypassScreenRecorder = bypassScreenRecorder,
-                    screenRecorderBypassTampered = adminSettings.screenRecorderBypassTampered,
-                    screenRecorderViolationCount = securityUiState.screenRecorderViolationCount.intValue,
-                    screenRecorderDialogActive = securityUiState.showScreenRecorderViolationDialog.value,
-                    externalDisplayDetected = securityUiState.externalDisplayDetected.value,
-                    externalDisplayCount = securityUiState.externalDisplayCount.intValue,
-                    bypassDisplayMirror = bypassDisplayMirror,
-                    displayMirrorBypassTampered = adminSettings.displayMirrorBypassTampered,
-                    displayMirrorViolationCount = securityUiState.displayMirrorViolationCount.intValue,
-                    displayMirrorDialogActive = securityUiState.showDisplayMirrorViolationDialog.value,
-                    multiWindowDetected = securityUiState.multiWindowDetected.value,
-                    bypassMultiWindow = bypassMultiWindow,
-                    multiWindowBypassTampered = adminSettings.multiWindowBypassTampered,
-                    multiWindowViolationCount = securityUiState.multiWindowViolationCount.intValue,
-                    multiWindowDialogActive = securityUiState.showMultiWindowViolationDialog.value,
-                    compactReport = lowRamProfile.telegramCompactReport
-                ).onSuccess {
-                    recordAction(code = "DIAGNOSTIC_SECTION_SENT", details = section.name)
-                    bugReportFeedbackTitle = localized(uiLanguage, "Diagnostics sent", "Diagnostik terkirim")
-                    bugReportFeedbackMessage = localized(
-                        uiLanguage,
-                        "$sectionLabel diagnostics have been sent to Telegram.",
-                        "Diagnostik $sectionLabel sudah dikirim ke Telegram."
-                    )
-                }.onFailure { throwable ->
-                    recordAction(
-                        code = "DIAGNOSTIC_SECTION_FAILED",
-                        details = throwable.message ?: "-",
-                        level = DiagnosticEventLevel.ERROR
-                    )
-                    bugReportFeedbackTitle = localized(uiLanguage, "Diagnostics failed", "Kirim diagnostik gagal")
-                    bugReportFeedbackMessage =
-                        throwable.message ?: localized(
-                            uiLanguage,
-                            "Diagnostics could not be sent to Telegram.",
-                            "Data diagnostik belum berhasil dikirim ke Telegram."
-                        )
-                }
-
-                sendingSection = null
-            }
-        }
-
-    }
-    val runtimeSecurityOps = RuntimeSecurityOps()
+    val runtimeSecurityOps = ExamRuntimeSecurityOps(
+        context = context,
+        coroutineScope = coroutineScope,
+        lockTaskBridge = lockTaskBridge,
+        uiLanguage = uiLanguage,
+        mainActivity = mainActivity,
+        adminSettings = adminSettings,
+        payload = payload,
+        participantContext = participantContext,
+        lowRamProfile = lowRamProfile,
+        screenPinningMode = screenPinningMode,
+        accessibilityBypassState = accessibilityBypassState,
+        overlayBypassState = overlayBypassState,
+        appSwitchBypassState = appSwitchBypassState,
+        adbBypassState = adbBypassState,
+        rootBypassState = rootBypassState,
+        deviceTimeBypassState = deviceTimeBypassState,
+        vpnBypassState = vpnBypassState,
+        webViewCompatibilityStatus = webViewCompatibilityStatus,
+        runtimeDiagnosticsOps = runtimeDiagnosticsOps,
+        flowUiState = flowUiState,
+        securityUiState = securityUiState,
+        clipboardUiState = clipboardUiState,
+        adminUiState = adminUiState,
+        networkUiState = networkUiState,
+        accessibilityGuardEnabledState = accessibilityGuardEnabledState,
+        accessibilityGuardFallbackActiveState = accessibilityGuardFallbackActiveState,
+        accessibilityGuardLastReasonState = accessibilityGuardLastReasonState,
+        accessibilityGuardLastForeignPackageState = accessibilityGuardLastForeignPackageState,
+        accessibilityGuardLastEventTypeState = accessibilityGuardLastEventTypeState,
+        accessibilityGuardLastDetectedAtState = accessibilityGuardLastDetectedAtState,
+        accessibilityGuardAlarmSeverityState = accessibilityGuardAlarmSeverityState,
+        examAlarmController = examAlarmController,
+        refreshIntegrityGuard = ::refreshIntegrityGuard
+    )
     fun refreshKeyboardSecurity(triggerViolation: Boolean) = runtimeSecurityOps.refreshKeyboardSecurity(triggerViolation)
     fun refreshBluetoothSecurity(triggerViolation: Boolean) = runtimeSecurityOps.refreshBluetoothSecurity(triggerViolation)
     fun refreshScreenPinningDiagnostics() = runtimeSecurityOps.refreshScreenPinningDiagnostics()
@@ -3087,13 +1273,17 @@ internal fun ExamRuntimeSessionScreenImpl(
             message: StartExamBlockMessage,
             level: DiagnosticEventLevel = DiagnosticEventLevel.WARNING
         ) {
-            recordAction(
-                code = message.code,
-                details = message.details,
-                level = level
+            applyExamRuntimeStartBlockMessage(
+                message = message,
+                level = level,
+                callbacks = ExamRuntimeStartBlockCallbacks(
+                    recordAction = { code, details, eventLevel ->
+                        recordAction(code = code, details = details, level = eventLevel)
+                    },
+                    setSecurityIssueDialogTitle = { securityIssueDialogTitle = it },
+                    setSecurityIssueDialogMessage = { securityIssueDialogMessage = it }
+                )
             )
-            securityIssueDialogTitle = message.title
-            securityIssueDialogMessage = message.message
         }
 
         fun resetPreparationSecurityEpisodes() {
@@ -3118,6 +1308,7 @@ internal fun ExamRuntimeSessionScreenImpl(
             return prepareCleanExamWebViewSessionForStart(
                 context = context,
                 existingWebView = webViewInstance,
+                lowRamProfile = lowRamProfile,
                 flowUiState = flowUiState,
                 adminUiState = adminUiState,
                 uiLanguage = uiLanguage,
@@ -3129,565 +1320,186 @@ internal fun ExamRuntimeSessionScreenImpl(
         }
 
         fun completeStartExamSessionAfterPrechecks() {
-            if (lockTaskRequestPending || geofenceStartValidationInFlight || webViewSessionResetInFlight) {
-                return
-            }
-
-            if (
-                screenPinningMode == ScreenPinningMode.Enforced &&
-                !screenPinningAvailable &&
-                accessibilityGuardEnabled
-            ) {
-                launchAccessibilityGuardFallbackExamStart(
-                    context = context,
-                    lockTaskBridge = lockTaskBridge,
-                    coroutineScope = coroutineScope,
-                    examGuardArmed = examGuardArmed,
-                    updateFallbackUiState = { beforeState ->
-                        accessibilityGuardFallbackActive = true
-                        accessibilityGuardLastReason = null
-                        accessibilityGuardLastForeignPackage = null
-                        accessibilityGuardLastEventType = null
-                        accessibilityGuardLastDetectedAt = null
-                        accessibilityGuardAlarmSeverity = ExamAlarmSeverity.Warning.name
-                        forcedExitViolationCount = 0
-                        pendingForcedExitViolation = false
-                        showForcedExitAlarm = false
-                        lockTaskStateBeforePinningRequest = beforeState
-                        lockTaskStateAfterPinningRequest = beforeState
-                        screenPinningRequestOutcome = "Accessibility guard fallback"
-                        screenPinningDialogLikelyShown = false
-                        screenPinningUserActionInference = "Tidak diminta; Accessibility Exam Guard aktif"
-                        screenPinningActivationDurationMs = 0L
-                        examSessionCancelledByPinningFailure = false
-                        lockTaskRequestPending = false
-                        pinningActivationState = PinningActivationState.ActiveConfirmed
-                        pinningActivationStartedAtElapsedMs = null
-                        pinningSuppressedTransitionCount = 0
-                        screenPinningMessage = null
-                        webViewErrorMessage = null
-                        exitOnSecurityIssueDialogDismiss = false
-                    },
-                    recordAction = { code, details, level -> recordAction(code, details, level) },
-                    clearAppSwitchSuppression = ::clearAppSwitchSuppression,
+            completeExamRuntimeStartAfterPrechecks(
+                context = context,
+                lockTaskBridge = lockTaskBridge,
+                coroutineScope = coroutineScope,
+                uiLanguage = uiLanguage,
+                isIndonesian = isIndonesian,
+                screenPinningMode = screenPinningMode,
+                screenPinningAvailable = screenPinningAvailable,
+                accessibilityGuardEnabled = accessibilityGuardEnabled,
+                lockTaskRequestPending = lockTaskRequestPending,
+                geofenceStartValidationInFlight = geofenceStartValidationInFlight,
+                webViewSessionResetInFlight = webViewSessionResetInFlight,
+                examGuardArmed = examGuardArmed,
+                deviceCompatibilityProfile = deviceCompatibilityProfile,
+                callbacks = ExamRuntimeCompleteStartCallbacks(
+                    setAccessibilityGuardFallbackActive = { accessibilityGuardFallbackActive = it },
+                    setAccessibilityGuardLastReason = { accessibilityGuardLastReason = it },
+                    setAccessibilityGuardLastForeignPackage = { accessibilityGuardLastForeignPackage = it },
+                    setAccessibilityGuardLastEventType = { accessibilityGuardLastEventType = it },
+                    setAccessibilityGuardLastDetectedAt = { accessibilityGuardLastDetectedAt = it },
+                    setAccessibilityGuardAlarmSeverity = { accessibilityGuardAlarmSeverity = it },
+                    setForcedExitViolationCount = { forcedExitViolationCount = it },
+                    setPendingForcedExitViolation = { pendingForcedExitViolation = it },
+                    setShowForcedExitAlarm = { showForcedExitAlarm = it },
+                    setLockTaskStateBeforePinningRequest = { lockTaskStateBeforePinningRequest = it },
+                    setLockTaskStateAfterPinningRequest = { lockTaskStateAfterPinningRequest = it },
+                    setScreenPinningRequestOutcome = { screenPinningRequestOutcome = it },
+                    setScreenPinningDialogLikelyShown = { screenPinningDialogLikelyShown = it },
+                    setScreenPinningUserActionInference = { screenPinningUserActionInference = it },
+                    setScreenPinningActivationDurationMs = { screenPinningActivationDurationMs = it },
+                    setExamSessionCancelledByPinningFailure = { examSessionCancelledByPinningFailure = it },
+                    setLockTaskRequestPending = { lockTaskRequestPending = it },
+                    setPinningActivationState = { pinningActivationState = it },
+                    setPinningActivationStartedAtElapsedMs = { pinningActivationStartedAtElapsedMs = it },
+                    setPinningSuppressedTransitionCount = { pinningSuppressedTransitionCount = it },
+                    setScreenPinningMessage = { screenPinningMessage = it },
+                    setWebViewErrorMessage = { webViewErrorMessage = it },
+                    setExitOnSecurityIssueDialogDismiss = { exitOnSecurityIssueDialogDismiss = it },
                     resetPreparationSecurityEpisodes = this::resetPreparationSecurityEpisodes,
                     prepareCleanExamWebViewSessionForStart = this::prepareCleanExamWebViewSessionForStart,
                     armExamRuntimeMonitoring = ::armExamRuntimeMonitoring,
                     finalizeExamSessionStart = this::finalizeExamSessionStart,
-                    onCleanSessionFailed = { accessibilityGuardFallbackActive = false }
-                )
-                return
-            }
-
-            AccessibilityExamGuardStore.disarm(context)
-            accessibilityGuardFallbackActive = false
-
-            if (screenPinningMode == ScreenPinningMode.Bypassed) {
-                val bypassState = ScreenPinningEnforcer.launchState(screenPinningMode, lockTaskBridge)
-                recordAction(code = bypassState.eventCode, details = bypassState.eventDetails)
-                lockTaskStateBeforePinningRequest = bypassState.beforeState
-                lockTaskStateAfterPinningRequest = bypassState.afterState
-                screenPinningRequestOutcome = bypassState.outcome
-                screenPinningDialogLikelyShown = bypassState.dialogLikelyShown
-                screenPinningUserActionInference = bypassState.userActionInference
-                screenPinningActivationDurationMs = bypassState.activationDurationMs
-                examSessionCancelledByPinningFailure = false
-                lockTaskRequestPending = false
-                pinningActivationState = PinningActivationState.Idle
-                pinningActivationStartedAtElapsedMs = null
-                pinningSuppressedTransitionCount = 0
-                clearAppSwitchSuppression()
-                screenPinningMessage = null
-                webViewErrorMessage = null
-                exitOnSecurityIssueDialogDismiss = false
-                resetPreparationSecurityEpisodes()
-                coroutineScope.launch {
-                    if (!prepareCleanExamWebViewSessionForStart()) {
-                        return@launch
+                    clearAppSwitchSuppression = ::clearAppSwitchSuppression,
+                    setAppSwitchSuppression = { reason -> setAppSwitchSuppression(reason) },
+                    applyStartExamBlockMessage = this::applyStartExamBlockMessage,
+                    recordAction = { code, details, level ->
+                        recordAction(code = code, details = details, level = level)
                     }
-                    if (!examGuardArmed) {
-                        armExamRuntimeMonitoring(reason = "start_exam_pressed")
-                    }
-                    finalizeExamSessionStart(lockTaskAlreadyActive = false)
-                }
-                return
-            }
-
-            if (lockTaskBridge.active()) {
-                val activeState = lockTaskBridge.stateLabel()
-                lockTaskStateBeforePinningRequest = activeState
-                lockTaskStateAfterPinningRequest = activeState
-                screenPinningRequestOutcome = ScreenPinningSignals.successOutcome()
-                screenPinningDialogLikelyShown = false
-                screenPinningUserActionInference = "Sudah aktif; request pinning dilewati"
-                screenPinningActivationDurationMs = 0L
-                examSessionCancelledByPinningFailure = false
-                lockTaskRequestPending = false
-                pinningActivationState = PinningActivationState.ActiveConfirmed
-                pinningActivationStartedAtElapsedMs = null
-                pinningSuppressedTransitionCount = 0
-                clearAppSwitchSuppression()
-                screenPinningMessage = null
-                webViewErrorMessage = null
-                exitOnSecurityIssueDialogDismiss = false
-                recordAction(
-                    code = ScreenPinningSignals.eventActive(),
-                    details = "already_active_before_request | state=$activeState",
-                    level = DiagnosticEventLevel.INFO
                 )
-                recordAction(
-                    code = ExamRuntimeHardeningDiagnostics.ScreenPinningAlreadyActive,
-                    details = "state=$activeState | request_pending=false",
-                    level = DiagnosticEventLevel.INFO
-                )
-                recordAction(
-                    code = ExamRuntimeHardeningDiagnostics.ScreenPinningRequestSkippedAlreadyActive,
-                    details = "state=$activeState | policy_skip_if_active=${deviceCompatibilityProfile.skipScreenPinningRequestWhenAlreadyActive}",
-                    level = DiagnosticEventLevel.INFO
-                )
-                recordAction(
-                    code = ExamRuntimeHardeningDiagnostics.PinningActiveConfirmed,
-                    details = "already_active_before_request=true | state=$activeState | duration_ms=0",
-                    level = DiagnosticEventLevel.INFO
-                )
-                resetPreparationSecurityEpisodes()
-                if (!examGuardArmed) {
-                    armExamRuntimeMonitoring(reason = "start_exam_pressed_pinning_already_active")
-                }
-                lockTaskBridge.engage(allowLockTask = false)
-                coroutineScope.launch {
-                    if (!prepareCleanExamWebViewSessionForStart()) {
-                        return@launch
-                    }
-                    finalizeExamSessionStart(lockTaskAlreadyActive = true)
-                }
-                return
-            }
-
-            if (screenPinningMode == ScreenPinningMode.Enforced && screenPinningAvailable) {
-                applyStartExamBlockMessage(
-                    resolveStartExamScreenPinningBlockMessage(
-                        uiLanguage = uiLanguage,
-                        screenPinningMode = screenPinningMode,
-                        screenPinningAvailable = screenPinningAvailable,
-                        screenPinningActive = false,
-                        accessibilityGuardAvailable = isExamGuardAccessibilityAvailable(context),
-                        accessibilityGuardEnabled = accessibilityGuardEnabled,
-                        phaseSuffix = "phase=final_precheck"
-                    ) ?: StartExamBlockMessage(
-                        code = ExamRuntimeHardeningDiagnostics.StartExamBlockedScreenPinningInactive,
-                        details = "screen_pinning_available=true | lock_task_active=false | bypass=false | phase=final_precheck",
-                        title = localized(uiLanguage, "Start Screen Pinning First", "Start Screen Pinning Dulu"),
-                        message = localized(
-                            uiLanguage,
-                            "Start Screen Pinning first from Preparation, confirm the Android dialog, then press Start Exam.",
-                            "Jalankan Start Screen Pinning dulu dari Preparation, konfirmasi dialog Android, lalu tekan Mulai Ujian."
-                        )
-                    )
-                )
-                return
-            }
-
-            if (!examGuardArmed) {
-                armExamRuntimeMonitoring(reason = "start_exam_pressed")
-            }
-
-            val requestState = ScreenPinningEnforcer.launchState(screenPinningMode, lockTaskBridge)
-            lockTaskStateBeforePinningRequest = requestState.beforeState
-            lockTaskStateAfterPinningRequest = requestState.afterState
-            screenPinningRequestOutcome = requestState.outcome
-            screenPinningDialogLikelyShown = requestState.dialogLikelyShown
-            screenPinningUserActionInference = requestState.userActionInference
-            screenPinningActivationDurationMs = requestState.activationDurationMs
-            examSessionCancelledByPinningFailure = false
-            lockTaskRequestPending = true
-            pinningActivationState = PinningActivationState.Requested
-            pinningActivationStartedAtElapsedMs = SystemClock.elapsedRealtime()
-            pinningSuppressedTransitionCount = 0
-            recordAction(code = requestState.eventCode, details = requestState.eventDetails)
-            recordAction(
-                code = ExamRuntimeHardeningDiagnostics.PinningStartRequested,
-                details = "before=${requestState.beforeState} | state=${requestState.afterState} | grace_ms=$PinningActivationGraceWindowMillis",
-                level = DiagnosticEventLevel.INFO
             )
-            recordAction(
-                code = ExamRuntimeHardeningDiagnostics.PinningDialogExpected,
-                details = "screen_pinning_dialog_expected=true | keep_app_foreground=true",
-                level = DiagnosticEventLevel.INFO
-            )
-            setAppSwitchSuppression(AppSwitchSuppressionReason.ScreenPinningRequest)
-            screenPinningMessage = ScreenPinningEnforcer.activatingMessage(
-                isIndonesian = isIndonesian,
-                purpose = PinningActivationPurpose.ExamStart
-            )
-            webViewErrorMessage = null
-            exitOnSecurityIssueDialogDismiss = false
         }
 
         suspend fun startExamSession() {
             if (webViewSessionResetInFlight) {
                 return
             }
-            val startExamPressedAt = SystemClock.elapsedRealtime()
             examRuntimeRecoveryState = ExamRuntimeRecoveryState.Idle
-            webViewSessionResetError = null
-            recordAction(code = "START_EXAM_PRESSED")
-            val startVirtualEnvironmentDiagnostics = getVirtualEnvironmentDiagnosticsOnIo(
+            runExamRuntimeStartPrechecks(
                 context = context,
-                forceRefresh = true
-            )
-            runtimeSecurityOps.applyVirtualEnvironmentDiagnostics(
-                diagnostics = startVirtualEnvironmentDiagnostics,
-                triggerViolation = false
-            )
-            debugMeasureExamStartWork("startExamSession:tampers") {
-                refreshReverseEngineeringStatus()
-                refreshIntegrityGuard()
-            }
-            val securityTamperDetectedNow = tamperDetected || integrityTamperDetected
-            if (securityTamperDetectedNow) {
-                applyStartExamBlockMessage(resolveStartExamTamperBlockMessage(uiLanguage))
-                return
-            }
-            refreshScreenPinningDiagnostics()
-            val latestAccessibilityGuardAvailable = isExamGuardAccessibilityAvailable(context)
-            val latestAccessibilityGuardEnabled = isExamGuardAccessibilityEnabled(context)
-            accessibilityGuardEnabled = latestAccessibilityGuardEnabled
-            val screenPinningBlock = resolveStartExamScreenPinningBlockMessage(
                 uiLanguage = uiLanguage,
+                payload = payload,
+                lockTaskBridge = lockTaskBridge,
                 screenPinningMode = screenPinningMode,
                 screenPinningAvailable = screenPinningAvailable,
-                screenPinningActive = lockTaskBridge.active(),
-                accessibilityGuardAvailable = latestAccessibilityGuardAvailable,
-                accessibilityGuardEnabled = latestAccessibilityGuardEnabled
-            )
-            if (screenPinningBlock != null) {
-                applyStartExamBlockMessage(screenPinningBlock)
-                return
-            } else if (
-                screenPinningMode == ScreenPinningMode.Enforced &&
-                !screenPinningAvailable &&
-                latestAccessibilityGuardEnabled
-            ) {
-                recordAction(
-                    code = "ACCESSIBILITY_GUARD_ENABLED_REQUIRED",
-                    details = "screen_pinning_available=false | accessibility_guard_enabled=true",
-                    level = DiagnosticEventLevel.INFO
-                )
-            }
-            debugMeasureExamStartWork("startExamSession:device_prechecks") {
-                refreshScreenPinningDiagnostics()
-                accessibilityGuardEnabled = isExamGuardAccessibilityEnabled(context)
-                refreshKeyboardSecurity(triggerViolation = false)
-                refreshBluetoothSecurity(triggerViolation = false)
-                refreshDeviceIntegritySecurity(triggerViolation = false)
-            }
-            val devicePrecheckScreenPinningBlock = resolveStartExamScreenPinningBlockMessage(
-                uiLanguage = uiLanguage,
-                screenPinningMode = screenPinningMode,
-                screenPinningAvailable = screenPinningAvailable,
-                screenPinningActive = lockTaskBridge.active(),
-                accessibilityGuardAvailable = isExamGuardAccessibilityAvailable(context),
-                accessibilityGuardEnabled = accessibilityGuardEnabled,
-                phaseSuffix = "phase=device_prechecks"
-            )
-            if (devicePrecheckScreenPinningBlock != null) {
-                applyStartExamBlockMessage(devicePrecheckScreenPinningBlock)
-                return
-            }
-            val startDeviceTimeStatus = refreshDeviceTimeSecurity(trigger = "start_exam_precheck")
-            val startDeviceTimeBlock = resolveStartExamDeviceTimeBlockMessage(
-                uiLanguage = uiLanguage,
-                trigger = "start_exam_precheck",
-                status = startDeviceTimeStatus
-            )
-            if (startDeviceTimeBlock != null) {
-                applyStartExamBlockMessage(startDeviceTimeBlock)
-                return
-            }
-            val startNetworkStatus = readNetworkReadinessStatus(context)
-            applyNetworkReadinessStatus("start_exam_precheck", startNetworkStatus)
-            if (!bypassVpn) {
-                val startVpnBlock = resolveStartExamVpnBlockMessage(
-                    uiLanguage = uiLanguage,
-                    status = startNetworkStatus
-                )
-                if (startVpnBlock != null) {
-                    applyStartExamBlockMessage(startVpnBlock)
-                    return
-                }
-            }
-            val startHealthSnapshot = buildPreExamHealthSnapshot(
-                PreExamHealthCheckInput(
-                    compatibilityProfile = deviceCompatibilityProfile,
-                    screenPinningAvailable = screenPinningAvailable,
-                    screenPinningActive = lockTaskBridge.active(),
-                    screenPinningBypassed = bypassScreenPinning,
-                    accessibilityGuardAvailable = isExamGuardAccessibilityAvailable(context),
-                    accessibilityGuardEnabled = accessibilityGuardEnabled,
-                    overlayRiskResult = overlayRiskResult,
-                    overlayBypassed = bypassOverlay,
-                    networkReadinessStatus = startNetworkStatus,
-                    vpnBypassed = bypassVpn,
-                    webViewCompatibilityStatus = webViewCompatibilityStatus,
-                    webViewRecoveryState = examRuntimeRecoveryState.name,
-                    webViewSessionResetInFlight = webViewSessionResetInFlight,
-                    webViewSessionResetError = webViewSessionResetError,
-                    geofenceRuntimeStatus = geofenceRuntimeStatus,
-                    geofenceBypassed = bypassGeofence,
-                    fakeLocationRuntimeStatus = fakeLocationRuntimeStatus,
-                    fakeLocationBypassed = bypassFakeLocation,
-                    deviceTimeSecurityStatus = startDeviceTimeStatus,
-                    deviceTimeBypassed = bypassDeviceTime,
-                    batteryStatus = batteryStatus,
-                    generatedAtElapsedMs = SystemClock.elapsedRealtime()
-                )
-            )
-            val healthBlocker = preExamHealthStartBlocker(startHealthSnapshot)
-            if (healthBlocker != null) {
-                recordAction(
-                    code = ExamRuntimeHardeningDiagnostics.StartExamBlockedHealthCheck,
-                    details = "category=${healthBlocker.category.name} | verdict=${healthBlocker.verdict.name} | detail=${healthBlocker.detail}",
-                    level = DiagnosticEventLevel.WARNING
-                )
-                securityIssueDialogTitle = localized(
-                    uiLanguage,
-                    "Pre-Exam Health Check",
-                    "Health Check Sebelum Ujian"
-                )
-                securityIssueDialogMessage = buildString {
-                    append(healthBlocker.title)
-                    append("\n\n")
-                    append(healthBlocker.detail)
-                    if (!healthBlocker.quickFix.isNullOrBlank()) {
-                        append("\n\n")
-                        append(healthBlocker.quickFix)
-                    }
-                }
-                return
-            }
-            val signatureResult = debugMeasureExamStartWork("startExamSession:signature_check") {
-                checkSignatureIntegrity(triggerViolation = true)
-            }
-            if (ExamPolicyEngine.shouldBlock(signatureResult)) {
-                recordAction(
-                    code = "START_EXAM_BLOCKED_SIGNATURE",
-                    level = DiagnosticEventLevel.WARNING
-                )
-                return
-            }
-            val keyboardAllowedNow = lastKeyboardAllowed
-            val builtInKeyboardNeeded = !bypassKeyboardPolicy && !keyboardAllowedNow
-            val bluetoothPermissionReady =
-                bluetoothPermissionGranted || !requiresBluetoothExamPermission()
-
-            useBuiltInExamKeyboard = builtInKeyboardNeeded
-            showBuiltInExamKeyboard = builtInKeyboardNeeded
-            builtInKeyboardShiftEnabled = false
-
-            if (!bypassBluetooth) {
-                if (!bluetoothPermissionReady) {
-                    bluetoothPermissionLauncher.launch(getBluetoothConnectPermission())
-                    return
-                }
-
-                if (bluetoothEnabled) {
-                    showBluetoothViolationDialog = true
-                    return
-                }
-            }
-
-            val staticSecurityBlock = resolveStartExamStaticSecurityBlockMessage(
+                deviceCompatibilityProfile = deviceCompatibilityProfile,
+                overlayRiskResult = overlayRiskResult,
+                webViewCompatibilityStatus = webViewCompatibilityStatus,
+                webViewRecoveryStateName = examRuntimeRecoveryState.name,
+                batteryStatus = batteryStatus,
+                geofenceConfigParseResult = geofenceConfigParseResult,
+                effectiveLocationPolicySource = effectiveLocationPolicySource,
+                geofenceBypassState = geofenceBypassState,
+                fakeLocationBypassState = fakeLocationBypassState,
+                flowUiState = flowUiState,
+                securityUiState = securityUiState,
+                adminUiState = adminUiState,
+                accessibilityGuardEnabledState = accessibilityGuardEnabledState,
+                bypassScreenPinning = bypassScreenPinning,
+                bypassOverlay = bypassOverlay,
+                bypassVpn = bypassVpn,
+                bypassDeviceTime = bypassDeviceTime,
+                bypassKeyboardPolicy = bypassKeyboardPolicy,
+                bypassBluetooth = bypassBluetooth,
                 bypassAccessibility = bypassAccessibility,
-                accessibilityServiceEnabled = accessibilityServiceEnabled,
                 bypassAdb = bypassAdb,
-                developerOptionsEnabled = developerOptionsEnabled,
                 bypassVirtualEnvironment = bypassVirtualEnvironment,
-                virtualEnvironmentDetected = virtualEnvironmentDetected,
-                adbEnabled = adbEnabled,
-                adbInsecureSystemProperty = adbInspection.insecureSystemProperty,
                 bypassRoot = bypassRoot,
-                rootSecurityStatus = rootSecurityStatus,
                 bypassScreenRecorder = bypassScreenRecorder,
-                screenRecorderPackages = SecurityDetectorCache.readScreenRecorderPackages(
-                    context = context,
-                    forceRefresh = true
-                ),
                 bypassDisplayMirror = bypassDisplayMirror,
-                externalDisplayDetected = getExternalDisplayCount(context) > 0,
                 bypassMultiWindow = bypassMultiWindow,
-                multiWindowDetected = isInAnySplitMode(context)
-            )
-            if (staticSecurityBlock != null) {
-                applyStartExamBlockMessage(staticSecurityBlock)
-                return
-            }
-
-            if (geofenceEnabled && !bypassGeofence && geofenceConfigParseResult.config == null) {
-                geofenceSecurityStatus = evaluateGeofenceSecurity(
-                    configResult = geofenceConfigParseResult,
-                    permissionGranted = hasLocationPermissionForWifi(context),
-                    preciseLocationGranted = hasFineLocationPermission(context),
-                    locationServicesEnabled = isLocationServicesEnabled(context),
-                    locationSnapshot = null,
-                    bypassState = geofenceBypassState
-                )
-                geofenceEvaluation = geofenceSecurityStatus.geofenceEvaluation
-                applyStartExamBlockMessage(
-                    resolveStartExamGeofenceConfigBlockMessage(
-                        uiLanguage = uiLanguage,
-                        details = currentGeofenceEventDetails(
-                            trigger = "start_exam",
-                            geofenceStatus = geofenceSecurityStatus
+                bypassGeofence = bypassGeofence,
+                bypassFakeLocation = bypassFakeLocation,
+                callbacks = ExamRuntimeStartPrecheckCallbacks(
+                    recordAction = { code, details, level ->
+                        recordAction(code = code, details = details, level = level)
+                    },
+                    applyVirtualEnvironmentDiagnostics = { diagnostics, triggerViolation ->
+                        runtimeSecurityOps.applyVirtualEnvironmentDiagnostics(
+                            diagnostics = diagnostics,
+                            triggerViolation = triggerViolation
                         )
-                    )
-                )
-                return
-            }
-
-            val coarseOrFineGranted = hasLocationPermissionForWifi(context)
-            val preciseLocationGranted = hasFineLocationPermission(context)
-            val preciseLocationRequiredForStart = geofenceEnabled && !bypassGeofence
-            if (
-                (preciseLocationRequiredForStart && !preciseLocationGranted) ||
-                (!preciseLocationRequiredForStart && !bypassFakeLocation && !coarseOrFineGranted)
-            ) {
-                pendingStartExamAfterLocationPermission = true
-                geofencePermissionRequestInFlight = true
-                recordAction(
-                    code = "LOCATION_PERMISSION_REQUESTED",
-                    details = "trigger=start_exam",
-                    level = DiagnosticEventLevel.WARNING
-                )
-                locationPermissionLauncher.launch(
-                    arrayOf(
-                        Manifest.permission.ACCESS_FINE_LOCATION,
-                        Manifest.permission.ACCESS_COARSE_LOCATION
-                    )
-                )
-                debugLogExamStart(
-                    "startExamSession waiting for location permission after ${SystemClock.elapsedRealtime() - startExamPressedAt} ms"
-                )
-                return
-            }
-
-            if (!bypassGeofence && geofenceEnabled && !isLocationServicesEnabled(context)) {
-                geofenceSecurityStatus = evaluateGeofenceSecurity(
-                    configResult = geofenceConfigParseResult,
-                    permissionGranted = true,
-                    preciseLocationGranted = true,
-                    locationServicesEnabled = false,
-                    locationSnapshot = null,
-                    bypassState = geofenceBypassState
-                )
-                geofenceEvaluation = geofenceSecurityStatus.geofenceEvaluation
-                applyStartExamBlockMessage(
-                    resolveStartExamGeofenceLocationDisabledBlockMessage(
-                        uiLanguage = uiLanguage,
-                        details = currentGeofenceEventDetails(
-                            trigger = "start_exam",
-                            geofenceStatus = geofenceSecurityStatus
+                    },
+                    refreshReverseEngineeringStatus = ::refreshReverseEngineeringStatus,
+                    refreshIntegrityGuard = ::refreshIntegrityGuard,
+                    refreshScreenPinningDiagnostics = ::refreshScreenPinningDiagnostics,
+                    refreshKeyboardSecurity = ::refreshKeyboardSecurity,
+                    refreshBluetoothSecurity = ::refreshBluetoothSecurity,
+                    refreshDeviceIntegritySecurity = ::refreshDeviceIntegritySecurity,
+                    applyStartExamBlockMessage = this::applyStartExamBlockMessage,
+                    refreshDeviceTimeSecurity = { trigger, emitDiagnosticEvent ->
+                        refreshDeviceTimeSecurity(
+                            trigger = trigger,
+                            emitDiagnosticEvent = emitDiagnosticEvent
                         )
-                    )
-                )
-                return
-            }
-
-            if (!bypassFakeLocation && !isLocationServicesEnabled(context)) {
-                fakeLocationSecurityStatus = evaluateFakeLocationSecurity(
-                    monitoringEnabled = true,
-                    permissionGranted = hasLocationPermissionForWifi(context),
-                    locationServicesEnabled = false,
-                    locationSnapshot = null,
-                    fixQualityStatus = evaluateLocationFixQuality(null),
-                    developerOptionsEnabled = developerOptionsEnabled,
-                    suspiciousFakeLocationPackages =
-                        SecurityDetectorCache.readSuspiciousFakeLocationPackages(
-                            context = context,
-                            forceRefresh = true
-                        ),
-                    bypassState = fakeLocationBypassState
-                )
-                applyStartExamBlockMessage(
-                    resolveStartExamFakeLocationServicesDisabledBlockMessage(
-                        uiLanguage = uiLanguage,
-                        details = currentFakeLocationEventDetails(
-                            trigger = "start_exam",
-                            fakeLocationStatus = fakeLocationSecurityStatus
-                        )
-                    )
-                )
-                return
-            }
-
-            if (geofenceStartValidationInFlight) {
-                return
-            }
-
-            geofenceStartValidationInFlight = true
-            coroutineScope.launch {
-                val latestLocationStatus = debugMeasureExamStartSuspendWork("startExamSession:location_validation") {
-                    resolveStartExamLocationValidation()
-                }
-                geofenceStartValidationInFlight = false
-                val locationBlockMessage = resolveStartExamLocationBlockMessage(
-                    uiLanguage = uiLanguage,
-                    latestLocationStatus = latestLocationStatus,
-                    bypassGeofence = bypassGeofence,
-                    bypassFakeLocation = bypassFakeLocation,
-                    geofenceDetails = { geofenceStatus ->
+                    },
+                    applyNetworkReadinessStatus = ::applyNetworkReadinessStatus,
+                    checkSignatureIntegrity = ::checkSignatureIntegrity,
+                    currentGeofenceEventDetails = { trigger, geofenceStatus ->
                         currentGeofenceEventDetails(
-                            trigger = "start_exam",
+                            trigger = trigger,
                             geofenceStatus = geofenceStatus
                         )
                     },
-                    fakeLocationDetails = { fakeLocationStatus ->
+                    currentFakeLocationEventDetails = { trigger, fakeLocationStatus ->
                         currentFakeLocationEventDetails(
-                            trigger = "start_exam",
+                            trigger = trigger,
                             fakeLocationStatus = fakeLocationStatus
                         )
-                    }
+                    },
+                    requestBluetoothPermission = {
+                        bluetoothPermissionLauncher.launch(getBluetoothConnectPermission())
+                    },
+                    requestLocationPermission = {
+                        locationPermissionLauncher.launch(
+                            arrayOf(
+                                Manifest.permission.ACCESS_FINE_LOCATION,
+                                Manifest.permission.ACCESS_COARSE_LOCATION
+                            )
+                        )
+                    },
+                    launchFinalLocationValidation = { startExamPressedAt ->
+                        launchExamRuntimeStartLocationValidation(
+                            context = context,
+                            coroutineScope = coroutineScope,
+                            uiLanguage = uiLanguage,
+                            payload = payload,
+                            bypassGeofence = bypassGeofence,
+                            bypassFakeLocation = bypassFakeLocation,
+                            startExamPressedAt = startExamPressedAt,
+                            callbacks = ExamRuntimeStartLocationValidationCallbacks(
+                                isGeofenceStartValidationInFlight = { geofenceStartValidationInFlight },
+                                setGeofenceStartValidationInFlight = { geofenceStartValidationInFlight = it },
+                                resolveStartExamLocationValidation = { resolveStartExamLocationValidation() },
+                                currentGeofenceEventDetails = { trigger, geofenceStatus ->
+                                    currentGeofenceEventDetails(
+                                        trigger = trigger,
+                                        geofenceStatus = geofenceStatus
+                                    )
+                                },
+                                currentFakeLocationEventDetails = { trigger, fakeLocationStatus ->
+                                    currentFakeLocationEventDetails(
+                                        trigger = trigger,
+                                        fakeLocationStatus = fakeLocationStatus
+                                    )
+                                },
+                                applyStartExamBlockMessage = this::applyStartExamBlockMessage,
+                                refreshDeviceTimeSecurity = { trigger, emitDiagnosticEvent ->
+                                    refreshDeviceTimeSecurity(
+                                        trigger = trigger,
+                                        emitDiagnosticEvent = emitDiagnosticEvent
+                                    )
+                                },
+                                completeStartExamSessionAfterPrechecks = this::completeStartExamSessionAfterPrechecks,
+                                debugLogExamStart = ::debugLogExamStart
+                            )
+                        )
+                    },
+                    debugLogExamStart = ::debugLogExamStart
                 )
-                if (locationBlockMessage != null) {
-                    applyStartExamBlockMessage(locationBlockMessage)
-                    return@launch
-                }
-
-                val finalDeviceTimeStatus = refreshDeviceTimeSecurity(
-                    trigger = "start_exam_final",
-                    emitDiagnosticEvent = false
-                )
-                val finalDeviceTimeBlock = resolveStartExamDeviceTimeBlockMessage(
-                    uiLanguage = uiLanguage,
-                    trigger = "start_exam_final",
-                    status = finalDeviceTimeStatus
-                )
-                if (finalDeviceTimeBlock != null) {
-                    applyStartExamBlockMessage(finalDeviceTimeBlock)
-                    return@launch
-                }
-                val networkNowMillis = TrustedNetworkTimeCoordinator.currentNetworkNowMillis(context)
-                val scheduleValidationResult = ExamScheduleValidator.validateAfterDeviceTimeCheck(
-                    payload = payload,
-                    deviceTimeStatus = finalDeviceTimeStatus,
-                    networkNowMillis = networkNowMillis
-                )
-                val scheduleBlock = resolveStartExamScheduleBlockMessage(
-                    uiLanguage = uiLanguage,
-                    payload = payload,
-                    validationResult = scheduleValidationResult,
-                    networkNowMillis = networkNowMillis,
-                    deviceTimeStatus = finalDeviceTimeStatus
-                )
-                if (scheduleBlock != null) {
-                    applyStartExamBlockMessage(scheduleBlock)
-                    return@launch
-                }
-                debugLogExamStart(
-                    "startExamSession passed all prechecks in ${SystemClock.elapsedRealtime() - startExamPressedAt} ms"
-                )
-                completeStartExamSessionAfterPrechecks()
-            }
+            )
         }
 
     }
@@ -4092,505 +1904,117 @@ internal fun ExamRuntimeSessionScreenImpl(
         }
     }
 
-    fun handleChooseKeyboard() {
-        recordAction(code = "KEYBOARD_PICKER_OPENED")
-        if (!showKeyboardPicker(activity)) {
-            openKeyboardSettings(context)
-        }
-    }
+    val preparationActionOps = ExamRuntimePreparationActionOps(
+        context = context,
+        activity = activity,
+        uiLanguage = uiLanguage,
+        isIndonesian = isIndonesian,
+        adminSettings = adminSettings,
+        officialApkUrl = officialApkUrl,
+        lockTaskBridge = lockTaskBridge,
+        screenPinningMode = screenPinningMode,
+        vpnBypassState = vpnBypassState,
+        webViewCompatibilityStatus = webViewCompatibilityStatus,
+        flowUiState = flowUiState,
+        securityUiState = securityUiState,
+        adminUiState = adminUiState,
+        networkUiState = networkUiState,
+        webViewUiState = webViewUiState,
+        accessibilityGuardEnabledState = accessibilityGuardEnabledState,
+        runtimeDiagnosticsOps = runtimeDiagnosticsOps,
+        runtimeSecurityOps = runtimeSecurityOps,
+        runtimeMonitoringOps = runtimeMonitoringOps,
+        examAlarmController = examAlarmController,
+        launchBluetoothPermission = {
+            bluetoothPermissionLauncher.launch(getBluetoothConnectPermission())
+        },
+        launchLocationPermission = { permissions ->
+            locationPermissionLauncher.launch(permissions)
+        },
+        incrementWebViewCompatibilityRefreshKey = { webViewCompatibilityRefreshKey += 1 },
+        debugLogExamStart = ::debugLogExamStart
+    )
 
-    fun handleOpenKeyboardSettings() {
-        recordAction(code = "KEYBOARD_SETTINGS_OPENED")
-        openKeyboardSettings(context)
-    }
-
-    fun handleGrantBluetoothPermission() {
-        recordAction(code = "BLUETOOTH_PERMISSION_REQUESTED")
-        bluetoothPermissionLauncher.launch(getBluetoothConnectPermission())
-    }
-
-    fun handleOpenBluetoothSettings() {
-        recordAction(code = "BLUETOOTH_SETTINGS_OPENED")
-        openBluetoothSettings(context)
-    }
-
-    fun handleOpenAccessibilitySettings() {
-        recordAction(code = "ACCESSIBILITY_SETTINGS_OPENED")
-        openAccessibilitySettings(context)
-    }
-
-    fun handleOpenOverlayAccessibilitySettings() {
-        recordAction(code = "OVERLAY_ACCESSIBILITY_SETTINGS_OPENED")
-        openAccessibilitySettings(context)
-    }
-
-    fun handleOpenDeveloperOptionsSettings() {
-        recordAction(code = "DEVELOPER_OPTIONS_OPENED")
-        openDeveloperOptionsSettings(context)
-    }
-
-    fun handleRequestLocationPermission() {
-        invalidateWarmLocationValidationCache()
-        recordAction(
-            code = "LOCATION_PERMISSION_REQUESTED",
-            details = "trigger=location_quick_fix",
-            level = DiagnosticEventLevel.INFO
-        )
-        geofencePermissionRequestInFlight = true
-        locationPermissionLauncher.launch(
-            arrayOf(
-                Manifest.permission.ACCESS_FINE_LOCATION,
-                Manifest.permission.ACCESS_COARSE_LOCATION
-            )
-        )
-    }
-
-    fun handleOpenLocationServicesSettings() {
-        invalidateWarmLocationValidationCache()
-        recordAction(
-            code = "LOCATION_SERVICES_SETTINGS_OPENED",
-            details = "trigger=location_quick_fix",
-            level = DiagnosticEventLevel.INFO
-        )
-        openLocationServicesSettings(context)
-    }
-
-    fun handleRefreshLocationSecurity() {
-        launchLocationSecurityManualRefresh(trigger = "location_quick_fix")
-        recordAction(
-            code = "LOCATION_QUICK_FIX_REFRESH_REQUESTED",
-            details = "trigger=checklist",
-            level = DiagnosticEventLevel.INFO
-        )
-    }
-
-    fun handleOpenGeofenceMapViewer() {
-        showGeofenceMapViewer = true
-        recordAction(
-            code = "GEOFENCE_MAP_VIEW_OPENED",
-            details = currentGeofenceEventDetails(
-                trigger = "checklist_map_view",
-                geofenceStatus = geofenceSecurityStatus
-            ),
-            level = DiagnosticEventLevel.INFO
-        )
-    }
-
-    fun handleOpenInternetSettings() {
-        recordAction(
-            code = "INTERNET_SETTINGS_OPENED",
-            details = currentNetworkEventDetails(
-                trigger = "network_quick_fix",
-                status = networkReadinessStatus
-            ),
-            level = DiagnosticEventLevel.INFO
-        )
-        openInternetConnectivitySettings(context)
-    }
-
-    fun handleOpenVpnSettings() {
-        recordAction(
-            code = ExamRuntimeHardeningDiagnostics.VpnSettingsOpened,
-            details = currentNetworkEventDetails(
-                trigger = "network_vpn_quick_fix",
-                status = networkReadinessStatus,
-                extraContext = "bypass=${if (bypassVpn) "yes" else "no"}"
-            ),
-            level = DiagnosticEventLevel.INFO
-        )
-        openVpnSettings(context)
-    }
-
-    fun handleOpenDateTimeSettings() {
-        recordAction(
-            code = "DEVICE_TIME_SETTINGS_OPENED",
-            details = buildDeviceTimeEventDetails(
-                trigger = "device_time_quick_fix",
-                status = refreshDeviceTimeSecurity(
-                    trigger = "device_time_quick_fix",
-                    emitDiagnosticEvent = false
-                )
-            ),
-            level = DiagnosticEventLevel.INFO
-        )
-        openDateTimeSettings(context)
-    }
-
-    fun handleOpenWifiSettings() {
-        recordAction(
-            code = "WIFI_SETTINGS_OPENED",
-            details = currentNetworkEventDetails(
-                trigger = "network_wifi_quick_fix",
-                status = networkReadinessStatus
-            ),
-            level = DiagnosticEventLevel.INFO
-        )
-        openWifiSettings(context)
-    }
-
-    fun handleOpenCellularSettings() {
-        recordAction(
-            code = "CELLULAR_SETTINGS_OPENED",
-            details = currentNetworkEventDetails(
-                trigger = "network_cellular_quick_fix",
-                status = networkReadinessStatus,
-                extraContext = "last_connected=" + (lastConnectedNetworkLabel?.ifBlank { "-" } ?: "-")
-            ),
-            level = DiagnosticEventLevel.INFO
-        )
-        openCellularSettings(context)
-    }
-
-    fun handleOpenAirplaneModeSettings() {
-        recordAction(
-            code = "AIRPLANE_MODE_SETTINGS_OPENED",
-            details = currentNetworkEventDetails(
-                trigger = "network_airplane_mode_quick_fix",
-                status = networkReadinessStatus
-            ),
-            level = DiagnosticEventLevel.INFO
-        )
-        openAirplaneModeSettings(context)
-    }
-
-    fun handleRefreshNetworkStatus() {
-        launchNetworkManualRefresh(trigger = "network_quick_fix")
-        recordAction(
-            code = "NETWORK_QUICK_FIX_REFRESH_REQUESTED",
-            details = currentNetworkEventDetails(
-                trigger = "network_quick_fix",
-                status = networkReadinessStatus
-            ),
-            level = DiagnosticEventLevel.INFO
-        )
-    }
-
-    fun handleOpenFakeLocationDeveloperOptionsSettings() {
-        invalidateWarmLocationValidationCache()
-        recordAction(
-            code = "FAKE_LOCATION_DEVELOPER_OPTIONS_OPENED",
-            details = currentFakeLocationEventDetails(
-                trigger = "fake_location_developer_options_quick_fix",
-                fakeLocationStatus = fakeLocationRuntimeStatus.securityStatus
-            ),
-            level = DiagnosticEventLevel.INFO
-        )
-        openDeveloperOptionsSettings(context)
-    }
-
-    fun handleOpenScreenPinningSettings() {
-        recordAction(code = "SCREEN_PINNING_SETTINGS_OPENED")
-        openScreenPinningSettings(context)
-    }
-
-    fun handleStartScreenPinning() {
-        refreshScreenPinningDiagnostics()
-        if (lockTaskRequestPending || examSessionStarted) {
-            return
-        }
-        if (bypassScreenPinning || screenPinningMode == ScreenPinningMode.Bypassed) {
-            recordAction(
-                code = ScreenPinningSignals.eventBypassUsed(),
-                details = "source=preparation_start_screen_pinning | bypass=true",
-                level = DiagnosticEventLevel.INFO
-            )
-            pinningActivationPurpose = PinningActivationPurpose.ExamStart
-            return
-        }
-        if (!screenPinningAvailable) {
-            recordAction(
-                code = ExamRuntimeHardeningDiagnostics.StartExamBlockedScreenPinningInactive,
-                details = "source=preparation_start_screen_pinning | screen_pinning_available=false",
-                level = DiagnosticEventLevel.WARNING
-            )
-            securityIssueDialogTitle = localized(
-                uiLanguage,
-                "Screen Pinning Unavailable",
-                "Screen Pinning Tidak Tersedia"
-            )
-            securityIssueDialogMessage = localized(
-                uiLanguage,
-                "This device does not support Screen Pinning. Use the Accessibility Exam Guard fallback or Secret Admin bypass.",
-                "Perangkat ini tidak mendukung Screen Pinning. Gunakan fallback Accessibility Exam Guard atau bypass Secret Admin."
-            )
-            return
-        }
-        if (screenPinningEnabledInSystem.equals("Nonaktif", ignoreCase = true)) {
-            recordAction(
-                code = "SCREEN_PINNING_START_ATTEMPTED_WITH_SETTING_OFF",
-                details = "source=preparation_start_screen_pinning | system_setting=$screenPinningEnabledInSystem",
-                level = DiagnosticEventLevel.INFO
-            )
-        }
-        if (lockTaskBridge.active()) {
-            val activeState = lockTaskBridge.stateLabel()
-            lockTaskStateBeforePinningRequest = activeState
-            lockTaskStateAfterPinningRequest = activeState
-            screenPinningRequestOutcome = ScreenPinningSignals.successOutcome()
-            screenPinningDialogLikelyShown = false
-            screenPinningUserActionInference = "Sudah aktif; setup preparation dilewati"
-            screenPinningActivationDurationMs = 0L
-            examSessionCancelledByPinningFailure = false
-            pinningActivationPurpose = PinningActivationPurpose.ExamStart
-            lockTaskRequestPending = false
-            pinningActivationState = PinningActivationState.ActiveConfirmed
-            pinningActivationStartedAtElapsedMs = null
-            pinningSuppressedTransitionCount = 0
-            clearAppSwitchSuppression()
-            screenPinningMessage = null
-            webViewErrorMessage = null
-            exitOnSecurityIssueDialogDismiss = false
-            recordAction(
-                code = ScreenPinningSignals.eventActive(),
-                details = "preparation_setup_already_active | state=$activeState",
-                level = DiagnosticEventLevel.INFO
-            )
-            return
-        }
-
-        val requestState = ScreenPinningEnforcer.launchState(screenPinningMode, lockTaskBridge)
-        lockTaskStateBeforePinningRequest = requestState.beforeState
-        lockTaskStateAfterPinningRequest = requestState.afterState
-        screenPinningRequestOutcome = requestState.outcome
-        screenPinningDialogLikelyShown = requestState.dialogLikelyShown
-        screenPinningUserActionInference = requestState.userActionInference
-        screenPinningActivationDurationMs = requestState.activationDurationMs
-        examSessionCancelledByPinningFailure = false
-        pinningActivationPurpose = PinningActivationPurpose.PreparationSetup
-        lockTaskRequestPending = true
-        pinningActivationState = PinningActivationState.Requested
-        pinningActivationStartedAtElapsedMs = SystemClock.elapsedRealtime()
-        pinningSuppressedTransitionCount = 0
-        recordAction(
-            code = requestState.eventCode,
-            details = "purpose=preparation_setup | ${requestState.eventDetails}",
-            level = DiagnosticEventLevel.INFO
-        )
-        recordAction(
-            code = ExamRuntimeHardeningDiagnostics.PinningStartRequested,
-            details = "purpose=preparation_setup | before=${requestState.beforeState} | state=${requestState.afterState} | grace_ms=$PinningActivationGraceWindowMillis",
-            level = DiagnosticEventLevel.INFO
-        )
-        recordAction(
-            code = ExamRuntimeHardeningDiagnostics.PinningDialogExpected,
-            details = "purpose=preparation_setup | screen_pinning_dialog_expected=true | keep_app_foreground=true",
-            level = DiagnosticEventLevel.INFO
-        )
-        setAppSwitchSuppression(AppSwitchSuppressionReason.ScreenPinningRequest)
-        screenPinningMessage = ScreenPinningEnforcer.activatingMessage(
-            isIndonesian = isIndonesian,
-            purpose = PinningActivationPurpose.PreparationSetup
-        )
-        webViewErrorMessage = null
-        exitOnSecurityIssueDialogDismiss = false
-    }
-
-    fun handleOpenOverlaySettings() {
-        recordAction(code = "OVERLAY_SETTINGS_OPENED")
-        openOverlaySettings(context)
-    }
-
-    fun handleOpenAppSettings() {
-        recordAction(code = "APP_SETTINGS_OPENED", details = "quick_fix=screen_recorder")
-        runCatching {
-            context.startActivity(
-                android.content.Intent(android.provider.Settings.ACTION_APPLICATION_SETTINGS)
-                    .addFlags(android.content.Intent.FLAG_ACTIVITY_NEW_TASK)
-            )
-        }
-    }
-
-    fun handleOpenCastSettings() {
-        recordAction(code = "CAST_SETTINGS_OPENED", details = "quick_fix=display_mirror")
-        runCatching {
-            context.startActivity(
-                android.content.Intent(android.provider.Settings.ACTION_CAST_SETTINGS)
-                    .addFlags(android.content.Intent.FLAG_ACTIVITY_NEW_TASK)
-            )
-        }
-    }
-
-    fun handleOpenWebViewProviderSettings() {
-        recordAction(
-            code = "WEBVIEW_PROVIDER_SETTINGS_OPENED",
-            details = webViewCompatibilityStatus.adminDetail
-        )
-        recordAction(
-            code = ExamRuntimeHardeningDiagnostics.WebViewProviderHealthFixOpened,
-            details = webViewCompatibilityStatus.adminDetail
-        )
-        openWebViewProviderSettings(
-            context = context,
-            providerPackageName = webViewCompatibilityStatus.packageName
-        )
-    }
-
-    fun handleReinstallOfficialApk() {
-        recordAction(code = "OFFICIAL_APK_REINSTALL_OPENED")
-        openExternalUrl(context, officialApkUrl)
-    }
-
-    fun refreshPreparationStatusChecks() {
-        val startedAt = SystemClock.elapsedRealtime()
-        if (!networkManualRefreshInFlight) {
-            launchNetworkManualRefresh(trigger = "checklist_refresh")
-        } else {
-            updateNetworkReadiness("checklist_refresh")
-        }
-        if (!geofenceManualRefreshInFlight) {
-            launchLocationSecurityManualRefresh(trigger = "checklist_refresh")
-        }
-        refreshReverseEngineeringStatus()
-        refreshIntegrityGuard()
-        refreshScreenPinningDiagnostics()
-        webViewCompatibilityRefreshKey += 1
-        accessibilityGuardEnabled = isExamGuardAccessibilityEnabled(context)
-        refreshKeyboardSecurity(triggerViolation = false)
-        refreshBluetoothSecurity(triggerViolation = false)
-        refreshDeviceIntegritySecurity(triggerViolation = false)
-        refreshDeviceTimeSecurity(trigger = "checklist_refresh")
-        refreshRuntimeStaticSecurityForSession(
-            context = context,
-            examSessionStarted = examSessionStarted,
-            bypassScreenRecorder = bypassScreenRecorder,
-            bypassDisplayMirror = bypassDisplayMirror,
-            bypassMultiWindow = bypassMultiWindow,
-            securityUiState = securityUiState,
-            trigger = "checklist_refresh",
-            recordAction = ::recordAction,
-            startAlarm = examAlarmController::start,
-            forceRefresh = true
-        )
-        debugLogExamStart(
-            "refreshPreparationStatusChecks scheduled in ${SystemClock.elapsedRealtime() - startedAt} ms"
-        )
-    }
-
-    fun handleRefreshPreparationStatus() {
-        recordAction(code = "SECURITY_STATUS_REFRESHED")
-        refreshPreparationStatusChecks()
-    }
-
-    fun handleRefreshAllSecurityChecks() {
-        recordAction(
-            code = "ALL_SECURITY_CHECKS_REFRESH_REQUESTED",
-            details = "source=quick_fixes",
-            level = DiagnosticEventLevel.INFO
-        )
-        refreshPreparationStatusChecks()
-    }
-
-    fun handleRefreshPreExamHealthCheck() {
-        recordAction(
-            code = ExamRuntimeHardeningDiagnostics.PreExamHealthCheckStarted,
-            details = "source=pre_exam_health | ${deviceCompatibilityProfile.diagnosticSummary()}"
-        )
-        refreshPreparationStatusChecks()
-        recordAction(
-            code = ExamRuntimeHardeningDiagnostics.PreExamHealthCheckCompleted,
-            details = "source=pre_exam_health | family=${deviceCompatibilityProfile.family.name}"
-        )
-    }
-
-    fun handleRequestSectionReport(section: DiagnosticSection) {
-        pendingSection = section
-    }
-
-    fun buildCurrentPreExamHealthSnapshot() = buildPreExamHealthSnapshot(
-        PreExamHealthCheckInput(
-            compatibilityProfile = deviceCompatibilityProfile,
-            screenPinningAvailable = screenPinningAvailable,
-            screenPinningActive = lockTaskBridge.active(),
-            screenPinningBypassed = bypassScreenPinning,
-            accessibilityGuardAvailable = isExamGuardAccessibilityAvailable(context),
-            accessibilityGuardEnabled = accessibilityGuardEnabled,
-            overlayRiskResult = overlayRiskResult,
-            overlayBypassed = bypassOverlay,
-            networkReadinessStatus = networkReadinessStatus,
-            vpnBypassed = bypassVpn,
-            webViewCompatibilityStatus = webViewCompatibilityStatus,
-            webViewRecoveryState = examRuntimeRecoveryState.name,
-            webViewSessionResetInFlight = webViewSessionResetInFlight,
-            webViewSessionResetError = webViewSessionResetError,
-            geofenceRuntimeStatus = geofenceRuntimeStatus,
-            geofenceBypassed = bypassGeofence,
-            fakeLocationRuntimeStatus = fakeLocationRuntimeStatus,
-            fakeLocationBypassed = bypassFakeLocation,
-            deviceTimeSecurityStatus = deviceTimeSecurityStatus,
-            deviceTimeBypassed = bypassDeviceTime,
-            batteryStatus = batteryStatus,
-            generatedAtElapsedMs = SystemClock.elapsedRealtime()
-        )
+    fun handleChooseKeyboard() = preparationActionOps.handleChooseKeyboard()
+    fun handleOpenKeyboardSettings() = preparationActionOps.handleOpenKeyboardSettings()
+    fun handleGrantBluetoothPermission() = preparationActionOps.handleGrantBluetoothPermission()
+    fun handleOpenBluetoothSettings() = preparationActionOps.handleOpenBluetoothSettings()
+    fun handleOpenAccessibilitySettings() = preparationActionOps.handleOpenAccessibilitySettings()
+    fun handleOpenOverlayAccessibilitySettings() = preparationActionOps.handleOpenOverlayAccessibilitySettings()
+    fun handleOpenDeveloperOptionsSettings() = preparationActionOps.handleOpenDeveloperOptionsSettings()
+    fun handleRequestLocationPermission() = preparationActionOps.handleRequestLocationPermission()
+    fun handleOpenLocationServicesSettings() = preparationActionOps.handleOpenLocationServicesSettings()
+    fun handleRefreshLocationSecurity() = preparationActionOps.handleRefreshLocationSecurity()
+    fun handleOpenGeofenceMapViewer() = preparationActionOps.handleOpenGeofenceMapViewer()
+    fun handleOpenInternetSettings() = preparationActionOps.handleOpenInternetSettings()
+    fun handleOpenVpnSettings() = preparationActionOps.handleOpenVpnSettings()
+    fun handleOpenDateTimeSettings() = preparationActionOps.handleOpenDateTimeSettings()
+    fun handleOpenWifiSettings() = preparationActionOps.handleOpenWifiSettings()
+    fun handleOpenCellularSettings() = preparationActionOps.handleOpenCellularSettings()
+    fun handleOpenAirplaneModeSettings() = preparationActionOps.handleOpenAirplaneModeSettings()
+    fun handleRefreshNetworkStatus() = preparationActionOps.handleRefreshNetworkStatus()
+    fun handleOpenFakeLocationDeveloperOptionsSettings() =
+        preparationActionOps.handleOpenFakeLocationDeveloperOptionsSettings()
+    fun handleOpenScreenPinningSettings() = preparationActionOps.handleOpenScreenPinningSettings()
+    fun handleStartScreenPinning() = preparationActionOps.handleStartScreenPinning()
+    fun handleOpenOverlaySettings() = preparationActionOps.handleOpenOverlaySettings()
+    fun handleOpenAppSettings() = preparationActionOps.handleOpenAppSettings()
+    fun handleOpenCastSettings() = preparationActionOps.handleOpenCastSettings()
+    fun handleOpenWebViewProviderSettings() = preparationActionOps.handleOpenWebViewProviderSettings()
+    fun handleReinstallOfficialApk() = preparationActionOps.handleReinstallOfficialApk()
+    fun refreshPreparationStatusChecks() = preparationActionOps.refreshPreparationStatusChecks()
+    fun handleRefreshPreparationStatus() = preparationActionOps.handleRefreshPreparationStatus()
+    fun handleRefreshAllSecurityChecks() = preparationActionOps.handleRefreshAllSecurityChecks()
+    fun handleRefreshPreExamHealthCheck() =
+        preparationActionOps.handleRefreshPreExamHealthCheck(deviceCompatibilityProfile)
+    fun handleRequestSectionReport(section: DiagnosticSection) =
+        preparationActionOps.handleRequestSectionReport(section)
+    fun buildCurrentPreExamHealthSnapshot() = buildExamRuntimePreExamHealthSnapshot(
+        context = context,
+        deviceCompatibilityProfile = deviceCompatibilityProfile,
+        lockTaskBridge = lockTaskBridge,
+        adminSettings = adminSettings,
+        vpnBypassState = vpnBypassState,
+        geofenceBypassState = geofenceBypassState,
+        fakeLocationBypassState = fakeLocationBypassState,
+        deviceTimeBypassState = deviceTimeBypassState,
+        accessibilityGuardEnabled = accessibilityGuardEnabled,
+        overlayRiskResult = overlayRiskResult,
+        networkReadinessStatus = networkReadinessStatus,
+        webViewCompatibilityStatus = webViewCompatibilityStatus,
+        examRuntimeRecoveryState = examRuntimeRecoveryState,
+        flowUiState = flowUiState,
+        geofenceRuntimeStatus = geofenceRuntimeStatus,
+        fakeLocationRuntimeStatus = fakeLocationRuntimeStatus,
+        deviceTimeSecurityStatus = deviceTimeSecurityStatus,
+        batteryStatus = batteryStatus
     )
 
     val preExamHealthCheckSnapshot = buildCurrentPreExamHealthSnapshot()
-    val deviceSurvivalPolicy = buildDeviceSurvivalPolicy(
+    val deviceSurvivalPolicy = resolveExamRuntimeDeviceSurvivalPolicy(
         lowRamProfile = lowRamProfile,
         deviceCompatibilityProfile = deviceCompatibilityProfile,
         webViewCompatibilityStatus = webViewCompatibilityStatus,
         preExamHealthSnapshot = preExamHealthCheckSnapshot
     )
+    val diagnosticExportOps = ExamRuntimeDiagnosticExportOps(
+        context = context,
+        uiLanguage = uiLanguage,
+        lowRamProfile = lowRamProfile,
+        deviceCompatibilityProfile = deviceCompatibilityProfile,
+        deviceSurvivalPolicy = deviceSurvivalPolicy,
+        payload = payload,
+        webViewCompatibilityStatus = webViewCompatibilityStatus,
+        runtimeDiagnosticsOps = runtimeDiagnosticsOps,
+        webViewUiState = webViewUiState,
+        flowUiState = flowUiState,
+        adminUiState = adminUiState,
+        securityUiState = securityUiState,
+        runtimeCacheState = runtimeCacheState,
+        preExamHealthSnapshotProvider = ::buildCurrentPreExamHealthSnapshot
+    )
 
-    fun buildCurrentExamDiagnosticSnapshot(source: String): ExamDiagnosticSnapshot {
-        return buildExamDiagnosticSnapshot(
-            ExamDiagnosticSnapshotInput(
-                source = source,
-                lowRamProfile = lowRamProfile,
-                deviceCompatibilityProfile = deviceCompatibilityProfile,
-                deviceSurvivalPolicy = deviceSurvivalPolicy,
-                previousExamSessionBreadcrumb = PreviousExamSessionBreadcrumbStore.read(context),
-                payload = payload,
-                examSessionStarted = examSessionStarted,
-                examGuardArmed = examGuardArmed,
-                webViewPresent = webViewInstance != null,
-                webViewCompatibilityStatus = webViewCompatibilityStatus,
-                webViewError = webViewErrorMessage ?: webViewSessionResetError,
-                rendererGone = examRuntimeRecoveryState == ExamRuntimeRecoveryState.RendererGone ||
-                    examRuntimeRecoveryState == ExamRuntimeRecoveryState.ReadyToRetry,
-                recoveryState = examRuntimeRecoveryState,
-                lastTrimMemoryAction = lastRuntimeMemoryActionSummary,
-                networkReadinessStatus = networkReadinessStatus,
-                geofenceRuntimeStatus = geofenceRuntimeStatus,
-                fakeLocationRuntimeStatus = fakeLocationRuntimeStatus,
-                deviceTimeSecurityStatus = deviceTimeSecurityStatus,
-                preExamHealthSnapshot = buildCurrentPreExamHealthSnapshot(),
-                lastPinningDecision = screenPinningUserActionInference,
-                lastOverlayDecision = lastOverlayContext,
-                lastRefreshDecision = lastExamRefreshDecision,
-                diagnosticEvents = diagnosticEvents
-            )
-        )
-    }
-
-    fun handleExportExamDiagnostics(source: String) {
-        recordAction(
-            code = ExamRuntimeHardeningDiagnostics.DiagnosticExportRequested,
-            details = "source=$source"
-        )
-        val snapshot = buildCurrentExamDiagnosticSnapshot(source)
-        runCatching {
-            ExamDiagnosticExportHelper.share(context, snapshot)
-        }.onSuccess {
-            recordAction(
-                code = ExamRuntimeHardeningDiagnostics.DiagnosticExportSucceeded,
-                details = "source=$source | events=${snapshot.events.size}"
-            )
-        }.onFailure { throwable ->
-            val errorSummary = throwable.message?.take(160)
-                ?: throwable.javaClass.simpleName.take(160)
-            recordAction(
-                code = ExamRuntimeHardeningDiagnostics.DiagnosticExportFailed,
-                details = "source=$source | error=$errorSummary",
-                level = DiagnosticEventLevel.ERROR
-            )
-            bugReportFeedbackTitle = localized(
-                uiLanguage,
-                "Diagnostics export failed",
-                "Export diagnostik gagal"
-            )
-            bugReportFeedbackMessage = errorSummary
-        }
-    }
+    fun handleExportExamDiagnostics(source: String) = diagnosticExportOps.export(source)
 
     fun handleStartExam() {
         writePreviousSessionBreadcrumb(
@@ -4898,6 +2322,26 @@ internal fun ExamRuntimeSessionScreenImpl(
         onStartExam = ::handleStartExam,
         onBackHome = onExit
     )
+    val renderedUiCallbacks = ExamRuntimeRenderedUiCallbacks(
+        componentActivity = componentActivity,
+        lockTaskBridge = lockTaskBridge,
+        deviceQuirkProfile = deviceQuirkProfile,
+        deviceSurvivalPolicy = deviceSurvivalPolicy,
+        webViewCompatibilityStatus = webViewCompatibilityStatus,
+        runtimeDiagnosticsOps = runtimeDiagnosticsOps,
+        runtimeMonitoringOps = runtimeMonitoringOps,
+        webViewUiState = webViewUiState,
+        flowUiState = flowUiState,
+        securityUiState = securityUiState,
+        adminUiState = adminUiState,
+        examServerStatusState = examServerStatusState,
+        lastTrustedRuntimeChromeActionElapsedMsState = lastTrustedRuntimeChromeActionElapsedMsState,
+        lastTrustedRuntimeChromeActionReasonState = lastTrustedRuntimeChromeActionReasonState,
+        examAlarmController = examAlarmController,
+        hideSystemKeyboard = ::hideSystemKeyboard,
+        launchTelegramSectionReport = ::launchTelegramSectionReport,
+        onExit = onExit
+    )
 
     ExamRuntimeSessionRenderedUi(
         examSessionStarted = examSessionStarted,
@@ -4929,164 +2373,31 @@ internal fun ExamRuntimeSessionScreenImpl(
         bugReportFeedbackTitle = bugReportFeedbackTitle,
         bugReportFeedbackMessage = bugReportFeedbackMessage,
         securityUiState = securityUiState,
-        onDismissGeofenceMapViewer = { showGeofenceMapViewer = false },
-        onRefreshGeofenceMapViewer = {
-            launchLocationSecurityManualRefresh(trigger = "geofence_map_viewer_refresh")
-        },
-        onRefreshMapViewerActionLogged = {
-            recordAction(
-                code = "GEOFENCE_QUICK_FIX_REFRESH_REQUESTED",
-                details = "trigger=map_viewer",
-                level = DiagnosticEventLevel.INFO
-            )
-        },
-        onOverlayObscuredTouch = { touchSignal ->
-            handleExamRuntimeOverlayObscuredTouch(
-                touchSignal = touchSignal,
-                lockTaskRequestPending = lockTaskRequestPending,
-                examSessionStarted = examSessionStarted,
-                lockTaskStateLabel = lockTaskBridge.stateLabel(),
-                deviceQuirkProfile = deviceQuirkProfile,
-                lastTrustedRuntimeChromeActionElapsedMs = lastTrustedRuntimeChromeActionElapsedMsState.value,
-                lastTrustedRuntimeChromeActionReason = lastTrustedRuntimeChromeActionReasonState.value,
-                currentOverlayEventDetails = ::currentOverlayEventDetails,
-                recordAction = { code, details, level -> recordAction(code, details, level) },
-                recordOverlayEvent = { code, signal, level, extraContext ->
-                    recordOverlayEvent(code, signal, level, extraContext)
-                },
-                onBlockedOverlayTouch = {
-                    overlayViolationCount += 1
-                    showOverlayViolationDialog = true
-                    examAlarmController.start()
-                }
-            )
-        },
-        onShowBuiltInExamKeyboardChange = { showBuiltInExamKeyboard = it },
-        onWebViewInstanceChange = { nextWebView ->
-            val currentWebView = webViewInstance
-            val wasMissing = currentWebView == null
-            if (nextWebView != null && nextWebView !== currentWebView) {
-                webViewGeneration = nextExamWebViewGeneration(webViewGeneration)
-                destroyedWebViewGeneration = null
-            }
-            webViewInstance = nextWebView
-            if (wasMissing && nextWebView != null) {
-                writePreviousSessionBreadcrumb(
-                    code = PreviousExamSessionBreadcrumbCodes.WebViewCreated,
-                    details = "provider=${webViewCompatibilityStatus.packageName} | " +
-                        "score=${deviceSurvivalPolicy.score.name} | generation=$webViewGeneration"
-                )
-            }
-        },
+        onDismissGeofenceMapViewer = renderedUiCallbacks::onDismissGeofenceMapViewer,
+        onRefreshGeofenceMapViewer = renderedUiCallbacks::onRefreshGeofenceMapViewer,
+        onRefreshMapViewerActionLogged = renderedUiCallbacks::onRefreshMapViewerActionLogged,
+        onOverlayObscuredTouch = renderedUiCallbacks::onOverlayObscuredTouch,
+        onShowBuiltInExamKeyboardChange = renderedUiCallbacks::onShowBuiltInExamKeyboardChange,
+        onWebViewInstanceChange = renderedUiCallbacks::onWebViewInstanceChange,
         onHideSystemKeyboard = ::hideSystemKeyboard,
-        onWebViewLoadStart = loadStart@{ view, url ->
-            if (shouldIgnoreStaleWebViewCallback("load_start", view)) {
-                return@loadStart
-            }
-            webViewStopRequested = false
-            handleExamRuntimeWebViewLoadStart(
-                url = url,
-                useBuiltInExamKeyboard = useBuiltInExamKeyboard,
-                recordAction = { code, details, level -> recordAction(code, details, level) },
-                setHasEditableFocus = { hasEditableFocus = it },
-                setWebViewErrorMessage = { webViewErrorMessage = it },
-                setLoadingProgress = { loadingProgress = it },
-                setExamServerStatus = { examServerStatus = it },
-                setShowBuiltInExamKeyboard = { showBuiltInExamKeyboard = it }
-            )
-        },
-        onWebViewLoadFinish = loadFinish@{ view, url ->
-            if (shouldIgnoreStaleWebViewCallback("load_finish", view)) {
-                return@loadFinish
-            }
-            handleExamRuntimeWebViewLoadFinish(
-                view = view,
-                url = url,
-                sideArrowControlsVisible = sideArrowControlsVisible,
-                useBuiltInExamKeyboard = useBuiltInExamKeyboard,
-                nativeExamFullscreenActive = nativeExamFullscreenActive,
-                recordAction = { code, details, level -> recordAction(code, details, level) },
-                setWebViewErrorMessage = { webViewErrorMessage = it },
-                setExamServerStatus = { examServerStatus = it },
-                hideSystemKeyboard = ::hideSystemKeyboard
-            )
-        },
-        onWebViewLoadError = loadError@{ view, description ->
-            if (shouldIgnoreStaleWebViewCallback("load_error", view)) {
-                return@loadError
-            }
-            handleExamRuntimeWebViewLoadError(
-                description = description,
-                recordAction = { code, details, level -> recordAction(code, details, level) },
-                setWebViewErrorMessage = { webViewErrorMessage = it },
-                setExamServerStatus = { examServerStatus = it }
-            )
-        },
-        onWebViewHttpError = httpError@{ view, statusCode ->
-            if (shouldIgnoreStaleWebViewCallback("http_error", view)) {
-                return@httpError
-            }
-            handleExamRuntimeWebViewHttpError(
-                statusCode = statusCode,
-                recordAction = { code, details, level -> recordAction(code, details, level) },
-                setWebViewErrorMessage = { webViewErrorMessage = it },
-                setExamServerStatus = { examServerStatus = it }
-            )
-        },
-        onWebViewRenderProcessGone = { view, didCrash, rendererPriorityAtExit ->
-            handleWebViewRendererGone(
-                view = view,
-                didCrash = didCrash,
-                rendererPriorityAtExit = rendererPriorityAtExit
-            )
-        },
-        onLoadingProgressChange = loadingProgressChange@{ view, progress ->
-            if (shouldIgnoreStaleWebViewCallback("progress", view)) {
-                return@loadingProgressChange
-            }
-            if (!webViewStopRequested) loadingProgress = progress
-        },
-        onWebViewErrorMessageChange = { webViewErrorMessage = it },
-        onShowCustomView = { view, callback ->
-            if (view != null) {
-                showCustomView(view, callback)
-            }
-        },
+        onWebViewLoadStart = renderedUiCallbacks::onWebViewLoadStart,
+        onWebViewLoadFinish = renderedUiCallbacks::onWebViewLoadFinish,
+        onWebViewLoadError = renderedUiCallbacks::onWebViewLoadError,
+        onWebViewHttpError = renderedUiCallbacks::onWebViewHttpError,
+        onWebViewRenderProcessGone = renderedUiCallbacks::onWebViewRenderProcessGone,
+        onLoadingProgressChange = renderedUiCallbacks::onLoadingProgressChange,
+        onWebViewErrorMessageChange = renderedUiCallbacks::onWebViewErrorMessageChange,
+        onShowCustomView = renderedUiCallbacks::onShowCustomView,
         onHideCustomView = ::hideCustomView,
-        onDismissPendingSection = { pendingSection = null },
-        onConfirmPendingSection = { section ->
-            pendingSection = null
-            launchTelegramSectionReport(section)
-        },
+        onDismissPendingSection = renderedUiCallbacks::onDismissPendingSection,
+        onConfirmPendingSection = renderedUiCallbacks::onConfirmPendingSection,
         onOpenStaticSecurityAppSettings = ::handleOpenAppSettings,
         onOpenStaticSecurityCastSettings = ::handleOpenCastSettings,
         onRefreshStaticSecurityStatus = ::handleRefreshPreparationStatus,
         onSendStaticSecurityReport = ::launchTelegramSectionReport,
-        onDismissScreenPinningMessage = { screenPinningMessage = null },
-        onDismissSecurityIssueDialog = {
-            val shouldExit = exitOnSecurityIssueDialogDismiss
-            securityIssueDialogTitle = null
-            securityIssueDialogMessage = null
-            exitOnSecurityIssueDialogDismiss = false
-            examAlarmController.stop()
-            if (shouldExit) {
-                componentActivity.lifecycleScope.launch {
-                    clearExamSessionOnExit(
-                        reason = "fatal_security_dialog_dismiss",
-                        waitForResult = true
-                    )
-                    writePreviousSessionBreadcrumb(
-                        code = PreviousExamSessionBreadcrumbCodes.ExitCompleted,
-                        details = "reason=fatal_security_dialog_dismiss"
-                    )
-                    onExit()
-                }
-            }
-        },
-        onDismissBugReportFeedback = {
-            bugReportFeedbackTitle = null
-            bugReportFeedbackMessage = null
-        },
+        onDismissScreenPinningMessage = renderedUiCallbacks::onDismissScreenPinningMessage,
+        onDismissSecurityIssueDialog = renderedUiCallbacks::onDismissSecurityIssueDialog,
+        onDismissBugReportFeedback = renderedUiCallbacks::onDismissBugReportFeedback,
         modifier = modifier
     )
 

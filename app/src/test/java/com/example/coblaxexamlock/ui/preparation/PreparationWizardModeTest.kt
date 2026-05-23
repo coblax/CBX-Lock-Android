@@ -20,7 +20,7 @@ class PreparationWizardModeTest {
     }
 
     @Test
-    fun lowRamWizardPayloadUsesActiveStepOnlyUntilTechnicalDetailsOpen() {
+    fun lowRamWizardPayloadUsesActiveStepOnlyEvenWhenTechnicalDetailsOpen() {
         assertEquals(
             PreparationWizardPayloadBuildMode.ActiveStepOnly,
             resolvePreparationWizardPayloadBuildMode(
@@ -36,7 +36,7 @@ class PreparationWizardModeTest {
             )
         )
         assertEquals(
-            PreparationWizardPayloadBuildMode.FullChecklist,
+            PreparationWizardPayloadBuildMode.ActiveStepOnly,
             resolvePreparationWizardPayloadBuildMode(
                 LowRamProfile(enabled = true, severe = true, ultra = true),
                 showChecklistDetails = true
@@ -47,6 +47,28 @@ class PreparationWizardModeTest {
             resolvePreparationWizardPayloadBuildMode(
                 LowRamProfile(),
                 showChecklistDetails = false
+            )
+        )
+    }
+
+    @Test
+    fun lowRamChecklistDoesNotBuildFullTechnicalTextEagerly() {
+        assertTrue(
+            shouldBuildFullPreparationChecklistText(
+                lowRamProfile = LowRamProfile(),
+                showFullChecklist = true
+            )
+        )
+        assertFalse(
+            shouldBuildFullPreparationChecklistText(
+                lowRamProfile = LowRamProfile(enabled = true),
+                showFullChecklist = true
+            )
+        )
+        assertFalse(
+            shouldBuildFullPreparationChecklistText(
+                lowRamProfile = LowRamProfile(enabled = true, severe = true, ultra = true),
+                showFullChecklist = false
             )
         )
     }

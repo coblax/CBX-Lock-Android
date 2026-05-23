@@ -284,7 +284,8 @@ private const val ExamWebViewSessionResetTimeoutMillis = 8_000L
 @Suppress("DEPRECATION")
 internal suspend fun clearExamWebViewSessionData(
     context: Context,
-    existingWebView: WebView?
+    existingWebView: WebView?,
+    lowRamProfile: LowRamProfile = LowRamProfile()
 ): Result<Unit> = withContext(Dispatchers.Main.immediate) {
     withTimeoutOrNull(ExamWebViewSessionResetTimeoutMillis) {
         runCatching {
@@ -300,7 +301,12 @@ internal suspend fun clearExamWebViewSessionData(
             webViewDatabase.clearHttpAuthUsernamePassword()
             clearLegacyWebViewUsernamePassword(webViewDatabase)
 
-            existingWebView?.prepareForFreshExamSession()
+            existingWebView?.prepareForFreshExamSession(
+                clearHttpCache = shouldClearWebViewHttpCacheForSessionReset(
+                    lowRamProfile = lowRamProfile,
+                    hasExistingWebView = true
+                )
+            )
             Unit
         }
     } ?: Result.failure(
@@ -325,14 +331,21 @@ private fun clearLegacyWebViewUsernamePassword(webViewDatabase: WebViewDatabase)
     runCatching { webViewDatabase.clearUsernamePassword() }
 }
 
+internal fun shouldClearWebViewHttpCacheForSessionReset(
+    lowRamProfile: LowRamProfile,
+    hasExistingWebView: Boolean
+): Boolean = !lowRamProfile.ultra || hasExistingWebView
+
 @Suppress("DEPRECATION")
-internal fun WebView.prepareForFreshExamSession() {
+internal fun WebView.prepareForFreshExamSession(clearHttpCache: Boolean = true) {
     stopLoading()
     runCatching { loadUrl("about:blank") }
     runCatching { clearHistory() }
     runCatching { clearFormData() }
     runCatching { clearSslPreferences() }
-    runCatching { clearCache(true) }
+    if (clearHttpCache) {
+        runCatching { clearCache(true) }
+    }
     if (this is SecureExamWebView) {
         requestedExamUrl = null
     }

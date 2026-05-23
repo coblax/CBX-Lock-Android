@@ -15,10 +15,10 @@ import com.example.coblaxexamlock.evaluateFakeLocationSecurity
 import com.example.coblaxexamlock.model.DiagnosticEventLevel
 import com.example.coblaxexamlock.runtime.ExternalDisplayInfo
 import com.example.coblaxexamlock.runtime.ExternalDisplaySnapshot
+import com.example.coblaxexamlock.runtime.LowRamDispatchers
 import com.example.coblaxexamlock.runtime.MultiWindowModeInfo
 import com.example.coblaxexamlock.runtime.SecurityDetectorCache
 import com.example.coblaxexamlock.runtime.readMultiWindowModeInfo
-import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.withContext
 
@@ -80,7 +80,7 @@ internal data class RuntimeStaticSecuritySnapshot(
 internal suspend fun readInitialStaticSecuritySnapshotOnIo(
     context: Context,
     forceRefresh: Boolean = false
-): InitialStaticSecuritySnapshot = withContext(Dispatchers.IO) {
+): InitialStaticSecuritySnapshot = withContext(LowRamDispatchers.detectorIo) {
     val appContext = context.applicationContext
     InitialStaticSecuritySnapshot(
         rootSecurityStatus = buildRootSecurityStatus(

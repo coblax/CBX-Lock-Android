@@ -77,6 +77,7 @@ internal fun finalizeStartExamSession(
 internal suspend fun prepareCleanExamWebViewSessionForStart(
     context: Context,
     existingWebView: SecureExamWebView?,
+    lowRamProfile: LowRamProfile,
     flowUiState: ExamRuntimeFlowUiState,
     adminUiState: ExamRuntimeAdminUiState,
     uiLanguage: UiLanguage,
@@ -94,7 +95,8 @@ internal suspend fun prepareCleanExamWebViewSessionForStart(
     val resetResult = debugMeasureExamStartSuspendWork("prepareCleanExamWebViewSessionForStart") {
         clearExamWebViewSessionData(
             context = context,
-            existingWebView = existingWebView
+            existingWebView = existingWebView,
+            lowRamProfile = lowRamProfile
         )
     }
 

@@ -15,7 +15,6 @@ import com.google.zxing.MultiFormatReader
 import com.google.zxing.RGBLuminanceSource
 import com.google.zxing.common.HybridBinarizer
 import java.nio.charset.StandardCharsets
-import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.withContext
 
 private data class QrDecodeCropSpec(
@@ -139,12 +138,38 @@ private fun buildQrDecodeFallbackRects(width: Int, height: Int): List<Rect> {
 }
 
 internal fun decodeQrPayloadFromBitmap(bitmap: Bitmap): String? {
-    return decodeQrPayloadFromBitmap(bitmap, preferFallbackRegionsFirst = false)
+    return decodeQrPayloadFromBitmap(
+        bitmap = bitmap,
+        preferFallbackRegionsFirst = false,
+        skipFullBitmapScanAfterFallback = false
+    )
+}
+
+internal fun shouldSkipQrFullBitmapScanAfterFallback(
+    lowRamProfile: LowRamProfile,
+    width: Int,
+    height: Int
+): Boolean = lowRamProfile.ultra && height > width * 1.3f
+
+internal fun decodeQrPayloadFromBitmap(
+    bitmap: Bitmap,
+    lowRamProfile: LowRamProfile
+): String? {
+    return decodeQrPayloadFromBitmap(
+        bitmap = bitmap,
+        preferFallbackRegionsFirst = lowRamProfile.severe,
+        skipFullBitmapScanAfterFallback = shouldSkipQrFullBitmapScanAfterFallback(
+            lowRamProfile = lowRamProfile,
+            width = bitmap.width,
+            height = bitmap.height
+        )
+    )
 }
 
 private fun decodeQrPayloadFromBitmap(
     bitmap: Bitmap,
-    preferFallbackRegionsFirst: Boolean
+    preferFallbackRegionsFirst: Boolean,
+    skipFullBitmapScanAfterFallback: Boolean
 ): String? {
     val width = bitmap.width
     val height = bitmap.height
@@ -157,6 +182,9 @@ private fun decodeQrPayloadFromBitmap(
 
     if (shouldPreferFallback) {
         decodeQrPayloadFromFallbackRegions(bitmap, reader)?.let { return it }
+        if (skipFullBitmapScanAfterFallback) {
+            return null
+        }
     }
 
     val pixels = IntArray(width * height)
@@ -204,7 +232,7 @@ internal suspend fun decodeQrPayloadFromImageUri(
     context: Context,
     uri: Uri,
     lowRamProfile: LowRamProfile = resolveLowRamProfile(context)
-): String? = withContext(Dispatchers.IO) {
+): String? = withContext(LowRamDispatchers.detectorIo) {
     val boundsOptions = BitmapFactory.Options().apply { inJustDecodeBounds = true }
     val boundsDecoded = context.contentResolver.openInputStream(uri)?.use { stream ->
         BitmapFactory.decodeStream(stream, null, boundsOptions)
@@ -232,7 +260,7 @@ internal suspend fun decodeQrPayloadFromImageUri(
     try {
         decodeQrPayloadFromBitmap(
             bitmap = bitmap,
-            preferFallbackRegionsFirst = lowRamProfile.severe
+            lowRamProfile = lowRamProfile
         )
     } finally {
         bitmap.recycle()
