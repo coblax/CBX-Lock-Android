@@ -81,15 +81,19 @@ internal fun sendTelegramTextMessage(
                 )
             }
 
-    connection.outputStream.use { output ->
-        output.write(requestBody.toByteArray(StandardCharsets.UTF_8))
-    }
+    try {
+        connection.outputStream.use { output ->
+            output.write(requestBody.toByteArray(StandardCharsets.UTF_8))
+        }
 
-    val responseCode = connection.responseCode
-    if (responseCode !in 200..299) {
-        val errorMessage =
-            connection.errorStream?.bufferedReader()?.use { it.readText() }
-                ?: "HTTP $responseCode"
-        throw TelegramHttpException(responseCode, errorMessage)
+        val responseCode = connection.responseCode
+        if (responseCode !in 200..299) {
+            val errorMessage =
+                connection.errorStream?.bufferedReader()?.use { it.readText() }
+                    ?: "HTTP $responseCode"
+            throw TelegramHttpException(responseCode, errorMessage)
+        }
+    } finally {
+        connection.disconnect()
     }
 }

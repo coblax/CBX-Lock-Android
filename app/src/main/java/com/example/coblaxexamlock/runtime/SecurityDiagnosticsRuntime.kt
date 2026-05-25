@@ -368,7 +368,7 @@ internal fun getVirtualEnvironmentDiagnostics(
     )
     if (forceRefresh) {
         virtualEnvDiagnosticsCache.set(result)
-        result
+        return result
     }
     return if (virtualEnvDiagnosticsCache.compareAndSet(null, result)) result else {
         virtualEnvDiagnosticsCache.get() ?: result

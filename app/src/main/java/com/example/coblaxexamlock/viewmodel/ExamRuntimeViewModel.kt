@@ -43,13 +43,15 @@ internal data class ExamRuntimeDialogsUiState(
 internal data class ExamRuntimeUiState(
     val checklist: PreparationChecklistUiState = PreparationChecklistUiState(),
     val examStarted: Boolean = false,
-    val showOfflineWarning: Boolean = false,
-    val showNetworkUnstableWarning: Boolean = false,
-    val showGeofenceWarning: Boolean = false,
-    val showFakeLocationWarning: Boolean = false,
     val chrome: ExamRuntimeChromeUiState = ExamRuntimeChromeUiState(),
     val dialogs: ExamRuntimeDialogsUiState = ExamRuntimeDialogsUiState()
-)
+) {
+    // Convenience accessors — single source of truth is always dialogs.*
+    val showOfflineWarning: Boolean get() = dialogs.showOfflineWarning
+    val showNetworkUnstableWarning: Boolean get() = dialogs.showNetworkUnstableWarning
+    val showGeofenceWarning: Boolean get() = dialogs.showGeofenceWarning
+    val showFakeLocationWarning: Boolean get() = dialogs.showFakeLocationWarning
+}
 
 internal sealed interface ExamRuntimeUiAction {
     data class UpdateChecklist(val checklist: PreparationChecklistUiState) : ExamRuntimeUiAction
@@ -90,63 +92,33 @@ internal class ExamRuntimeViewModel : ViewModel() {
             is ExamRuntimeUiAction.UpdateChecklist -> _uiState.update { it.copy(checklist = action.checklist) }
             is ExamRuntimeUiAction.UpdateChrome -> _uiState.update { it.copy(chrome = action.chrome) }
             is ExamRuntimeUiAction.UpdateDialogs -> _uiState.update {
-                it.copy(
-                    dialogs = action.dialogs,
-                    showOfflineWarning = action.dialogs.showOfflineWarning,
-                    showNetworkUnstableWarning = action.dialogs.showNetworkUnstableWarning,
-                    showGeofenceWarning = action.dialogs.showGeofenceWarning,
-                    showFakeLocationWarning = action.dialogs.showFakeLocationWarning
-                )
+                it.copy(dialogs = action.dialogs)
             }
             ExamRuntimeUiAction.StartExamRequested -> _uiState.update { it.copy(examStarted = true) }
             ExamRuntimeUiAction.EndExamRequested -> _uiState.update { it.copy(examStarted = false) }
             ExamRuntimeUiAction.ShowOfflineWarning -> _uiState.update {
-                it.copy(
-                    showOfflineWarning = true,
-                    dialogs = it.dialogs.copy(showOfflineWarning = true)
-                )
+                it.copy(dialogs = it.dialogs.copy(showOfflineWarning = true))
             }
             ExamRuntimeUiAction.HideOfflineWarning -> _uiState.update {
-                it.copy(
-                    showOfflineWarning = false,
-                    dialogs = it.dialogs.copy(showOfflineWarning = false)
-                )
+                it.copy(dialogs = it.dialogs.copy(showOfflineWarning = false))
             }
             ExamRuntimeUiAction.ShowNetworkUnstableWarning -> _uiState.update {
-                it.copy(
-                    showNetworkUnstableWarning = true,
-                    dialogs = it.dialogs.copy(showNetworkUnstableWarning = true)
-                )
+                it.copy(dialogs = it.dialogs.copy(showNetworkUnstableWarning = true))
             }
             ExamRuntimeUiAction.HideNetworkUnstableWarning -> _uiState.update {
-                it.copy(
-                    showNetworkUnstableWarning = false,
-                    dialogs = it.dialogs.copy(showNetworkUnstableWarning = false)
-                )
+                it.copy(dialogs = it.dialogs.copy(showNetworkUnstableWarning = false))
             }
             ExamRuntimeUiAction.ShowGeofenceWarning -> _uiState.update {
-                it.copy(
-                    showGeofenceWarning = true,
-                    dialogs = it.dialogs.copy(showGeofenceWarning = true)
-                )
+                it.copy(dialogs = it.dialogs.copy(showGeofenceWarning = true))
             }
             ExamRuntimeUiAction.HideGeofenceWarning -> _uiState.update {
-                it.copy(
-                    showGeofenceWarning = false,
-                    dialogs = it.dialogs.copy(showGeofenceWarning = false)
-                )
+                it.copy(dialogs = it.dialogs.copy(showGeofenceWarning = false))
             }
             ExamRuntimeUiAction.ShowFakeLocationWarning -> _uiState.update {
-                it.copy(
-                    showFakeLocationWarning = true,
-                    dialogs = it.dialogs.copy(showFakeLocationWarning = true)
-                )
+                it.copy(dialogs = it.dialogs.copy(showFakeLocationWarning = true))
             }
             ExamRuntimeUiAction.HideFakeLocationWarning -> _uiState.update {
-                it.copy(
-                    showFakeLocationWarning = false,
-                    dialogs = it.dialogs.copy(showFakeLocationWarning = false)
-                )
+                it.copy(dialogs = it.dialogs.copy(showFakeLocationWarning = false))
             }
             ExamRuntimeUiAction.RequestExitConfirmation -> _uiState.update {
                 it.copy(dialogs = it.dialogs.copy(showExitConfirmation = true))

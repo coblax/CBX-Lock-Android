@@ -21,29 +21,30 @@ internal class TelegramPersistentQueue(
 ) {
     private val prefs = context.applicationContext.getSharedPreferences(prefsName, Context.MODE_PRIVATE)
     private val lock = Any()
+    private var cachedEntries: MutableList<QueuedTelegramMessage>? = null
 
     fun enqueue(entry: QueuedTelegramMessage) {
         synchronized(lock) {
-            val entries = loadEntries().toMutableList()
+            val entries = ensureLoaded()
             while (entries.size >= maxSize) {
                 entries.removeAt(0)
             }
             entries.add(entry)
-            saveEntries(entries)
+            persistEntries(entries)
         }
     }
 
     fun peek(count: Int): List<QueuedTelegramMessage> {
         synchronized(lock) {
-            return loadEntries().take(count)
+            return ensureLoaded().take(count)
         }
     }
 
     fun remove(id: String) {
         synchronized(lock) {
-            val entries = loadEntries().toMutableList()
+            val entries = ensureLoaded()
             entries.removeAll { it.id == id }
-            saveEntries(entries)
+            persistEntries(entries)
         }
     }
 
@@ -51,31 +52,38 @@ internal class TelegramPersistentQueue(
         if (ids.isEmpty()) return
         synchronized(lock) {
             val idSet = ids.toHashSet()
-            val entries = loadEntries().filterNot { it.id in idSet }
-            saveEntries(entries)
+            val entries = ensureLoaded()
+            entries.removeAll { it.id in idSet }
+            persistEntries(entries)
         }
     }
 
     fun size(): Int {
         synchronized(lock) {
-            return loadEntries().size
+            return ensureLoaded().size
         }
     }
 
     fun clear() {
         synchronized(lock) {
+            cachedEntries = mutableListOf()
             prefs.edit().remove(KEY_QUEUE).apply()
         }
     }
 
-    private fun loadEntries(): List<QueuedTelegramMessage> {
-        val json = prefs.getString(KEY_QUEUE, null) ?: return emptyList()
-        return runCatching { deserializeQueue(json) }.getOrDefault(emptyList())
+    private fun ensureLoaded(): MutableList<QueuedTelegramMessage> {
+        return cachedEntries ?: loadEntriesFromDisk().toMutableList().also { cachedEntries = it }
     }
 
-    private fun saveEntries(entries: List<QueuedTelegramMessage>) {
+    private fun persistEntries(entries: MutableList<QueuedTelegramMessage>) {
+        cachedEntries = entries
         val json = serializeQueue(entries)
         prefs.edit().putString(KEY_QUEUE, json).apply()
+    }
+
+    private fun loadEntriesFromDisk(): List<QueuedTelegramMessage> {
+        val json = prefs.getString(KEY_QUEUE, null) ?: return emptyList()
+        return runCatching { deserializeQueue(json) }.getOrDefault(emptyList())
     }
 
     private fun serializeQueue(entries: List<QueuedTelegramMessage>): String {

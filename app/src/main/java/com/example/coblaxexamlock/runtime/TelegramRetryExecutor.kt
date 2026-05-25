@@ -23,6 +23,7 @@ internal class TelegramRetryExecutor(
                 sendTelegramTextMessage(token, chatId, message)
                 return Result.success(Unit)
             } catch (e: Exception) {
+                if (e is kotlinx.coroutines.CancellationException) throw e
                 lastException = e
 
                 if (isPermanentFailure(e)) {

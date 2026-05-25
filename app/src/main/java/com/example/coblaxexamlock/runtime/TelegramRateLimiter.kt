@@ -30,13 +30,16 @@ internal class TelegramRateLimiter(
     }
 
     fun tryAcquire(): Boolean {
-        // Non-suspending check — used for diagnostics only
-        refillTokens()
-        return if (tokens > 0) {
-            tokens--
-            true
-        } else {
-            false
+        // Non-suspending check — used for diagnostics only.
+        // Synchronized to avoid data races on tokens/lastRefillTime with acquire().
+        synchronized(this) {
+            refillTokens()
+            return if (tokens > 0) {
+                tokens--
+                true
+            } else {
+                false
+            }
         }
     }
 

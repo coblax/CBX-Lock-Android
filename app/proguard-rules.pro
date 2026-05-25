@@ -48,6 +48,13 @@
     public static boolean isLoggable(...);
 }
 
+# Strip System.out/err print calls and Kotlin println in release.
+-assumenosideeffects class java.io.PrintStream {
+    public void println(...);
+    public void print(...);
+    public void flush();
+}
+
 # Jetpack Security (EncryptedSharedPreferences).
 -keep class androidx.security.crypto.** { *; }
 
