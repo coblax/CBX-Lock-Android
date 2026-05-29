@@ -110,18 +110,14 @@ val mapsApiKeyObf = mapsApiKey.xorBase64Obfuscate(stringObfuscationKey)
 
 android {
     namespace = "com.example.coblaxexamlock"
-    compileSdk {
-        version = release(36) {
-            minorApiLevel = 1
-        }
-    }
+    compileSdk = 36
 
     defaultConfig {
         applicationId = "com.example.coblaxexamlock"
         minSdk = 24
         targetSdk = 36
-        versionCode = 337
-        versionName = "3.2.17"
+        versionCode = 338
+        versionName = "3.2.18"
         ndk {
             abiFilters += listOf("arm64-v8a", "armeabi-v7a", "x86_64")
         }
