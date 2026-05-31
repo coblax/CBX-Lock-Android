@@ -43,6 +43,8 @@ object GateKeys {
     val ScreenRecorder = g(0x5C8E3A2F)
     val DisplayMirror = g(0x3B7D4E1A)
     val MultiWindow = g(0x2A6C5F09)
+    val ReverseEngineering = g(0x6D2A4B10)
+    val ApkIntegrity = g(0x41C0FFEE)
 
     val DecoyOne = g(0x6A09E667)
     val DecoyTwo = g(0xBB67AE85.toInt())
@@ -67,7 +69,9 @@ object GateKeys {
         Vpn,
         ScreenRecorder,
         DisplayMirror,
-        MultiWindow
+        MultiWindow,
+        ReverseEngineering,
+        ApkIntegrity
     )
 }
 

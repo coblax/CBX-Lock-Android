@@ -235,6 +235,8 @@ class PreparationWizardModeTest {
             screenRecorderReady = true,
             displayMirrorReady = true,
             multiWindowReady = true,
+            reverseEngineeringReady = true,
+            integrityReady = true,
             signatureReady = true,
             staticSecurityInitialScanComplete = true,
             canStartExam = true,

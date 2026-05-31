@@ -122,6 +122,10 @@ internal fun buildExamDiagnosticSnapshotForSession(
     lastPinningDecision: String,
     lastOverlayDecision: String?,
     lastRefreshDecision: String?,
+    reverseEngineeringBypass: Boolean,
+    apkIntegrityBypass: Boolean,
+    reverseEngineeringSignals: String,
+    integrityIssues: String,
     diagnosticEvents: List<DiagnosticEvent>
 ): ExamDiagnosticSnapshot {
     return buildExamDiagnosticSnapshot(
@@ -149,6 +153,10 @@ internal fun buildExamDiagnosticSnapshotForSession(
             lastPinningDecision = lastPinningDecision,
             lastOverlayDecision = lastOverlayDecision,
             lastRefreshDecision = lastRefreshDecision,
+            reverseEngineeringBypass = reverseEngineeringBypass,
+            apkIntegrityBypass = apkIntegrityBypass,
+            reverseEngineeringSignals = reverseEngineeringSignals,
+            integrityIssues = integrityIssues,
             diagnosticEvents = diagnosticEvents
         )
     )
@@ -192,6 +200,7 @@ internal class ExamRuntimeDiagnosticExportOps(
     private val deviceCompatibilityProfile: DeviceCompatibilityProfile,
     private val deviceSurvivalPolicy: DeviceSurvivalPolicy,
     private val payload: ExamQrPayload,
+    private val adminSettings: AdminSettings,
     private val webViewCompatibilityStatus: WebViewCompatibilityStatus,
     private val runtimeDiagnosticsOps: ExamRuntimeDiagnosticsOps,
     private val webViewUiState: ExamRuntimeWebViewUiState,
@@ -229,6 +238,11 @@ internal class ExamRuntimeDiagnosticExportOps(
             lastPinningDecision = adminUiState.screenPinningUserActionInference.value,
             lastOverlayDecision = securityUiState.lastOverlayContext.value,
             lastRefreshDecision = securityUiState.lastExamRefreshDecision.value,
+            reverseEngineeringBypass = adminSettings.bypassReverseEngineering,
+            apkIntegrityBypass = adminSettings.bypassApkIntegrity,
+            reverseEngineeringSignals = securityUiState.tamperSummary.value,
+            integrityIssues = securityUiState.integrityPublicSummary.value
+                .ifBlank { securityUiState.integritySummary.value },
             diagnosticEvents = adminUiState.diagnosticEvents.value
         )
 

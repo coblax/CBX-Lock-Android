@@ -3,6 +3,7 @@ package com.example.coblaxexamlock.ui.preparation
 import com.example.coblaxexamlock.LowRamProfile
 import com.example.coblaxexamlock.i18n.localized
 import com.example.coblaxexamlock.model.UiLanguage
+import com.example.coblaxexamlock.ui.performance.shouldBuildFullPreparationPayload
 
 /**
  * Represents one wizard step. Each step maps 1-to-1 to a checklist section.
@@ -126,12 +127,11 @@ internal data class WizardStepActionCoverage(
         get() = hasIssue && !hasActionOrNotice
 }
 
-@Suppress("UNUSED_PARAMETER")
 internal fun resolvePreparationWizardPayloadBuildMode(
     lowRamProfile: LowRamProfile,
     showChecklistDetails: Boolean
 ): PreparationWizardPayloadBuildMode {
-    return if (!lowRamProfile.enabled) {
+    return if (shouldBuildFullPreparationPayload(lowRamProfile, showChecklistDetails)) {
         PreparationWizardPayloadBuildMode.FullChecklist
     } else {
         PreparationWizardPayloadBuildMode.ActiveStepOnly

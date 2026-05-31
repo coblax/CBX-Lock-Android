@@ -68,6 +68,8 @@ internal fun buildPreparationStateForSession(
     adbBypassState: AdbBypassState,
     bypassRoot: Boolean,
     rootBypassState: RootBypassState,
+    bypassReverseEngineering: Boolean,
+    bypassApkIntegrity: Boolean,
     bypassVirtualEnvironment: Boolean,
     bypassVpn: Boolean,
     vpnBypassState: VpnBypassState,
@@ -155,7 +157,13 @@ internal fun buildPreparationStateForSession(
             multiWindowDetected = securityUiState.multiWindowDetected.value,
             multiWindowModeInfo = multiWindowModeInfo,
             staticSecurityInitialScanComplete = securityUiState.staticSecurityInitialScanComplete.value,
-            tamperDetected = securityUiState.tamperDetected.value || securityUiState.integrityTamperDetected.value
+            tamperDetected = securityUiState.tamperDetected.value || securityUiState.integrityTamperDetected.value,
+            reverseEngineeringDetected = securityUiState.tamperDetected.value,
+            reverseEngineeringSummary = securityUiState.tamperSummary.value,
+            reverseEngineeringBypassActive = bypassReverseEngineering,
+            integrityDetected = securityUiState.integrityTamperDetected.value,
+            integritySummary = securityUiState.integritySummary.value,
+            integrityBypassActive = bypassApkIntegrity
         ),
         bypass = PreparationBypassState(
             bypassScreenPinning = bypassScreenPinning,
@@ -177,7 +185,9 @@ internal fun buildPreparationStateForSession(
             bypassAppSwitch = bypassAppSwitch,
             bypassScreenRecorder = bypassScreenRecorder,
             bypassDisplayMirror = bypassDisplayMirror,
-            bypassMultiWindow = bypassMultiWindow
+            bypassMultiWindow = bypassMultiWindow,
+            bypassReverseEngineering = bypassReverseEngineering,
+            bypassApkIntegrity = bypassApkIntegrity
         ),
         diagnostics = PreparationDiagnosticsState(
             preExamHealthCheckSnapshot = preExamHealthCheckSnapshot,

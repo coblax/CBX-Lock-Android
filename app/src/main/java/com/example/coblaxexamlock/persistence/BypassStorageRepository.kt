@@ -43,7 +43,9 @@ internal object BypassStorageRepository {
         GateKeys.Vpn,
         GateKeys.ScreenRecorder,
         GateKeys.DisplayMirror,
-        GateKeys.MultiWindow
+        GateKeys.MultiWindow,
+        GateKeys.ReverseEngineering,
+        GateKeys.ApkIntegrity
     )
 
     private val defaultGateStates: Map<Int, Boolean>

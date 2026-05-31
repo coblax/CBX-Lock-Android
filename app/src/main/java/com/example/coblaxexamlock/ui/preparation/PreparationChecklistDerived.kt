@@ -19,6 +19,8 @@ internal data class PreparationChecklistReadiness(
     val screenRecorderReady: Boolean,
     val displayMirrorReady: Boolean,
     val multiWindowReady: Boolean,
+    val reverseEngineeringReady: Boolean,
+    val integrityReady: Boolean,
     val signatureReady: Boolean,
     val staticSecurityInitialScanComplete: Boolean,
     val canStartExam: Boolean,
@@ -106,7 +108,12 @@ internal fun buildPreparationChecklistReadiness(
         bypass.bypassScreenRecorder || runtimeSecurity.screenRecorderPackages.isEmpty()
     val displayMirrorReady = bypass.bypassDisplayMirror || !runtimeSecurity.externalDisplayDetected
     val multiWindowReady = bypass.bypassMultiWindow || !runtimeSecurity.multiWindowDetected
-    val signatureReady = !device.signatureMismatchDetected
+    val reverseEngineeringReady =
+        runtimeSecurity.reverseEngineeringBypassActive || !runtimeSecurity.reverseEngineeringDetected
+    val integrityReady =
+        runtimeSecurity.integrityBypassActive ||
+            (!runtimeSecurity.integrityDetected && !device.signatureMismatchDetected)
+    val signatureReady = integrityReady
     val canStartExam =
         runtimeSecurity.staticSecurityInitialScanComplete &&
             bluetoothReady &&
@@ -125,7 +132,8 @@ internal fun buildPreparationChecklistReadiness(
             screenRecorderReady &&
             displayMirrorReady &&
             multiWindowReady &&
-            !runtimeSecurity.tamperDetected
+            reverseEngineeringReady &&
+            integrityReady
     val hasBypassIndicators = listOf(
         bypass.bypassKeyboardPolicy,
         bypass.bypassBluetooth,
@@ -144,6 +152,8 @@ internal fun buildPreparationChecklistReadiness(
         bypass.bypassScreenRecorder,
         bypass.bypassDisplayMirror,
         bypass.bypassMultiWindow,
+        bypass.bypassReverseEngineering,
+        bypass.bypassApkIntegrity,
         runtimeSecurity.tamperDetected
     ).any { it }
 
@@ -166,6 +176,8 @@ internal fun buildPreparationChecklistReadiness(
         screenRecorderReady = screenRecorderReady,
         displayMirrorReady = displayMirrorReady,
         multiWindowReady = multiWindowReady,
+        reverseEngineeringReady = reverseEngineeringReady,
+        integrityReady = integrityReady,
         signatureReady = signatureReady,
         staticSecurityInitialScanComplete = runtimeSecurity.staticSecurityInitialScanComplete,
         canStartExam = canStartExam,
@@ -202,6 +214,8 @@ internal fun buildPreparationReadinessSummary(
         readiness.screenRecorderReady,
         readiness.displayMirrorReady,
         readiness.multiWindowReady,
+        readiness.reverseEngineeringReady,
+        readiness.integrityReady,
         readiness.signatureReady
     )
     val safeCount = checks.count { it }
@@ -226,6 +240,8 @@ internal fun resolveFirstBlockingReason(
     if (!readiness.deviceTimeReady) return if (en) "Automatic date & time not enabled" else "Tanggal & waktu otomatis belum aktif"
     if (!readiness.rootReady) return if (en) "Root device detected" else "Perangkat root terdeteksi"
     if (!readiness.virtualEnvironmentReady) return if (en) "Emulator detected" else "Emulator terdeteksi"
+    if (!readiness.reverseEngineeringReady) return if (en) "Debugging or hooking tool detected" else "Tool debugging atau hooking terdeteksi"
+    if (!readiness.integrityReady) return if (en) "APK integrity check failed" else "Cek integritas APK gagal"
     if (!readiness.signatureReady) return if (en) "App signature mismatch" else "Signature aplikasi tidak cocok"
     if (!readiness.vpnReady) return if (en) "VPN is active" else "VPN masih aktif"
     if (!readiness.accessibilityReady) return if (en) "Accessibility service is active" else "Layanan aksesibilitas masih aktif"

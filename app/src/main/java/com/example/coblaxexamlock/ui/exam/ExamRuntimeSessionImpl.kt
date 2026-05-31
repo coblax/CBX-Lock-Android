@@ -371,6 +371,8 @@ internal fun ExamRuntimeSessionScreenImpl(
     val bypassAccessibility = accessibilityBypassState == AccessibilityBypassState.Active
     val bypassAdb = adbBypassState == AdbBypassState.Active
     val bypassRoot = rootBypassState == RootBypassState.Active
+    val bypassReverseEngineering = adminSettings.bypassReverseEngineering
+    val bypassApkIntegrity = adminSettings.bypassApkIntegrity
     val bypassVirtualEnvironment = adminSettings.bypassVirtualEnvironment
     val bypassKeyboardPolicy = adminSettings.bypassKeyboardPolicy
     val bypassClipboard = adminSettings.bypassClipboard
@@ -751,7 +753,10 @@ internal fun ExamRuntimeSessionScreenImpl(
     var lastAlarmAcknowledgeDedupKey by adminUiState.lastAlarmAcknowledgeDedupKey
     var lastAlarmAcknowledgeAtElapsedMs by adminUiState.lastAlarmAcknowledgeAtElapsedMs
     val isKeyboardAllowed = bypassKeyboardPolicy || isAllowedExamKeyboard(context, currentKeyboardPackage)
-    val securityTamperDetected = tamperDetected || integrityTamperDetected
+    val reverseEngineeringTamperBlocking = tamperDetected && !bypassReverseEngineering
+    val apkIntegrityTamperBlocking =
+        (integrityTamperDetected || signatureMismatchDetected) && !bypassApkIntegrity
+    val securityTamperDetected = reverseEngineeringTamperBlocking || apkIntegrityTamperBlocking
     val examGuardArmed = examRuntimeMonitoringArmed || lockTaskRequestPending || examSessionStarted
     val nativeExamFullscreenActive = examGuardArmed || fullScreenCustomView != null
     val networkReadinessStatus =
@@ -1129,6 +1134,10 @@ internal fun ExamRuntimeSessionScreenImpl(
     fun applyFatalSecuritySignal(signal: FatalSecuritySignal) = runtimeMonitoringOps.applyFatalSecuritySignal(signal)
     fun refreshReverseEngineeringStatus() = runtimeMonitoringOps.refreshReverseEngineeringStatus()
     fun refreshIntegrityGuard() = runtimeMonitoringOps.refreshIntegrityGuard()
+    suspend fun refreshReverseEngineeringStatusOnDetector() =
+        runtimeMonitoringOps.refreshReverseEngineeringStatusOnDetector()
+    suspend fun refreshIntegrityGuardOnDetector() =
+        runtimeMonitoringOps.refreshIntegrityGuardOnDetector()
     fun hideSystemKeyboard() = runtimeMonitoringOps.hideSystemKeyboard()
     fun showSystemKeyboard() = runtimeMonitoringOps.showSystemKeyboard()
     fun showCustomView(view: View, callback: WebChromeClient.CustomViewCallback?) = runtimeMonitoringOps.showCustomView(view, callback)
@@ -1407,6 +1416,8 @@ internal fun ExamRuntimeSessionScreenImpl(
                 bypassAdb = bypassAdb,
                 bypassVirtualEnvironment = bypassVirtualEnvironment,
                 bypassRoot = bypassRoot,
+                bypassReverseEngineering = bypassReverseEngineering,
+                bypassApkIntegrity = bypassApkIntegrity,
                 bypassScreenRecorder = bypassScreenRecorder,
                 bypassDisplayMirror = bypassDisplayMirror,
                 bypassMultiWindow = bypassMultiWindow,
@@ -1422,8 +1433,8 @@ internal fun ExamRuntimeSessionScreenImpl(
                             triggerViolation = triggerViolation
                         )
                     },
-                    refreshReverseEngineeringStatus = ::refreshReverseEngineeringStatus,
-                    refreshIntegrityGuard = ::refreshIntegrityGuard,
+                    refreshReverseEngineeringStatus = ::refreshReverseEngineeringStatusOnDetector,
+                    refreshIntegrityGuard = ::refreshIntegrityGuardOnDetector,
                     refreshScreenPinningDiagnostics = ::refreshScreenPinningDiagnostics,
                     refreshKeyboardSecurity = ::refreshKeyboardSecurity,
                     refreshBluetoothSecurity = ::refreshBluetoothSecurity,
@@ -2004,6 +2015,7 @@ internal fun ExamRuntimeSessionScreenImpl(
         deviceCompatibilityProfile = deviceCompatibilityProfile,
         deviceSurvivalPolicy = deviceSurvivalPolicy,
         payload = payload,
+        adminSettings = adminSettings,
         webViewCompatibilityStatus = webViewCompatibilityStatus,
         runtimeDiagnosticsOps = runtimeDiagnosticsOps,
         webViewUiState = webViewUiState,
@@ -2038,6 +2050,8 @@ internal fun ExamRuntimeSessionScreenImpl(
         bypassAdb = bypassAdb,
         adbInspection = adbInspection,
         bypassRoot = bypassRoot,
+        bypassReverseEngineering = bypassReverseEngineering,
+        bypassApkIntegrity = bypassApkIntegrity,
         rootSecurityStatus = rootSecurityStatus,
         bypassVirtualEnvironment = bypassVirtualEnvironment,
         virtualEnvironmentDetected = virtualEnvironmentDetected,
@@ -2054,7 +2068,7 @@ internal fun ExamRuntimeSessionScreenImpl(
         bypassAppSwitch = bypassAppSwitch,
         appSwitchStatus = appSwitchStatus,
         bypassClipboard = bypassClipboard,
-        signatureMismatchDetected = signatureMismatchDetected,
+        signatureMismatchDetected = signatureMismatchDetected && !bypassApkIntegrity,
         securityTamperDetected = securityTamperDetected,
         forcedExitViolationCount = forcedExitViolationCount,
         keyboardViolationCount = keyboardViolationCount,
@@ -2242,6 +2256,8 @@ internal fun ExamRuntimeSessionScreenImpl(
         adbBypassState = adbBypassState,
         bypassRoot = bypassRoot,
         rootBypassState = rootBypassState,
+        bypassReverseEngineering = bypassReverseEngineering,
+        bypassApkIntegrity = bypassApkIntegrity,
         bypassVirtualEnvironment = bypassVirtualEnvironment,
         bypassVpn = bypassVpn,
         vpnBypassState = vpnBypassState,

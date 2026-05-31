@@ -74,8 +74,8 @@ internal fun applyExamRuntimeStartBlockMessage(
 internal class ExamRuntimeStartPrecheckCallbacks(
     val recordAction: (String, String, DiagnosticEventLevel) -> Unit,
     val applyVirtualEnvironmentDiagnostics: (com.example.coblaxexamlock.model.VirtualEnvironmentDiagnostics, Boolean) -> Unit,
-    val refreshReverseEngineeringStatus: () -> Unit,
-    val refreshIntegrityGuard: () -> Unit,
+    val refreshReverseEngineeringStatus: suspend () -> Unit,
+    val refreshIntegrityGuard: suspend () -> Unit,
     val refreshScreenPinningDiagnostics: () -> Unit,
     val refreshKeyboardSecurity: (Boolean) -> Unit,
     val refreshBluetoothSecurity: (Boolean) -> Unit,
@@ -122,6 +122,8 @@ internal suspend fun runExamRuntimeStartPrechecks(
     bypassAdb: Boolean,
     bypassVirtualEnvironment: Boolean,
     bypassRoot: Boolean,
+    bypassReverseEngineering: Boolean,
+    bypassApkIntegrity: Boolean,
     bypassScreenRecorder: Boolean,
     bypassDisplayMirror: Boolean,
     bypassMultiWindow: Boolean,
@@ -140,13 +142,48 @@ internal suspend fun runExamRuntimeStartPrechecks(
         forceRefresh = true
     )
     callbacks.applyVirtualEnvironmentDiagnostics(startVirtualEnvironmentDiagnostics, false)
-    debugMeasureExamStartWork("startExamSession:tampers") {
+    debugMeasureExamStartSuspendWork("startExamSession:tampers") {
         callbacks.refreshReverseEngineeringStatus()
         callbacks.refreshIntegrityGuard()
     }
-    if (securityUiState.tamperDetected.value || securityUiState.integrityTamperDetected.value) {
-        callbacks.applyStartExamBlockMessage(resolveStartExamTamperBlockMessage(uiLanguage))
+    val reverseEngineeringDetected = securityUiState.tamperDetected.value
+    val apkIntegrityDetected = securityUiState.integrityTamperDetected.value
+    val tamperBlock = resolveStartExamTamperBlockMessage(
+        uiLanguage = uiLanguage,
+        reverseEngineeringDetected = reverseEngineeringDetected,
+        reverseEngineeringSummary = securityUiState.tamperSummary.value,
+        reverseEngineeringBypassActive = bypassReverseEngineering,
+        apkIntegrityDetected = apkIntegrityDetected,
+        apkIntegritySummary = securityUiState.integritySummary.value,
+        apkIntegrityBypassActive = bypassApkIntegrity
+    )
+    if (tamperBlock != null) {
+        callbacks.applyStartExamBlockMessage(tamperBlock)
         return
+    }
+    if (reverseEngineeringDetected && bypassReverseEngineering) {
+        callbacks.recordAction(
+            "REVERSE_ENGINEERING_BYPASS_ACTIVE",
+            securityUiState.tamperSummary.value.ifBlank { "-" },
+            DiagnosticEventLevel.SECURITY
+        )
+    }
+    if (apkIntegrityDetected && bypassApkIntegrity) {
+        callbacks.recordAction(
+            "APK_INTEGRITY_BYPASS_ACTIVE",
+            securityUiState.integritySummary.value.ifBlank { "-" },
+            DiagnosticEventLevel.SECURITY
+        )
+    }
+    if ((reverseEngineeringDetected && bypassReverseEngineering) ||
+        (apkIntegrityDetected && bypassApkIntegrity)
+    ) {
+        callbacks.recordAction(
+            "START_EXAM_TAMPER_BYPASSED",
+            "reverse_detected=$reverseEngineeringDetected reverse_bypass=$bypassReverseEngineering | " +
+                "apk_integrity_detected=$apkIntegrityDetected apk_integrity_bypass=$bypassApkIntegrity",
+            DiagnosticEventLevel.SECURITY
+        )
     }
 
     callbacks.refreshScreenPinningDiagnostics()
@@ -285,11 +322,22 @@ internal suspend fun runExamRuntimeStartPrechecks(
     }
 
     val signatureResult = debugMeasureExamStartWork("startExamSession:signature_check") {
-        callbacks.checkSignatureIntegrity(true)
+        callbacks.checkSignatureIntegrity(!bypassApkIntegrity)
     }
-    if (ExamPolicyEngine.shouldBlock(signatureResult)) {
-        callbacks.recordAction("START_EXAM_BLOCKED_SIGNATURE", "-", DiagnosticEventLevel.WARNING)
+    if (ExamPolicyEngine.shouldBlock(signatureResult) && !bypassApkIntegrity) {
+        callbacks.recordAction(
+            "START_EXAM_BLOCKED_SIGNATURE",
+            signatureResult.reason,
+            DiagnosticEventLevel.WARNING
+        )
         return
+    }
+    if (ExamPolicyEngine.shouldBlock(signatureResult) && bypassApkIntegrity) {
+        callbacks.recordAction(
+            "APK_INTEGRITY_BYPASS_ACTIVE",
+            "signature=${signatureResult.reason}",
+            DiagnosticEventLevel.SECURITY
+        )
     }
 
     val builtInKeyboardNeeded = !bypassKeyboardPolicy && !flowUiState.lastKeyboardAllowed.value

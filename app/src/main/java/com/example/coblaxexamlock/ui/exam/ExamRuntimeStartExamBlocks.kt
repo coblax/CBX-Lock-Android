@@ -24,16 +24,82 @@ internal data class StartExamBlockMessage(
     val message: String
 )
 
-internal fun resolveStartExamTamperBlockMessage(uiLanguage: UiLanguage): StartExamBlockMessage {
-    return StartExamBlockMessage(
-        code = "START_EXAM_BLOCKED_TAMPER",
-        title = localized(uiLanguage, "Security Check Failed", "Pemeriksaan Keamanan Gagal"),
-        message = localized(
-            uiLanguage,
-            "Security checks failed. Close debugging or hooking tools and reopen the app.",
-            "Pemeriksaan keamanan gagal. Tutup tool debugging/hooking lalu buka ulang aplikasi."
+internal fun resolveStartExamTamperBlockMessage(
+    uiLanguage: UiLanguage,
+    reverseEngineeringDetected: Boolean,
+    reverseEngineeringSummary: String,
+    reverseEngineeringBypassActive: Boolean,
+    apkIntegrityDetected: Boolean,
+    apkIntegritySummary: String,
+    apkIntegrityBypassActive: Boolean
+): StartExamBlockMessage? {
+    if (reverseEngineeringDetected && !reverseEngineeringBypassActive) {
+        return StartExamBlockMessage(
+            code = "START_EXAM_BLOCKED_REVERSE_ENGINEERING",
+            details = reverseEngineeringSummary.ifBlank { "-" },
+            title = localized(
+                uiLanguage,
+                "Reverse Engineering Check Failed",
+                "Cek Reverse Engineering Gagal"
+            ),
+            message = localized(
+                uiLanguage,
+                "Debugger, tracer, hooking memory, hook class, or root/hooking package was detected. Close the related tool, uninstall it, or use the Secret Admin bypass only for approved troubleshooting.\n\nReason: ${formatReverseEngineeringBlockReason(reverseEngineeringSummary)}",
+                "Debugger, tracer, memory hooking, hook class, atau package root/hooking terdeteksi. Tutup tool terkait, hapus aplikasinya, atau gunakan bypass Secret Admin hanya untuk troubleshooting resmi.\n\nAlasan: ${formatReverseEngineeringBlockReason(reverseEngineeringSummary)}"
+            )
         )
-    )
+    }
+    if (apkIntegrityDetected && !apkIntegrityBypassActive) {
+        return StartExamBlockMessage(
+            code = "START_EXAM_BLOCKED_APK_INTEGRITY",
+            details = apkIntegritySummary.ifBlank { "-" },
+            title = localized(uiLanguage, "APK Integrity Check Failed", "Cek Integritas APK Gagal"),
+            message = localized(
+                uiLanguage,
+                "The APK signature, hash, or device integrity signal is not trusted. Reinstall the official APK or use the Secret Admin bypass only for approved troubleshooting.\n\nReason: ${formatApkIntegrityBlockReason(apkIntegritySummary)}",
+                "Signature, hash, atau sinyal integritas perangkat tidak terpercaya. Instal ulang APK resmi atau gunakan bypass Secret Admin hanya untuk troubleshooting resmi.\n\nAlasan: ${formatApkIntegrityBlockReason(apkIntegritySummary)}"
+            )
+        )
+    }
+    return null
+}
+
+internal fun formatReverseEngineeringBlockReason(summary: String): String {
+    val normalized = summary.ifBlank { "-" }
+    val lower = normalized.lowercase(Locale.US)
+    val reasons = mutableListOf<String>()
+    if ("debugger" in lower || "tracerpid" in lower || "tracer" in lower) {
+        reasons.add("Debugger atau tracing aktif")
+    }
+    if ("maps:" in lower || "proc_maps" in lower || "memory" in lower) {
+        reasons.add("Hooking/root framework terdeteksi di memory")
+    }
+    if ("class:" in lower || "hook_class" in lower || "xposed" in lower || "lsposed" in lower || "substrate" in lower) {
+        reasons.add("Class Xposed/LSPosed/Substrate terdeteksi")
+    }
+    if ("pkg:" in lower || "package" in lower || "magisk" in lower || "kernelsu" in lower) {
+        reasons.add("Package tool hooking/root terpasang")
+    }
+    return reasons.joinToString("; ").ifBlank { normalized }
+}
+
+internal fun formatApkIntegrityBlockReason(summary: String): String {
+    val normalized = summary.ifBlank { "-" }
+    val lower = normalized.lowercase(Locale.US)
+    val reasons = mutableListOf<String>()
+    if ("signature_changed" in lower || "signature" in lower) {
+        reasons.add("Signature APK berubah")
+    }
+    if ("dex_hash_mismatch" in lower || "hash" in lower) {
+        reasons.add("Hash APK berubah")
+    }
+    if ("sysprop_" in lower || "test_keys" in lower || "system property" in lower) {
+        reasons.add("System property tidak aman")
+    }
+    if ("hook_class" in lower) {
+        reasons.add("Hook class terdeteksi oleh IntegrityGuard")
+    }
+    return reasons.joinToString("; ").ifBlank { normalized }
 }
 
 internal fun resolveStartExamScreenPinningBlockMessage(

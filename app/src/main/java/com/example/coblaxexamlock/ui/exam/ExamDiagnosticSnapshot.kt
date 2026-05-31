@@ -69,6 +69,10 @@ internal data class ExamDiagnosticSnapshot(
     val examServerProbeIntervalMillis: Long,
     val detectorMetadataCacheMaxEntries: Int,
     val disableNonEssentialAnimations: Boolean,
+    val reverseEngineeringBypass: Boolean,
+    val apkIntegrityBypass: Boolean,
+    val reverseEngineeringSignals: String,
+    val integrityIssues: String,
     val compatibilityFamily: String,
     val compatibilityLabel: String,
     val compatibilityManufacturer: String,
@@ -150,6 +154,12 @@ internal data class ExamDiagnosticSnapshot(
             "examServerProbeIntervalMillis" to examServerProbeIntervalMillis,
             "detectorMetadataCacheMaxEntries" to detectorMetadataCacheMaxEntries,
             "disableNonEssentialAnimations" to disableNonEssentialAnimations
+        ),
+        "security" to mapOf(
+            "reverseEngineeringBypass" to reverseEngineeringBypass,
+            "apkIntegrityBypass" to apkIntegrityBypass,
+            "reverseEngineeringSignals" to reverseEngineeringSignals,
+            "integrityIssues" to integrityIssues
         ),
         "compatibility" to mapOf(
             "family" to compatibilityFamily,
@@ -251,6 +261,11 @@ internal data class ExamDiagnosticSnapshot(
                 "serverProbeMs=$examServerProbeIntervalMillis detectorCacheMax=$detectorMetadataCacheMaxEntries " +
                 "reduceMotion=$disableNonEssentialAnimations"
         )
+        appendLine(
+            "Security bypass: reverseEngineering=$reverseEngineeringBypass " +
+                "apkIntegrity=$apkIntegrityBypass reverseSignals=${reverseEngineeringSignals.ifBlank { "-" }} " +
+                "integrityIssues=${integrityIssues.ifBlank { "-" }}"
+        )
         appendLine("Compatibility: family=$compatibilityFamily label=$compatibilityLabel model=$compatibilityManufacturer/$compatibilityBrand/$compatibilityModel sdk=$compatibilitySdkInt skipPinningIfActive=$screenPinningSkipRequestWhenAlreadyActive")
         appendLine("Device survival: score=$survivalScore summary=$survivalPolicySummary")
         appendLine("Previous session: trail=$previousSessionBreadcrumbSummary recovery=${previousSessionRecoveryHint ?: "-"}")
@@ -303,6 +318,10 @@ internal data class ExamDiagnosticSnapshotInput(
     val lastPinningDecision: String?,
     val lastOverlayDecision: String?,
     val lastRefreshDecision: String? = null,
+    val reverseEngineeringBypass: Boolean = false,
+    val apkIntegrityBypass: Boolean = false,
+    val reverseEngineeringSignals: String = "-",
+    val integrityIssues: String = "-",
     val diagnosticEvents: List<DiagnosticEvent>
 )
 
@@ -349,6 +368,10 @@ internal fun buildExamDiagnosticSnapshot(input: ExamDiagnosticSnapshotInput): Ex
         examServerProbeIntervalMillis = input.lowRamProfile.examServerProbeIntervalMillis,
         detectorMetadataCacheMaxEntries = input.lowRamProfile.detectorMetadataCacheMaxEntries,
         disableNonEssentialAnimations = input.lowRamProfile.disableNonEssentialAnimations,
+        reverseEngineeringBypass = input.reverseEngineeringBypass,
+        apkIntegrityBypass = input.apkIntegrityBypass,
+        reverseEngineeringSignals = redactDiagnosticDetail(input.reverseEngineeringSignals.ifBlank { "-" }),
+        integrityIssues = redactDiagnosticDetail(input.integrityIssues.ifBlank { "-" }),
         compatibilityFamily = compatibility.family.name,
         compatibilityLabel = compatibility.vendorDisplayName,
         compatibilityManufacturer = compatibility.manufacturer,
@@ -448,6 +471,10 @@ internal fun buildAdminExamDiagnosticSnapshot(
         examServerProbeIntervalMillis = lowRamProfile.examServerProbeIntervalMillis,
         detectorMetadataCacheMaxEntries = lowRamProfile.detectorMetadataCacheMaxEntries,
         disableNonEssentialAnimations = lowRamProfile.disableNonEssentialAnimations,
+        reverseEngineeringBypass = settings.bypassReverseEngineering,
+        apkIntegrityBypass = settings.bypassApkIntegrity,
+        reverseEngineeringSignals = "admin_export_no_active_exam",
+        integrityIssues = "admin_export_no_active_exam",
         compatibilityFamily = deviceCompatibilityProfile.family.name,
         compatibilityLabel = deviceCompatibilityProfile.vendorDisplayName,
         compatibilityManufacturer = deviceCompatibilityProfile.manufacturer,

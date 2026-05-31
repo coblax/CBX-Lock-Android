@@ -421,6 +421,56 @@ class PreparationStateSlicingTest {
     }
 
     @Test
+    fun slicedReadinessHonorsReverseEngineeringBypass() {
+        val blocked = readinessFor(
+            runtimeSecurity = runtimeSecurityState().copy(
+                tamperDetected = true,
+                reverseEngineeringDetected = true,
+                reverseEngineeringSummary = "debugger=true"
+            )
+        )
+        val bypassed = readinessFor(
+            runtimeSecurity = runtimeSecurityState().copy(
+                tamperDetected = true,
+                reverseEngineeringDetected = true,
+                reverseEngineeringSummary = "debugger=true",
+                reverseEngineeringBypassActive = true
+            ),
+            bypass = bypassState().copy(bypassReverseEngineering = true)
+        )
+
+        assertFalse(blocked.reverseEngineeringReady)
+        assertFalse(blocked.canStartExam)
+        assertTrue(bypassed.reverseEngineeringReady)
+        assertTrue(bypassed.canStartExam)
+    }
+
+    @Test
+    fun slicedReadinessHonorsApkIntegrityBypass() {
+        val blocked = readinessFor(
+            runtimeSecurity = runtimeSecurityState().copy(
+                tamperDetected = true,
+                integrityDetected = true,
+                integritySummary = "signature_changed"
+            )
+        )
+        val bypassed = readinessFor(
+            runtimeSecurity = runtimeSecurityState().copy(
+                tamperDetected = true,
+                integrityDetected = true,
+                integritySummary = "signature_changed",
+                integrityBypassActive = true
+            ),
+            bypass = bypassState().copy(bypassApkIntegrity = true)
+        )
+
+        assertFalse(blocked.integrityReady)
+        assertFalse(blocked.canStartExam)
+        assertTrue(bypassed.integrityReady)
+        assertTrue(bypassed.canStartExam)
+    }
+
+    @Test
     fun wrapperAndSliceReadinessStayEquivalent() {
         val state = preparationState(
             network = networkState(
@@ -780,7 +830,13 @@ class PreparationStateSlicingTest {
                 inPictureInPictureMode = false
             ),
             staticSecurityInitialScanComplete = true,
-            tamperDetected = false
+            tamperDetected = false,
+            reverseEngineeringDetected = false,
+            reverseEngineeringSummary = "-",
+            reverseEngineeringBypassActive = false,
+            integrityDetected = false,
+            integritySummary = "-",
+            integrityBypassActive = false
         )
     }
 
@@ -805,7 +861,9 @@ class PreparationStateSlicingTest {
             bypassAppSwitch = false,
             bypassScreenRecorder = false,
             bypassDisplayMirror = false,
-            bypassMultiWindow = false
+            bypassMultiWindow = false,
+            bypassReverseEngineering = false,
+            bypassApkIntegrity = false
         )
     }
 

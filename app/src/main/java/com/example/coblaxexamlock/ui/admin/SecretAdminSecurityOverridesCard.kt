@@ -1,4 +1,4 @@
-﻿package com.example.coblaxexamlock.ui.admin
+package com.example.coblaxexamlock.ui.admin
 
 import android.Manifest
 import android.annotation.SuppressLint
@@ -425,6 +425,43 @@ internal fun SecretAdminSecurityOverridesCard(
                     ),
                     checked = settings.bypassRoot,
                     onCheckedChange = { onSettingsChange(settings.copy(bypassRoot = it)) }
+                )
+                AdminToggleRow(
+                    title = tr(
+                        "Bypass Reverse Engineering Checks",
+                        "Bypass Cek Reverse Engineering"
+                    ),
+                    description = if (settings.reverseEngineeringBypassTampered) {
+                        tr(
+                            "Bypass storage was tampered. Enforcement stays active until the admin saves this setting again.",
+                            "Storage bypass terdeteksi tampered. Enforcement tetap aktif sampai admin menyimpan ulang pengaturan ini."
+                        )
+                    } else {
+                        tr(
+                            "Skip debugger, tracer, hooking memory, class, and package enforcement for official troubleshooting only. Detection remains logged.",
+                            "Lewati enforcement debugger, tracer, memory hooking, class, dan package hanya untuk troubleshooting resmi. Deteksi tetap dicatat."
+                        )
+                    },
+                    checked = settings.bypassReverseEngineering && !settings.reverseEngineeringBypassTampered,
+                    onCheckedChange = {
+                        onSettingsChange(settings.copy(bypassReverseEngineering = it))
+                    }
+                )
+                AdminToggleRow(
+                    title = tr("Bypass APK Integrity Checks", "Bypass Cek Integritas APK"),
+                    description = if (settings.apkIntegrityBypassTampered) {
+                        tr(
+                            "Bypass storage was tampered. Enforcement stays active until the admin saves this setting again.",
+                            "Storage bypass terdeteksi tampered. Enforcement tetap aktif sampai admin menyimpan ulang pengaturan ini."
+                        )
+                    } else {
+                        tr(
+                            "Skip signature/hash integrity enforcement for official troubleshooting only. Detection remains logged.",
+                            "Lewati enforcement signature/hash integrity hanya untuk troubleshooting resmi. Deteksi tetap dicatat."
+                        )
+                    },
+                    checked = settings.bypassApkIntegrity && !settings.apkIntegrityBypassTampered,
+                    onCheckedChange = { onSettingsChange(settings.copy(bypassApkIntegrity = it)) }
                 )
                 AdminToggleRow(
                     title = tr("Bypass Virtual Environment", "Bypass Virtual Environment"),

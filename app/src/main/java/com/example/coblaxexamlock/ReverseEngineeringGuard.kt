@@ -35,7 +35,16 @@ object ReverseEngineeringGuard {
         "lsplant",
         "zygisk",
         "shamiko",
-        "rezygisk"
+        "rezygisk",
+        // Modern root/hooking frameworks
+        "magisk",
+        "kernelsu",
+        "/data/adb/ksu",
+        "/data/adb/ksud",
+        "apatch",
+        "objection",
+        "libriru",
+        "/data/adb/riru"
     )
 
     private val suspiciousClassNames = listOf(
@@ -55,7 +64,15 @@ object ReverseEngineeringGuard {
         "org.lsposed.manager",
         "org.lsposed.lspatch",
         "org.meowcat.edxposed.manager",
-        "com.saurik.substrate"
+        "com.saurik.substrate",
+        // Magisk manager variants
+        "com.topjohnwu.magisk",
+        // KernelSU manager
+        "me.weishu.kernelsu",
+        // APatch manager
+        "me.bmax.apatch",
+        // Frida server package
+        "re.frida.server"
     )
 
     fun inspect(context: Context): ReverseEngineeringResult {
@@ -115,6 +132,9 @@ object ReverseEngineeringGuard {
 
         fun scanProcMapsReference(): Set<String> = scanProcMapsForMarkersKotlin()
 
+        fun scanProcMapsLineReference(line: String): Set<String> =
+            scanProcMapsLineForMarkers(line)
+
         fun inspectWithBackend(
             context: Context,
             backendMode: NativeBridgeBackendMode
@@ -156,12 +176,7 @@ object ReverseEngineeringGuard {
         runCatching {
             mapsFile.useLines { lines ->
                 for (line in lines) {
-                    val lower = line.lowercase(Locale.US)
-                    mapMarkers.forEach { marker ->
-                        if (marker in lower) {
-                            hits.add(marker)
-                        }
-                    }
+                    hits.addAll(scanProcMapsLineForMarkers(line))
                     if (hits.size == mapMarkers.size) {
                         break
                     }
@@ -169,6 +184,12 @@ object ReverseEngineeringGuard {
             }
         }
         return hits
+    }
+
+    private fun scanProcMapsLineForMarkers(line: String): Set<String> {
+        val lower = line.lowercase(Locale.US)
+        return mapMarkers
+            .filterTo(linkedSetOf()) { marker -> marker in lower }
     }
 
     private fun detectSuspiciousClasses(context: Context): List<String> {

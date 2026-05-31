@@ -13,6 +13,83 @@ import org.junit.Test
 
 class ExamRuntimeStartExamBlocksTest {
     @Test
+    fun reverseEngineeringDetectedBlocksWhenBypassOff() {
+        val block = resolveStartExamTamperBlockMessage(
+            uiLanguage = UiLanguage.English,
+            reverseEngineeringDetected = true,
+            reverseEngineeringSummary = "debugger=true | pkg:org.lsposed.manager",
+            reverseEngineeringBypassActive = false,
+            apkIntegrityDetected = false,
+            apkIntegritySummary = "-",
+            apkIntegrityBypassActive = false
+        )
+
+        assertEquals("START_EXAM_BLOCKED_REVERSE_ENGINEERING", block?.code)
+        assertTrue(block?.message?.contains("Debugger") == true)
+    }
+
+    @Test
+    fun reverseEngineeringDetectedContinuesWhenBypassOn() {
+        val block = resolveStartExamTamperBlockMessage(
+            uiLanguage = UiLanguage.English,
+            reverseEngineeringDetected = true,
+            reverseEngineeringSummary = "debugger=true",
+            reverseEngineeringBypassActive = true,
+            apkIntegrityDetected = false,
+            apkIntegritySummary = "-",
+            apkIntegrityBypassActive = false
+        )
+
+        assertNull(block)
+    }
+
+    @Test
+    fun apkIntegrityDetectedBlocksWhenBypassOff() {
+        val block = resolveStartExamTamperBlockMessage(
+            uiLanguage = UiLanguage.English,
+            reverseEngineeringDetected = false,
+            reverseEngineeringSummary = "-",
+            reverseEngineeringBypassActive = false,
+            apkIntegrityDetected = true,
+            apkIntegritySummary = "signature_changed",
+            apkIntegrityBypassActive = false
+        )
+
+        assertEquals("START_EXAM_BLOCKED_APK_INTEGRITY", block?.code)
+        assertTrue(block?.message?.contains("signature") == true)
+    }
+
+    @Test
+    fun apkIntegrityDetectedContinuesWhenBypassOn() {
+        val block = resolveStartExamTamperBlockMessage(
+            uiLanguage = UiLanguage.English,
+            reverseEngineeringDetected = false,
+            reverseEngineeringSummary = "-",
+            reverseEngineeringBypassActive = false,
+            apkIntegrityDetected = true,
+            apkIntegritySummary = "signature_changed",
+            apkIntegrityBypassActive = true
+        )
+
+        assertNull(block)
+    }
+
+    @Test
+    fun singleBypassDoesNotBypassOtherTamperGate() {
+        val block = resolveStartExamTamperBlockMessage(
+            uiLanguage = UiLanguage.English,
+            reverseEngineeringDetected = true,
+            reverseEngineeringSummary = "debugger=true",
+            reverseEngineeringBypassActive = true,
+            apkIntegrityDetected = true,
+            apkIntegritySummary = "dex_hash_mismatch",
+            apkIntegrityBypassActive = false
+        )
+
+        assertEquals("START_EXAM_BLOCKED_APK_INTEGRITY", block?.code)
+    }
+
+    @Test
     fun vpnActiveProducesDedicatedStartBlock() {
         val block = resolveStartExamVpnBlockMessage(
             uiLanguage = UiLanguage.English,

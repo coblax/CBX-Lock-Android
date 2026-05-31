@@ -82,6 +82,10 @@ internal data class AdminSettings(
     val displayMirrorBypassTampered: Boolean = false,
     val bypassMultiWindow: Boolean = false,
     val multiWindowBypassTampered: Boolean = false,
+    val bypassReverseEngineering: Boolean = false,
+    val reverseEngineeringBypassTampered: Boolean = false,
+    val bypassApkIntegrity: Boolean = false,
+    val apkIntegrityBypassTampered: Boolean = false,
     val showChecklistDetails: Boolean = false,
     val bypassMigrationResetNotice: Boolean = false
 ) {
@@ -102,7 +106,9 @@ internal data class AdminSettings(
             bypassAppSwitch ||
             bypassScreenRecorder ||
             bypassDisplayMirror ||
-            bypassMultiWindow
+            bypassMultiWindow ||
+            bypassReverseEngineering ||
+            bypassApkIntegrity
     }
 
     fun overrideSummary(): String {
@@ -124,6 +130,8 @@ internal data class AdminSettings(
         if (bypassScreenRecorder) overrides.add("screen recorder")
         if (bypassDisplayMirror) overrides.add("display mirror")
         if (bypassMultiWindow) overrides.add("multi-window")
+        if (bypassReverseEngineering) overrides.add("reverse engineering")
+        if (bypassApkIntegrity) overrides.add("apk integrity")
         return overrides.joinToString().ifBlank { "-" }
     }
 }

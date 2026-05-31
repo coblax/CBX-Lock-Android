@@ -252,7 +252,33 @@ private fun ExamRuntimeSessionMainContent(
                                 errorResponse: WebResourceResponse?
                             ) {
                                 if (request?.isForMainFrame == true) {
-                                    onWebViewHttpError(view, errorResponse?.statusCode)
+                                    val statusCode = errorResponse?.statusCode ?: 0
+                                    onWebViewHttpError(view, statusCode)
+                                    if (statusCode >= 500) {
+                                        val serverErrorHtml = """
+                                            <html><head><meta name="viewport" content="width=device-width,initial-scale=1">
+                                            <style>
+                                            *{margin:0;padding:0;box-sizing:border-box}
+                                            body{background:#F6F8FC;display:flex;align-items:center;justify-content:center;
+                                            min-height:100vh;font-family:sans-serif;color:#3A4A5C;text-align:center;padding:24px}
+                                            .c{max-width:320px}
+                                            .icon{font-size:48px;margin-bottom:16px}
+                                            h1{font-size:18px;font-weight:700;margin-bottom:8px;color:#1A2332}
+                                            p{font-size:14px;line-height:1.5;color:#6B7B8D}
+                                            </style></head><body><div class="c">
+                                            <div class="icon">&#9881;&#65039;</div>
+                                            <h1>Server Sedang Bermasalah</h1>
+                                            <p>Server ujian sedang mengalami gangguan (${statusCode}). Coba tekan tombol Muat Ulang.</p>
+                                            </div></body></html>
+                                        """.trimIndent()
+                                        view?.loadDataWithBaseURL(
+                                            null,
+                                            serverErrorHtml,
+                                            "text/html",
+                                            "UTF-8",
+                                            null
+                                        )
+                                    }
                                 }
                             }
 

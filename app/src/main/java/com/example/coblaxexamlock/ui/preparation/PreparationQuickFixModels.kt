@@ -1,6 +1,7 @@
 package com.example.coblaxexamlock.ui.preparation
 
 import com.example.coblaxexamlock.LowRamProfile
+import com.example.coblaxexamlock.ui.performance.resolvePreparationActionRenderBudget
 
 internal enum class QuickFixTarget {
     All,
@@ -81,7 +82,8 @@ internal fun selectPreparationQuickFixActionsForDisplay(
     val issues = actionable.filterNot {
         it.code == QuickFixRefreshAllSecurityChecksCode
     }
-    val suppressWarnings = lowRamProfile.ultra && hasGlobalBlockingIssues
+    val renderBudget = resolvePreparationActionRenderBudget(lowRamProfile)
+    val suppressWarnings = !renderBudget.renderWarningsWhileBlocking && hasGlobalBlockingIssues
     val primary = if (suppressWarnings) {
         issues.firstOrNull { it.severity == QuickFixSeverity.Blocking } ?: refresh
     } else {
@@ -92,28 +94,18 @@ internal fun selectPreparationQuickFixActionsForDisplay(
     } else {
         issues
     }
-    val maxBlocking = when {
-        lowRamProfile.ultra -> 0
-        lowRamProfile.enabled -> 3
-        else -> Int.MAX_VALUE
-    }
-    val maxWarnings = when {
-        lowRamProfile.ultra -> 0
-        lowRamProfile.enabled -> 2
-        else -> Int.MAX_VALUE
-    }
     return PreparationQuickFixDisplayActions(
         notices = notices,
         primary = primary,
         blocking = remainingIssues
             .filter { it.severity == QuickFixSeverity.Blocking }
-            .take(maxBlocking),
+            .take(renderBudget.maxBlockingActions),
         warnings = if (suppressWarnings) {
             emptyList()
         } else {
             remainingIssues
                 .filter { it.severity == QuickFixSeverity.Warning }
-                .take(maxWarnings)
+                .take(renderBudget.maxWarningActions)
         },
         refresh = refresh.takeIf { it != null && it != primary },
         blockingCount = issues.count { it.severity == QuickFixSeverity.Blocking },

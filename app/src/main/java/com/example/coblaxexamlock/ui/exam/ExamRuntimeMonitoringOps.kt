@@ -19,10 +19,12 @@ import com.example.coblaxexamlock.ClipboardBypassState
 import com.example.coblaxexamlock.ClipboardChangeDecision
 import com.example.coblaxexamlock.ClipboardSnapshot
 import com.example.coblaxexamlock.FatalSecuritySignal
+import com.example.coblaxexamlock.IntegrityCheckResult
 import com.example.coblaxexamlock.IntegrityGuard
 import com.example.coblaxexamlock.LowRamProfile
 import com.example.coblaxexamlock.MainActivity
 import com.example.coblaxexamlock.ReverseEngineeringGuard
+import com.example.coblaxexamlock.ReverseEngineeringResult
 import com.example.coblaxexamlock.ScreenPinningMode
 import com.example.coblaxexamlock.config.AlarmAcknowledgeDedupWindowMillis
 import com.example.coblaxexamlock.diagnosticLabel
@@ -30,12 +32,14 @@ import com.example.coblaxexamlock.format.buildIntegrityPublicSummary
 import com.example.coblaxexamlock.format.diagnosticTimestamp
 import com.example.coblaxexamlock.model.DiagnosticEventLevel
 import com.example.coblaxexamlock.model.NetworkTimelineEntry
+import com.example.coblaxexamlock.runtime.LowRamDispatchers
 import com.example.coblaxexamlock.readClipboardSnapshotFull
 import com.example.coblaxexamlock.readClipboardSnapshotLite
 import com.example.coblaxexamlock.runtime.sendTelegramAlarmAcknowledge
 import kotlinx.coroutines.CompletableDeferred
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.launch
+import kotlinx.coroutines.withContext
 
 internal class ExamRuntimeExitCleanupStateAccess(
     val requested: MutableState<Boolean>,
@@ -263,20 +267,7 @@ internal class ExamRuntimeMonitoringOps(
         examAlarmController.start()
     }
 
-    fun refreshReverseEngineeringStatus() {
-        val cachedResult = runtimeCacheState.reverseEngineeringRefreshCache.value
-        val result =
-            if (cachedResult != null && cachedResult.isFresh()) {
-                cachedResult.result
-            } else {
-                ReverseEngineeringGuard.inspect(context).also { refreshed ->
-                    runtimeCacheState.reverseEngineeringRefreshCache.value =
-                        RuntimeReverseEngineeringRefreshCache(
-                            result = refreshed,
-                            capturedAtElapsedMs = SystemClock.elapsedRealtime()
-                        )
-                }
-            }
+    private fun applyReverseEngineeringStatus(result: ReverseEngineeringResult) {
         securityUiState.tamperDetected.value = result.tamperDetected
         securityUiState.tamperSummary.value = result.summary()
         if (
@@ -295,27 +286,31 @@ internal class ExamRuntimeMonitoringOps(
         }
     }
 
-    fun refreshIntegrityGuard() {
-        val cachedResult = runtimeCacheState.integrityRefreshCache.value
-        val result =
-            if (
-                cachedResult != null &&
-                cachedResult.isFreshFor(securityUiState.integrityBaselineFingerprint.value)
-            ) {
-                cachedResult.result
-            } else {
-                IntegrityGuard.check(
-                    context,
-                    securityUiState.integrityBaselineFingerprint.value
-                ).also { refreshed ->
-                    runtimeCacheState.integrityRefreshCache.value =
-                        RuntimeIntegrityRefreshCache(
-                            result = refreshed,
-                            baselineFingerprint = securityUiState.integrityBaselineFingerprint.value,
-                            capturedAtElapsedMs = SystemClock.elapsedRealtime()
-                        )
-                }
+    fun refreshReverseEngineeringStatus() {
+        coroutineScope.launch {
+            refreshReverseEngineeringStatusOnDetector()
+        }
+    }
+
+    suspend fun refreshReverseEngineeringStatusOnDetector() {
+        val cachedResult = runtimeCacheState.reverseEngineeringRefreshCache.value
+        val result = if (cachedResult != null && cachedResult.isFresh()) {
+            cachedResult.result
+        } else {
+            withContext(LowRamDispatchers.detectorIo) {
+                ReverseEngineeringGuard.inspect(context)
+            }.also { refreshed ->
+                runtimeCacheState.reverseEngineeringRefreshCache.value =
+                    RuntimeReverseEngineeringRefreshCache(
+                        result = refreshed,
+                        capturedAtElapsedMs = SystemClock.elapsedRealtime()
+                    )
             }
+        }
+        applyReverseEngineeringStatus(result)
+    }
+
+    private fun applyIntegrityGuardStatus(result: IntegrityCheckResult) {
         if (
             securityUiState.integrityBaselineFingerprint.value.isNullOrBlank() &&
             result.currentFingerprint.isNotBlank() &&
@@ -362,6 +357,38 @@ internal class ExamRuntimeMonitoringOps(
         if (result.ok && securityUiState.integrityLastLoggedSummary.value != null) {
             securityUiState.integrityLastLoggedSummary.value = null
         }
+    }
+
+    fun refreshIntegrityGuard() {
+        coroutineScope.launch {
+            refreshIntegrityGuardOnDetector()
+        }
+    }
+
+    suspend fun refreshIntegrityGuardOnDetector() {
+        val baselineFingerprint = securityUiState.integrityBaselineFingerprint.value
+        val cachedResult = runtimeCacheState.integrityRefreshCache.value
+        val result = if (
+            cachedResult != null &&
+            cachedResult.isFreshFor(baselineFingerprint)
+        ) {
+            cachedResult.result
+        } else {
+            withContext(LowRamDispatchers.detectorIo) {
+                IntegrityGuard.check(
+                    context,
+                    baselineFingerprint
+                )
+            }.also { refreshed ->
+                runtimeCacheState.integrityRefreshCache.value =
+                    RuntimeIntegrityRefreshCache(
+                        result = refreshed,
+                        baselineFingerprint = baselineFingerprint,
+                        capturedAtElapsedMs = SystemClock.elapsedRealtime()
+                    )
+            }
+        }
+        applyIntegrityGuardStatus(result)
     }
 
     fun hideSystemKeyboard() {

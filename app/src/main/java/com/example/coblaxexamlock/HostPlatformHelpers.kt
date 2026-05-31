@@ -272,6 +272,25 @@ internal fun WebView.applyExamWebViewSettings(examUserAgent: String, lowRamProfi
         // Force media user gesture to prevent background auto-play resources
         mediaPlaybackRequiresUserGesture = true
 
+        // Security hardening: block local file and content access to prevent
+        // exploitation via file:// and content:// URIs.
+        allowFileAccess = false
+        allowContentAccess = false
+        @Suppress("DEPRECATION")
+        allowFileAccessFromFileURLs = false
+        @Suppress("DEPRECATION")
+        allowUniversalAccessFromFileURLs = false
+
+        // Exam pages have no legitimate need for browser-level geolocation.
+        // The app handles location separately through native APIs.
+        setGeolocationEnabled(false)
+
+        // Prevent autofill and form data persistence in the exam session.
+        @Suppress("DEPRECATION")
+        saveFormData = false
+        @Suppress("DEPRECATION")
+        savePassword = false
+
         // For Low-RAM and Ultra-RAM tiers, disable offscreen pre-rendering to optimize heap consumption
         if (lowRamProfile.enabled) {
             offscreenPreRaster = false

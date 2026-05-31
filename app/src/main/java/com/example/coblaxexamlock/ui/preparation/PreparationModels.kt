@@ -94,7 +94,13 @@ internal data class PreparationRuntimeSecurityState(
     val multiWindowDetected: Boolean,
     val multiWindowModeInfo: MultiWindowModeInfo,
     val staticSecurityInitialScanComplete: Boolean,
-    val tamperDetected: Boolean
+    val tamperDetected: Boolean,
+    val reverseEngineeringDetected: Boolean,
+    val reverseEngineeringSummary: String,
+    val reverseEngineeringBypassActive: Boolean,
+    val integrityDetected: Boolean,
+    val integritySummary: String,
+    val integrityBypassActive: Boolean
 )
 
 internal data class PreparationBypassState(
@@ -117,7 +123,9 @@ internal data class PreparationBypassState(
     val bypassAppSwitch: Boolean,
     val bypassScreenRecorder: Boolean,
     val bypassDisplayMirror: Boolean,
-    val bypassMultiWindow: Boolean
+    val bypassMultiWindow: Boolean,
+    val bypassReverseEngineering: Boolean,
+    val bypassApkIntegrity: Boolean
 )
 
 internal data class PreparationDiagnosticsState(

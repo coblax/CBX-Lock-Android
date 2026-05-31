@@ -116,8 +116,8 @@ android {
         applicationId = "com.example.coblaxexamlock"
         minSdk = 24
         targetSdk = 36
-        versionCode = 338
-        versionName = "3.2.18"
+        versionCode = 342
+        versionName = "3.2.22"
         ndk {
             abiFilters += listOf("arm64-v8a", "armeabi-v7a", "x86_64")
         }
@@ -153,6 +153,7 @@ android {
                 keyPassword = releaseKeyPassword
                 enableV2Signing = true
                 enableV3Signing = true
+                enableV4Signing = true
             }
         }
     }

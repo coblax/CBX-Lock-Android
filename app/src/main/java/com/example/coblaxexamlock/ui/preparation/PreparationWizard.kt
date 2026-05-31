@@ -102,9 +102,7 @@ internal fun PreparationWizardScreen(
             val lowRamProfile = LocalLowRamProfile.current
             val accessibilityInspection = remember(
                 context,
-                accessibilityServiceEnabled,
-                showChecklistDetails,
-                bypassAccessibility
+                accessibilityServiceEnabled
             ) {
                 inspectAccessibility(context)
             }

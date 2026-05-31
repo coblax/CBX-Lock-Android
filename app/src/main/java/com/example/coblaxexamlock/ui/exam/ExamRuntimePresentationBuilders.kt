@@ -43,6 +43,8 @@ internal fun resolveExamFooterShieldStatus(
     adbInspection: AdbInspection,
     bypassRoot: Boolean,
     rootSecurityStatus: RootSecurityStatus,
+    bypassReverseEngineering: Boolean,
+    bypassApkIntegrity: Boolean,
     bypassVirtualEnvironment: Boolean,
     virtualEnvironmentDetected: Boolean,
     bypassVpn: Boolean,
@@ -119,7 +121,9 @@ internal fun resolveExamFooterShieldStatus(
             bypassDeviceTime ||
             bypassOverlay ||
             bypassAppSwitch ||
-            bypassClipboard
+            bypassClipboard ||
+            bypassReverseEngineering ||
+            bypassApkIntegrity
     val historicalViolation =
         forcedExitViolationCount > 0 ||
             keyboardViolationCount > 0 ||

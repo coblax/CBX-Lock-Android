@@ -1,4 +1,4 @@
-﻿package com.example.coblaxexamlock.ui.admin
+package com.example.coblaxexamlock.ui.admin
 
 import android.Manifest
 import android.annotation.SuppressLint
@@ -255,6 +255,7 @@ import com.example.coblaxexamlock.model.withoutDirectLinkLocationPolicy
 import com.example.coblaxexamlock.parseGeofenceConfig
 import com.example.coblaxexamlock.parseStoredDateTime
 import com.example.coblaxexamlock.platform.openExternalUrl
+import com.example.coblaxexamlock.runtime.LowRamDispatchers
 import com.example.coblaxexamlock.runtime.getRootDetectionDetails
 import com.example.coblaxexamlock.runtime.hasFineLocationPermission
 import com.example.coblaxexamlock.runtime.hasLocationPermissionForWifi
@@ -697,12 +698,12 @@ internal fun SecretAdminScreen(
         healthChecking = true
         try {
             val integrityResult = debugMeasureSecretAdminSuspendWork("refreshSecurityHealth:integrity") {
-                withContext(Dispatchers.IO) {
+                withContext(LowRamDispatchers.detectorIo) {
                     IntegrityGuard.check(context, healthBaselineFingerprint)
                 }
             }
             val reverseResult = debugMeasureSecretAdminSuspendWork("refreshSecurityHealth:reverse") {
-                withContext(Dispatchers.IO) {
+                withContext(LowRamDispatchers.detectorIo) {
                     ReverseEngineeringGuard.inspect(context)
                 }
             }

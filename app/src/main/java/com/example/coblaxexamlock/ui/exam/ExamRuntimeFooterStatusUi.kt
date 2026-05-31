@@ -47,6 +47,7 @@ import androidx.compose.ui.unit.sp
 import com.example.coblaxexamlock.i18n.tr
 import com.example.coblaxexamlock.LocalLowRamProfile
 import com.example.coblaxexamlock.model.ExamBatteryStatus
+import com.example.coblaxexamlock.ui.performance.shouldRenderRuntimeAnimation
 import com.example.coblaxexamlock.ui.theme.LockGoldDark
 import com.example.coblaxexamlock.ui.theme.LockOutline
 import com.example.coblaxexamlock.ui.theme.LockStatusDanger
@@ -237,7 +238,8 @@ private fun SecurityShieldPill(
     val pillBorder = statusColor.copy(alpha = 0.45f)
 
     // Pulse animation for Danger state (disabled on low-RAM)
-    val animatePulse = shieldStatus == ExamFooterShieldStatus.Danger && !lowRam.enabled
+    val animatePulse = shieldStatus == ExamFooterShieldStatus.Danger &&
+        shouldRenderRuntimeAnimation(lowRam)
     val pulseScale by if (animatePulse) {
         rememberInfiniteTransition(label = "shield_pulse").animateFloat(
             initialValue = 1f,
@@ -312,7 +314,7 @@ private fun BatteryInfoPill(
     }
 
     // Charging blink animation (disabled on low-RAM)
-    val animateCharging = batteryStatus.isCharging && !lowRam.enabled
+    val animateCharging = batteryStatus.isCharging && shouldRenderRuntimeAnimation(lowRam)
     val chargingAlpha by if (animateCharging) {
         rememberInfiniteTransition(label = "battery_charge").animateFloat(
             initialValue = 0.6f,

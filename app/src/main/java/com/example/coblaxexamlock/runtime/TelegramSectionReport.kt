@@ -55,6 +55,12 @@ import java.util.Locale
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.withContext
 
+private data class TelegramSectionReportDelivery(
+    val token: String,
+    val chatId: String,
+    val chunks: List<String>
+)
+
 internal suspend fun sendTelegramSectionReport(
     context: Context,
     section: DiagnosticSection,
@@ -108,6 +114,14 @@ internal suspend fun sendTelegramSectionReport(
     bypassVpn: Boolean,
     vpnBypassTampered: Boolean,
     integritySummary: String,
+    reverseEngineeringDetected: Boolean = false,
+    reverseEngineeringBypass: Boolean = false,
+    reverseEngineeringBypassTampered: Boolean = false,
+    reverseEngineeringSignals: String = "-",
+    apkIntegrityDetected: Boolean = false,
+    apkIntegrityBypass: Boolean = false,
+    apkIntegrityBypassTampered: Boolean = false,
+    integrityIssues: String = "-",
     diagnosticEvents: List<DiagnosticEvent>,
     uiLanguage: UiLanguage,
     healthIntegrityResult: IntegrityCheckResult? = null,
@@ -138,8 +152,9 @@ internal suspend fun sendTelegramSectionReport(
     multiWindowViolationCount: Int = 0,
     multiWindowDialogActive: Boolean = false,
     compactReport: Boolean = false
-): Result<Unit> = withContext(LowRamDispatchers.detectorIo) {
-    runCatching {
+): Result<Unit> {
+    val deliveryResult = withContext(LowRamDispatchers.detectorIo) {
+        runCatching {
         val token = SecureStrings.telegramBotToken.trim()
         val chatId = SecureStrings.telegramBugChatId.trim()
 
@@ -217,6 +232,18 @@ internal suspend fun sendTelegramSectionReport(
             appendLine("OS: $osLabel")
             appendLine("Admin overrides: $adminOverridesSummary")
             appendLine("IntegrityGuard: ${integritySummary.ifBlank { "-" }}")
+            appendLine(
+                "Reverse engineering: detected=${telegramYesNo(reverseEngineeringDetected || healthReverseResult?.tamperDetected == true)} " +
+                    "bypass=${telegramYesNo(reverseEngineeringBypass)} " +
+                    "tampered=${telegramYesNo(reverseEngineeringBypassTampered)} " +
+                    "signals=${reverseEngineeringSignals.ifBlank { "-" }}"
+            )
+            appendLine(
+                "APK integrity: detected=${telegramYesNo(apkIntegrityDetected || healthIntegrityResult?.ok == false || integrityIssues.isNotBlank() && integrityIssues != "-")} " +
+                    "bypass=${telegramYesNo(apkIntegrityBypass)} " +
+                    "tampered=${telegramYesNo(apkIntegrityBypassTampered)} " +
+                    "issues=${integrityIssues.ifBlank { "-" }}"
+            )
             participantContext?.appendTelegramLines(this)
             appendLine()
 
@@ -331,14 +358,31 @@ internal suspend fun sendTelegramSectionReport(
             }
         }
 
-        val queue = TelegramMessageQueueHolder.instance
-        buildTelegramMessageChunks(message).forEach { chunk ->
-            queue.send(
+            TelegramSectionReportDelivery(
                 token = token,
                 chatId = chatId,
-                message = chunk
+                chunks = buildTelegramMessageChunks(message)
             )
         }
     }
+
+    return deliveryResult.fold(
+        onSuccess = { delivery ->
+            withContext(Dispatchers.IO) {
+                runCatching {
+                    val queue = TelegramMessageQueueHolder.instance
+                    delivery.chunks.forEach { chunk ->
+                        queue.send(
+                            token = delivery.token,
+                            chatId = delivery.chatId,
+                            message = chunk
+                        )
+                    }
+                }
+            }
+        },
+        onFailure = { throwable -> Result.failure(throwable) }
+    )
 }
 
+private fun telegramYesNo(value: Boolean): String = if (value) "Ya" else "Tidak"

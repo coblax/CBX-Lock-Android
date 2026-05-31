@@ -43,6 +43,8 @@ import com.example.coblaxexamlock.inspectAccessibility
 import com.example.coblaxexamlock.isExamGuardAccessibilityAvailable
 import com.example.coblaxexamlock.isExamGuardAccessibilityEnabled
 import com.example.coblaxexamlock.runtime.requiresBluetoothExamPermission
+import com.example.coblaxexamlock.ui.exam.formatApkIntegrityBlockReason
+import com.example.coblaxexamlock.ui.exam.formatReverseEngineeringBlockReason
 import com.example.coblaxexamlock.ui.theme.LockBackground
 import com.example.coblaxexamlock.ui.theme.LockBlueDeep
 import com.example.coblaxexamlock.ui.theme.LockGold
@@ -89,9 +91,7 @@ internal fun ExamSecurityPreparationScreenContent(
     val useLazyChecklistSectionText = lowRamProfile.enabled
     val accessibilityInspection = remember(
         context,
-        accessibilityServiceEnabled,
-        showChecklistDetails,
-        bypassAccessibility
+        accessibilityServiceEnabled
     ) {
         debugMeasurePreparationWork("inspectAccessibility") {
             inspectAccessibility(context)
@@ -576,16 +576,67 @@ internal fun ExamSecurityPreparationScreenContent(
                 }
             }
 
-            if (tamperDetected) {
-                item(key = "tamper_notice") {
+            if (state.runtimeSecurity.reverseEngineeringDetected) {
+                item(key = "reverse_engineering_notice") {
+                    val bypassActive = state.runtimeSecurity.reverseEngineeringBypassActive
                     PreparationNoticeCard(
-                        title = tr("Security Check Failed", "Pemeriksaan Keamanan Gagal"),
-                        message = tr(
-                            "Security checks failed. Close debugging or hooking tools and reopen the app.",
-                            "Pemeriksaan keamanan gagal. Tutup tool debugging/hooking lalu buka ulang aplikasi."
-                        ),
-                        accentColor = Color(0xFFB34A4A),
-                        backgroundColor = Color(0xFFFFEFEF)
+                        title = if (bypassActive) {
+                            tr(
+                                "Reverse Engineering Check Bypassed",
+                                "Cek Reverse Engineering Dilewati"
+                            )
+                        } else {
+                            tr(
+                                "Reverse Engineering Check Failed",
+                                "Cek Reverse Engineering Gagal"
+                            )
+                        },
+                        message = if (bypassActive) {
+                            tr(
+                                "Reason: ${formatReverseEngineeringBlockReason(state.runtimeSecurity.reverseEngineeringSummary)}\nDilewati oleh Secret Admin. Detection remains logged in diagnostics.",
+                                "Alasan: ${formatReverseEngineeringBlockReason(state.runtimeSecurity.reverseEngineeringSummary)}\nDilewati oleh Secret Admin. Deteksi tetap dicatat di diagnostik."
+                            )
+                        } else {
+                            tr(
+                                "Reason: ${formatReverseEngineeringBlockReason(state.runtimeSecurity.reverseEngineeringSummary)}\nClose debugger, tracer, hooking/root tools, then reopen the app.",
+                                "Alasan: ${formatReverseEngineeringBlockReason(state.runtimeSecurity.reverseEngineeringSummary)}\nTutup debugger, tracer, tool hooking/root, lalu buka ulang aplikasi."
+                            )
+                        },
+                        accentColor = if (bypassActive) LockGold else Color(0xFFB34A4A),
+                        backgroundColor = if (bypassActive) Color(0xFFFFF8E6) else Color(0xFFFFEFEF)
+                    )
+                }
+            }
+
+            if (state.runtimeSecurity.integrityDetected || state.device.signatureMismatchDetected) {
+                item(key = "apk_integrity_notice") {
+                    val bypassActive = state.runtimeSecurity.integrityBypassActive
+                    val integritySummary = state.runtimeSecurity.integritySummary
+                        .takeIf { it.isNotBlank() && it != "-" }
+                        ?: if (state.device.signatureMismatchDetected) {
+                            "signature_changed"
+                        } else {
+                            "-"
+                        }
+                    PreparationNoticeCard(
+                        title = if (bypassActive) {
+                            tr("APK Integrity Check Bypassed", "Cek Integritas APK Dilewati")
+                        } else {
+                            tr("APK Integrity Check Failed", "Cek Integritas APK Gagal")
+                        },
+                        message = if (bypassActive) {
+                            tr(
+                                "Reason: ${formatApkIntegrityBlockReason(integritySummary)}\nDilewati oleh Secret Admin. Detection remains logged in diagnostics.",
+                                "Alasan: ${formatApkIntegrityBlockReason(integritySummary)}\nDilewati oleh Secret Admin. Deteksi tetap dicatat di diagnostik."
+                            )
+                        } else {
+                            tr(
+                                "Reason: ${formatApkIntegrityBlockReason(integritySummary)}\nReinstall the official APK, then reopen the app.",
+                                "Alasan: ${formatApkIntegrityBlockReason(integritySummary)}\nInstal ulang APK resmi, lalu buka ulang aplikasi."
+                            )
+                        },
+                        accentColor = if (bypassActive) LockGold else Color(0xFFB34A4A),
+                        backgroundColor = if (bypassActive) Color(0xFFFFF8E6) else Color(0xFFFFEFEF)
                     )
                 }
             }
@@ -643,4 +694,3 @@ internal fun ExamSecurityPreparationScreenContent(
         }
     }
 }
-

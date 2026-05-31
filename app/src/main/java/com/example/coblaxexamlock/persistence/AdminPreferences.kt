@@ -81,6 +81,9 @@ internal fun Context.readAdminSettings(): AdminSettings {
     val screenRecorderBypassResolution = bypassSnapshot.resolveCritical(GateKeys.ScreenRecorder)
     val displayMirrorBypassResolution = bypassSnapshot.resolveCritical(GateKeys.DisplayMirror)
     val multiWindowBypassResolution = bypassSnapshot.resolveCritical(GateKeys.MultiWindow)
+    val reverseEngineeringBypassResolution =
+        bypassSnapshot.resolveCritical(GateKeys.ReverseEngineering)
+    val apkIntegrityBypassResolution = bypassSnapshot.resolveCritical(GateKeys.ApkIntegrity)
     return AdminSettings(
         fastExamUrl = preferences.getString(
             AdminKeyFastExamUrl,
@@ -152,6 +155,10 @@ internal fun Context.readAdminSettings(): AdminSettings {
         displayMirrorBypassTampered = displayMirrorBypassResolution.tampered,
         bypassMultiWindow = multiWindowBypassResolution.enabled,
         multiWindowBypassTampered = multiWindowBypassResolution.tampered,
+        bypassReverseEngineering = reverseEngineeringBypassResolution.enabled,
+        reverseEngineeringBypassTampered = reverseEngineeringBypassResolution.tampered,
+        bypassApkIntegrity = apkIntegrityBypassResolution.enabled,
+        apkIntegrityBypassTampered = apkIntegrityBypassResolution.tampered,
         showChecklistDetails = preferences.getBoolean(AdminKeyShowChecklistDetails, false),
         bypassMigrationResetNotice = bypassSnapshot.migrationResetNotice
     )

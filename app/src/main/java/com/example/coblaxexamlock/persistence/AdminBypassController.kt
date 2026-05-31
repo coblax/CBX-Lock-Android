@@ -32,7 +32,9 @@ internal object AdminBypassController {
             GateKeys.DeviceTime.id to settings.bypassDeviceTime,
             GateKeys.ScreenRecorder.id to settings.bypassScreenRecorder,
             GateKeys.DisplayMirror.id to settings.bypassDisplayMirror,
-            GateKeys.MultiWindow.id to settings.bypassMultiWindow
+            GateKeys.MultiWindow.id to settings.bypassMultiWindow,
+            GateKeys.ReverseEngineering.id to settings.bypassReverseEngineering,
+            GateKeys.ApkIntegrity.id to settings.bypassApkIntegrity
         )
         return BypassStorageRepository.writeAllStates(context, gateStates)
     }
