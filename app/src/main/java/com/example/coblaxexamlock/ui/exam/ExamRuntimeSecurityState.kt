@@ -25,6 +25,7 @@ import com.example.coblaxexamlock.LocationSpoofSecurityStatus
 import com.example.coblaxexamlock.RootSecurityStatus
 import com.example.coblaxexamlock.runtime.ExternalDisplayInfo
 import com.example.coblaxexamlock.runtime.MultiWindowModeInfo
+import com.example.coblaxexamlock.runtime.OverlayAppInfo
 import com.example.coblaxexamlock.runtime.getCachedVirtualEnvironmentDiagnostics
 import com.example.coblaxexamlock.runtime.hasBluetoothExamPermission
 import com.example.coblaxexamlock.runtime.hasFineLocationPermission
@@ -87,6 +88,9 @@ internal class ExamRuntimeSecurityUiState(
     val multiWindowModeInfo: MutableState<MultiWindowModeInfo>,
     val multiWindowViolationCount: MutableIntState,
     val showMultiWindowViolationDialog: MutableState<Boolean>,
+    val overlayAppsDetected: MutableState<List<OverlayAppInfo>>,
+    val overlayAppViolationCount: MutableIntState,
+    val showOverlayAppViolationDialog: MutableState<Boolean>,
     val geofenceEvaluation: MutableState<GeofenceEvaluation>,
     val geofenceSecurityStatus: MutableState<GeofenceSecurityStatus>,
     val fakeLocationSecurityStatus: MutableState<LocationSpoofSecurityStatus>
@@ -177,6 +181,9 @@ internal fun rememberExamRuntimeSecurityUiState(
     }
     val multiWindowViolationCount = rememberSaveable { mutableIntStateOf(0) }
     val showMultiWindowViolationDialog = rememberSaveable { mutableStateOf(false) }
+    val overlayAppsDetected = remember { mutableStateOf(emptyList<OverlayAppInfo>()) }
+    val overlayAppViolationCount = rememberSaveable { mutableIntStateOf(0) }
+    val showOverlayAppViolationDialog = rememberSaveable { mutableStateOf(false) }
     val initialGeofenceEvaluation = remember(
         geofenceConfigParseResult,
         context
@@ -287,6 +294,9 @@ internal fun rememberExamRuntimeSecurityUiState(
         multiWindowModeInfo = multiWindowModeInfo,
         multiWindowViolationCount = multiWindowViolationCount,
         showMultiWindowViolationDialog = showMultiWindowViolationDialog,
+        overlayAppsDetected = overlayAppsDetected,
+        overlayAppViolationCount = overlayAppViolationCount,
+        showOverlayAppViolationDialog = showOverlayAppViolationDialog,
         geofenceEvaluation = geofenceEvaluation,
         geofenceSecurityStatus = geofenceSecurityStatus,
         fakeLocationSecurityStatus = fakeLocationSecurityStatus

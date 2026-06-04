@@ -345,8 +345,8 @@ internal fun CustomQrAdminScreen(
         "Konfigurasi geofence tidak valid. Latitude harus -90..90, longitude -180..180, dan radius harus lebih dari 0."
     )
     val invalidExamUrlMessage = tr(
-        "Exam URL must start with http:// or https:// and include a domain.",
-        "URL ujian harus diawali http:// atau https:// dan memiliki domain."
+        "Exam URL must start with https:// and include a domain.",
+        "URL ujian harus diawali https:// dan memiliki domain."
     )
     var activePickerField by remember { mutableStateOf<DateTimeField?>(null) }
     var isTimePickerVisible by remember { mutableStateOf(false) }

@@ -35,7 +35,8 @@ class DeviceCompatibilityProfileTest {
 
         assertEquals(DeviceCompatibilityFamily.SamsungModern, profile.family)
         assertFalse(profile.samsungLegacyTablet)
-        assertFalse(profile.allowPartialObscuredWebViewTouch)
+        assertTrue(profile.allowPartialObscuredWebViewTouch)
+        assertEquals(1_500L, profile.overlayFocusLossConfirmWindowMillis)
     }
 
     @Test

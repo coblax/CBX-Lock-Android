@@ -17,6 +17,7 @@ import com.example.coblaxexamlock.runtime.ExternalDisplayInfo
 import com.example.coblaxexamlock.runtime.ExternalDisplaySnapshot
 import com.example.coblaxexamlock.runtime.LowRamDispatchers
 import com.example.coblaxexamlock.runtime.MultiWindowModeInfo
+import com.example.coblaxexamlock.runtime.OverlayAppInfo
 import com.example.coblaxexamlock.runtime.SecurityDetectorCache
 import com.example.coblaxexamlock.runtime.readMultiWindowModeInfo
 import kotlinx.coroutines.delay
@@ -26,6 +27,9 @@ private const val RuntimeFastStaticSecurityPollIntervalMillis = 2_000L
 private const val RuntimeScreenRecorderPollIntervalMillis = 15_000L
 private const val RuntimeLowScreenRecorderPollIntervalMillis = 30_000L
 private const val RuntimeUltraScreenRecorderPollIntervalMillis = 45_000L
+private const val RuntimeOverlayAppPollIntervalMillis = 15_000L
+private const val RuntimeLowOverlayAppPollIntervalMillis = 30_000L
+private const val RuntimeUltraOverlayAppPollIntervalMillis = 45_000L
 
 internal fun runtimeFastStaticSecurityPollIntervalMillis(lowRamProfile: LowRamProfile): Long =
     RuntimeFastStaticSecurityPollIntervalMillis * lowRamProfile.slowPollingMultiplier
@@ -35,6 +39,13 @@ internal fun runtimeScreenRecorderPollIntervalMillis(lowRamProfile: LowRamProfil
         lowRamProfile.ultra -> RuntimeUltraScreenRecorderPollIntervalMillis
         lowRamProfile.enabled -> RuntimeLowScreenRecorderPollIntervalMillis
         else -> RuntimeScreenRecorderPollIntervalMillis
+    }
+
+internal fun runtimeOverlayAppPollIntervalMillis(lowRamProfile: LowRamProfile): Long =
+    when {
+        lowRamProfile.ultra -> RuntimeUltraOverlayAppPollIntervalMillis
+        lowRamProfile.enabled -> RuntimeLowOverlayAppPollIntervalMillis
+        else -> RuntimeOverlayAppPollIntervalMillis
     }
 
 internal data class RuntimeStaticSecurityUiMessage(
@@ -47,7 +58,8 @@ internal data class InitialStaticSecuritySnapshot(
     val rootSecurityStatus: RootSecurityStatus,
     val screenRecorderPackages: List<String>,
     val externalDisplaySnapshot: ExternalDisplaySnapshot,
-    val suspiciousFakeLocationPackages: List<String>
+    val suspiciousFakeLocationPackages: List<String>,
+    val overlayApps: List<OverlayAppInfo>
 )
 
 internal data class RuntimeFastStaticSecuritySnapshot(
@@ -100,7 +112,11 @@ internal suspend fun readInitialStaticSecuritySnapshotOnIo(
         suspiciousFakeLocationPackages = SecurityDetectorCache.readSuspiciousFakeLocationPackages(
             context = appContext,
             forceRefresh = forceRefresh
-        )
+        ),
+        overlayApps = SecurityDetectorCache.readOverlayApps(
+            context = appContext,
+            forceRefresh = forceRefresh
+        ).packagesWithOverlayPermission
     )
 }
 
@@ -120,6 +136,7 @@ internal fun applyInitialStaticSecuritySnapshot(
     securityUiState.externalDisplayCount.setIfChanged(snapshot.externalDisplaySnapshot.count)
     securityUiState.externalDisplayInfoList.setIfChanged(snapshot.externalDisplaySnapshot.infoList)
     securityUiState.externalDisplayDetected.setIfChanged(snapshot.externalDisplaySnapshot.detected)
+    securityUiState.overlayAppsDetected.setIfChanged(snapshot.overlayApps)
     securityUiState.fakeLocationSecurityStatus.setIfChanged(
         evaluateFakeLocationSecurity(
             monitoringEnabled = true,
@@ -212,6 +229,7 @@ internal fun RuntimeStaticSecurityEffects(
     bypassScreenRecorder: Boolean,
     bypassDisplayMirror: Boolean,
     bypassMultiWindow: Boolean,
+    bypassOverlay: Boolean,
     packageInventoryChangeNonce: Int,
     securityUiState: ExamRuntimeSecurityUiState,
     recordAction: (String, String, DiagnosticEventLevel) -> Unit,
@@ -291,6 +309,43 @@ internal fun RuntimeStaticSecurityEffects(
             refreshRuntimeScreenRecorder(
                 trigger = "package_inventory_changed",
                 forceRefresh = true
+            )
+        }
+    }
+
+    LaunchedEffect(
+        examSessionStarted,
+        bypassOverlay,
+        initialScanComplete,
+        lowRamProfile,
+        packageInventoryChangeNonce
+    ) {
+        if (!initialScanComplete) {
+            return@LaunchedEffect
+        }
+        refreshRuntimeOverlayAppState(
+            context = context,
+            examSessionStarted = examSessionStarted,
+            bypassOverlay = bypassOverlay,
+            securityUiState = securityUiState,
+            trigger = "overlay_app_effect_start",
+            recordAction = recordAction,
+            startAlarm = startAlarm,
+            forceRefresh = packageInventoryChangeNonce > 0
+        )
+        if (!examSessionStarted) {
+            return@LaunchedEffect
+        }
+        while (true) {
+            delay(runtimeOverlayAppPollIntervalMillis(lowRamProfile))
+            refreshRuntimeOverlayAppState(
+                context = context,
+                examSessionStarted = examSessionStarted,
+                bypassOverlay = bypassOverlay,
+                securityUiState = securityUiState,
+                trigger = "runtime_overlay_app_poll",
+                recordAction = recordAction,
+                startAlarm = startAlarm
             )
         }
     }
@@ -561,6 +616,75 @@ internal fun resolveRuntimeStaticSecurityUiMessage(
                 title = "Split-Screen Aktif",
                 message = "Aplikasi ujian berada di mode split-screen atau picture-in-picture. Kembali ke mode satu aplikasi, lalu refresh status keamanan."
             )
+        securityUiState.showOverlayAppViolationDialog.value -> {
+            val apps = securityUiState.overlayAppsDetected.value
+            val appNames = apps.joinToString(", ") { it.appLabel }
+            RuntimeStaticSecurityUiMessage(
+                key = "overlay_app_permission",
+                title = "Aplikasi Overlay (Appear on Top) Terdeteksi",
+                message = "Aplikasi dengan izin 'Tampilkan di Atas Aplikasi Lain' terdeteksi aktif saat ujian: $appNames.\n\nMatikan izin overlay untuk semua app tersebut melalui Pengaturan, lalu refresh status keamanan."
+            )
+        }
         else -> null
+    }
+}
+
+internal fun refreshRuntimeOverlayAppState(
+    context: Context,
+    examSessionStarted: Boolean,
+    bypassOverlay: Boolean,
+    securityUiState: ExamRuntimeSecurityUiState,
+    trigger: String,
+    recordAction: (String, String, DiagnosticEventLevel) -> Unit,
+    startAlarm: () -> Unit,
+    forceRefresh: Boolean = false
+) {
+    val previousOverlayApps = securityUiState.overlayAppsDetected.value
+    val previousHadOverlayApps = previousOverlayApps.isNotEmpty()
+
+    val latestScanResult = SecurityDetectorCache.readOverlayApps(
+        context = context,
+        forceRefresh = forceRefresh
+    )
+    val latestOverlayApps = latestScanResult.packagesWithOverlayPermission
+    val latestHasOverlayApps = latestOverlayApps.isNotEmpty()
+
+    securityUiState.overlayAppsDetected.value = latestOverlayApps
+
+    fun boolLabel(value: Boolean): String = if (value) "yes" else "no"
+    fun overlayAppDetails(): String =
+        "trigger=$trigger | count=${latestScanResult.totalCount} | " +
+            "packages=${latestOverlayApps.joinToString { it.packageName }.ifBlank { "-" }} | " +
+            "bypass=${boolLabel(bypassOverlay)}"
+
+    if (!examSessionStarted) {
+        securityUiState.showOverlayAppViolationDialog.value = false
+        return
+    }
+
+    when {
+        latestHasOverlayApps && !bypassOverlay -> {
+            if (!securityUiState.showOverlayAppViolationDialog.value) {
+                securityUiState.overlayAppViolationCount.intValue += 1
+                recordAction(
+                    ExamRuntimeHardeningDiagnostics.OverlayAppPermissionDetected,
+                    overlayAppDetails(),
+                    DiagnosticEventLevel.SECURITY
+                )
+            }
+            securityUiState.showOverlayAppViolationDialog.value = true
+            if (!previousHadOverlayApps) {
+                startAlarm()
+            }
+        }
+        previousHadOverlayApps && !latestHasOverlayApps -> {
+            recordAction(
+                ExamRuntimeHardeningDiagnostics.OverlayAppPermissionCleared,
+                overlayAppDetails(),
+                DiagnosticEventLevel.INFO
+            )
+            securityUiState.showOverlayAppViolationDialog.value = false
+        }
+        else -> securityUiState.showOverlayAppViolationDialog.value = false
     }
 }

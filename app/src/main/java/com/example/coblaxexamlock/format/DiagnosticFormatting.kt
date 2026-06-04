@@ -105,6 +105,10 @@ internal fun diagnosticSectionEventCodes(section: DiagnosticSection): Set<String
             "VPN_SETTINGS_OPENED",
             "VPN_BYPASS_TAMPER_DETECTED",
             "START_EXAM_BLOCKED_VPN",
+            "START_EXAM_BLOCKED_NETWORK_REACHABILITY",
+            "EXAM_SERVER_PROBE_ONLINE",
+            "EXAM_SERVER_PROBE_WARNING",
+            "EXAM_SERVER_PROBE_OFFLINE",
             "INTERNET_SETTINGS_OPENED",
             "WIFI_SETTINGS_OPENED",
             "CELLULAR_SETTINGS_OPENED",
@@ -128,7 +132,11 @@ internal fun diagnosticSectionEventCodes(section: DiagnosticSection): Set<String
             "OVERLAY_SHIELD_UNSUPPORTED",
             "OVERLAY_SETTINGS_OPENED",
             "OVERLAY_ACCESSIBILITY_SETTINGS_OPENED",
-            "OVERLAY_BYPASS_TAMPER_DETECTED"
+            "OVERLAY_BYPASS_TAMPER_DETECTED",
+            "DPC_STATUS_RESOLVED",
+            "DPC_CREATE_WINDOWS_RESTRICTION_APPLIED",
+            "DPC_CREATE_WINDOWS_RESTRICTION_UNSUPPORTED",
+            "DPC_CREATE_WINDOWS_RESTRICTION_CLEARED"
         )
         DiagnosticSection.Geofence -> setOf(
             "LOCATION_PERMISSION_REQUESTED",
@@ -212,7 +220,9 @@ internal fun diagnosticSectionEventCodes(section: DiagnosticSection): Set<String
             "SCREEN_PINNING_BYPASS_TAMPER_DETECTED",
             "SCREEN_PINNING_TRANSIENT_LOSS_RECHECK",
             "SCREEN_PINNING_LOST_DURING_EXAM",
-            "START_EXAM_BLOCKED_SCREEN_PINNING_UNAVAILABLE"
+            "START_EXAM_BLOCKED_SCREEN_PINNING_UNAVAILABLE",
+            "DPC_STATUS_RESOLVED",
+            "DPC_LOCK_TASK_ALLOWLIST_APPLIED"
         )
         DiagnosticSection.DeviceTime -> setOf(
             "DEVICE_TIME_AUTO_DISABLED",

@@ -11,7 +11,9 @@ import android.util.AttributeSet
 import android.view.MotionEvent
 import android.webkit.JavascriptInterface
 import android.webkit.ValueCallback
+import android.webkit.WebSettings
 import android.webkit.WebView
+import com.example.coblaxexamlock.config.DefaultExamUserAgent
 import java.util.concurrent.CountDownLatch
 import java.util.concurrent.TimeUnit
 
@@ -32,6 +34,7 @@ internal class SecureExamWebView @JvmOverloads constructor(
     private val onObscuredTouchDetected: (ExamOverlayTouchSignal) -> Boolean = { true }
 ) : WebView(context, attrs, defStyleAttr) {
     var requestedExamUrl: String? = null
+    private val pendingConnectionRetryCallbacks = mutableSetOf<Runnable>()
 
     init {
         filterTouchesWhenObscured = true
@@ -66,17 +69,59 @@ internal class SecureExamWebView @JvmOverloads constructor(
     override fun performClick(): Boolean {
         return super.performClick()
     }
+
+    fun postConnectionRetry(delayMillis: Long, retryUrl: String) {
+        cancelPendingConnectionRetries()
+        var callback: Runnable? = null
+        callback = Runnable {
+            pendingConnectionRetryCallbacks.remove(callback)
+            if (!isAttachedToWindow) {
+                return@Runnable
+            }
+            runCatching {
+                loadExamUrlSafely(retryUrl)
+                requestedExamUrl = retryUrl
+            }
+        }
+        pendingConnectionRetryCallbacks += callback
+        postDelayed(callback, delayMillis)
+    }
+
+    fun cancelPendingConnectionRetries() {
+        pendingConnectionRetryCallbacks.forEach(::removeCallbacks)
+        pendingConnectionRetryCallbacks.clear()
+    }
+
+    override fun onDetachedFromWindow() {
+        cancelPendingConnectionRetries()
+        super.onDetachedFromWindow()
+    }
+
+    override fun destroy() {
+        cancelPendingConnectionRetries()
+        super.destroy()
+    }
 }
+
+internal fun resolveExamWebViewRetryUrl(
+    requestedExamUrl: String?,
+    fallbackExamUrl: String
+): String = requestedExamUrl?.takeIf { it.isNotBlank() } ?: fallbackExamUrl
 
 internal class ExamKeyboardBridge(
     private val onEditableFocusChangedCallback: (Boolean) -> Unit
 ) {
     private val mainHandler = Handler(Looper.getMainLooper())
+    private var lastFocused: Boolean? = null
 
     @Suppress("unused")
     @JavascriptInterface
     fun onEditableFocusChanged(focused: Boolean) {
         mainHandler.post {
+            if (lastFocused == focused) {
+                return@post
+            }
+            lastFocused = focused
             onEditableFocusChangedCallback(focused)
         }
     }
@@ -144,7 +189,11 @@ internal fun WebView.loadExamUrlSafely(url: String): Boolean {
 
 internal fun WebView.updateExamUserAgentSafely(userAgent: String): Boolean {
     return runCatching {
-        settings.userAgentString = userAgent
+        settings.userAgentString = if (userAgent == DefaultExamUserAgent) {
+            WebSettings.getDefaultUserAgent(context)
+        } else {
+            userAgent
+        }
         true
     }.getOrDefault(false)
 }

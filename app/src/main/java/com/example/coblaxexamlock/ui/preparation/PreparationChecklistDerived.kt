@@ -92,9 +92,9 @@ internal fun buildPreparationChecklistReadiness(
             (!location.fakeLocationRuntimeStatus.securityStatus.blocking &&
                 !(location.fakeLocationRuntimeStatus.securityStatus.warningOnly &&
                     location.fakeLocationRuntimeStatus.securityStatus.developerOptionsEnabled))
-    val overlayReady = bypass.bypassOverlay || !runtimeSecurity.overlayRiskResult.hasAnyRisk
+    val overlayReady = bypass.bypassOverlay || !runtimeSecurity.overlayRiskResult.hasBlockingRisk
     val overlayBlockingReady =
-        bypass.bypassOverlay || !runtimeSecurity.overlayRiskResult.confirmedInteractionDetected
+        bypass.bypassOverlay || !runtimeSecurity.overlayRiskResult.hasBlockingRisk
     val accessibilityGuardReady = !accessibilityGuardRequired || accessibilityGuardEnabled
     val screenPinningReady = resolvePreparationScreenPinningReady(
         bypassScreenPinning = bypass.bypassScreenPinning,

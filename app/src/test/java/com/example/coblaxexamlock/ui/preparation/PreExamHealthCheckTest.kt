@@ -4,6 +4,8 @@ import com.example.coblaxexamlock.DeviceCompatibilityProfile
 import com.example.coblaxexamlock.DeviceTimeBypassState
 import com.example.coblaxexamlock.DeviceTimeSecurityStatus
 import com.example.coblaxexamlock.DeviceTimeSecurityVerdict
+import com.example.coblaxexamlock.DpcProtectionTier
+import com.example.coblaxexamlock.DpcRuntimeStatus
 import com.example.coblaxexamlock.FakeLocationRuntimeStatus
 import com.example.coblaxexamlock.GeofenceEvaluation
 import com.example.coblaxexamlock.GeofenceRuntimeStatus
@@ -21,6 +23,7 @@ import com.example.coblaxexamlock.OverlayQuickFixTarget
 import com.example.coblaxexamlock.OverlayRiskResult
 import com.example.coblaxexamlock.OverlayShieldStatus
 import com.example.coblaxexamlock.OverlaySignal
+import com.example.coblaxexamlock.defaultDpcRuntimeStatus
 import com.example.coblaxexamlock.resolveWebViewCompatibilityStatus
 import com.example.coblaxexamlock.model.ExamBatteryStatus
 import com.example.coblaxexamlock.model.ExamNetworkStatus
@@ -200,6 +203,100 @@ class PreExamHealthCheckTest {
         )
     }
 
+    @Test
+    fun android7NormalApkWarnsThatFloatingAppsCannotBeFullyBlocked() {
+        val snapshot = buildPreExamHealthSnapshot(
+            defaultInput(
+                overlayRiskResult = defaultOverlayRisk(shieldSupported = false),
+                dpcRuntimeStatus = defaultDpcRuntimeStatus(
+                    sdkInt = 24,
+                    overlayShieldSupported = false
+                )
+            )
+        )
+
+        val overlay = snapshot.items.first { it.category == PreExamHealthCategory.FloatingAppOverlay }
+        assertEquals(PreExamHealthVerdict.Warning, overlay.verdict)
+        assertTrue(overlay.detail.contains("Legacy Android"))
+        assertTrue(overlay.detail.contains("not recommended", ignoreCase = true))
+    }
+
+    @Test
+    fun android11NormalApkWarnsThatFloatingAppsCannotBeFullyBlocked() {
+        val snapshot = buildPreExamHealthSnapshot(
+            defaultInput(
+                overlayRiskResult = defaultOverlayRisk(shieldSupported = false),
+                dpcRuntimeStatus = defaultDpcRuntimeStatus(
+                    sdkInt = 30,
+                    overlayShieldSupported = false
+                )
+            )
+        )
+
+        val overlay = snapshot.items.first { it.category == PreExamHealthCategory.FloatingAppOverlay }
+        assertEquals(PreExamHealthVerdict.Warning, overlay.verdict)
+        assertTrue(overlay.detail.contains("Legacy Android"))
+        assertTrue(overlay.detail.contains("not recommended", ignoreCase = true))
+    }
+
+    @Test
+    fun android7DeviceOwnerWarnsWithLegacyLimitationInsteadOfClaimingFullOverlayBlock() {
+        val snapshot = buildPreExamHealthSnapshot(
+            defaultInput(
+                overlayRiskResult = defaultOverlayRisk(shieldSupported = false),
+                dpcRuntimeStatus = DpcRuntimeStatus(
+                    deviceOwner = true,
+                    adminActive = true,
+                    lockTaskPermitted = true,
+                    createWindowsRestrictionSupported = false,
+                    createWindowsRestrictionActive = false,
+                    protectionTier = DpcProtectionTier.LegacyDpcAndroid7
+                )
+            )
+        )
+
+        val overlay = snapshot.items.first { it.category == PreExamHealthCategory.FloatingAppOverlay }
+        assertEquals(PreExamHealthVerdict.Warning, overlay.verdict)
+        assertTrue(overlay.detail.contains("legacy limitation", ignoreCase = true))
+        assertTrue(overlay.detail.contains("createWindowsSupported=no"))
+    }
+
+    @Test
+    fun android12NormalApkKeepsOverlayReadinessStableWithShieldTier() {
+        val snapshot = buildPreExamHealthSnapshot(
+            defaultInput(
+                dpcRuntimeStatus = defaultDpcRuntimeStatus(
+                    sdkInt = 31,
+                    overlayShieldSupported = true
+                )
+            )
+        )
+
+        val overlay = snapshot.items.first { it.category == PreExamHealthCategory.FloatingAppOverlay }
+        assertEquals(PreExamHealthVerdict.Stable, overlay.verdict)
+        assertTrue(overlay.detail.contains("tier=normal_apk"))
+    }
+
+    @Test
+    fun supportedShieldApplyFailureWarnsInsteadOfReportingGood() {
+        val snapshot = buildPreExamHealthSnapshot(
+            defaultInput(
+                overlayRiskResult = defaultOverlayRisk(
+                    shieldSupported = true,
+                    shieldLastApplySucceeded = false
+                ),
+                dpcRuntimeStatus = defaultDpcRuntimeStatus(
+                    sdkInt = 31,
+                    overlayShieldSupported = true
+                )
+            )
+        )
+
+        val overlay = snapshot.items.first { it.category == PreExamHealthCategory.FloatingAppOverlay }
+        assertEquals(PreExamHealthVerdict.Warning, overlay.verdict)
+        assertTrue(overlay.detail.contains("failed to apply", ignoreCase = true))
+    }
+
     private fun defaultInput(
         screenPinningAvailable: Boolean = true,
         screenPinningActive: Boolean = screenPinningAvailable,
@@ -212,7 +309,8 @@ class PreExamHealthCheckTest {
             resolveWebViewCompatibilityStatus(
                 packageName = "com.android.webview",
                 versionName = "120.0.0.0"
-            )
+            ),
+        dpcRuntimeStatus: DpcRuntimeStatus = defaultDpcRuntimeStatus()
     ): PreExamHealthCheckInput {
         return PreExamHealthCheckInput(
             compatibilityProfile = DeviceCompatibilityProfile(),
@@ -235,12 +333,15 @@ class PreExamHealthCheckTest {
             fakeLocationBypassed = false,
             deviceTimeSecurityStatus = defaultDeviceTimeStatus(),
             deviceTimeBypassed = false,
-            batteryStatus = ExamBatteryStatus(levelPercent = 80, isCharging = true)
+            batteryStatus = ExamBatteryStatus(levelPercent = 80, isCharging = true),
+            dpcRuntimeStatus = dpcRuntimeStatus
         )
     }
 
     private fun defaultOverlayRisk(
-        confirmedInteractionDetected: Boolean = false
+        confirmedInteractionDetected: Boolean = false,
+        shieldSupported: Boolean = true,
+        shieldLastApplySucceeded: Boolean? = if (shieldSupported) true else null
     ): OverlayRiskResult {
         return OverlayRiskResult(
             bypassed = false,
@@ -256,9 +357,9 @@ class PreExamHealthCheckTest {
                 emptySet()
             },
             shieldStatus = OverlayShieldStatus(
-                supported = true,
-                requested = true,
-                lastApplySucceeded = true,
+                supported = shieldSupported,
+                requested = shieldSupported,
+                lastApplySucceeded = shieldLastApplySucceeded,
                 lastApplyAt = null
             ),
             lastTrigger = null,

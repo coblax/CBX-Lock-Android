@@ -1,13 +1,11 @@
 package com.example.coblaxexamlock.ui.exam
 
 import android.content.Context
-import android.content.ComponentCallbacks2
 import android.os.SystemClock
 import com.example.coblaxexamlock.ActivityLockTaskBridge
 import com.example.coblaxexamlock.clearExamWebViewSessionData
 import com.example.coblaxexamlock.ClipboardChangeDecision
 import com.example.coblaxexamlock.LowRamProfile
-import com.example.coblaxexamlock.MemoryPressureCoordinator
 import com.example.coblaxexamlock.diagnosticLabel
 import com.example.coblaxexamlock.i18n.localized
 import com.example.coblaxexamlock.model.DiagnosticEventLevel
@@ -36,10 +34,8 @@ internal fun finalizeStartExamSession(
     flowUiState: ExamRuntimeFlowUiState,
     adminUiState: ExamRuntimeAdminUiState,
     clipboardUiState: ExamRuntimeClipboardUiState,
-    lowRamProfile: LowRamProfile,
     lockTaskAlreadyActive: Boolean,
-    hideSystemKeyboard: () -> Unit,
-    showSystemKeyboard: () -> Unit
+    hideSystemKeyboard: () -> Unit
 ) {
     flowUiState.webViewSessionResetError.value = null
     adminUiState.examSessionStartedAtElapsedMs.value = SystemClock.elapsedRealtime()
@@ -66,12 +62,8 @@ internal fun finalizeStartExamSession(
         hideSystemKeyboard()
     } else {
         flowUiState.showBuiltInExamKeyboard.value = false
-        showSystemKeyboard()
     }
     flowUiState.sideArrowControlsVisible.value = true
-    if (lowRamProfile.ultra) {
-        MemoryPressureCoordinator.dispatchTrimMemory(ComponentCallbacks2.TRIM_MEMORY_UI_HIDDEN)
-    }
 }
 
 internal suspend fun prepareCleanExamWebViewSessionForStart(

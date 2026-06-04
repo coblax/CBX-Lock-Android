@@ -2,10 +2,12 @@ package com.example.coblaxexamlock.ui.exam
 
 import android.content.Context
 import android.graphics.Bitmap
+import android.net.http.SslError
 import android.os.Build
 import android.view.View
 import android.view.ViewGroup
 import android.webkit.RenderProcessGoneDetail
+import android.webkit.SslErrorHandler
 import android.webkit.WebChromeClient
 import android.webkit.WebResourceError
 import android.webkit.WebResourceRequest
@@ -144,12 +146,11 @@ private fun ExamRuntimeSessionMainContent(
                         installExamNativeFullscreenDocumentStartScriptIfSupported()
                         if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O) {
                             runCatching {
-                                val priority = if (lowRamProfile.ultra) {
-                                    WebView.RENDERER_PRIORITY_BOUND
-                                } else {
-                                    WebView.RENDERER_PRIORITY_IMPORTANT
-                                }
-                                setRendererPriorityPolicy(priority, true)
+                                val policy = resolveExamWebViewRendererPriorityPolicy()
+                                setRendererPriorityPolicy(
+                                    policy.rendererPriority,
+                                    policy.waivedWhenNotVisible
+                                )
                             }
                         }
                         attachExamKeyboardBridge(
@@ -192,6 +193,9 @@ private fun ExamRuntimeSessionMainContent(
                                 onHideCustomView()
                             }
                         }
+                        var connectionRetryCount = 0
+                        val maxConnectionRetries = 3
+
                         webViewClient = object : WebViewClient() {
                             override fun shouldOverrideUrlLoading(
                                 view: WebView?,
@@ -208,6 +212,33 @@ private fun ExamRuntimeSessionMainContent(
 
                             override fun onPageFinished(view: WebView?, url: String?) {
                                 onWebViewLoadFinish(view, url)
+                                (view as? SecureExamWebView)?.cancelPendingConnectionRetries()
+                                connectionRetryCount = 0
+                            }
+
+                            override fun onReceivedSslError(
+                                view: WebView?,
+                                handler: SslErrorHandler?,
+                                error: SslError?
+                            ) {
+                                // Security: ALWAYS cancel invalid SSL — never bypass.
+                                // But record the diagnostic so admins can trace the issue.
+                                (view as? SecureExamWebView)?.cancelPendingConnectionRetries()
+                                val errorType = when (error?.primaryError) {
+                                    SslError.SSL_EXPIRED -> "SSL_EXPIRED"
+                                    SslError.SSL_IDMISMATCH -> "SSL_ID_MISMATCH"
+                                    SslError.SSL_NOTYETVALID -> "SSL_NOT_YET_VALID"
+                                    SslError.SSL_UNTRUSTED -> "SSL_UNTRUSTED"
+                                    SslError.SSL_DATE_INVALID -> "SSL_DATE_INVALID"
+                                    SslError.SSL_INVALID -> "SSL_INVALID"
+                                    else -> "SSL_UNKNOWN"
+                                }
+                                val sslUrl = error?.url ?: "unknown"
+                                onWebViewLoadError(
+                                    view,
+                                    "SSL error ($errorType) on $sslUrl — connection rejected for security."
+                                )
+                                handler?.cancel()
                             }
 
                             override fun onReceivedError(
@@ -216,24 +247,54 @@ private fun ExamRuntimeSessionMainContent(
                                 error: WebResourceError?
                             ) {
                                 if (request?.isForMainFrame == true) {
-                                    onWebViewLoadError(
-                                        view,
-                                        error?.description?.toString() ?: "Halaman ujian gagal dimuat."
-                                    )
+                                    val errorDesc = error?.description?.toString()
+                                        ?: "Halaman ujian gagal dimuat."
+                                    val isConnectionError = errorDesc.contains("CONNECTION", ignoreCase = true) ||
+                                        errorDesc.contains("TIMED_OUT", ignoreCase = true) ||
+                                        errorDesc.contains("NAME_NOT_RESOLVED", ignoreCase = true) ||
+                                        errorDesc.contains("INTERNET_DISCONNECTED", ignoreCase = true) ||
+                                        errorDesc.contains("FAILED", ignoreCase = true)
+
+                                    if (isConnectionError && connectionRetryCount < maxConnectionRetries) {
+                                        connectionRetryCount++
+                                        val retryDelayMs = (2000L * (1L shl (connectionRetryCount - 1)))
+                                            .coerceAtMost(8000L)
+                                        onWebViewLoadError(
+                                            view,
+                                            "$errorDesc (retry $connectionRetryCount/$maxConnectionRetries in ${retryDelayMs / 1000}s)"
+                                        )
+                                        (view as? SecureExamWebView)?.let { secureView ->
+                                            secureView.postConnectionRetry(
+                                                delayMillis = retryDelayMs,
+                                                retryUrl = resolveExamWebViewRetryUrl(
+                                                    requestedExamUrl = secureView.requestedExamUrl,
+                                                    fallbackExamUrl = payload.examUrl
+                                                )
+                                            )
+                                        }
+                                        return
+                                    }
+
+                                    connectionRetryCount = 0
+                                    (view as? SecureExamWebView)?.cancelPendingConnectionRetries()
+                                    onWebViewLoadError(view, errorDesc)
                                     val errorHtml = """
                                         <html><head><meta name="viewport" content="width=device-width,initial-scale=1">
                                         <style>
                                         *{margin:0;padding:0;box-sizing:border-box}
                                         body{background:#F6F8FC;display:flex;align-items:center;justify-content:center;
                                         min-height:100vh;font-family:sans-serif;color:#3A4A5C;text-align:center;padding:24px}
-                                        .c{max-width:320px}
+                                        .c{max-width:340px}
                                         .icon{font-size:48px;margin-bottom:16px}
                                         h1{font-size:18px;font-weight:700;margin-bottom:8px;color:#1A2332}
-                                        p{font-size:14px;line-height:1.5;color:#6B7B8D}
+                                        p{font-size:14px;line-height:1.5;color:#6B7B8D;margin-bottom:6px}
+                                        .hint{font-size:12px;color:#94A3B8;margin-top:12px}
                                         </style></head><body><div class="c">
                                         <div class="icon">&#9888;&#65039;</div>
-                                        <h1>Tidak Ada Koneksi Internet</h1>
-                                        <p>Periksa koneksi WiFi atau data seluler Anda, lalu tekan tombol Muat Ulang.</p>
+                                        <h1>Koneksi Terputus</h1>
+                                        <p>Tidak bisa terhubung ke server ujian setelah beberapa percobaan otomatis.</p>
+                                        <p>Periksa koneksi WiFi atau data seluler Anda, lalu tekan tombol <b>Muat Ulang</b> di toolbar.</p>
+                                        <p class="hint">Error: ${errorDesc.take(120)}</p>
                                         </div></body></html>
                                     """.trimIndent()
                                     view?.loadDataWithBaseURL(
@@ -255,20 +316,39 @@ private fun ExamRuntimeSessionMainContent(
                                     val statusCode = errorResponse?.statusCode ?: 0
                                     onWebViewHttpError(view, statusCode)
                                     if (statusCode >= 500) {
+                                        if (connectionRetryCount < maxConnectionRetries) {
+                                            connectionRetryCount++
+                                            val retryDelayMs = (3000L * (1L shl (connectionRetryCount - 1)))
+                                                .coerceAtMost(12000L)
+                                            (view as? SecureExamWebView)?.let { secureView ->
+                                                secureView.postConnectionRetry(
+                                                    delayMillis = retryDelayMs,
+                                                    retryUrl = resolveExamWebViewRetryUrl(
+                                                        requestedExamUrl = secureView.requestedExamUrl,
+                                                        fallbackExamUrl = payload.examUrl
+                                                    )
+                                                )
+                                            }
+                                            return
+                                        }
+                                        connectionRetryCount = 0
+                                        (view as? SecureExamWebView)?.cancelPendingConnectionRetries()
                                         val serverErrorHtml = """
                                             <html><head><meta name="viewport" content="width=device-width,initial-scale=1">
                                             <style>
                                             *{margin:0;padding:0;box-sizing:border-box}
                                             body{background:#F6F8FC;display:flex;align-items:center;justify-content:center;
                                             min-height:100vh;font-family:sans-serif;color:#3A4A5C;text-align:center;padding:24px}
-                                            .c{max-width:320px}
+                                            .c{max-width:340px}
                                             .icon{font-size:48px;margin-bottom:16px}
                                             h1{font-size:18px;font-weight:700;margin-bottom:8px;color:#1A2332}
-                                            p{font-size:14px;line-height:1.5;color:#6B7B8D}
+                                            p{font-size:14px;line-height:1.5;color:#6B7B8D;margin-bottom:6px}
+                                            .hint{font-size:12px;color:#94A3B8;margin-top:12px}
                                             </style></head><body><div class="c">
                                             <div class="icon">&#9881;&#65039;</div>
                                             <h1>Server Sedang Bermasalah</h1>
-                                            <p>Server ujian sedang mengalami gangguan (${statusCode}). Coba tekan tombol Muat Ulang.</p>
+                                            <p>Server ujian mengalami gangguan setelah beberapa percobaan otomatis ($statusCode).</p>
+                                            <p>Tekan tombol <b>Muat Ulang</b> di toolbar untuk mencoba lagi.</p>
                                             </div></body></html>
                                         """.trimIndent()
                                         view?.loadDataWithBaseURL(
@@ -286,6 +366,7 @@ private fun ExamRuntimeSessionMainContent(
                                 view: WebView?,
                                 detail: RenderProcessGoneDetail?
                             ): Boolean {
+                                (view as? SecureExamWebView)?.cancelPendingConnectionRetries()
                                 val didCrash =
                                     if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O && detail != null) {
                                         detail.didCrash()

@@ -100,7 +100,7 @@ internal fun resolveExamFooterShieldStatus(
             (!bypassGeofence && geofenceRuntimeStatus.securityStatus.blocking) ||
             (!bypassFakeLocation && fakeLocationRuntimeStatus.securityStatus.blocking) ||
             (!bypassDeviceTime && deviceTimeSecurityStatus.blocking) ||
-            (!bypassOverlay && overlayRiskResult.hasAnyRisk) ||
+            (!bypassOverlay && overlayRiskResult.hasBlockingRisk) ||
             (!bypassAppSwitch && appSwitchStatus.pendingViolation) ||
             signatureMismatchDetected
 

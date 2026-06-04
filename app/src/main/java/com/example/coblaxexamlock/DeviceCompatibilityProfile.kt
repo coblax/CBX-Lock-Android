@@ -3,7 +3,7 @@ package com.example.coblaxexamlock
 import android.os.Build
 import java.util.Locale
 
-private const val DefaultOverlayFocusLossConfirmWindowMillis = 350L
+private const val DefaultOverlayFocusLossConfirmWindowMillis = 1_500L
 private const val DefaultOverlayChromeActionSuppressionMillis = 800L
 private const val DefaultScreenPinningLostConfirmWindowMillis = 2_000L
 private const val SamsungLegacyOverlayFocusLossConfirmWindowMillis = 1_500L
@@ -35,7 +35,7 @@ internal data class DeviceCompatibilityProfile(
     val overlayFocusLossConfirmWindowMillis: Long = DefaultOverlayFocusLossConfirmWindowMillis,
     val overlayChromeActionSuppressionMillis: Long = DefaultOverlayChromeActionSuppressionMillis,
     val screenPinningLostConfirmWindowMillis: Long = DefaultScreenPinningLostConfirmWindowMillis,
-    val partialObscuredWebViewPolicy: OverlayPartialObscuredPolicy = OverlayPartialObscuredPolicy.Block,
+    val partialObscuredWebViewPolicy: OverlayPartialObscuredPolicy = OverlayPartialObscuredPolicy.WarnAndAllow,
     val manualFirstGeofenceEditor: Boolean = lowRamProfile.severe,
     val useLightweightPreparationUi: Boolean = lowRamProfile.enabled
 ) {
@@ -142,11 +142,7 @@ internal fun resolveDeviceCompatibilityProfile(
         } else {
             DefaultScreenPinningLostConfirmWindowMillis
         },
-        partialObscuredWebViewPolicy = if (samsungLegacyTablet) {
-            OverlayPartialObscuredPolicy.WarnAndAllow
-        } else {
-            OverlayPartialObscuredPolicy.Block
-        },
+        partialObscuredWebViewPolicy = OverlayPartialObscuredPolicy.WarnAndAllow,
         manualFirstGeofenceEditor = lowRamProfile.severe || samsungLegacyTablet,
         useLightweightPreparationUi = lowRamProfile.enabled
     )

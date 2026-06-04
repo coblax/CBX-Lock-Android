@@ -644,7 +644,7 @@ internal fun AdminAdvancedDiagnosticsCard(
                     onClick = onOpenOverlaySettings,
                     modifier = Modifier.weight(1f)
                 ) {
-                    Text(tr("Overlay", "Overlay"), color = LockBlue)
+                    Text(tr("Floating Apps", "Floating App"), color = LockBlue)
                 }
             }
             TextButton(

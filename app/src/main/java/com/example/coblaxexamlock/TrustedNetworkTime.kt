@@ -11,7 +11,7 @@ import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.withContext
 
 private const val TrustedNetworkTimeFreshMillis = 10 * 60 * 1000L
-private const val TrustedNetworkTimeSocketTimeoutMillis = 900
+private const val TrustedNetworkTimeSocketTimeoutMillis = 2_000
 private const val NtpPacketSize = 48
 private const val NtpTransmitTimeOffset = 40
 private const val NtpUnixEpochOffsetMillis = 2_208_988_800_000L

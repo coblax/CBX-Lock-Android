@@ -1,5 +1,8 @@
 package com.example.coblaxexamlock.ui.exam
 
+import android.annotation.SuppressLint
+import android.webkit.WebView
+
 internal const val ExamRuntimeHardeningLogTag = "ExamRuntimeHardening"
 
 internal enum class ExamRuntimeRecoveryState {
@@ -35,6 +38,18 @@ internal data class ExamRuntimeMemoryAction(
     }
 }
 
+internal data class ExamWebViewRendererPriorityPolicy(
+    val rendererPriority: Int,
+    val waivedWhenNotVisible: Boolean
+)
+
+@SuppressLint("InlinedApi")
+internal fun resolveExamWebViewRendererPriorityPolicy(): ExamWebViewRendererPriorityPolicy =
+    ExamWebViewRendererPriorityPolicy(
+        rendererPriority = WebView.RENDERER_PRIORITY_IMPORTANT,
+        waivedWhenNotVisible = false
+    )
+
 internal fun nextExamWebViewGeneration(currentGeneration: Long): Long =
     currentGeneration + 1L
 
@@ -51,8 +66,7 @@ internal fun shouldRunExamWebViewCleanup(
 internal fun resolveExamRuntimeMemoryAction(
     shouldRespondToPressure: Boolean,
     examSessionStarted: Boolean,
-    hasFullscreenCustomView: Boolean,
-    clearActiveWebViewCacheAllowed: Boolean = false
+    hasFullscreenCustomView: Boolean
 ): ExamRuntimeMemoryAction {
     if (!shouldRespondToPressure) {
         return ExamRuntimeMemoryAction(respond = false)
@@ -65,7 +79,7 @@ internal fun resolveExamRuntimeMemoryAction(
         clearUnusedFullscreenContainer = !hasFullscreenCustomView,
         cleanupInactiveWebView = !examSessionStarted,
         keepActiveWebView = examSessionStarted,
-        clearActiveWebViewCache = examSessionStarted && clearActiveWebViewCacheAllowed
+        clearActiveWebViewCache = false
     )
 }
 
@@ -218,6 +232,13 @@ internal object ExamRuntimeHardeningDiagnostics {
     const val PinningWaitTimeout = "PINNING_WAIT_TIMEOUT"
     const val PinningTransitionViolationSuppressed = "PINNING_TRANSITION_VIOLATION_SUPPRESSED"
     const val PinningRetryReady = "PINNING_RETRY_READY"
+    const val DpcStatusResolved = "DPC_STATUS_RESOLVED"
+    const val DpcLockTaskAllowlistApplied = "DPC_LOCK_TASK_ALLOWLIST_APPLIED"
+    const val DpcCreateWindowsRestrictionApplied = "DPC_CREATE_WINDOWS_RESTRICTION_APPLIED"
+    const val DpcCreateWindowsRestrictionUnsupported = "DPC_CREATE_WINDOWS_RESTRICTION_UNSUPPORTED"
+    const val DpcCreateWindowsRestrictionCleared = "DPC_CREATE_WINDOWS_RESTRICTION_CLEARED"
+    const val OverlayAppPermissionDetected = "OVERLAY_APP_PERMISSION_DETECTED"
+    const val OverlayAppPermissionCleared = "OVERLAY_APP_PERMISSION_CLEARED"
 
     private val qaLogCodes = setOf(
         WebViewRendererGone,
@@ -288,7 +309,14 @@ internal object ExamRuntimeHardeningDiagnostics {
         PinningActiveConfirmed,
         PinningWaitTimeout,
         PinningTransitionViolationSuppressed,
-        PinningRetryReady
+        PinningRetryReady,
+        DpcStatusResolved,
+        DpcLockTaskAllowlistApplied,
+        DpcCreateWindowsRestrictionApplied,
+        DpcCreateWindowsRestrictionUnsupported,
+        DpcCreateWindowsRestrictionCleared,
+        OverlayAppPermissionDetected,
+        OverlayAppPermissionCleared
     )
 
     fun shouldLogForQa(code: String): Boolean = code in qaLogCodes

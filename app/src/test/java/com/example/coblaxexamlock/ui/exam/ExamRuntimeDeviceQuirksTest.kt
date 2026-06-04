@@ -23,7 +23,7 @@ class ExamRuntimeDeviceQuirksTest {
     }
 
     @Test
-    fun normalDeviceKeepsStrictOverlayAndPinningPolicy() {
+    fun normalDeviceKeepsStrictPinningAndWarnOnlyPartialOverlayPolicy() {
         val profile = resolveExamRuntimeDeviceQuirkProfile(
             manufacturer = "Google",
             brand = "google",
@@ -32,7 +32,8 @@ class ExamRuntimeDeviceQuirksTest {
         )
 
         assertFalse(profile.samsungLegacyTablet)
-        assertFalse(profile.allowPartialObscuredWebViewTouch)
+        assertTrue(profile.allowPartialObscuredWebViewTouch)
+        assertEquals(1_500L, profile.overlayFocusLossConfirmWindowMillis)
         assertEquals(2_000L, profile.screenPinningLostConfirmWindowMillis)
     }
 
@@ -49,6 +50,27 @@ class ExamRuntimeDeviceQuirksTest {
                 brand = "samsung",
                 model = "SM-T295",
                 sdkInt = 29
+            ),
+            source = ExamOverlayTouchSource.WebViewContent,
+            elapsedSinceTrustedChromeActionMs = null
+        )
+
+        assertEquals(ExamOverlayTouchDecision.WarnAndAllow, decision)
+    }
+
+    @Test
+    fun genericPartialObscuredWebViewTouchIsWarningOnly() {
+        val decision = decideExamOverlayTouch(
+            signal = ExamOverlayTouchSignal(
+                fullyObscured = false,
+                partiallyObscured = true,
+                actionMasked = 0
+            ),
+            profile = resolveExamRuntimeDeviceQuirkProfile(
+                manufacturer = "Google",
+                brand = "google",
+                model = "Pixel 8",
+                sdkInt = 35
             ),
             source = ExamOverlayTouchSource.WebViewContent,
             elapsedSinceTrustedChromeActionMs = null
@@ -79,6 +101,27 @@ class ExamRuntimeDeviceQuirksTest {
     }
 
     @Test
+    fun fullObscuredTouchStillBlocksOnGenericDevice() {
+        val decision = decideExamOverlayTouch(
+            signal = ExamOverlayTouchSignal(
+                fullyObscured = true,
+                partiallyObscured = true,
+                actionMasked = 0
+            ),
+            profile = resolveExamRuntimeDeviceQuirkProfile(
+                manufacturer = "Google",
+                brand = "google",
+                model = "Pixel 8",
+                sdkInt = 35
+            ),
+            source = ExamOverlayTouchSource.WebViewContent,
+            elapsedSinceTrustedChromeActionMs = 250L
+        )
+
+        assertEquals(ExamOverlayTouchDecision.BlockAndReport, decision)
+    }
+
+    @Test
     fun partialObscuredAfterTrustedChromeActionIsSuppressed() {
         val decision = decideExamOverlayTouch(
             signal = ExamOverlayTouchSignal(
@@ -97,6 +140,42 @@ class ExamRuntimeDeviceQuirksTest {
         )
 
         assertEquals(ExamOverlayTouchDecision.SuppressAndAllow, decision)
+    }
+
+    @Test
+    fun windowFocusLossCoveredByAppSwitchIsSuppressed() {
+        val decision = decideExamOverlayWindowFocusLoss(
+            appSwitchRuntimeMonitoringActive = true,
+            pendingForcedExitViolation = true,
+            appSwitchLifecycleResumePending = false,
+            hasOverlayAppsDetected = false
+        )
+
+        assertEquals(ExamOverlayFocusLossDecision.SuppressCoveredByAppSwitch, decision)
+    }
+
+    @Test
+    fun windowFocusLossWithoutCorroboratingEvidenceIsWarningOnly() {
+        val decision = decideExamOverlayWindowFocusLoss(
+            appSwitchRuntimeMonitoringActive = true,
+            pendingForcedExitViolation = false,
+            appSwitchLifecycleResumePending = false,
+            hasOverlayAppsDetected = false
+        )
+
+        assertEquals(ExamOverlayFocusLossDecision.WarnAndAllow, decision)
+    }
+
+    @Test
+    fun windowFocusLossWithOverlayAppsDetectedTriggersAlarm() {
+        val decision = decideExamOverlayWindowFocusLoss(
+            appSwitchRuntimeMonitoringActive = true,
+            pendingForcedExitViolation = false,
+            appSwitchLifecycleResumePending = false,
+            hasOverlayAppsDetected = true
+        )
+
+        assertEquals(ExamOverlayFocusLossDecision.TriggerViolationAlarm, decision)
     }
 
     @Test

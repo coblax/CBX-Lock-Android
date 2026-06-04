@@ -1,7 +1,6 @@
 package com.example.coblaxexamlock.ui.exam
 
 import android.os.SystemClock
-import com.example.coblaxexamlock.BuildConfig
 import com.example.coblaxexamlock.LowRamProfile
 import com.example.coblaxexamlock.model.DiagnosticEventLevel
 import java.net.HttpURLConnection
@@ -10,8 +9,11 @@ import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.withContext
 
 internal const val ExamServerProbeIntervalMillis = 30_000L
-private const val ExamServerProbeTimeoutMillis = 3_500
-private const val ExamServerProbeSlowThresholdMillis = 3_000L
+private const val ExamServerProbeTimeoutMillis = 12_000
+private const val ExamServerProbeSlowThresholdMillis = 8_000L
+private const val ExamServerProbeUserAgent =
+    "Mozilla/5.0 (Linux; Android 10; Mobile) AppleWebKit/537.36 " +
+        "(KHTML, like Gecko) Chrome/120.0.0.0 Mobile Safari/537.36"
 
 internal fun examServerProbeIntervalMillis(lowRamProfile: LowRamProfile): Long =
     lowRamProfile.examServerProbeIntervalMillis
@@ -85,7 +87,7 @@ private fun executeExamServerHttpProbe(
             readTimeout = ExamServerProbeTimeoutMillis
             instanceFollowRedirects = false
             useCaches = false
-            setRequestProperty("User-Agent", "CBX-Exam-Server-Probe/${BuildConfig.VERSION_NAME}")
+            setRequestProperty("User-Agent", ExamServerProbeUserAgent)
             if (method == "GET") {
                 setRequestProperty("Range", "bytes=0-0")
             }
@@ -159,7 +161,8 @@ internal suspend fun probeExamServerFooterStatus(examUrl: String): ExamServerPro
         val host = url.host.orEmpty().ifBlank { "-" }
         val headOutcome = executeExamServerHttpProbe(url, method = "HEAD")
         val finalOutcome =
-            if (headOutcome.code == HttpURLConnection.HTTP_BAD_METHOD ||
+            if (headOutcome.code == null ||
+                headOutcome.code == HttpURLConnection.HTTP_BAD_METHOD ||
                 headOutcome.code == HttpURLConnection.HTTP_NOT_IMPLEMENTED
             ) {
                 executeExamServerHttpProbe(url, method = "GET")

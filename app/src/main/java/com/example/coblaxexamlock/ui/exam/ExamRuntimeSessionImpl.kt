@@ -12,7 +12,6 @@ import android.os.Looper
 import android.os.SystemClock
 import android.provider.Settings
 import android.util.Log
-import android.view.inputmethod.InputMethodManager
 import android.view.View
 import android.view.ViewGroup
 import android.webkit.WebChromeClient
@@ -79,9 +78,11 @@ import com.example.coblaxexamlock.DeviceTimeBypassState
 import com.example.coblaxexamlock.DeviceTimeSecurityStatus
 import com.example.coblaxexamlock.DeviceTimeSecurityVerdict
 import com.example.coblaxexamlock.diagnosticLabel
+import com.example.coblaxexamlock.DpcRuntimeStatus
 import com.example.coblaxexamlock.evaluateFakeLocationSecurity
 import com.example.coblaxexamlock.evaluateGeofenceSecurity
 import com.example.coblaxexamlock.evaluateLocationFixQuality
+import com.example.coblaxexamlock.ExamDeviceOwnerController
 import com.example.coblaxexamlock.ExamAlarmSeverity
 import com.example.coblaxexamlock.ExamParticipantCaptureBridge
 import com.example.coblaxexamlock.ExamParticipantCaptureResult
@@ -206,6 +207,8 @@ import com.example.coblaxexamlock.TrustedNetworkTimeCoordinator
 import com.example.coblaxexamlock.VpnBypassResolver
 import com.example.coblaxexamlock.VpnBypassState
 import com.example.coblaxexamlock.ui.geofence.effectiveCircleCenters
+import com.example.coblaxexamlock.ui.preparation.PreparationScreenActions
+import com.example.coblaxexamlock.ui.preparation.PreparationScreenState
 import com.example.coblaxexamlock.ui.preparation.preExamHealthStartBlocker
 import com.example.coblaxexamlock.ui.theme.LockBackground
 import com.example.coblaxexamlock.WebViewCompatibilityStatus
@@ -482,6 +485,16 @@ internal fun ExamRuntimeSessionScreenImpl(
     var showOfflineWarningDialog by networkUiState.showOfflineWarningDialog
     val batteryStatusState = remember { mutableStateOf(readExamBatteryStatus(context)) }
     var batteryStatus by batteryStatusState
+    val dpcRuntimeStatusState = remember {
+        mutableStateOf(ExamDeviceOwnerController.readStatus(context))
+    }
+    var dpcRuntimeStatus by dpcRuntimeStatusState
+    var dpcCreateWindowsRestrictionAppliedBySession by rememberSaveable {
+        mutableStateOf(false)
+    }
+    var dpcExamPolicyAppliedForSession by rememberSaveable {
+        mutableStateOf(false)
+    }
     val networkMainHandler = remember { Handler(Looper.getMainLooper()) }
     val clipboardMainHandler = remember { Handler(Looper.getMainLooper()) }
     val overlayMainHandler = remember { Handler(Looper.getMainLooper()) }
@@ -784,6 +797,7 @@ internal fun ExamRuntimeSessionScreenImpl(
         effectiveLocationPolicySource = effectiveLocationPolicySource,
         deviceTimeBaseline = deviceTimeBaseline,
         deviceTimeBypassState = deviceTimeBypassState,
+        examUrl = payload.examUrl,
         geofenceConfigParseResult = geofenceConfigParseResult,
         geofenceBypassState = geofenceBypassState,
         fakeLocationBypassState = fakeLocationBypassState,
@@ -853,6 +867,98 @@ internal fun ExamRuntimeSessionScreenImpl(
         details: String = "-",
         level: DiagnosticEventLevel = DiagnosticEventLevel.INFO
     ) = runtimeDiagnosticsOps.recordAction(code, details, level)
+    fun refreshDpcRuntimeStatus(): DpcRuntimeStatus {
+        dpcRuntimeStatus = ExamDeviceOwnerController.readStatus(context)
+        return dpcRuntimeStatus
+    }
+    fun recordDpcRuntimeStatus(
+        status: DpcRuntimeStatus = dpcRuntimeStatus,
+        level: DiagnosticEventLevel = DiagnosticEventLevel.INFO,
+        extraContext: String? = null
+    ) {
+        val details = buildString {
+            append(status.diagnosticSummary())
+            extraContext?.takeIf { it.isNotBlank() }?.let { extra ->
+                append(" | ")
+                append(extra)
+            }
+            if (!status.deviceOwner) {
+                append(" | enroll=")
+                append(ExamDeviceOwnerController.enrollmentCommand(context))
+            }
+        }
+        recordAction(
+            ExamRuntimeHardeningDiagnostics.DpcStatusResolved,
+            details,
+            level
+        )
+    }
+    fun applyDpcExamPoliciesForStart(startLockTask: Boolean): Boolean {
+        if (dpcExamPolicyAppliedForSession) {
+            if (startLockTask && dpcRuntimeStatus.deviceOwner && !lockTaskBridge.active()) {
+                lockTaskBridge.engage(allowLockTask = true)
+            }
+            refreshDpcRuntimeStatus()
+            return lockTaskBridge.active()
+        }
+        val result = ExamDeviceOwnerController.applyExamPolicies(context)
+        dpcRuntimeStatus = result.after
+        dpcExamPolicyAppliedForSession = result.after.deviceOwner
+        recordDpcRuntimeStatus(
+            status = result.after,
+            level = if (result.error == null) DiagnosticEventLevel.INFO else DiagnosticEventLevel.WARNING,
+            extraContext = result.error?.let { "error=$it" }
+        )
+        if (result.lockTaskAllowlistApplied) {
+            recordAction(
+                ExamRuntimeHardeningDiagnostics.DpcLockTaskAllowlistApplied,
+                result.after.diagnosticSummary(),
+                DiagnosticEventLevel.INFO
+            )
+        }
+        if (result.createWindowsRestrictionApplied) {
+            dpcCreateWindowsRestrictionAppliedBySession = true
+            recordAction(
+                ExamRuntimeHardeningDiagnostics.DpcCreateWindowsRestrictionApplied,
+                result.after.diagnosticSummary(),
+                DiagnosticEventLevel.INFO
+            )
+        }
+        if (result.createWindowsRestrictionUnsupported) {
+            recordAction(
+                ExamRuntimeHardeningDiagnostics.DpcCreateWindowsRestrictionUnsupported,
+                result.after.diagnosticSummary(),
+                DiagnosticEventLevel.WARNING
+            )
+        }
+        if (startLockTask && result.after.deviceOwner && !lockTaskBridge.active()) {
+            lockTaskBridge.engage(allowLockTask = true)
+        }
+        refreshDpcRuntimeStatus()
+        return lockTaskBridge.active()
+    }
+    fun clearDpcExamPoliciesForSession(reason: String) {
+        val result = ExamDeviceOwnerController.clearCreateWindowsRestrictionIfSessionApplied(
+            context = context,
+            sessionAppliedRestriction = dpcCreateWindowsRestrictionAppliedBySession
+        )
+        dpcRuntimeStatus = result.after
+        if (result.createWindowsRestrictionCleared) {
+            dpcCreateWindowsRestrictionAppliedBySession = false
+            dpcExamPolicyAppliedForSession = false
+            recordAction(
+                ExamRuntimeHardeningDiagnostics.DpcCreateWindowsRestrictionCleared,
+                "reason=$reason | ${result.after.diagnosticSummary()}",
+                DiagnosticEventLevel.INFO
+            )
+        } else if (!result.skipped && result.error != null) {
+            recordDpcRuntimeStatus(
+                status = result.after,
+                level = DiagnosticEventLevel.WARNING,
+                extraContext = "clear_reason=$reason | error=${result.error}"
+            )
+        }
+    }
     fun writePreviousSessionBreadcrumb(
         code: String,
         details: String = "-"
@@ -866,6 +972,9 @@ internal fun ExamRuntimeSessionScreenImpl(
                 level = DiagnosticEventLevel.INFO
             )
         }
+    }
+    LaunchedEffect(dpcRuntimeStatus.diagnosticSummary()) {
+        recordDpcRuntimeStatus()
     }
 
     fun markTrustedRuntimeChromeAction(reason: String) {
@@ -1007,6 +1116,32 @@ internal fun ExamRuntimeSessionScreenImpl(
         }
     }
 
+    // Auto-reload WebView when network recovers from offline while an error page is displayed.
+    // This eliminates the need for students to manually press "Muat Ulang" after a brief
+    // network hiccup — the exam page recovers automatically once connectivity is restored.
+    LaunchedEffect(examSessionStarted, networkStatus.isConnected, webViewErrorMessage) {
+        if (!examSessionStarted || !networkStatus.isConnected || webViewErrorMessage == null) {
+            return@LaunchedEffect
+        }
+        // Wait a short stabilization period to ensure the connection is truly back
+        delay(1_500L)
+        // Double-check: still connected and still in error state
+        if (networkStatus.isConnected && webViewErrorMessage != null) {
+            recordAction(
+                "WEBVIEW_AUTO_RELOAD_ON_RECOVERY",
+                "error=${webViewErrorMessage?.take(80)} | transport=${networkReadinessStatus.transportLabel}",
+                DiagnosticEventLevel.INFO
+            )
+            webViewErrorMessage = null
+            loadingProgress = 0.05f
+            launchExamServerProbe("network_recovery", true)
+            webViewInstance?.let { webView ->
+                webView.loadExamUrlSafely(payload.examUrl)
+                webView.requestedExamUrl = payload.examUrl
+            }
+        }
+    }
+
     val locationPermissionLauncher =
         rememberLauncherForActivityResult(ActivityResultContracts.RequestMultiplePermissions()) { result ->
             geofencePermissionRequestInFlight = false
@@ -1104,6 +1239,7 @@ internal fun ExamRuntimeSessionScreenImpl(
         callbacks = ExamRuntimeMonitoringCallbacks(
             currentAppSwitchEventDetails = { signal -> currentAppSwitchEventDetails(signal) },
             clearAppSwitchSuppression = ::clearAppSwitchSuppression,
+            clearDpcExamPoliciesForSession = ::clearDpcExamPoliciesForSession,
             recordAction = { code, details, level ->
                 recordAction(code = code, details = details, level = level)
             }
@@ -1139,7 +1275,6 @@ internal fun ExamRuntimeSessionScreenImpl(
     suspend fun refreshIntegrityGuardOnDetector() =
         runtimeMonitoringOps.refreshIntegrityGuardOnDetector()
     fun hideSystemKeyboard() = runtimeMonitoringOps.hideSystemKeyboard()
-    fun showSystemKeyboard() = runtimeMonitoringOps.showSystemKeyboard()
     fun showCustomView(view: View, callback: WebChromeClient.CustomViewCallback?) = runtimeMonitoringOps.showCustomView(view, callback)
     fun hideCustomView() = runtimeMonitoringOps.hideCustomView()
     fun cleanupActiveExamWebViewInstance() = runtimeMonitoringOps.cleanupActiveExamWebViewInstance()
@@ -1177,9 +1312,14 @@ internal fun ExamRuntimeSessionScreenImpl(
     val keyboardBridge: ExamKeyboardBridge = remember {
         ExamKeyboardBridge(
             onEditableFocusChangedCallback = { focused ->
-                hasEditableFocus = focused
-                showBuiltInExamKeyboard = useBuiltInExamKeyboard && focused
-                if (useBuiltInExamKeyboard && focused) {
+                if (hasEditableFocus != focused) {
+                    hasEditableFocus = focused
+                }
+                val shouldShowBuiltInKeyboard = useBuiltInExamKeyboard && focused
+                if (showBuiltInExamKeyboard != shouldShowBuiltInKeyboard) {
+                    showBuiltInExamKeyboard = shouldShowBuiltInKeyboard
+                }
+                if (shouldShowBuiltInKeyboard) {
                     hideSystemKeyboard()
                 }
             }
@@ -1260,6 +1400,7 @@ internal fun ExamRuntimeSessionScreenImpl(
         clipboardUiState = clipboardUiState,
         adminUiState = adminUiState,
         networkUiState = networkUiState,
+        dpcRuntimeStatusProvider = { dpcRuntimeStatus },
         accessibilityGuardEnabledState = accessibilityGuardEnabledState,
         accessibilityGuardFallbackActiveState = accessibilityGuardFallbackActiveState,
         accessibilityGuardLastReasonState = accessibilityGuardLastReasonState,
@@ -1300,16 +1441,15 @@ internal fun ExamRuntimeSessionScreenImpl(
         }
 
         fun finalizeExamSessionStart(lockTaskAlreadyActive: Boolean) {
+            applyDpcExamPoliciesForStart(startLockTask = false)
             finalizeStartExamSession(
                 context = context,
                 lockTaskBridge = lockTaskBridge,
                 flowUiState = flowUiState,
                 adminUiState = adminUiState,
                 clipboardUiState = clipboardUiState,
-                lowRamProfile = lowRamProfile,
                 lockTaskAlreadyActive = lockTaskAlreadyActive,
-                hideSystemKeyboard = ::hideSystemKeyboard,
-                showSystemKeyboard = ::showSystemKeyboard
+                hideSystemKeyboard = ::hideSystemKeyboard
             )
         }
 
@@ -1371,6 +1511,9 @@ internal fun ExamRuntimeSessionScreenImpl(
                     prepareCleanExamWebViewSessionForStart = this::prepareCleanExamWebViewSessionForStart,
                     armExamRuntimeMonitoring = ::armExamRuntimeMonitoring,
                     finalizeExamSessionStart = this::finalizeExamSessionStart,
+                    ensureDeviceOwnerLockTaskActive = {
+                        applyDpcExamPoliciesForStart(startLockTask = true)
+                    },
                     clearAppSwitchSuppression = ::clearAppSwitchSuppression,
                     setAppSwitchSuppression = { reason -> setAppSwitchSuppression(reason) },
                     applyStartExamBlockMessage = this::applyStartExamBlockMessage,
@@ -1460,6 +1603,10 @@ internal fun ExamRuntimeSessionScreenImpl(
                             fakeLocationStatus = fakeLocationStatus
                         )
                     },
+                    ensureDeviceOwnerLockTaskActive = {
+                        applyDpcExamPoliciesForStart(startLockTask = true)
+                    },
+                    refreshDpcRuntimeStatus = ::refreshDpcRuntimeStatus,
                     requestBluetoothPermission = {
                         bluetoothPermissionLauncher.launch(getBluetoothConnectPermission())
                     },
@@ -1550,49 +1697,23 @@ internal fun ExamRuntimeSessionScreenImpl(
     }
 
     fun handleScreenPinningTransitionInterrupted() {
-        if (!lockTaskRequestPending || examSessionStarted) {
-            return
-        }
-        if (lockTaskBridge.active()) {
-            pinningActivationState = PinningActivationState.ActiveConfirmed
-            recordAction(
-                code = ExamRuntimeHardeningDiagnostics.ScreenPinningAlreadyActive,
-                details = "transition_interrupt_ignored | state=${lockTaskBridge.stateLabel()}",
-                level = DiagnosticEventLevel.INFO
-            )
-            return
-        }
-
-        val stateAfterInterrupt = lockTaskBridge.stateLabel()
-        lockTaskStateAfterPinningRequest = stateAfterInterrupt
-        screenPinningDialogLikelyShown = true
-        val nowElapsedMs = SystemClock.elapsedRealtime()
-        val startedAt = pinningActivationStartedAtElapsedMs
-        val elapsedMs = startedAt?.let { (nowElapsedMs - it).coerceAtLeast(0L) }
-        val withinGrace = shouldSuppressPinningTransitionViolation(
+        handleExamRuntimeScreenPinningTransitionInterrupted(
             lockTaskRequestPending = lockTaskRequestPending,
             examSessionStarted = examSessionStarted,
-            startedAtElapsedMs = startedAt,
-            nowElapsedMs = nowElapsedMs
-        )
-        pinningSuppressedTransitionCount += 1
-        pinningActivationState = PinningActivationState.WaitingForLockTaskActive
-        screenPinningMessage = ScreenPinningEnforcer.activatingMessage(
+            lockTaskBridge = lockTaskBridge,
+            pinningActivationStartedAtElapsedMs = pinningActivationStartedAtElapsedMs,
+            pinningSuppressedTransitionCount = pinningSuppressedTransitionCount,
             isIndonesian = isIndonesian,
-            purpose = pinningActivationPurpose
+            pinningActivationPurpose = pinningActivationPurpose,
+            setPinningActivationState = { pinningActivationState = it },
+            setLockTaskStateAfterPinningRequest = { lockTaskStateAfterPinningRequest = it },
+            setScreenPinningDialogLikelyShown = { screenPinningDialogLikelyShown = it },
+            setPinningSuppressedTransitionCount = { pinningSuppressedTransitionCount = it },
+            setScreenPinningMessage = { screenPinningMessage = it },
+            recordAction = { code, details, level ->
+                recordAction(code = code, details = details, level = level)
+            }
         )
-        recordAction(
-            code = ExamRuntimeHardeningDiagnostics.PinningTransitionViolationSuppressed,
-            details = "source=user_leave_hint | state=$stateAfterInterrupt | elapsed_ms=${elapsedMs ?: -1} | within_grace=$withinGrace | suppressed_count=$pinningSuppressedTransitionCount | wait_until_timeout=true",
-            level = DiagnosticEventLevel.WARNING
-        )
-        if (!withinGrace) {
-            recordAction(
-                code = ExamRuntimeHardeningDiagnostics.ScreenPinningTransitionInterrupted,
-                details = "source=user_leave_hint | state=$stateAfterInterrupt | elapsed_ms=${elapsedMs ?: -1} | suppressed_until_timeout=true",
-                level = DiagnosticEventLevel.WARNING
-            )
-        }
     }
 
     RuntimeSetupEffects(
@@ -1697,6 +1818,7 @@ internal fun ExamRuntimeSessionScreenImpl(
         launchExitSessionClearBestEffort = {
             launchExitSessionClearBestEffort("runtime_dispose")
         },
+        clearDpcExamPoliciesForSession = ::clearDpcExamPoliciesForSession,
         disarmAccessibilityGuard = { AccessibilityExamGuardStore.disarm(context) },
         stopAlarm = examAlarmController::stop
     )
@@ -1746,7 +1868,6 @@ internal fun ExamRuntimeSessionScreenImpl(
         securityUiState = securityUiState,
         clipboardUiState = clipboardUiState,
         adminUiState = adminUiState,
-        examAlarmController = examAlarmController,
         fullScreenCustomView = fullScreenCustomView,
         showOfflineWarningDialog = showOfflineWarningDialog,
         showExitExamDialog = showExitExamDialog,
@@ -1776,9 +1897,9 @@ internal fun ExamRuntimeSessionScreenImpl(
         currentInternalDialogReason = ::currentInternalDialogReason,
         recordAction = ::recordAction,
         recordAppSwitchEvent = ::recordAppSwitchEvent,
-        recordOverlayEvent = ::recordOverlayEvent,
         onScreenPinningTransitionInterrupted = ::handleScreenPinningTransitionInterrupted,
-        armClipboardResumeCheck = ::armClipboardResumeCheck
+        armClipboardResumeCheck = ::armClipboardResumeCheck,
+        startAlarm = examAlarmController::start
     )
 
     RuntimeStaticSecurityEffects(
@@ -1788,6 +1909,7 @@ internal fun ExamRuntimeSessionScreenImpl(
         bypassScreenRecorder = bypassScreenRecorder,
         bypassDisplayMirror = bypassDisplayMirror,
         bypassMultiWindow = bypassMultiWindow,
+        bypassOverlay = bypassOverlay,
         packageInventoryChangeNonce = packageInventoryChangeNonce,
         securityUiState = securityUiState,
         recordAction = ::recordAction,
@@ -1998,7 +2120,8 @@ internal fun ExamRuntimeSessionScreenImpl(
         geofenceRuntimeStatus = geofenceRuntimeStatus,
         fakeLocationRuntimeStatus = fakeLocationRuntimeStatus,
         deviceTimeSecurityStatus = deviceTimeSecurityStatus,
-        batteryStatus = batteryStatus
+        batteryStatus = batteryStatus,
+        dpcRuntimeStatus = dpcRuntimeStatus
     )
 
     val preExamHealthCheckSnapshot = buildCurrentPreExamHealthSnapshot()
@@ -2112,7 +2235,12 @@ internal fun ExamRuntimeSessionScreenImpl(
         lockTaskAlreadyActive = { lockTaskBridge.active() },
         markTrustedRuntimeChromeAction = ::markTrustedRuntimeChromeAction,
         clearWebViewError = { webViewErrorMessage = null },
-        reloadWebView = { webViewInstance?.reload() },
+        loadExamUrl = {
+            webViewInstance?.let { webView ->
+                webView.loadExamUrlSafely(payload.examUrl)
+                webView.requestedExamUrl = payload.examUrl
+            }
+        },
         stopWebViewLoading = { webViewInstance?.stopLoading() },
         setLoadingProgress = { loadingProgress = it },
         setWebViewStopRequested = { webViewStopRequested = it },
@@ -2277,7 +2405,8 @@ internal fun ExamRuntimeSessionScreenImpl(
         multiWindowModeInfo = securityUiState.multiWindowModeInfo.value,
         preExamHealthCheckSnapshot = preExamHealthCheckSnapshot,
         deviceSurvivalPolicy = deviceSurvivalPolicy,
-        previousExamSessionBreadcrumb = previousExamSessionBreadcrumb
+        previousExamSessionBreadcrumb = previousExamSessionBreadcrumb,
+        dpcRuntimeStatus = dpcRuntimeStatus
     )
     val preparationActions = buildPreparationScreenActions(
         onChooseKeyboard = ::handleChooseKeyboard,
@@ -2359,7 +2488,7 @@ internal fun ExamRuntimeSessionScreenImpl(
         onExit = onExit
     )
 
-    ExamRuntimeSessionRenderedUi(
+    ExamRuntimeSessionRenderedUiSection(
         examSessionStarted = examSessionStarted,
         showGeofenceMapViewer = showGeofenceMapViewer,
         geofenceRuntimeStatus = geofenceRuntimeStatus,
@@ -2389,13 +2518,95 @@ internal fun ExamRuntimeSessionScreenImpl(
         bugReportFeedbackTitle = bugReportFeedbackTitle,
         bugReportFeedbackMessage = bugReportFeedbackMessage,
         securityUiState = securityUiState,
+        renderedUiCallbacks = renderedUiCallbacks,
+        onHideSystemKeyboard = ::hideSystemKeyboard,
+        onHideCustomView = ::hideCustomView,
+        onOpenStaticSecurityAppSettings = ::handleOpenAppSettings,
+        onOpenStaticSecurityCastSettings = ::handleOpenCastSettings,
+        onRefreshStaticSecurityStatus = ::handleRefreshPreparationStatus,
+        onSendStaticSecurityReport = ::launchTelegramSectionReport,
+        modifier = modifier
+    )
+
+}
+
+@Composable
+private fun ExamRuntimeSessionRenderedUiSection(
+    examSessionStarted: Boolean,
+    showGeofenceMapViewer: Boolean,
+    geofenceRuntimeStatus: GeofenceRuntimeStatus,
+    geofenceManualRefreshInFlight: Boolean,
+    preparationState: PreparationScreenState,
+    preparationActions: PreparationScreenActions,
+    runtimeChromeState: ExamRuntimeChromeState,
+    runtimeChromeActions: ExamRuntimeChromeActions,
+    payload: com.example.coblaxexamlock.ExamQrPayload,
+    bypassOverlay: Boolean,
+    examAlarmController: ExamAlarmController,
+    participantCaptureBridge: ExamParticipantCaptureBridge,
+    nativeFullscreenBridge: ExamNativeFullscreenBridge,
+    keyboardBridge: ExamKeyboardBridge,
+    useBuiltInExamKeyboard: Boolean,
+    effectiveExamUserAgent: String,
+    fullScreenContainer: FrameLayout,
+    fullScreenCustomView: View?,
+    nativeExamFullscreenActive: Boolean,
+    runtimeDialogsState: com.example.coblaxexamlock.ui.dialog.ExamRuntimeDialogsState,
+    runtimeDialogsActions: com.example.coblaxexamlock.ui.dialog.ExamRuntimeDialogsActions,
+    pendingSection: DiagnosticSection?,
+    uiLanguage: UiLanguage,
+    screenPinningMessage: String?,
+    securityIssueDialogTitle: String?,
+    securityIssueDialogMessage: String?,
+    bugReportFeedbackTitle: String?,
+    bugReportFeedbackMessage: String?,
+    securityUiState: ExamRuntimeSecurityUiState,
+    renderedUiCallbacks: ExamRuntimeRenderedUiCallbacks,
+    onHideSystemKeyboard: () -> Unit,
+    onHideCustomView: () -> Unit,
+    onOpenStaticSecurityAppSettings: () -> Unit,
+    onOpenStaticSecurityCastSettings: () -> Unit,
+    onRefreshStaticSecurityStatus: () -> Unit,
+    onSendStaticSecurityReport: (DiagnosticSection) -> Unit,
+    modifier: Modifier
+) {
+    ExamRuntimeSessionRenderedUi(
+        examSessionStarted = examSessionStarted,
+        showGeofenceMapViewer = showGeofenceMapViewer,
+        geofenceRuntimeStatus = geofenceRuntimeStatus,
+        geofenceManualRefreshInFlight = geofenceManualRefreshInFlight,
+        preparationState = preparationState,
+        preparationActions = preparationActions,
+        runtimeChromeState = runtimeChromeState,
+        runtimeChromeActions = runtimeChromeActions,
+        payload = payload,
+        bypassOverlay = bypassOverlay,
+        examAlarmController = examAlarmController,
+        participantCaptureBridge = participantCaptureBridge,
+        nativeFullscreenBridge = nativeFullscreenBridge,
+        keyboardBridge = keyboardBridge,
+        useBuiltInExamKeyboard = useBuiltInExamKeyboard,
+        effectiveExamUserAgent = effectiveExamUserAgent,
+        fullScreenContainer = fullScreenContainer,
+        fullScreenCustomView = fullScreenCustomView,
+        nativeExamFullscreenActive = nativeExamFullscreenActive,
+        runtimeDialogsState = runtimeDialogsState,
+        runtimeDialogsActions = runtimeDialogsActions,
+        pendingSection = pendingSection,
+        uiLanguage = uiLanguage,
+        screenPinningMessage = screenPinningMessage,
+        securityIssueDialogTitle = securityIssueDialogTitle,
+        securityIssueDialogMessage = securityIssueDialogMessage,
+        bugReportFeedbackTitle = bugReportFeedbackTitle,
+        bugReportFeedbackMessage = bugReportFeedbackMessage,
+        securityUiState = securityUiState,
         onDismissGeofenceMapViewer = renderedUiCallbacks::onDismissGeofenceMapViewer,
         onRefreshGeofenceMapViewer = renderedUiCallbacks::onRefreshGeofenceMapViewer,
         onRefreshMapViewerActionLogged = renderedUiCallbacks::onRefreshMapViewerActionLogged,
         onOverlayObscuredTouch = renderedUiCallbacks::onOverlayObscuredTouch,
         onShowBuiltInExamKeyboardChange = renderedUiCallbacks::onShowBuiltInExamKeyboardChange,
         onWebViewInstanceChange = renderedUiCallbacks::onWebViewInstanceChange,
-        onHideSystemKeyboard = ::hideSystemKeyboard,
+        onHideSystemKeyboard = onHideSystemKeyboard,
         onWebViewLoadStart = renderedUiCallbacks::onWebViewLoadStart,
         onWebViewLoadFinish = renderedUiCallbacks::onWebViewLoadFinish,
         onWebViewLoadError = renderedUiCallbacks::onWebViewLoadError,
@@ -2404,17 +2615,78 @@ internal fun ExamRuntimeSessionScreenImpl(
         onLoadingProgressChange = renderedUiCallbacks::onLoadingProgressChange,
         onWebViewErrorMessageChange = renderedUiCallbacks::onWebViewErrorMessageChange,
         onShowCustomView = renderedUiCallbacks::onShowCustomView,
-        onHideCustomView = ::hideCustomView,
+        onHideCustomView = onHideCustomView,
         onDismissPendingSection = renderedUiCallbacks::onDismissPendingSection,
         onConfirmPendingSection = renderedUiCallbacks::onConfirmPendingSection,
-        onOpenStaticSecurityAppSettings = ::handleOpenAppSettings,
-        onOpenStaticSecurityCastSettings = ::handleOpenCastSettings,
-        onRefreshStaticSecurityStatus = ::handleRefreshPreparationStatus,
-        onSendStaticSecurityReport = ::launchTelegramSectionReport,
+        onOpenStaticSecurityAppSettings = onOpenStaticSecurityAppSettings,
+        onOpenStaticSecurityCastSettings = onOpenStaticSecurityCastSettings,
+        onRefreshStaticSecurityStatus = onRefreshStaticSecurityStatus,
+        onSendStaticSecurityReport = onSendStaticSecurityReport,
         onDismissScreenPinningMessage = renderedUiCallbacks::onDismissScreenPinningMessage,
         onDismissSecurityIssueDialog = renderedUiCallbacks::onDismissSecurityIssueDialog,
         onDismissBugReportFeedback = renderedUiCallbacks::onDismissBugReportFeedback,
         modifier = modifier
     )
+}
 
+private fun handleExamRuntimeScreenPinningTransitionInterrupted(
+    lockTaskRequestPending: Boolean,
+    examSessionStarted: Boolean,
+    lockTaskBridge: ActivityLockTaskBridge,
+    pinningActivationStartedAtElapsedMs: Long?,
+    pinningSuppressedTransitionCount: Int,
+    isIndonesian: Boolean,
+    pinningActivationPurpose: PinningActivationPurpose,
+    setPinningActivationState: (PinningActivationState) -> Unit,
+    setLockTaskStateAfterPinningRequest: (String) -> Unit,
+    setScreenPinningDialogLikelyShown: (Boolean) -> Unit,
+    setPinningSuppressedTransitionCount: (Int) -> Unit,
+    setScreenPinningMessage: (String?) -> Unit,
+    recordAction: (String, String, DiagnosticEventLevel) -> Unit
+) {
+    if (!lockTaskRequestPending || examSessionStarted) {
+        return
+    }
+    if (lockTaskBridge.active()) {
+        setPinningActivationState(PinningActivationState.ActiveConfirmed)
+        recordAction(
+            ExamRuntimeHardeningDiagnostics.ScreenPinningAlreadyActive,
+            "transition_interrupt_ignored | state=${lockTaskBridge.stateLabel()}",
+            DiagnosticEventLevel.INFO
+        )
+        return
+    }
+
+    val stateAfterInterrupt = lockTaskBridge.stateLabel()
+    setLockTaskStateAfterPinningRequest(stateAfterInterrupt)
+    setScreenPinningDialogLikelyShown(true)
+    val nowElapsedMs = SystemClock.elapsedRealtime()
+    val elapsedMs = pinningActivationStartedAtElapsedMs?.let { (nowElapsedMs - it).coerceAtLeast(0L) }
+    val withinGrace = shouldSuppressPinningTransitionViolation(
+        lockTaskRequestPending = lockTaskRequestPending,
+        examSessionStarted = examSessionStarted,
+        startedAtElapsedMs = pinningActivationStartedAtElapsedMs,
+        nowElapsedMs = nowElapsedMs
+    )
+    val newSuppressedTransitionCount = pinningSuppressedTransitionCount + 1
+    setPinningSuppressedTransitionCount(newSuppressedTransitionCount)
+    setPinningActivationState(PinningActivationState.WaitingForLockTaskActive)
+    setScreenPinningMessage(
+        ScreenPinningEnforcer.activatingMessage(
+            isIndonesian = isIndonesian,
+            purpose = pinningActivationPurpose
+        )
+    )
+    recordAction(
+        ExamRuntimeHardeningDiagnostics.PinningTransitionViolationSuppressed,
+        "source=user_leave_hint | state=$stateAfterInterrupt | elapsed_ms=${elapsedMs ?: -1} | within_grace=$withinGrace | suppressed_count=$newSuppressedTransitionCount | wait_until_timeout=true",
+        DiagnosticEventLevel.WARNING
+    )
+    if (!withinGrace) {
+        recordAction(
+            ExamRuntimeHardeningDiagnostics.ScreenPinningTransitionInterrupted,
+            "source=user_leave_hint | state=$stateAfterInterrupt | elapsed_ms=${elapsedMs ?: -1} | suppressed_until_timeout=true",
+            DiagnosticEventLevel.WARNING
+        )
+    }
 }

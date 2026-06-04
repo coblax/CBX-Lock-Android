@@ -7,6 +7,7 @@ import com.example.coblaxexamlock.AdbBypassState
 import com.example.coblaxexamlock.AppSwitchBypassState
 import com.example.coblaxexamlock.AppSwitchMonitor
 import com.example.coblaxexamlock.ClipboardRuntimeStatus
+import com.example.coblaxexamlock.DpcRuntimeStatus
 import com.example.coblaxexamlock.ExamParticipantContext
 import com.example.coblaxexamlock.ExamQrPayload
 import com.example.coblaxexamlock.FakeLocationRuntimeStatus
@@ -142,6 +143,7 @@ internal fun launchExamRuntimeTelegramSectionReport(
     bypassScreenRecorder: Boolean,
     bypassDisplayMirror: Boolean,
     bypassMultiWindow: Boolean,
+    dpcRuntimeStatus: DpcRuntimeStatus,
     callbacks: ExamRuntimeTelegramReportCallbacks
 ) {
     if (callbacks.isSendingSection()) {
@@ -311,6 +313,7 @@ internal fun launchExamRuntimeTelegramSectionReport(
                 multiWindowBypassTampered = adminSettings.multiWindowBypassTampered,
                 multiWindowViolationCount = securityUiState.multiWindowViolationCount.intValue,
                 multiWindowDialogActive = securityUiState.showMultiWindowViolationDialog.value,
+                dpcRuntimeStatus = dpcRuntimeStatus,
                 compactReport = lowRamProfile.telegramCompactReport
             ).onSuccess {
                 callbacks.recordAction("DIAGNOSTIC_SECTION_SENT", section.name, DiagnosticEventLevel.INFO)

@@ -539,6 +539,7 @@ class MainActivity : ComponentActivity() {
         }.getOrElse { false }
     }
 
+    @Suppress("DEPRECATION")
     fun setExamLockMode(enabled: Boolean, allowLockTask: Boolean = true) {
         runCatching {
             WindowCompat.setDecorFitsSystemWindows(window, !enabled)
@@ -547,12 +548,13 @@ class MainActivity : ComponentActivity() {
 
         if (enabled) {
             runCatching {
-                val secureFlag = if (BuildConfig.DEBUG) {
-                    0
-                } else {
-                    WindowManager.LayoutParams.FLAG_SECURE
-                }
-                window.addFlags(secureFlag or WindowManager.LayoutParams.FLAG_KEEP_SCREEN_ON)
+                window.setSoftInputMode(WindowManager.LayoutParams.SOFT_INPUT_ADJUST_RESIZE)
+            }
+            runCatching {
+                window.addFlags(
+                    WindowManager.LayoutParams.FLAG_SECURE or
+                        WindowManager.LayoutParams.FLAG_KEEP_SCREEN_ON
+                )
             }
             runCatching {
                 controller.systemBarsBehavior =
@@ -580,6 +582,9 @@ class MainActivity : ComponentActivity() {
             }
             if (shouldStopExamLockTask(enabled = false, lockTaskAlreadyActive = isExamLockModeActive())) {
                 runCatching { stopLockTask() }
+            }
+            runCatching {
+                window.setSoftInputMode(WindowManager.LayoutParams.SOFT_INPUT_ADJUST_UNSPECIFIED)
             }
         }
     }

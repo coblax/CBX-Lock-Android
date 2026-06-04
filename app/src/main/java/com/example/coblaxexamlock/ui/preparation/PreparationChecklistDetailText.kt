@@ -1,6 +1,8 @@
 package com.example.coblaxexamlock.ui.preparation
 
 import com.example.coblaxexamlock.AccessibilityInspectionResult
+import com.example.coblaxexamlock.BuildConfig
+import com.example.coblaxexamlock.DpcProtectionTier
 import com.example.coblaxexamlock.config.AllowedExamKeyboardPackages
 import com.example.coblaxexamlock.config.AllowedSystemKeyboardPackagePrefixes
 import com.example.coblaxexamlock.config.BlockedExamKeyboardPackages
@@ -184,9 +186,17 @@ internal fun buildPreparationChecklistDetailText(
     )
     val overlayDetail = if (shouldBuildFor(WizardStep.RuntimeInteraction)) preparationDetailOrNull(
         english = {
+        val dpcStatus = runtimeSecurity.dpcRuntimeStatus
+        val dpcImpact = when (dpcStatus.protectionTier) {
+            DpcProtectionTier.None -> "Legacy/normal APK mode: floating apps cannot be fully blocked before Android 12."
+            DpcProtectionTier.NormalApk -> "Android 12+ normal APK mode: setHideOverlayWindows shield is available."
+            DpcProtectionTier.LegacyDpcAndroid7 -> "Android 7 Device Owner mode: Lock Task is available, but DISALLOW_CREATE_WINDOWS is unsupported."
+            DpcProtectionTier.DpcOverlayRestricted -> "Device Owner mode: DISALLOW_CREATE_WINDOWS can be applied during exam."
+            DpcProtectionTier.DpcOverlayRestrictedWithShield -> "Best mode: Device Owner restriction and Android overlay shield can run together."
+        }
         "Checked:\n" +
             "- Confirmed signal: obscured/partially obscured touch on SecureExamWebView\n" +
-            "- Confirmed signal: suspicious exam window focus loss while app stays visible\n" +
+            "- Warning-only signal: exam window focus loss while app stays visible\n" +
             "- Heuristic signal: active accessibility service\n" +
             "- Overlay shield supported: ${if (overlayRiskResult.shieldStatus.supported) "Yes" else "No"}\n" +
             "- Overlay shield requested: ${if (overlayRiskResult.shieldStatus.requested) "Yes" else "No"}\n" +
@@ -202,14 +212,32 @@ internal fun buildPreparationChecklistDetailText(
             "- Last trigger: ${overlayRiskResult.lastTrigger?.ifBlank { "-" } ?: "-"}\n" +
             "- Last timestamp: ${overlayRiskResult.lastDetectedAt?.ifBlank { "-" } ?: "-"}\n" +
             "- Last context: ${overlayRiskResult.lastContext?.ifBlank { "-" } ?: "-"}\n" +
+            "- DPC enrollment: ${dpcStatus.enrollmentLabel()}\n" +
+            "- DPC device owner: ${if (dpcStatus.deviceOwner) "Yes" else "No"}\n" +
+            "- DPC admin active: ${if (dpcStatus.adminActive) "Yes" else "No"}\n" +
+            "- DPC lock task allowlisted: ${if (dpcStatus.lockTaskPermitted) "Yes" else "No"}\n" +
+            "- DPC create-windows restriction supported: ${if (dpcStatus.createWindowsRestrictionSupported) "Yes" else "No"}\n" +
+            "- DPC create-windows restriction active: ${if (dpcStatus.createWindowsRestrictionActive) "Yes" else "No"}\n" +
+            "- DPC protection tier: ${dpcStatus.protectionTier.diagnosticLabel()}\n" +
+            "- DPC enrollment command: adb shell dpm set-device-owner ${BuildConfig.APPLICATION_ID}/.CbxDeviceAdminReceiver\n" +
             "Impact:\n" +
             "- Heuristic risk only updates warning status and quick fixes\n" +
-            "- Confirmed obscured touch or suspicious focus loss triggers alarm + acknowledge dialog"
+            "- Window focus loss is warning-only because keyboards and OEM system UI often trigger it\n" +
+            "- Confirmed fully obscured touch or app-switch confirmation triggers alarm + acknowledge dialog\n" +
+            "- $dpcImpact"
         },
         indonesian = {
+        val dpcStatus = runtimeSecurity.dpcRuntimeStatus
+        val dpcImpact = when (dpcStatus.protectionTier) {
+            DpcProtectionTier.None -> "Mode APK biasa/legacy: floating app tidak bisa diblokir sepenuhnya sebelum Android 12."
+            DpcProtectionTier.NormalApk -> "Mode APK biasa Android 12+: shield setHideOverlayWindows tersedia."
+            DpcProtectionTier.LegacyDpcAndroid7 -> "Mode Device Owner Android 7: Lock Task tersedia, tetapi DISALLOW_CREATE_WINDOWS belum didukung."
+            DpcProtectionTier.DpcOverlayRestricted -> "Mode Device Owner: DISALLOW_CREATE_WINDOWS bisa diterapkan saat ujian."
+            DpcProtectionTier.DpcOverlayRestrictedWithShield -> "Mode terbaik: restriction Device Owner dan overlay shield Android bisa aktif bersama."
+        }
         "Dicek:\n" +
             "- Sinyal terkonfirmasi: touch obscured/partially obscured pada SecureExamWebView\n" +
-            "- Sinyal terkonfirmasi: fokus jendela ujian hilang secara mencurigakan saat app masih terlihat\n" +
+            "- Sinyal warning-only: fokus jendela ujian hilang saat app masih terlihat\n" +
             "- Sinyal heuristik: accessibility service aktif\n" +
             "- Overlay shield didukung: ${if (overlayRiskResult.shieldStatus.supported) "Ya" else "Tidak"}\n" +
             "- Overlay shield diminta aktif: ${if (overlayRiskResult.shieldStatus.requested) "Ya" else "Tidak"}\n" +
@@ -225,9 +253,19 @@ internal fun buildPreparationChecklistDetailText(
             "- Trigger terakhir: ${overlayRiskResult.lastTrigger?.ifBlank { "-" } ?: "-"}\n" +
             "- Waktu terakhir: ${overlayRiskResult.lastDetectedAt?.ifBlank { "-" } ?: "-"}\n" +
             "- Konteks terakhir: ${overlayRiskResult.lastContext?.ifBlank { "-" } ?: "-"}\n" +
+            "- Enrollment DPC: ${dpcStatus.enrollmentLabel()}\n" +
+            "- DPC device owner: ${if (dpcStatus.deviceOwner) "Ya" else "Tidak"}\n" +
+            "- DPC admin aktif: ${if (dpcStatus.adminActive) "Ya" else "Tidak"}\n" +
+            "- DPC lock task allowlisted: ${if (dpcStatus.lockTaskPermitted) "Ya" else "Tidak"}\n" +
+            "- DPC create-windows restriction didukung: ${if (dpcStatus.createWindowsRestrictionSupported) "Ya" else "Tidak"}\n" +
+            "- DPC create-windows restriction aktif: ${if (dpcStatus.createWindowsRestrictionActive) "Ya" else "Tidak"}\n" +
+            "- Tier proteksi DPC: ${dpcStatus.protectionTier.diagnosticLabel()}\n" +
+            "- Perintah enrollment DPC: adb shell dpm set-device-owner ${BuildConfig.APPLICATION_ID}/.CbxDeviceAdminReceiver\n" +
             "Dampak:\n" +
             "- Risiko heuristik hanya mengubah status warning dan quick fix\n" +
-            "- Obscured touch atau fokus hilang mencurigakan memicu alarm + dialog acknowledge"
+            "- Focus-loss warning-only karena keyboard dan system UI vendor sering memicunya\n" +
+            "- Fully obscured touch atau konfirmasi app-switch memicu alarm + dialog acknowledge\n" +
+            "- $dpcImpact"
         }
     ) else null
     val developerDetail = if (shouldBuildFor(WizardStep.DeviceIntegrity)) preparationDetailOrNull(

@@ -10,6 +10,7 @@ import com.example.coblaxexamlock.AppSwitchStatus
 import com.example.coblaxexamlock.BuildConfig
 import com.example.coblaxexamlock.ClipboardRuntimeStatus
 import com.example.coblaxexamlock.DeviceTimeSecurityStatus
+import com.example.coblaxexamlock.DpcRuntimeStatus
 import com.example.coblaxexamlock.ExamParticipantContext
 import com.example.coblaxexamlock.FakeLocationRuntimeStatus
 import com.example.coblaxexamlock.GeofenceRuntimeStatus
@@ -23,6 +24,7 @@ import com.example.coblaxexamlock.RootSecurityStatus
 import com.example.coblaxexamlock.SecureStrings
 import com.example.coblaxexamlock.SignatureIntegrity
 import com.example.coblaxexamlock.WebViewCompatibilityStatus
+import com.example.coblaxexamlock.defaultDpcRuntimeStatus
 import com.example.coblaxexamlock.diagnosticLabel
 import com.example.coblaxexamlock.formatCoordinates
 import com.example.coblaxexamlock.config.TelegramMessageChunkLimit
@@ -151,6 +153,7 @@ internal suspend fun sendTelegramSectionReport(
     multiWindowBypassTampered: Boolean = false,
     multiWindowViolationCount: Int = 0,
     multiWindowDialogActive: Boolean = false,
+    dpcRuntimeStatus: DpcRuntimeStatus = defaultDpcRuntimeStatus(),
     compactReport: Boolean = false
 ): Result<Unit> {
     val deliveryResult = withContext(LowRamDispatchers.detectorIo) {
@@ -230,6 +233,8 @@ internal suspend fun sendTelegramSectionReport(
             appendLine("App version: $versionName")
             appendLine("Perangkat: ${deviceLabel.ifBlank { "-" }}")
             appendLine("OS: $osLabel")
+            appendLine("DPC mode: ${dpcRuntimeStatus.enrollmentLabel()}")
+            appendLine("DPC protection tier: ${dpcRuntimeStatus.protectionTier.diagnosticLabel()}")
             appendLine("Admin overrides: $adminOverridesSummary")
             appendLine("IntegrityGuard: ${integritySummary.ifBlank { "-" }}")
             appendLine(
@@ -345,7 +350,8 @@ internal suspend fun sendTelegramSectionReport(
                     bypassMultiWindow = bypassMultiWindow,
                     multiWindowBypassTampered = multiWindowBypassTampered,
                     multiWindowViolationCount = multiWindowViolationCount,
-                    multiWindowDialogActive = multiWindowDialogActive
+                    multiWindowDialogActive = multiWindowDialogActive,
+                    dpcRuntimeStatus = dpcRuntimeStatus
                 )
             )
 

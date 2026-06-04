@@ -15,11 +15,11 @@ class ExamUrlValidationTest {
     }
 
     @Test
-    fun acceptsHttpUrlWithPath() {
+    fun rejectsHttpUrlBecauseCleartextIsBlocked() {
         val result = validateExamUrl("http://example.com/ujian")
 
-        assertTrue(result.isValid)
-        assertEquals("http://example.com/ujian", result.normalizedUrl)
+        assertFalse(result.isValid)
+        assertEquals(ExamUrlValidationError.Invalid, result.error)
     }
 
     @Test

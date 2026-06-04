@@ -7,6 +7,7 @@ import com.example.coblaxexamlock.DeviceCompatibilityProfile
 import com.example.coblaxexamlock.DeviceSurvivalPolicy
 import com.example.coblaxexamlock.DeviceTimeBypassState
 import com.example.coblaxexamlock.DeviceTimeSecurityStatus
+import com.example.coblaxexamlock.DpcRuntimeStatus
 import com.example.coblaxexamlock.FakeLocationBypassState
 import com.example.coblaxexamlock.FakeLocationRuntimeStatus
 import com.example.coblaxexamlock.GeofenceBypassState
@@ -62,7 +63,8 @@ internal fun buildExamRuntimePreExamHealthSnapshot(
     geofenceRuntimeStatus: GeofenceRuntimeStatus,
     fakeLocationRuntimeStatus: FakeLocationRuntimeStatus,
     deviceTimeSecurityStatus: DeviceTimeSecurityStatus,
-    batteryStatus: ExamBatteryStatus
+    batteryStatus: ExamBatteryStatus,
+    dpcRuntimeStatus: DpcRuntimeStatus
 ): PreExamHealthSnapshot =
     buildPreExamHealthSnapshot(
         PreExamHealthCheckInput(
@@ -87,6 +89,7 @@ internal fun buildExamRuntimePreExamHealthSnapshot(
             deviceTimeSecurityStatus = deviceTimeSecurityStatus,
             deviceTimeBypassed = deviceTimeBypassState == DeviceTimeBypassState.Active,
             batteryStatus = batteryStatus,
+            dpcRuntimeStatus = dpcRuntimeStatus,
             generatedAtElapsedMs = SystemClock.elapsedRealtime()
         )
     )

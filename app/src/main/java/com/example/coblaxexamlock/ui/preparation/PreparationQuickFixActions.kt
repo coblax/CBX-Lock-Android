@@ -36,9 +36,6 @@ internal fun buildPreparationQuickFixActions(
                 !bypassOverlay &&
                     overlayRiskResult.quickFixTargets.contains(OverlayQuickFixTarget.AccessibilitySettings) &&
                     !showAccessibilityFix
-            val showOverlaySettingsFix =
-                !bypassOverlay &&
-                    overlayRiskResult.quickFixTargets.contains(OverlayQuickFixTarget.OverlaySettings)
             val showAdbFix = !bypassAdb && adbInspection.blocking
             val showAdbInsecurePropertyFix = !bypassAdb && !adbInspection.blocking && adbInspection.insecureSystemProperty
             val showRootBlockingFix = !bypassRoot && rootSecurityStatus.blocking
@@ -626,18 +623,6 @@ internal fun buildPreparationQuickFixActions(
                         fieldText = t("Review Accessibility Risk", "Cek Risiko Aksesibilitas"),
                         opensExternalSettings = true,
                         onClick = onOpenOverlayAccessibilitySettings
-                    )
-                }
-                if (showOverlaySettingsFix) {
-                    addQuickFix(
-                        text = t("Open Overlay Settings", "Buka Izin Overlay"),
-                        severity = QuickFixSeverity.Warning,
-                        target = QuickFixTarget.All,
-                        priority = 225,
-                        section = PreparationSection.RuntimeInteraction,
-                        fieldText = t("Turn Off Overlay Permission", "Matikan Izin Overlay"),
-                        opensExternalSettings = true,
-                        onClick = onOpenOverlaySettings
                     )
                 }
                 if (!bypassScreenPinning && screenPinningAvailable && !isScreenPinningActive) {

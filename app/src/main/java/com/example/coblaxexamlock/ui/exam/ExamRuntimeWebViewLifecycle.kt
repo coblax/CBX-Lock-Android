@@ -254,6 +254,7 @@ internal class ExamRuntimeRendererGoneCallbacks(
     val cleanupActiveWebViewInstance: () -> Unit,
     val disarmExamRuntimeMonitoring: () -> Unit,
     val clearAppSwitchSuppression: () -> Unit,
+    val clearDpcExamPoliciesForSession: (String) -> Unit,
     val setLockTaskRequestPending: (Boolean) -> Unit,
     val setExamSessionStarted: (Boolean) -> Unit,
     val setExamSessionStartedAtElapsedMs: (Long?) -> Unit,
@@ -313,6 +314,7 @@ internal fun handleExamRuntimeWebViewRendererGone(
     lockTaskBridge.disengage()
     callbacks.disarmExamRuntimeMonitoring()
     callbacks.clearAppSwitchSuppression()
+    callbacks.clearDpcExamPoliciesForSession("webview_renderer_gone")
     examAlarmController.stop()
     callbacks.setLockTaskRequestPending(false)
     callbacks.setExamSessionStarted(false)
@@ -361,8 +363,7 @@ internal fun handleExamRuntimeTrimMemory(
     val memoryAction = resolveExamRuntimeMemoryAction(
         shouldRespondToPressure = MemoryPressureCoordinator.shouldRespondToPressure(level),
         examSessionStarted = examSessionStarted,
-        hasFullscreenCustomView = webViewUiState.fullScreenCustomView.value != null,
-        clearActiveWebViewCacheAllowed = MemoryPressureCoordinator.shouldClearActiveWebViewCache(level)
+        hasFullscreenCustomView = webViewUiState.fullScreenCustomView.value != null
     )
     if (!memoryAction.respond) {
         return

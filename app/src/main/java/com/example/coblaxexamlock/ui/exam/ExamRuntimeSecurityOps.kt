@@ -9,6 +9,7 @@ import com.example.coblaxexamlock.AdbInspection
 import com.example.coblaxexamlock.AdbBypassState
 import com.example.coblaxexamlock.AppSwitchBypassState
 import com.example.coblaxexamlock.BuildConfig
+import com.example.coblaxexamlock.DpcRuntimeStatus
 import com.example.coblaxexamlock.ExamParticipantContext
 import com.example.coblaxexamlock.ExamQrPayload
 import com.example.coblaxexamlock.LowRamProfile
@@ -387,6 +388,7 @@ internal class ExamRuntimeSecurityOps(
     private val clipboardUiState: ExamRuntimeClipboardUiState,
     private val adminUiState: ExamRuntimeAdminUiState,
     private val networkUiState: ExamRuntimeNetworkUiState,
+    private val dpcRuntimeStatusProvider: () -> DpcRuntimeStatus,
     private val accessibilityGuardEnabledState: MutableState<Boolean>,
     private val accessibilityGuardFallbackActiveState: MutableState<Boolean>,
     private val accessibilityGuardLastReasonState: MutableState<String?>,
@@ -639,6 +641,7 @@ internal class ExamRuntimeSecurityOps(
             bypassScreenRecorder = adminSettings.bypassScreenRecorder,
             bypassDisplayMirror = adminSettings.bypassDisplayMirror,
             bypassMultiWindow = adminSettings.bypassMultiWindow,
+            dpcRuntimeStatus = dpcRuntimeStatusProvider(),
             callbacks = ExamRuntimeTelegramReportCallbacks(
                 isSendingSection = { adminUiState.sendingSection.value != null },
                 setSendingSection = { adminUiState.sendingSection.value = it },

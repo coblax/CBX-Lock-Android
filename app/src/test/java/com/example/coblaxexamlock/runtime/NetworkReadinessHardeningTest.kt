@@ -10,6 +10,19 @@ import org.junit.Test
 
 class NetworkReadinessHardeningTest {
     @Test
+    fun examUrlProbeUsesExamHostInsteadOfGenericHost() {
+        assertEquals(
+            "skansatp.web.id",
+            networkProbeHostForExamUrl("https://skansatp.web.id/?examkey=223611")
+        )
+    }
+
+    @Test
+    fun invalidExamUrlProbeFallsBackToGenericHost() {
+        assertEquals("example.com", networkProbeHostForExamUrl("not a url"))
+    }
+
+    @Test
     fun connectedWithDnsFailureBecomesDnsFailed() {
         val verdict = resolveNetworkReadinessUserVerdict(
             verdict = NetworkReadinessVerdict.ConnectedStable,

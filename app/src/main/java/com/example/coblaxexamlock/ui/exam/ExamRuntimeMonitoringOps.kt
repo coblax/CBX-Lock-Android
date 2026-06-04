@@ -49,6 +49,7 @@ internal class ExamRuntimeExitCleanupStateAccess(
 internal class ExamRuntimeMonitoringCallbacks(
     val currentAppSwitchEventDetails: (AppSwitchSignal) -> String,
     val clearAppSwitchSuppression: () -> Unit,
+    val clearDpcExamPoliciesForSession: (String) -> Unit,
     val recordAction: (String, String, DiagnosticEventLevel) -> Unit
 )
 
@@ -394,26 +395,10 @@ internal class ExamRuntimeMonitoringOps(
     fun hideSystemKeyboard() {
         val inputMethodManager = context.getSystemService(InputMethodManager::class.java)
         webViewUiState.instance.value?.windowToken?.let { windowToken ->
-            inputMethodManager?.hideSoftInputFromWindow(windowToken, 0)
+            runCatching { inputMethodManager?.hideSoftInputFromWindow(windowToken, 0) }
         }
         componentActivity.currentFocus?.windowToken?.let { windowToken ->
-            inputMethodManager?.hideSoftInputFromWindow(windowToken, 0)
-        }
-    }
-
-    fun showSystemKeyboard() {
-        if (flowUiState.useBuiltInExamKeyboard.value) {
-            return
-        }
-        val inputMethodManager = context.getSystemService(InputMethodManager::class.java) ?: return
-        webViewUiState.instance.value?.post {
-            webViewUiState.instance.value?.isFocusable = true
-            webViewUiState.instance.value?.isFocusableInTouchMode = true
-            webViewUiState.instance.value?.requestFocus(View.FOCUS_DOWN)
-            webViewUiState.instance.value?.requestFocus()
-            webViewUiState.instance.value?.let {
-                inputMethodManager.showSoftInput(it, InputMethodManager.SHOW_IMPLICIT)
-            }
+            runCatching { inputMethodManager?.hideSoftInputFromWindow(windowToken, 0) }
         }
     }
 
@@ -467,7 +452,9 @@ internal class ExamRuntimeMonitoringOps(
             setRecoveryState = { webViewUiState.recoveryState.value = it },
             cleanupActiveWebViewInstance = ::cleanupActiveExamWebViewInstance,
             recordAction = callbacks.recordAction
-        )
+        ).also {
+            callbacks.clearDpcExamPoliciesForSession(reason)
+        }
 
     fun launchExitSessionClearBestEffort(reason: String) {
         componentActivity.lifecycleScope.launch {
@@ -494,6 +481,7 @@ internal class ExamRuntimeMonitoringOps(
                 cleanupActiveWebViewInstance = ::cleanupActiveExamWebViewInstance,
                 disarmExamRuntimeMonitoring = ::disarmExamRuntimeMonitoring,
                 clearAppSwitchSuppression = callbacks.clearAppSwitchSuppression,
+                clearDpcExamPoliciesForSession = callbacks.clearDpcExamPoliciesForSession,
                 setLockTaskRequestPending = { flowUiState.lockTaskRequestPending.value = it },
                 setExamSessionStarted = { flowUiState.examSessionStarted.value = it },
                 setExamSessionStartedAtElapsedMs = { adminUiState.examSessionStartedAtElapsedMs.value = it },

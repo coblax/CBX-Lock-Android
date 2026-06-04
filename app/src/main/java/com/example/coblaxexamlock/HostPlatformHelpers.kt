@@ -180,6 +180,7 @@ import androidx.lifecycle.LifecycleEventObserver
 import androidx.lifecycle.ViewModelProvider
 import androidx.webkit.WebViewCompat
 import androidx.webkit.WebViewFeature
+import com.example.coblaxexamlock.config.DefaultExamUserAgent
 import com.example.coblaxexamlock.config.ExamNativeFullscreenBridgeInstallScript
 import com.example.coblaxexamlock.model.normalizeExamUserAgent
 import com.example.coblaxexamlock.ui.exam.ExamKeyboardBridge
@@ -262,12 +263,25 @@ internal fun WebView.applyExamWebViewSettings(examUserAgent: String, lowRamProfi
         // hardening stays in place, so this lint warning is intentionally suppressed.
         javaScriptEnabled = true
         domStorageEnabled = true
-        cacheMode = WebSettings.LOAD_DEFAULT
+        // Use LOAD_CACHE_ELSE_NETWORK instead of LOAD_DEFAULT:
+        // LOAD_DEFAULT forces cache revalidation with the server on every load.
+        // On congested school Wi-Fi (30+ students), this revalidation request itself
+        // can time out and produce NET_ERR_CONNECTION_TIMED_OUT even though internet
+        // is fine. LOAD_CACHE_ELSE_NETWORK serves cached content first and falls back
+        // to network, making the WebView far more resilient to transient slowdowns.
+        cacheMode = WebSettings.LOAD_CACHE_ELSE_NETWORK
         useWideViewPort = true
         loadWithOverviewMode = true
         builtInZoomControls = false
         displayZoomControls = false
-        userAgentString = normalizeExamUserAgent(examUserAgent)
+        userAgentString = resolveExamWebViewUserAgent(context, examUserAgent)
+
+        // Ensure DOM database storage works (explicit defensive setting)
+        @Suppress("DEPRECATION")
+        databaseEnabled = true
+
+        // Explicitly enforce HTTPS-only sub-resources (defensive — matches network_security_config)
+        mixedContentMode = WebSettings.MIXED_CONTENT_NEVER_ALLOW
 
         // Force media user gesture to prevent background auto-play resources
         mediaPlaybackRequiresUserGesture = true
@@ -295,6 +309,15 @@ internal fun WebView.applyExamWebViewSettings(examUserAgent: String, lowRamProfi
         if (lowRamProfile.enabled) {
             offscreenPreRaster = false
         }
+    }
+}
+
+internal fun resolveExamWebViewUserAgent(context: Context, examUserAgent: String): String {
+    val normalized = normalizeExamUserAgent(examUserAgent)
+    return if (normalized == DefaultExamUserAgent) {
+        WebSettings.getDefaultUserAgent(context)
+    } else {
+        normalized
     }
 }
 
@@ -414,9 +437,9 @@ internal fun SecureExamWebView.attachExamKeyboardBridge(
         setOnTouchListener(null)
     } else {
         setOnTouchListener { view, event ->
-            onHideSystemKeyboard()
-            if (event.action == MotionEvent.ACTION_UP) {
-                view.performClick()
+            when (event.actionMasked) {
+                MotionEvent.ACTION_DOWN -> onHideSystemKeyboard()
+                MotionEvent.ACTION_UP -> view.performClick()
             }
             false
         }
@@ -530,11 +553,8 @@ internal fun openOverlaySettings(context: Context) {
     launchFirstPlatformIntentSafely(
         context,
         listOf(
-            Intent(
-                Settings.ACTION_MANAGE_OVERLAY_PERMISSION,
-                "package:${context.packageName}".toUri()
-            ),
-            Intent(Settings.ACTION_APPLICATION_DETAILS_SETTINGS, "package:${context.packageName}".toUri()),
+            Intent(Settings.ACTION_MANAGE_OVERLAY_PERMISSION),
+            Intent(Settings.ACTION_APPLICATION_SETTINGS),
             Intent(Settings.ACTION_SETTINGS)
         )
     )

@@ -33,7 +33,7 @@ internal fun validateExamUrl(rawUrl: String): ExamUrlValidationResult {
 
     val scheme = uri.scheme.orEmpty().lowercase(Locale.US)
     val host = uri.host.orEmpty()
-    if (scheme !in setOf("http", "https") || host.isBlank()) {
+    if (scheme != "https" || host.isBlank()) {
         return ExamUrlValidationResult(
             normalizedUrl = null,
             error = ExamUrlValidationError.Invalid

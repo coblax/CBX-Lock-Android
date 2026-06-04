@@ -38,7 +38,6 @@ internal fun RuntimePrimaryGuardEffects(
     securityUiState: ExamRuntimeSecurityUiState,
     clipboardUiState: ExamRuntimeClipboardUiState,
     adminUiState: ExamRuntimeAdminUiState,
-    examAlarmController: ExamAlarmController,
     fullScreenCustomView: View?,
     showOfflineWarningDialog: Boolean,
     showExitExamDialog: Boolean,
@@ -54,9 +53,9 @@ internal fun RuntimePrimaryGuardEffects(
     currentInternalDialogReason: () -> String?,
     recordAction: (String, String, DiagnosticEventLevel) -> Unit,
     recordAppSwitchEvent: (String, AppSwitchSignal, DiagnosticEventLevel) -> Unit,
-    recordOverlayEvent: (String, OverlaySignal, DiagnosticEventLevel) -> Unit,
     onScreenPinningTransitionInterrupted: () -> Unit,
-    armClipboardResumeCheck: (String) -> Unit
+    armClipboardResumeCheck: (String) -> Unit,
+    startAlarm: () -> Unit
 ) {
     val overlayMainHandler = remember { Handler(Looper.getMainLooper()) }
     val latestDeviceQuirkProfile by rememberUpdatedState(deviceQuirkProfile)
@@ -71,7 +70,6 @@ internal fun RuntimePrimaryGuardEffects(
         val hostActivity = mainActivity
         val shieldShouldBeRequested =
             hostActivity != null &&
-                examGuardArmed &&
                 overlayBypassState != OverlayBypassState.Active
 
         securityUiState.overlayShieldRequested.value = shieldShouldBeRequested
@@ -328,34 +326,52 @@ internal fun RuntimePrimaryGuardEffects(
                                 return@Runnable
                             }
 
-                            val coveredByAppSwitch =
-                                appSwitchRuntimeMonitoringActive &&
-                                    (
-                                        securityUiState.pendingForcedExitViolation.value ||
-                                            adminUiState.appSwitchLifecycleResumePending.value
-                                        )
-                            if (coveredByAppSwitch) {
-                                securityUiState.overlayWindowFocusLossPending.value = false
-                                recordAction(
-                                    "OVERLAY_MONITOR_SUPPRESSED",
-                                    currentOverlayEventDetails(
-                                        OverlaySignal.WindowFocusLoss,
-                                        "reason=covered_by_app_switch"
-                                    ),
-                                    DiagnosticEventLevel.INFO
-                                )
-                                return@Runnable
-                            }
-
                             securityUiState.overlayWindowFocusLossPending.value = false
-                            recordOverlayEvent(
-                                "OVERLAY_WINDOW_FOCUS_LOSS",
-                                OverlaySignal.WindowFocusLoss,
-                                DiagnosticEventLevel.SECURITY
-                            )
-                            securityUiState.overlayViolationCount.intValue += 1
-                            securityUiState.showOverlayViolationDialog.value = true
-                            examAlarmController.start()
+                            val hasOverlayApps = securityUiState.overlayAppsDetected.value.isNotEmpty()
+                            when (
+                                decideExamOverlayWindowFocusLoss(
+                                    appSwitchRuntimeMonitoringActive = appSwitchRuntimeMonitoringActive,
+                                    pendingForcedExitViolation =
+                                        securityUiState.pendingForcedExitViolation.value,
+                                    appSwitchLifecycleResumePending =
+                                        adminUiState.appSwitchLifecycleResumePending.value,
+                                    hasOverlayAppsDetected = hasOverlayApps
+                                )
+                            ) {
+                                ExamOverlayFocusLossDecision.SuppressCoveredByAppSwitch -> {
+                                    recordAction(
+                                        "OVERLAY_MONITOR_SUPPRESSED",
+                                        currentOverlayEventDetails(
+                                            OverlaySignal.WindowFocusLoss,
+                                            "reason=covered_by_app_switch"
+                                        ),
+                                        DiagnosticEventLevel.INFO
+                                    )
+                                }
+                                ExamOverlayFocusLossDecision.WarnAndAllow -> {
+                                    recordAction(
+                                        "OVERLAY_MONITOR_SUPPRESSED",
+                                        currentOverlayEventDetails(
+                                            OverlaySignal.WindowFocusLoss,
+                                            "reason=focus_loss_uncorroborated | policy=warning_only"
+                                        ),
+                                        DiagnosticEventLevel.WARNING
+                                    )
+                                }
+                                ExamOverlayFocusLossDecision.TriggerViolationAlarm -> {
+                                    recordAction(
+                                        "OVERLAY_WINDOW_FOCUS_LOSS",
+                                        currentOverlayEventDetails(
+                                            OverlaySignal.WindowFocusLoss,
+                                            "reason=focus_loss_corroborated_by_overlay_apps"
+                                        ),
+                                        DiagnosticEventLevel.SECURITY
+                                    )
+                                    securityUiState.overlayViolationCount.intValue += 1
+                                    securityUiState.showOverlayViolationDialog.value = true
+                                    startAlarm()
+                                }
+                            }
                         }
                         securityUiState.overlayFocusLossConfirmRunnable.value = confirmRunnable
                         overlayMainHandler.postDelayed(

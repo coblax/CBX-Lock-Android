@@ -53,6 +53,49 @@ import com.example.coblaxexamlock.ui.theme.LockTextPrimary
 import com.example.coblaxexamlock.ui.theme.LockTextSecondary
 import java.util.Locale
 
+private val stablePreparationStatuses = setOf(
+    "aman", "safe", "siap", "ready", "aktif", "active", "diizinkan", "allowed",
+    "stable", "stabil", "good", "baik", "strong", "kuat", "best", "terbaik",
+    "inside area", "di dalam area", "clean", "bersih"
+)
+
+private val warningPreparationStatuses = setOf(
+    "dipantau", "monitored", "fallback", "warning", "peringatan",
+    "package warning", "peringatan paket", "needs fix", "perlu perbaikan",
+    "legacy dpc", "dpc legacy", "legacy risk", "risiko legacy",
+    "available", "tersedia", "check", "cek",
+    "stale fix", "fix kedaluwarsa", "low accuracy", "akurasi rendah",
+    "missing accuracy", "akurasi tidak ada", "no fix", "belum ada fix",
+    "needs location permission", "butuh izin lokasi", "location services off", "layanan lokasi off",
+    "waiting for location", "menunggu lokasi",
+    "offline", "captive portal", "unvalidated", "belum tervalidasi",
+    "unstable", "tidak stabil", "airplane mode", "mode pesawat"
+)
+
+private val neutralPreparationStatuses = setOf(
+    "bypassed", "bypass", "policy off", "policy nonaktif", "disabled", "nonaktif"
+)
+
+internal fun preparationStatusAccentColor(status: String): Color {
+    val normalizedStatus = status.trim().lowercase(Locale.US)
+    return when (normalizedStatus) {
+        in stablePreparationStatuses -> Color(0xFF2F8F63)
+        in warningPreparationStatuses -> LockGoldDark
+        in neutralPreparationStatuses -> Color(0xFF5C6B7A)
+        else -> Color(0xFFB34A4A)
+    }
+}
+
+internal fun preparationStatusBadgeBackground(status: String): Color {
+    val normalizedStatus = status.trim().lowercase(Locale.US)
+    return when (normalizedStatus) {
+        in stablePreparationStatuses -> Color(0xFFE8F6EE)
+        in warningPreparationStatuses -> LockGold.copy(alpha = 0.18f)
+        in neutralPreparationStatuses -> Color(0xFFE9EEF3)
+        else -> Color(0xFFFFEAEA)
+    }
+}
+
 @Composable
 internal fun PreparationAssistButton(
     text: String,
@@ -122,45 +165,8 @@ internal fun SecurityChecklistItem(
     sendEnabled: Boolean,
     showSendButton: Boolean = true
 ) {
-    val normalizedStatus = status.trim().lowercase(Locale.US)
-    val accentColor = when (normalizedStatus) {
-        "aman", "safe", "siap", "ready", "aktif", "active", "diizinkan", "allowed",
-        "stable", "stabil",
-        "inside area", "di dalam area", "clean", "bersih" ->
-            Color(0xFF2F8F63)
-        "dipantau", "monitored", "fallback", "warning", "peringatan",
-        "package warning", "peringatan paket", "needs fix", "perlu perbaikan",
-        "available", "tersedia", "check", "cek",
-        "stale fix", "fix kedaluwarsa", "low accuracy", "akurasi rendah",
-        "missing accuracy", "akurasi tidak ada", "no fix", "belum ada fix",
-        "needs location permission", "butuh izin lokasi", "location services off", "layanan lokasi off",
-        "waiting for location", "menunggu lokasi",
-        "offline", "captive portal", "unvalidated", "belum tervalidasi",
-        "unstable", "tidak stabil", "airplane mode", "mode pesawat" ->
-            LockGoldDark
-        "bypassed", "bypass", "policy off", "policy nonaktif", "disabled", "nonaktif" ->
-            Color(0xFF5C6B7A)
-        else -> Color(0xFFB34A4A)
-    }
-    val badgeBackground = when (normalizedStatus) {
-        "aman", "safe", "siap", "ready", "aktif", "active", "diizinkan", "allowed",
-        "stable", "stabil",
-        "inside area", "di dalam area", "clean", "bersih" ->
-            Color(0xFFE8F6EE)
-        "dipantau", "monitored", "fallback", "warning", "peringatan",
-        "package warning", "peringatan paket", "needs fix", "perlu perbaikan",
-        "available", "tersedia", "check", "cek",
-        "stale fix", "fix kedaluwarsa", "low accuracy", "akurasi rendah",
-        "missing accuracy", "akurasi tidak ada", "no fix", "belum ada fix",
-        "needs location permission", "butuh izin lokasi", "location services off", "layanan lokasi off",
-        "waiting for location", "menunggu lokasi",
-        "offline", "captive portal", "unvalidated", "belum tervalidasi",
-        "unstable", "tidak stabil", "airplane mode", "mode pesawat" ->
-            LockGold.copy(alpha = 0.18f)
-        "bypassed", "bypass", "policy off", "policy nonaktif", "disabled", "nonaktif" ->
-            Color(0xFFE9EEF3)
-        else -> Color(0xFFFFEAEA)
-    }
+    val accentColor = preparationStatusAccentColor(status)
+    val badgeBackground = preparationStatusBadgeBackground(status)
 
     Row(
         modifier = Modifier

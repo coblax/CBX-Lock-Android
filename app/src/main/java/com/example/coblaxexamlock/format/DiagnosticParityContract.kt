@@ -45,6 +45,10 @@ internal fun diagnosticParityContracts(): List<DiagnosticParityContract> = listO
             "NETWORK_VPN_DETECTED",
             "NETWORK_VPN_CLEARED",
             "START_EXAM_BLOCKED_VPN",
+            "START_EXAM_BLOCKED_NETWORK_REACHABILITY",
+            "EXAM_SERVER_PROBE_ONLINE",
+            "EXAM_SERVER_PROBE_WARNING",
+            "EXAM_SERVER_PROBE_OFFLINE",
             "VPN_BYPASS_TAMPER_DETECTED",
             "VPN_SETTINGS_OPENED"
         ),
@@ -84,13 +88,15 @@ internal fun diagnosticParityContracts(): List<DiagnosticParityContract> = listO
     ),
     DiagnosticParityContract(
         section = DiagnosticSection.ScreenPinning,
-        preparationTokens = listOf("Screen pinning", "lock task", "bypass"),
-        telegramTokens = listOf("Screen pinning", "lock task", "bypass"),
+        preparationTokens = listOf("Screen pinning", "lock task", "bypass", "DPC"),
+        telegramTokens = listOf("Screen pinning", "lock task", "bypass", "DPC"),
         eventCodes = listOf(
             "SCREEN_PINNING_REQUESTED",
             "SCREEN_PINNING_ACTIVE",
             "SCREEN_PINNING_FAILED",
-            "SCREEN_PINNING_BYPASS_TAMPER_DETECTED"
+            "SCREEN_PINNING_BYPASS_TAMPER_DETECTED",
+            "DPC_STATUS_RESOLVED",
+            "DPC_LOCK_TASK_ALLOWLIST_APPLIED"
         ),
         primaryActions = listOf("Start Screen Pinning", "Open Screen Pinning Settings")
     ),
@@ -194,10 +200,16 @@ internal fun diagnosticParityContracts(): List<DiagnosticParityContract> = listO
     ),
     DiagnosticParityContract(
         section = DiagnosticSection.Overlay,
-        preparationTokens = listOf("Overlay", "Bypass", "shield"),
-        telegramTokens = listOf("Overlay bypass", "Overlay violation count", "Overlay signals"),
+        preparationTokens = listOf("Overlay", "Bypass", "shield", "DPC"),
+        telegramTokens = listOf("Overlay bypass", "Overlay violation count", "Overlay signals", "DPC"),
         runtimeDialogTokens = listOf("Overlay", "violation"),
-        eventCodes = listOf("OVERLAY_TOUCH_DETECTED", "OVERLAY_BYPASS_TAMPER_DETECTED")
+        eventCodes = listOf(
+            "OVERLAY_TOUCH_DETECTED",
+            "OVERLAY_BYPASS_TAMPER_DETECTED",
+            "DPC_CREATE_WINDOWS_RESTRICTION_APPLIED",
+            "DPC_CREATE_WINDOWS_RESTRICTION_UNSUPPORTED",
+            "DPC_CREATE_WINDOWS_RESTRICTION_CLEARED"
+        )
     ),
     DiagnosticParityContract(
         section = DiagnosticSection.Geofence,

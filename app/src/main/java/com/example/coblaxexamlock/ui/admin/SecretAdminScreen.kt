@@ -189,6 +189,7 @@ import com.example.coblaxexamlock.DeviceTimeBypassState
 import com.example.coblaxexamlock.DeviceTimeSecurityStatus
 import com.example.coblaxexamlock.DeviceTimeSecurityVerdict
 import com.example.coblaxexamlock.ExamQrCodec
+import com.example.coblaxexamlock.ExamDeviceOwnerController
 import com.example.coblaxexamlock.ExamQrExportHelper
 import com.example.coblaxexamlock.ExamQrLocationPolicy
 import com.example.coblaxexamlock.ExamQrPayload
@@ -237,6 +238,7 @@ import com.example.coblaxexamlock.i18n.localized
 import com.example.coblaxexamlock.i18n.tr
 import com.example.coblaxexamlock.inspectAccessibility
 import com.example.coblaxexamlock.inspectAdb
+import com.example.coblaxexamlock.openOverlaySettings
 import com.example.coblaxexamlock.isExamGuardAccessibilityAvailable
 import com.example.coblaxexamlock.isExamGuardAccessibilityEnabled
 import com.example.coblaxexamlock.openWebViewProviderSettings
@@ -928,7 +930,8 @@ internal fun SecretAdminScreen(
                 healthIntegrityResult = latestIntegrityResult,
                 healthReverseResult = latestReverseResult,
                 healthLastCheckedAt = latestCheckedAt,
-                webViewCompatibilityStatus = adminWebViewCompatibilityStatus
+                webViewCompatibilityStatus = adminWebViewCompatibilityStatus,
+                dpcRuntimeStatus = ExamDeviceOwnerController.readStatus(context)
             )
             }.onSuccess {
                 securityHealthFeedbackTitle =
@@ -1210,7 +1213,7 @@ internal fun SecretAdminScreen(
             onOpenWebViewSettings = ::openAdminWebViewProviderSettings,
             onOpenBatterySettings = { openSettingsIntent(Settings.ACTION_BATTERY_SAVER_SETTINGS) },
             onOpenLocationSettings = { openSettingsIntent(Settings.ACTION_LOCATION_SOURCE_SETTINGS) },
-            onOpenOverlaySettings = { openSettingsIntent(Settings.ACTION_MANAGE_OVERLAY_PERMISSION) },
+            onOpenOverlaySettings = { openOverlaySettings(context) },
             onOpenAppSettings = {
                 launchFirstPlatformIntentSafely(
                     context,

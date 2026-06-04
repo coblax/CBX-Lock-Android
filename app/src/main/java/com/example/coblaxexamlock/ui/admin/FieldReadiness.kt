@@ -228,7 +228,7 @@ private fun buildFieldScreenPinningItem(input: FieldReadinessInput): FieldReadin
 
 private fun buildFieldOverlayItem(input: FieldReadinessInput): FieldReadinessItem {
     val legacySuffix = if (input.compatibilityProfile.allowPartialObscuredWebViewTouch) {
-        " Legacy Samsung partial overlay signals are warning-only; full obscured touches still block."
+        " Partial overlay signals are warning-only; full obscured touches still block."
     } else {
         ""
     }

@@ -2,6 +2,8 @@ package com.example.coblaxexamlock.ui.exam
 
 import com.example.coblaxexamlock.model.ExamNetworkStatus
 import com.example.coblaxexamlock.model.NetworkDiagnostics
+import com.example.coblaxexamlock.model.NetworkDnsProbeStatus
+import com.example.coblaxexamlock.model.NetworkDnsProbeVerdict
 import com.example.coblaxexamlock.model.NetworkReadinessStatus
 import com.example.coblaxexamlock.model.NetworkReadinessUserVerdict
 import com.example.coblaxexamlock.model.NetworkReadinessVerdict
@@ -110,7 +112,75 @@ class ExamRuntimeStartExamBlocksTest {
         assertNull(block)
     }
 
-    private fun networkStatus(vpnActive: Boolean): NetworkReadinessStatus {
+    @Test
+    fun examHostDnsFailureDoesNotBlockStartExamWhenAndroidNetworkIsConnected() {
+        val block = resolveStartExamNetworkReachabilityBlockMessage(
+            uiLanguage = UiLanguage.English,
+            status = networkStatus(
+                userFacingVerdict = NetworkReadinessUserVerdict.DnsFailed,
+                dnsProbeStatus = NetworkDnsProbeStatus(
+                    verdict = NetworkDnsProbeVerdict.Failed,
+                    host = "skansatp.web.id",
+                    error = "UnknownHostException"
+                )
+            )
+        )
+
+        assertNull(block)
+    }
+
+    @Test
+    fun offlineNetworkStillBlocksStartExam() {
+        val block = resolveStartExamNetworkReachabilityBlockMessage(
+            uiLanguage = UiLanguage.English,
+            status = networkStatus(userFacingVerdict = NetworkReadinessUserVerdict.Offline)
+        )
+
+        assertEquals("START_EXAM_BLOCKED_NETWORK_REACHABILITY", block?.code)
+    }
+
+    @Test
+    fun stableExamHostProbeDoesNotBlockStartExam() {
+        val block = resolveStartExamNetworkReachabilityBlockMessage(
+            uiLanguage = UiLanguage.English,
+            status = networkStatus(
+                userFacingVerdict = NetworkReadinessUserVerdict.Stable,
+                dnsProbeStatus = NetworkDnsProbeStatus(
+                    verdict = NetworkDnsProbeVerdict.Resolved,
+                    host = "skansatp.web.id"
+                )
+            )
+        )
+
+        assertNull(block)
+    }
+
+    @Test
+    fun offlineExamServerProbeIsAdvisoryAndDoesNotBlockStartExam() {
+        val block = resolveStartExamServerProbeBlockMessage(
+            uiLanguage = UiLanguage.English,
+            result = ExamServerProbeResult(
+                status = ExamServerFooterStatus.Offline,
+                host = "skansatp.web.id",
+                method = "GET",
+                code = null,
+                latencyMs = 6_000L,
+                reason = "SocketTimeoutException"
+            )
+        )
+
+        assertNull(block)
+    }
+
+    private fun networkStatus(
+        vpnActive: Boolean = false,
+        userFacingVerdict: NetworkReadinessUserVerdict = if (vpnActive) {
+            NetworkReadinessUserVerdict.VpnActive
+        } else {
+            NetworkReadinessUserVerdict.Stable
+        },
+        dnsProbeStatus: NetworkDnsProbeStatus = NetworkDnsProbeStatus()
+    ): NetworkReadinessStatus {
         return NetworkReadinessStatus(
             examStatus = ExamNetworkStatus(
                 label = "Online",
@@ -134,11 +204,8 @@ class ExamRuntimeStartExamBlocksTest {
             verdict = if (vpnActive) NetworkReadinessVerdict.VpnActive else NetworkReadinessVerdict.ConnectedStable,
             transportLabel = if (vpnActive) "Wi-Fi + VPN" else "Wi-Fi",
             quickFixReason = if (vpnActive) "vpn_active" else null,
-            userFacingVerdict = if (vpnActive) {
-                NetworkReadinessUserVerdict.VpnActive
-            } else {
-                NetworkReadinessUserVerdict.Stable
-            },
+            dnsProbeStatus = dnsProbeStatus,
+            userFacingVerdict = userFacingVerdict,
             userFacingQuickFixText = null
         )
     }

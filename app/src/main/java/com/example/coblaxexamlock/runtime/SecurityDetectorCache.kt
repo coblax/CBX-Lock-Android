@@ -140,6 +140,7 @@ internal object SecurityDetectorCache {
     private val externalDisplaySnapshot = CachedDetectorValue<ExternalDisplaySnapshot>(SecurityDetectorCacheTtlMillis, ttlMultiplier)
     private val webViewCompatibility = CachedDetectorValue<WebViewCompatibilityStatus>(SecurityDetectorCacheTtlMillis, ttlMultiplier)
     private val rootDetectionDetails = CachedDetectorValue<RootDetectionDetails>(SecurityDetectorCacheTtlMillis, ttlMultiplier)
+    private val overlayApps = CachedDetectorValue<OverlayAppScanResult>(SecurityDetectorCacheTtlMillis, ttlMultiplier)
     private val signatureIntegrity = CachedDetectorValue<SignatureIntegrityCacheEntry>(SecurityDetectorCacheTtlMillis, ttlMultiplier)
 
     fun readPackageInventory(context: Context, forceRefresh: Boolean = false): InstalledPackageInventory {
@@ -261,6 +262,12 @@ internal object SecurityDetectorCache {
         }
     }
 
+    fun readOverlayApps(context: Context, forceRefresh: Boolean = false): OverlayAppScanResult {
+        return overlayApps.read(forceRefresh) {
+            scanOverlayApps(context.applicationContext)
+        }
+    }
+
     fun readVirtualEnvironmentDiagnostics(
         context: Context,
         forceRefresh: Boolean = false
@@ -300,6 +307,7 @@ internal object SecurityDetectorCache {
         fakeLocationPackages.invalidate()
         externalDisplaySnapshot.invalidate()
         rootDetectionDetails.invalidate()
+        overlayApps.invalidate()
         invalidateVirtualEnvironmentDiagnosticsCache()
     }
 

@@ -9,6 +9,7 @@ import com.example.coblaxexamlock.AdbInspection
 import com.example.coblaxexamlock.AppSwitchSuppressionReason
 import com.example.coblaxexamlock.DeviceTimeSecurityStatus
 import com.example.coblaxexamlock.DeviceCompatibilityProfile
+import com.example.coblaxexamlock.DpcRuntimeStatus
 import com.example.coblaxexamlock.ExamAlarmSeverity
 import com.example.coblaxexamlock.ExamPolicyEngine
 import com.example.coblaxexamlock.ExamQrPayload
@@ -47,7 +48,7 @@ import com.example.coblaxexamlock.runtime.hasFineLocationPermission
 import com.example.coblaxexamlock.runtime.hasLocationPermissionForWifi
 import com.example.coblaxexamlock.runtime.isInAnySplitMode
 import com.example.coblaxexamlock.runtime.isLocationServicesEnabled
-import com.example.coblaxexamlock.runtime.readNetworkReadinessStatus
+import com.example.coblaxexamlock.runtime.readNetworkReadinessStatusWithExamHostProbe
 import com.example.coblaxexamlock.runtime.requiresBluetoothExamPermission
 import com.example.coblaxexamlock.ui.preparation.PreExamHealthCheckInput
 import com.example.coblaxexamlock.ui.preparation.buildPreExamHealthSnapshot
@@ -86,6 +87,8 @@ internal class ExamRuntimeStartPrecheckCallbacks(
     val checkSignatureIntegrity: (Boolean) -> SignatureIntegrityResult,
     val currentGeofenceEventDetails: (String, GeofenceSecurityStatus) -> String,
     val currentFakeLocationEventDetails: (String, LocationSpoofSecurityStatus) -> String,
+    val ensureDeviceOwnerLockTaskActive: () -> Boolean,
+    val refreshDpcRuntimeStatus: () -> DpcRuntimeStatus,
     val requestBluetoothPermission: () -> Unit,
     val requestLocationPermission: () -> Unit,
     val launchFinalLocationValidation: (Long) -> Unit,
@@ -187,6 +190,9 @@ internal suspend fun runExamRuntimeStartPrechecks(
     }
 
     callbacks.refreshScreenPinningDiagnostics()
+    if (screenPinningMode == ScreenPinningMode.Enforced && !lockTaskBridge.active()) {
+        callbacks.ensureDeviceOwnerLockTaskActive()
+    }
     val latestAccessibilityGuardAvailable = isExamGuardAccessibilityAvailable(context)
     val latestAccessibilityGuardEnabled = isExamGuardAccessibilityEnabled(context)
     accessibilityGuardEnabledState.value = latestAccessibilityGuardEnabled
@@ -215,6 +221,9 @@ internal suspend fun runExamRuntimeStartPrechecks(
 
     debugMeasureExamStartWork("startExamSession:device_prechecks") {
         callbacks.refreshScreenPinningDiagnostics()
+        if (screenPinningMode == ScreenPinningMode.Enforced && !lockTaskBridge.active()) {
+            callbacks.ensureDeviceOwnerLockTaskActive()
+        }
         accessibilityGuardEnabledState.value = isExamGuardAccessibilityEnabled(context)
         callbacks.refreshKeyboardSecurity(false)
         callbacks.refreshBluetoothSecurity(false)
@@ -245,7 +254,7 @@ internal suspend fun runExamRuntimeStartPrechecks(
         return
     }
 
-    val startNetworkStatus = readNetworkReadinessStatus(context)
+    val startNetworkStatus = readNetworkReadinessStatusWithExamHostProbe(context, payload.examUrl)
     callbacks.applyNetworkReadinessStatus("start_exam_precheck", startNetworkStatus)
     if (!bypassVpn) {
         val startVpnBlock = resolveStartExamVpnBlockMessage(
@@ -257,6 +266,34 @@ internal suspend fun runExamRuntimeStartPrechecks(
             return
         }
     }
+    resolveStartExamNetworkReachabilityBlockMessage(
+        uiLanguage = uiLanguage,
+        status = startNetworkStatus
+    )?.let { networkBlock ->
+        callbacks.applyStartExamBlockMessage(networkBlock)
+        return
+    }
+    val startServerProbe = probeExamServerFooterStatus(payload.examUrl)
+    callbacks.recordAction(
+        startServerProbe.eventCode,
+        buildExamServerProbeDetails(
+            trigger = "start_exam_precheck",
+            host = startServerProbe.host,
+            method = startServerProbe.method,
+            code = startServerProbe.code,
+            latencyMs = startServerProbe.latencyMs,
+            reason = startServerProbe.reason
+        ),
+        startServerProbe.eventLevel
+    )
+    resolveStartExamServerProbeBlockMessage(
+        uiLanguage = uiLanguage,
+        result = startServerProbe
+    )?.let { serverBlock ->
+        callbacks.applyStartExamBlockMessage(serverBlock)
+        return
+    }
+    val startDpcRuntimeStatus = callbacks.refreshDpcRuntimeStatus()
 
     val startHealthSnapshot = buildPreExamHealthSnapshot(
         PreExamHealthCheckInput(
@@ -294,6 +331,7 @@ internal suspend fun runExamRuntimeStartPrechecks(
             deviceTimeSecurityStatus = startDeviceTimeStatus,
             deviceTimeBypassed = bypassDeviceTime,
             batteryStatus = batteryStatus,
+            dpcRuntimeStatus = startDpcRuntimeStatus,
             generatedAtElapsedMs = SystemClock.elapsedRealtime()
         )
     )
@@ -381,6 +419,18 @@ internal suspend fun runExamRuntimeStartPrechecks(
     )
     if (staticSecurityBlock != null) {
         callbacks.applyStartExamBlockMessage(staticSecurityBlock)
+        return
+    }
+
+    val overlayAppBlock = resolveStartExamOverlayAppBlockMessage(
+        bypassOverlay = bypassOverlay,
+        overlayAppsDetected = SecurityDetectorCache.readOverlayApps(
+            context = context,
+            forceRefresh = true
+        ).packagesWithOverlayPermission
+    )
+    if (overlayAppBlock != null) {
+        callbacks.applyStartExamBlockMessage(overlayAppBlock)
         return
     }
 
@@ -502,6 +552,7 @@ internal class ExamRuntimeCompleteStartCallbacks(
     val prepareCleanExamWebViewSessionForStart: suspend () -> Boolean,
     val armExamRuntimeMonitoring: (String) -> Unit,
     val finalizeExamSessionStart: (Boolean) -> Unit,
+    val ensureDeviceOwnerLockTaskActive: () -> Boolean,
     val clearAppSwitchSuppression: () -> Unit,
     val setAppSwitchSuppression: (AppSwitchSuppressionReason) -> Unit,
     val applyStartExamBlockMessage: (StartExamBlockMessage) -> Unit,
@@ -606,6 +657,10 @@ internal fun completeExamRuntimeStartAfterPrechecks(
             callbacks.finalizeExamSessionStart(false)
         }
         return
+    }
+
+    if (screenPinningMode == ScreenPinningMode.Enforced && !lockTaskBridge.active()) {
+        callbacks.ensureDeviceOwnerLockTaskActive()
     }
 
     if (lockTaskBridge.active()) {

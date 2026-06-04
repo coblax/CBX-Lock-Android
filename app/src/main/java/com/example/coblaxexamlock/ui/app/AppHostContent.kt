@@ -601,8 +601,8 @@ internal fun AppHostRuntimeContent(
             ExamUrlValidationError.Invalid,
             null -> localized(
                 uiLanguage,
-                "Exam URL must start with http:// or https:// and include a domain.",
-                "URL ujian harus diawali http:// atau https:// dan memiliki domain."
+                "Exam URL must start with https:// and include a domain.",
+                "URL ujian harus diawali https:// dan memiliki domain."
             )
         }
     }
@@ -1057,8 +1057,8 @@ internal fun AppHostRuntimeContent(
                     error(
                         localized(
                             uiLanguage,
-                            "Direct Link URL must start with http:// or https:// and include a domain. Update it from Secret Admin.",
-                            "URL Direct Link harus diawali http:// atau https:// dan memiliki domain. Perbarui dari Secret Admin."
+                            "Direct Link URL must start with https:// and include a domain. Update it from Secret Admin.",
+                            "URL Direct Link harus diawali https:// dan memiliki domain. Perbarui dari Secret Admin."
                         )
                     )
                 }

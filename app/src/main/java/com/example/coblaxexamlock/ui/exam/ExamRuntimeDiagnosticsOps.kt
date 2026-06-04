@@ -59,7 +59,7 @@ import com.example.coblaxexamlock.runtime.hasFineLocationPermission
 import com.example.coblaxexamlock.runtime.hasLocationPermissionForWifi
 import com.example.coblaxexamlock.runtime.isLocationServicesEnabled
 import com.example.coblaxexamlock.runtime.readNetworkReadinessStatus
-import com.example.coblaxexamlock.runtime.readNetworkReadinessStatusWithProbe
+import com.example.coblaxexamlock.runtime.readNetworkReadinessStatusWithExamHostProbe
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.launch
@@ -223,6 +223,7 @@ internal class ExamRuntimeDiagnosticsOps(
     val effectiveLocationPolicySource: LocationPolicySource,
     private val deviceTimeBaseline: DeviceTimeBaseline,
     private val deviceTimeBypassState: DeviceTimeBypassState,
+    private val examUrl: String,
     private val geofenceConfigParseResult: GeofenceConfigParseResult,
     private val geofenceBypassState: GeofenceBypassState,
     private val fakeLocationBypassState: FakeLocationBypassState,
@@ -772,7 +773,10 @@ internal class ExamRuntimeDiagnosticsOps(
         }
         coroutineScope.launch {
             networkUiState.networkManualRefreshInFlight.value = true
-            applyNetworkReadinessStatus(trigger, readNetworkReadinessStatusWithProbe(context))
+            applyNetworkReadinessStatus(
+                trigger,
+                readNetworkReadinessStatusWithExamHostProbe(context, examUrl)
+            )
             delay(250L)
             networkUiState.networkManualRefreshInFlight.value = false
         }

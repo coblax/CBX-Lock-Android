@@ -37,6 +37,12 @@ internal enum class ExamOverlayTouchDecision {
     BlockAndReport
 }
 
+internal enum class ExamOverlayFocusLossDecision {
+    SuppressCoveredByAppSwitch,
+    WarnAndAllow,
+    TriggerViolationAlarm
+}
+
 internal data class ExamTrustedChromeActionSuppression(
     val reason: String,
     val ageMs: Long
@@ -118,6 +124,22 @@ internal fun decideExamOverlayTouch(
     }
 
     return ExamOverlayTouchDecision.BlockAndReport
+}
+
+internal fun decideExamOverlayWindowFocusLoss(
+    appSwitchRuntimeMonitoringActive: Boolean,
+    pendingForcedExitViolation: Boolean,
+    appSwitchLifecycleResumePending: Boolean,
+    hasOverlayAppsDetected: Boolean
+): ExamOverlayFocusLossDecision {
+    val coveredByAppSwitch =
+        appSwitchRuntimeMonitoringActive &&
+            (pendingForcedExitViolation || appSwitchLifecycleResumePending)
+    return when {
+        coveredByAppSwitch -> ExamOverlayFocusLossDecision.SuppressCoveredByAppSwitch
+        hasOverlayAppsDetected -> ExamOverlayFocusLossDecision.TriggerViolationAlarm
+        else -> ExamOverlayFocusLossDecision.WarnAndAllow
+    }
 }
 
 internal fun resolveExamTrustedChromeActionSuppression(

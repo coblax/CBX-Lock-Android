@@ -1,5 +1,6 @@
 package com.example.coblaxexamlock.ui.exam
 
+import android.webkit.WebView
 import org.junit.Assert.assertEquals
 import org.junit.Assert.assertFalse
 import org.junit.Assert.assertTrue
@@ -11,8 +12,7 @@ class ExamRuntimeHardeningTest {
         val action = resolveExamRuntimeMemoryAction(
             shouldRespondToPressure = true,
             examSessionStarted = true,
-            hasFullscreenCustomView = false,
-            clearActiveWebViewCacheAllowed = false
+            hasFullscreenCustomView = false
         )
 
         assertTrue(action.respond)
@@ -32,17 +32,16 @@ class ExamRuntimeHardeningTest {
     }
 
     @Test
-    fun activeExamCriticalTrimCanClearWebViewCache() {
+    fun activeExamCriticalTrimKeepsActiveWebViewCacheUntouched() {
         val action = resolveExamRuntimeMemoryAction(
             shouldRespondToPressure = true,
             examSessionStarted = true,
-            hasFullscreenCustomView = false,
-            clearActiveWebViewCacheAllowed = true
+            hasFullscreenCustomView = false
         )
 
         assertTrue(action.keepActiveWebView)
-        assertTrue(action.clearActiveWebViewCache)
-        assertTrue(action.diagnosticActions().contains("clear_active_webview_cache"))
+        assertFalse(action.clearActiveWebViewCache)
+        assertFalse(action.diagnosticActions().contains("clear_active_webview_cache"))
     }
 
     @Test
@@ -50,8 +49,7 @@ class ExamRuntimeHardeningTest {
         val action = resolveExamRuntimeMemoryAction(
             shouldRespondToPressure = true,
             examSessionStarted = true,
-            hasFullscreenCustomView = false,
-            clearActiveWebViewCacheAllowed = true
+            hasFullscreenCustomView = false
         )
 
         assertTrue(action.keepActiveWebView)
@@ -147,5 +145,35 @@ class ExamRuntimeHardeningTest {
         )
 
         assertEquals(4, states.distinct().size)
+    }
+
+    @Test
+    fun webViewRendererPriorityStaysImportantWhenInsetsOrImeCoverWindow() {
+        val policy = resolveExamWebViewRendererPriorityPolicy()
+
+        assertEquals(WebView.RENDERER_PRIORITY_IMPORTANT, policy.rendererPriority)
+        assertFalse(policy.waivedWhenNotVisible)
+    }
+
+    @Test
+    fun retryUrlUsesRequestedExamUrlBeforeFallback() {
+        assertEquals(
+            "https://exam.example/start",
+            resolveExamWebViewRetryUrl(
+                requestedExamUrl = "https://exam.example/start",
+                fallbackExamUrl = "https://fallback.example"
+            )
+        )
+    }
+
+    @Test
+    fun retryUrlFallsBackWhenRequestedUrlMissing() {
+        assertEquals(
+            "https://fallback.example",
+            resolveExamWebViewRetryUrl(
+                requestedExamUrl = " ",
+                fallbackExamUrl = "https://fallback.example"
+            )
+        )
     }
 }

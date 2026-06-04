@@ -28,6 +28,7 @@ import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.withContext
 import kotlinx.coroutines.withTimeoutOrNull
 import java.net.InetAddress
+import java.net.URI
 import java.util.Locale
 
 
@@ -346,11 +347,34 @@ internal fun readNetworkReadinessStatus(context: Context): NetworkReadinessStatu
     )
 }
 
+internal fun networkProbeHostForExamUrl(
+    examUrl: String,
+    fallbackHost: String = "example.com"
+): String {
+    return runCatching { URI(examUrl.trim()).host.orEmpty().trim() }
+        .getOrDefault("")
+        .ifBlank { fallbackHost }
+}
+
+internal suspend fun readNetworkReadinessStatusWithExamHostProbe(
+    context: Context,
+    examUrl: String,
+    timeoutMillis: Long = 3_000L,
+    slowThresholdMillis: Long = 1_500L
+): NetworkReadinessStatus {
+    return readNetworkReadinessStatusWithProbe(
+        context = context,
+        probeHost = networkProbeHostForExamUrl(examUrl),
+        timeoutMillis = timeoutMillis,
+        slowThresholdMillis = slowThresholdMillis
+    )
+}
+
 internal suspend fun readNetworkReadinessStatusWithProbe(
     context: Context,
     probeHost: String = "example.com",
-    timeoutMillis: Long = 1_200L,
-    slowThresholdMillis: Long = 900L
+    timeoutMillis: Long = 3_000L,
+    slowThresholdMillis: Long = 1_500L
 ): NetworkReadinessStatus {
     val baseStatus = readNetworkReadinessStatus(context)
     val probeStatus =
@@ -384,8 +408,8 @@ internal suspend fun readNetworkReadinessStatusWithProbe(
 
 internal suspend fun probeNetworkDnsStatus(
     host: String,
-    timeoutMillis: Long = 1_200L,
-    slowThresholdMillis: Long = 900L,
+    timeoutMillis: Long = 3_000L,
+    slowThresholdMillis: Long = 1_500L,
     resolver: suspend (String) -> Unit = { targetHost ->
         withContext(Dispatchers.IO) {
             InetAddress.getByName(targetHost)

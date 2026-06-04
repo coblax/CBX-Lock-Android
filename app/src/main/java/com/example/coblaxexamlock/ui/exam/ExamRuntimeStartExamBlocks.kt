@@ -10,9 +10,11 @@ import com.example.coblaxexamlock.LocationSpoofSecurityStatus
 import com.example.coblaxexamlock.LocationSpoofSecurityVerdict
 import com.example.coblaxexamlock.RootSecurityStatus
 import com.example.coblaxexamlock.runtime.buildRootIssueMessage
+import com.example.coblaxexamlock.runtime.OverlayAppInfo
 import com.example.coblaxexamlock.ScreenPinningMode
 import com.example.coblaxexamlock.SplitLocationSecurityStatus
 import com.example.coblaxexamlock.i18n.localized
+import com.example.coblaxexamlock.model.NetworkReadinessUserVerdict
 import com.example.coblaxexamlock.model.NetworkReadinessStatus
 import com.example.coblaxexamlock.model.UiLanguage
 import java.util.Locale
@@ -198,6 +200,53 @@ internal fun resolveStartExamVpnBlockMessage(
             "Matikan VPN sebelum memulai ujian, lalu refresh status Network."
         )
     )
+}
+
+internal fun resolveStartExamNetworkReachabilityBlockMessage(
+    uiLanguage: UiLanguage,
+    status: NetworkReadinessStatus
+): StartExamBlockMessage? {
+    val shouldBlock = when (status.userFacingVerdict) {
+        NetworkReadinessUserVerdict.Offline,
+        NetworkReadinessUserVerdict.CaptivePortal,
+        NetworkReadinessUserVerdict.AirplaneMode -> true
+        NetworkReadinessUserVerdict.Stable,
+        NetworkReadinessUserVerdict.Unvalidated,
+        NetworkReadinessUserVerdict.DnsFailed,
+        NetworkReadinessUserVerdict.Slow,
+        NetworkReadinessUserVerdict.VpnActive,
+        NetworkReadinessUserVerdict.Unstable -> false
+    }
+    if (!shouldBlock) {
+        return null
+    }
+    val host = status.dnsProbeStatus.host.ifBlank { "-" }
+    return StartExamBlockMessage(
+        code = "START_EXAM_BLOCKED_NETWORK_REACHABILITY",
+        details = buildNetworkEventDetails(
+            trigger = "start_exam_precheck",
+            status = status,
+            extraContext = "probe_host=$host | dns_error=${status.dnsProbeStatus.error ?: "-"}"
+        ),
+        title = localized(uiLanguage, "Exam Network Not Ready", "Network Ujian Belum Siap"),
+        message = localized(
+            uiLanguage,
+            "The app could not verify the exam host ($host). Switch to a stable Wi-Fi or cellular network, then refresh Network status and start again.",
+            "Aplikasi belum bisa memverifikasi host ujian ($host). Pindah ke Wi-Fi atau data seluler yang stabil, lalu refresh status Network dan mulai lagi."
+        )
+    )
+}
+
+@Suppress("UNUSED_PARAMETER")
+internal fun resolveStartExamServerProbeBlockMessage(
+    uiLanguage: UiLanguage,
+    result: ExamServerProbeResult
+): StartExamBlockMessage? {
+    // The HTTP preflight runs through HttpURLConnection, while the exam itself loads
+    // through Android WebView. Several field devices recover from stale DNS/TCP state
+    // only when WebView retries or after radio reset/reboot, so a single failed
+    // preflight must not block an otherwise connected student from entering the exam.
+    return null
 }
 
 internal fun resolveStartExamScheduleBlockMessage(
@@ -555,4 +604,21 @@ internal fun resolveStartExamLocationBlockMessage(
 
         else -> null
     }
+}
+
+internal fun resolveStartExamOverlayAppBlockMessage(
+    bypassOverlay: Boolean,
+    overlayAppsDetected: List<OverlayAppInfo>
+): StartExamBlockMessage? {
+    if (bypassOverlay || overlayAppsDetected.isEmpty()) {
+        return null
+    }
+    val appNames = overlayAppsDetected.joinToString(", ") { it.appLabel }
+    val packageNames = overlayAppsDetected.joinToString(", ") { it.packageName }
+    return StartExamBlockMessage(
+        code = "START_EXAM_BLOCKED_OVERLAY_APP_PERMISSION",
+        details = "count=${overlayAppsDetected.size} | packages=$packageNames",
+        title = "Izin Overlay (Appear on Top) Terdeteksi",
+        message = "Matikan izin \"Tampilkan di Atas Aplikasi Lain\" (Appear on Top) untuk aplikasi berikut sebelum memulai ujian:\n\n$appNames\n\nBuka Pengaturan -> Aplikasi -> Izin Khusus -> Tampilkan di Atas Aplikasi Lain, lalu nonaktifkan untuk semua app di atas. CBX tidak membutuhkan izin ini."
+    )
 }

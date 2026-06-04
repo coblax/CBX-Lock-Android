@@ -56,6 +56,27 @@ class PackageInventoryDetectorTest {
     }
 
     @Test
+    fun screenRecorderOemBundledPackageIsIgnoredEvenWhenReportedAsUserApp() {
+        val inventory = inventoryOfRecords(
+            InstalledPackageRecord(
+                packageName = "com.miui.screenrecorder",
+                flags = 0,
+                enabled = true
+            ),
+            InstalledPackageRecord(
+                packageName = "com.example.screenrecorder",
+                flags = 0,
+                enabled = true
+            )
+        )
+
+        val matches = findScreenRecorderMatchesFromInventory(inventory)
+
+        assertEquals(listOf("com.example.screenrecorder"), matches.map { it.packageName })
+        assertEquals(ScreenRecorderDetectionSource.KeywordScan, matches.single().source)
+    }
+
+    @Test
     fun fakeLocationKnownAndKeywordUserAppsAreDetected() {
         val inventory = inventoryOf(
             "com.lexa.fakegps",

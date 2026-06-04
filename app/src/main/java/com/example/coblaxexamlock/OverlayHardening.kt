@@ -77,6 +77,9 @@ internal data class OverlayRiskResult(
 ) {
     val hasAnyRisk: Boolean
         get() = confirmedInteractionDetected || heuristicRisk
+
+    val hasBlockingRisk: Boolean
+        get() = confirmedInteractionDetected
 }
 
 internal object OverlayRiskAnalyzer {
@@ -121,7 +124,7 @@ internal object OverlayRiskAnalyzer {
         }
         val confirmedSignal = when {
             violationCount <= 0 -> null
-            lastTrigger == OverlaySignal.WindowFocusLoss.diagnosticLabel() -> OverlaySignal.WindowFocusLoss
+            lastTrigger == OverlaySignal.WindowFocusLoss.diagnosticLabel() -> null
             else -> OverlaySignal.ObscuredTouch
         }
         val confirmedInteractionDetected = confirmedSignal != null

@@ -17,7 +17,7 @@ internal fun buildExamRuntimeChromeActionsForSession(
     lockTaskAlreadyActive: () -> Boolean,
     markTrustedRuntimeChromeAction: (String) -> Unit,
     clearWebViewError: () -> Unit,
-    reloadWebView: () -> Unit,
+    loadExamUrl: () -> Unit,
     stopWebViewLoading: () -> Unit,
     setLoadingProgress: (Float) -> Unit,
     setWebViewStopRequested: (Boolean) -> Unit,
@@ -38,7 +38,7 @@ internal fun buildExamRuntimeChromeActionsForSession(
         onRetryLoading = {
             markTrustedRuntimeChromeAction("webview_retry")
             clearWebViewError()
-            reloadWebView()
+            loadExamUrl()
         },
         onRefreshPage = {
             markTrustedRuntimeChromeAction("webview_refresh")
@@ -96,7 +96,7 @@ internal fun buildExamRuntimeChromeActionsForSession(
                 clearWebViewError()
                 setLoadingProgress(0.05f)
                 launchExamServerProbe("manual_refresh", true)
-                reloadWebView()
+                loadExamUrl()
                 recordAction(
                     ExamRuntimeHardeningDiagnostics.ExamRefreshCompleted,
                     refreshSafetyDecision.diagnosticDetails,

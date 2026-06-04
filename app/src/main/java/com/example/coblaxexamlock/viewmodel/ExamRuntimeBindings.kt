@@ -258,7 +258,7 @@ private fun buildPreparationChecklistUiState(
             !fakeLocationRuntimeStatus.securityStatus.monitoringEnabled ||
             !fakeLocationRuntimeStatus.securityStatus.blocking
     val deviceTimeReady = bypassDeviceTime || !deviceTimeSecurityStatus.blocking
-    val overlayReady = bypassOverlay || !overlayRiskResult.hasAnyRisk
+    val overlayReady = bypassOverlay || !overlayRiskResult.hasBlockingRisk
     val appSwitchReady = bypassAppSwitch || !appSwitchStatus.hasViolations
     val signatureReady = !signatureMismatchDetected
     val canStartExam =

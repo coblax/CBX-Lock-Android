@@ -178,6 +178,7 @@ internal fun RuntimeDisposeCleanupEffect(
     lockTaskBridge: ActivityLockTaskBridge,
     cleanupActiveExamWebViewInstance: () -> Unit,
     launchExitSessionClearBestEffort: () -> Unit,
+    clearDpcExamPoliciesForSession: (String) -> Unit,
     disarmAccessibilityGuard: () -> Unit,
     stopAlarm: () -> Unit
 ) {
@@ -185,6 +186,7 @@ internal fun RuntimeDisposeCleanupEffect(
     val latestLockTaskRequestPending by rememberUpdatedState(lockTaskRequestPending)
     val latestCleanupActiveExamWebViewInstance by rememberUpdatedState(cleanupActiveExamWebViewInstance)
     val latestLaunchExitSessionClearBestEffort by rememberUpdatedState(launchExitSessionClearBestEffort)
+    val latestClearDpcExamPoliciesForSession by rememberUpdatedState(clearDpcExamPoliciesForSession)
     val latestDisarmAccessibilityGuard by rememberUpdatedState(disarmAccessibilityGuard)
     val latestStopAlarm by rememberUpdatedState(stopAlarm)
 
@@ -193,6 +195,7 @@ internal fun RuntimeDisposeCleanupEffect(
             if (latestExamSessionStarted || latestLockTaskRequestPending) {
                 lockTaskBridge.disengage()
                 latestLaunchExitSessionClearBestEffort()
+                latestClearDpcExamPoliciesForSession("runtime_dispose")
             }
             latestCleanupActiveExamWebViewInstance()
             latestDisarmAccessibilityGuard()

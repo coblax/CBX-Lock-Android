@@ -7,6 +7,7 @@ import com.example.coblaxexamlock.ClipboardRuntimeStatus
 import com.example.coblaxexamlock.DeviceSurvivalPolicy
 import com.example.coblaxexamlock.DeviceTimeBypassState
 import com.example.coblaxexamlock.DeviceTimeSecurityStatus
+import com.example.coblaxexamlock.DpcRuntimeStatus
 import com.example.coblaxexamlock.ExamQrPayload
 import com.example.coblaxexamlock.FakeLocationBypassState
 import com.example.coblaxexamlock.FakeLocationRuntimeStatus
@@ -89,7 +90,8 @@ internal fun buildPreparationStateForSession(
     multiWindowModeInfo: MultiWindowModeInfo,
     preExamHealthCheckSnapshot: PreExamHealthSnapshot,
     deviceSurvivalPolicy: DeviceSurvivalPolicy,
-    previousExamSessionBreadcrumb: PreviousExamSessionBreadcrumb
+    previousExamSessionBreadcrumb: PreviousExamSessionBreadcrumb,
+    dpcRuntimeStatus: DpcRuntimeStatus
 ): PreparationScreenState {
     return PreparationScreenState(
         session = PreparationSessionState(
@@ -163,7 +165,9 @@ internal fun buildPreparationStateForSession(
             reverseEngineeringBypassActive = bypassReverseEngineering,
             integrityDetected = securityUiState.integrityTamperDetected.value,
             integritySummary = securityUiState.integritySummary.value,
-            integrityBypassActive = bypassApkIntegrity
+            integrityBypassActive = bypassApkIntegrity,
+            dpcRuntimeStatus = dpcRuntimeStatus,
+            overlayAppsDetected = securityUiState.overlayAppsDetected.value
         ),
         bypass = PreparationBypassState(
             bypassScreenPinning = bypassScreenPinning,

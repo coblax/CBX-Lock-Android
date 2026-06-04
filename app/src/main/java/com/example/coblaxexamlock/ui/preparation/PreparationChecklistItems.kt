@@ -28,6 +28,7 @@ import com.example.coblaxexamlock.BuildConfig
 import com.example.coblaxexamlock.ClipboardBypassState
 import com.example.coblaxexamlock.DeviceTimeBypassState
 import com.example.coblaxexamlock.DeviceTimeSecurityVerdict
+import com.example.coblaxexamlock.DpcProtectionTier
 import com.example.coblaxexamlock.FakeLocationBypassState
 import com.example.coblaxexamlock.GeofenceBypassState
 import com.example.coblaxexamlock.GeofenceSecurityVerdict
@@ -297,18 +298,52 @@ internal fun PreparationRuntimeInteractionSection(
             title = tr("Overlay / Floating App", "Overlay / Floating App"),
             value = when {
                 bypass.bypassOverlay -> tr("Bypass enabled", "Bypass aktif")
-                runtimeSecurity.overlayRiskResult.lastTrigger == OverlaySignal.WindowFocusLoss.diagnosticLabel() ->
+                runtimeSecurity.overlayAppsDetected.isNotEmpty() -> {
+                    val appNames = runtimeSecurity.overlayAppsDetected.joinToString(", ") { it.appLabel }
                     tr(
-                        "A floating app likely stole exam-window focus.",
-                        "Floating app kemungkinan mengambil fokus jendela ujian."
+                        "Apps with overlay permission detected: $appNames. Disable 'Appear on Top' for these listed apps; do not enable it for CBX.",
+                        "Aplikasi dengan izin overlay terdeteksi: $appNames. Matikan izin 'Tampilkan di Atas Aplikasi Lain' untuk app yang terdaftar; jangan aktifkan izin ini untuk CBX."
                     )
+                }
                 runtimeSecurity.overlayRiskResult.confirmedInteractionDetected -> tr(
                     "Overlay interaction was confirmed on the exam screen.",
                     "Interaksi overlay terkonfirmasi di layar ujian."
                 )
+                runtimeSecurity.overlayRiskResult.lastTrigger == OverlaySignal.WindowFocusLoss.diagnosticLabel() ->
+                    tr(
+                        "Window focus changed; this is warning-only unless another strong signal appears.",
+                        "Fokus jendela berubah; ini warning-only kecuali ada sinyal kuat lain."
+                    )
+                runtimeSecurity.overlayRiskResult.shieldStatus.supported &&
+                    runtimeSecurity.overlayRiskResult.shieldStatus.requested &&
+                    runtimeSecurity.overlayRiskResult.shieldStatus.lastApplySucceeded == false -> tr(
+                    "Overlay shield failed to apply; floating apps may still appear.",
+                    "Overlay shield gagal aktif; floating app masih bisa muncul."
+                )
+                runtimeSecurity.dpcRuntimeStatus.protectionTier == DpcProtectionTier.DpcOverlayRestrictedWithShield -> tr(
+                    "Device Owner restriction and overlay shield are available.",
+                    "Restriction Device Owner dan overlay shield tersedia."
+                )
+                runtimeSecurity.dpcRuntimeStatus.protectionTier == DpcProtectionTier.DpcOverlayRestricted -> tr(
+                    "Device Owner can restrict floating windows during the exam.",
+                    "Device Owner dapat membatasi floating window saat ujian."
+                )
+                runtimeSecurity.dpcRuntimeStatus.protectionTier == DpcProtectionTier.LegacyDpcAndroid7 -> tr(
+                    "Device Owner Lock Task is available with Android 7 legacy limitation.",
+                    "Device Owner Lock Task tersedia dengan batasan legacy Android 7."
+                )
                 runtimeSecurity.overlayRiskResult.shieldStatus.active -> tr(
                     "Overlay shield is active for this exam session.",
                     "Overlay shield aktif untuk sesi ujian ini."
+                )
+                runtimeSecurity.dpcRuntimeStatus.protectionTier == DpcProtectionTier.NormalApk -> tr(
+                    "Normal APK overlay shield is available on this Android version.",
+                    "Overlay shield mode APK biasa tersedia pada versi Android ini."
+                )
+                runtimeSecurity.dpcRuntimeStatus.protectionTier == DpcProtectionTier.None &&
+                    !runtimeSecurity.overlayRiskResult.shieldStatus.supported -> tr(
+                    "Legacy Android normal APK cannot fully block floating apps.",
+                    "Android legacy mode APK biasa tidak bisa memblokir floating app sepenuhnya."
                 )
                 runtimeSecurity.overlayRiskResult.riskyAccessibilityPackages.isNotEmpty() -> tr(
                     "Risky accessibility package detected: ${runtimeSecurity.overlayRiskResult.riskyAccessibilityPackages.joinToString()}",

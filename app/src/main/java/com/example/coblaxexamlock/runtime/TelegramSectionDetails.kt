@@ -11,6 +11,7 @@ import com.example.coblaxexamlock.ClipboardRuntimeStatus
 import com.example.coblaxexamlock.DeviceTimeBypassState
 import com.example.coblaxexamlock.DeviceTimeSecurityStatus
 import com.example.coblaxexamlock.DeviceTimeSecurityVerdict
+import com.example.coblaxexamlock.DpcRuntimeStatus
 import com.example.coblaxexamlock.FakeLocationRuntimeStatus
 import com.example.coblaxexamlock.GeofenceRuntimeStatus
 import com.example.coblaxexamlock.IntegrityCheckResult
@@ -26,6 +27,7 @@ import com.example.coblaxexamlock.SignatureIntegrityResult
 import com.example.coblaxexamlock.WebViewCompatibilityStatus
 import com.example.coblaxexamlock.accessibilityBlockingCauseText
 import com.example.coblaxexamlock.accessibilityBlockingFixText
+import com.example.coblaxexamlock.defaultDpcRuntimeStatus
 import com.example.coblaxexamlock.diagnosticLabel
 import com.example.coblaxexamlock.formatCoordinates
 import com.example.coblaxexamlock.format.formatElapsedDuration
@@ -146,7 +148,8 @@ internal data class TelegramSectionDetailsContext(
     val bypassMultiWindow: Boolean = false,
     val multiWindowBypassTampered: Boolean = false,
     val multiWindowViolationCount: Int = 0,
-    val multiWindowDialogActive: Boolean = false
+    val multiWindowDialogActive: Boolean = false,
+    val dpcRuntimeStatus: DpcRuntimeStatus = defaultDpcRuntimeStatus()
 )
 
 private fun DeviceTimeSecurityVerdict.telegramLabel(): String = when (this) {
@@ -545,6 +548,21 @@ internal fun StringBuilder.appendTelegramSectionDetails(details: TelegramSection
                     appendLine("Last overlay timestamp: ${overlayRiskResult.lastDetectedAt?.ifBlank { "-" } ?: "-"}")
                     appendLine("Last overlay context: ${overlayRiskResult.lastContext?.ifBlank { "-" } ?: "-"}")
                     appendLine("Accessibility service active: ${if (accessibilityServiceEnabled) "Ya" else "Tidak"}")
+                    appendLine("DPC mode: ${dpcRuntimeStatus.enrollmentLabel()}")
+                    appendLine("DPC device owner: ${if (dpcRuntimeStatus.deviceOwner) "Ya" else "Tidak"}")
+                    appendLine("DPC admin active: ${if (dpcRuntimeStatus.adminActive) "Ya" else "Tidak"}")
+                    appendLine("DPC lock task permitted: ${if (dpcRuntimeStatus.lockTaskPermitted) "Ya" else "Tidak"}")
+                    appendLine(
+                        "DPC create-windows restriction supported: ${
+                            if (dpcRuntimeStatus.createWindowsRestrictionSupported) "Ya" else "Tidak"
+                        }"
+                    )
+                    appendLine(
+                        "DPC create-windows restriction active: ${
+                            if (dpcRuntimeStatus.createWindowsRestrictionActive) "Ya" else "Tidak"
+                        }"
+                    )
+                    appendLine("Final protection tier: ${dpcRuntimeStatus.protectionTier.diagnosticLabel()}")
                 }
                 DiagnosticSection.Geofence -> {
                     appendLine("[GEOFENCE]")
@@ -940,6 +958,10 @@ internal fun StringBuilder.appendTelegramSectionDetails(details: TelegramSection
                     appendLine("Screen pinning system setting: $screenPinningEnabledInSystem")
                     appendLine("Lock task state before request: $lockTaskStateBeforePinningRequest")
                     appendLine("Lock task state after request: $lockTaskStateAfterPinningRequest")
+                    appendLine("DPC mode: ${dpcRuntimeStatus.enrollmentLabel()}")
+                    appendLine("DPC device owner: ${if (dpcRuntimeStatus.deviceOwner) "Ya" else "Tidak"}")
+                    appendLine("DPC lock task permitted: ${if (dpcRuntimeStatus.lockTaskPermitted) "Ya" else "Tidak"}")
+                    appendLine("DPC protection tier: ${dpcRuntimeStatus.protectionTier.diagnosticLabel()}")
                     appendLine("Pinning request outcome: $screenPinningRequestOutcome")
                     appendLine(
                         "Dialog pinning appeared: ${

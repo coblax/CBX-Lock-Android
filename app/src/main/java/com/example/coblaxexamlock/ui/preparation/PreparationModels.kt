@@ -7,6 +7,7 @@ import com.example.coblaxexamlock.ClipboardBypassState
 import com.example.coblaxexamlock.ClipboardRuntimeStatus
 import com.example.coblaxexamlock.DeviceTimeBypassState
 import com.example.coblaxexamlock.DeviceTimeSecurityStatus
+import com.example.coblaxexamlock.DpcRuntimeStatus
 import com.example.coblaxexamlock.FakeLocationBypassState
 import com.example.coblaxexamlock.FakeLocationRuntimeStatus
 import com.example.coblaxexamlock.GeofenceBypassState
@@ -23,8 +24,10 @@ import com.example.coblaxexamlock.model.NetworkTimelineEntry
 import com.example.coblaxexamlock.model.NetworkUnstableRuntimeStatus
 import com.example.coblaxexamlock.DeviceSurvivalPolicy
 import com.example.coblaxexamlock.PreviousExamSessionBreadcrumb
+import com.example.coblaxexamlock.defaultDpcRuntimeStatus
 import com.example.coblaxexamlock.runtime.ExternalDisplayInfo
 import com.example.coblaxexamlock.runtime.MultiWindowModeInfo
+import com.example.coblaxexamlock.runtime.OverlayAppInfo
 
 internal data class PreparationSessionState(
     val examName: String,
@@ -100,7 +103,9 @@ internal data class PreparationRuntimeSecurityState(
     val reverseEngineeringBypassActive: Boolean,
     val integrityDetected: Boolean,
     val integritySummary: String,
-    val integrityBypassActive: Boolean
+    val integrityBypassActive: Boolean,
+    val dpcRuntimeStatus: DpcRuntimeStatus = defaultDpcRuntimeStatus(),
+    val overlayAppsDetected: List<OverlayAppInfo> = emptyList()
 )
 
 internal data class PreparationBypassState(
@@ -214,6 +219,7 @@ internal data class PreparationScreenState(
     val multiWindowModeInfo: MultiWindowModeInfo get() = runtimeSecurity.multiWindowModeInfo
     val bypassMultiWindow: Boolean get() = bypass.bypassMultiWindow
     val staticSecurityInitialScanComplete: Boolean get() = runtimeSecurity.staticSecurityInitialScanComplete
+    val overlayAppsDetected: List<OverlayAppInfo> get() = runtimeSecurity.overlayAppsDetected
     val preExamHealthCheckSnapshot: PreExamHealthSnapshot get() = diagnostics.preExamHealthCheckSnapshot
     val deviceSurvivalPolicy: DeviceSurvivalPolicy get() = diagnostics.deviceSurvivalPolicy
     val previousExamSessionBreadcrumb: PreviousExamSessionBreadcrumb get() = diagnostics.previousExamSessionBreadcrumb

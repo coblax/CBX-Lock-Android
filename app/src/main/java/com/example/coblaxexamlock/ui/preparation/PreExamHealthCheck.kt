@@ -3,13 +3,16 @@ package com.example.coblaxexamlock.ui.preparation
 import com.example.coblaxexamlock.DeviceCompatibilityFamily
 import com.example.coblaxexamlock.DeviceCompatibilityProfile
 import com.example.coblaxexamlock.DeviceTimeSecurityStatus
+import com.example.coblaxexamlock.DpcProtectionTier
+import com.example.coblaxexamlock.DpcRuntimeStatus
 import com.example.coblaxexamlock.FakeLocationRuntimeStatus
 import com.example.coblaxexamlock.GeofenceRuntimeStatus
 import com.example.coblaxexamlock.OverlayRiskResult
 import com.example.coblaxexamlock.WebViewCompatibilityStatus
+import com.example.coblaxexamlock.defaultDpcRuntimeStatus
+import com.example.coblaxexamlock.diagnosticLabel
 import com.example.coblaxexamlock.WebViewHealthSeverity
 import com.example.coblaxexamlock.WebViewHealthVerdict
-import com.example.coblaxexamlock.diagnosticLabel
 import com.example.coblaxexamlock.model.ExamBatteryStatus
 import com.example.coblaxexamlock.model.NetworkReadinessStatus
 import com.example.coblaxexamlock.model.NetworkReadinessUserVerdict
@@ -86,6 +89,7 @@ internal data class PreExamHealthCheckInput(
     val deviceTimeSecurityStatus: DeviceTimeSecurityStatus,
     val deviceTimeBypassed: Boolean,
     val batteryStatus: ExamBatteryStatus,
+    val dpcRuntimeStatus: DpcRuntimeStatus = defaultDpcRuntimeStatus(),
     val generatedAtElapsedMs: Long = 0L
 )
 
@@ -156,23 +160,31 @@ private fun buildScreenPinningHealthItem(input: PreExamHealthCheckInput): PreExa
 
 private fun buildOverlayHealthItem(input: PreExamHealthCheckInput): PreExamHealthItem {
     val compatibilityDetail = if (input.compatibilityProfile.allowPartialObscuredWebViewTouch) {
-        " Partial obscured touches on this legacy device are warning-only; fully obscured touches still block."
+        " Partial obscured touches are warning-only; fully obscured touches still block."
     } else {
         ""
     }
+    val dpcStatus = input.dpcRuntimeStatus
+    val protectionDetail = " Protection tier=${dpcStatus.protectionTier.diagnosticLabel()}, " +
+        "DPC=${dpcStatus.enrollmentLabel()}, lockTaskAllowlisted=${yesNo(dpcStatus.lockTaskPermitted)}, " +
+        "createWindowsSupported=${yesNo(dpcStatus.createWindowsRestrictionSupported)}, " +
+        "createWindowsActive=${yesNo(dpcStatus.createWindowsRestrictionActive)}."
+    val shieldApplyFailed = input.overlayRiskResult.shieldStatus.supported &&
+        input.overlayRiskResult.shieldStatus.requested &&
+        input.overlayRiskResult.shieldStatus.lastApplySucceeded == false
     return when {
         input.overlayBypassed || input.overlayRiskResult.bypassed -> PreExamHealthItem(
             category = PreExamHealthCategory.FloatingAppOverlay,
             verdict = PreExamHealthVerdict.Warning,
             title = "Floating App / Overlay",
-            detail = "Overlay bypass is active.$compatibilityDetail",
+            detail = "Overlay bypass is active.$compatibilityDetail$protectionDetail",
             quickFix = "Close floating apps and overlays before the exam."
         )
         input.overlayRiskResult.confirmedInteractionDetected -> PreExamHealthItem(
             category = PreExamHealthCategory.FloatingAppOverlay,
             verdict = PreExamHealthVerdict.Blocking,
             title = "Floating App / Overlay",
-            detail = "Confirmed overlay interaction was detected.$compatibilityDetail",
+            detail = "Confirmed overlay interaction was detected.$compatibilityDetail$protectionDetail",
             quickFix = "Close chat heads, sidebars, screen filters, and apps that appear on top."
         )
         input.overlayRiskResult.heuristicRisk ||
@@ -180,17 +192,41 @@ private fun buildOverlayHealthItem(input: PreExamHealthCheckInput): PreExamHealt
             category = PreExamHealthCategory.FloatingAppOverlay,
             verdict = PreExamHealthVerdict.Warning,
             title = "Floating App / Overlay",
-            detail = "A possible floating-app risk is present.$compatibilityDetail",
+            detail = "A possible floating-app risk is present.$compatibilityDetail$protectionDetail",
             quickFix = "Review accessibility and overlay permissions before starting."
+        )
+        shieldApplyFailed -> PreExamHealthItem(
+            category = PreExamHealthCategory.FloatingAppOverlay,
+            verdict = PreExamHealthVerdict.Warning,
+            title = "Floating App / Overlay",
+            detail = "Android overlay shield is supported but failed to apply. Floating apps may still appear.$compatibilityDetail$protectionDetail",
+            quickFix = "Close floating apps manually, refresh preparation, or use Device Owner mode for managed devices."
+        )
+        dpcStatus.protectionTier == DpcProtectionTier.LegacyDpcAndroid7 -> PreExamHealthItem(
+            category = PreExamHealthCategory.FloatingAppOverlay,
+            verdict = PreExamHealthVerdict.Warning,
+            title = "Floating App / Overlay",
+            detail = "Device Owner mode is available, but this Android version cannot use DISALLOW_CREATE_WINDOWS. Lock Task is allowed with legacy limitation.$compatibilityDetail$protectionDetail",
+            quickFix = "Use school-managed Device Owner enrollment for high-stakes exams and keep known floating apps disabled."
+        )
+        dpcStatus.protectionTier == DpcProtectionTier.None &&
+            !input.overlayRiskResult.shieldStatus.supported -> PreExamHealthItem(
+            category = PreExamHealthCategory.FloatingAppOverlay,
+            verdict = PreExamHealthVerdict.Warning,
+            title = "Floating App / Overlay",
+            detail = "Legacy Android normal APK cannot fully block floating apps. This mode is not recommended for high-stakes exams.$compatibilityDetail$protectionDetail",
+            quickFix = "Enroll school devices as Device Owner, or use Android 12+ for overlay shield support."
         )
         else -> PreExamHealthItem(
             category = PreExamHealthCategory.FloatingAppOverlay,
             verdict = PreExamHealthVerdict.Stable,
             title = "Floating App / Overlay",
-            detail = "No overlay risk is currently detected.$compatibilityDetail"
+            detail = "No overlay risk is currently detected.$compatibilityDetail$protectionDetail"
         )
     }
 }
+
+private fun yesNo(value: Boolean): String = if (value) "yes" else "no"
 
 private fun buildNetworkHealthItem(input: PreExamHealthCheckInput): PreExamHealthItem {
     val status = input.networkReadinessStatus

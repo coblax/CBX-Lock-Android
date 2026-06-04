@@ -9,11 +9,12 @@ import com.example.coblaxexamlock.ui.theme.LockSurface
 internal val InstallExamKeyboardScript = """
     (function() {
         if (window.__coblaxExamKeyboardInstalled && window.__coblaxExamKeyboard) {
-            window.__coblaxExamKeyboard.notifyFocus();
+            window.__coblaxExamKeyboard.notifyFocus(true);
             return;
         }
 
         var lastEditableElement = null;
+        var lastFocusNotified = null;
 
         function activeElement() {
             var element = document.activeElement;
@@ -78,8 +79,10 @@ internal val InstallExamKeyboardScript = """
             element.dispatchEvent(new Event('change', { bubbles: true }));
         }
 
-        function notifyFocus() {
+        function notifyFocus(force) {
             var focused = hasEditableFocus();
+            if (!force && lastFocusNotified === focused) return;
+            lastFocusNotified = focused;
             if (window.ExamKeyboardBridge && window.ExamKeyboardBridge.onEditableFocusChanged) {
                 window.ExamKeyboardBridge.onEditableFocusChanged(focused);
             }
@@ -349,7 +352,7 @@ internal val InstallExamKeyboardScript = """
             }, true);
         });
 
-        notifyFocus();
+        notifyFocus(true);
         window.__coblaxExamKeyboardInstalled = true;
     })();
 """.trimIndent()

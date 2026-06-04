@@ -4,6 +4,7 @@ import com.example.coblaxexamlock.AccessibilityInspectionResult
 import com.example.coblaxexamlock.AdbBypassState
 import com.example.coblaxexamlock.DeviceTimeBypassState
 import com.example.coblaxexamlock.DeviceTimeSecurityVerdict
+import com.example.coblaxexamlock.DpcProtectionTier
 import com.example.coblaxexamlock.FakeLocationBypassState
 import com.example.coblaxexamlock.GeofenceBypassState
 import com.example.coblaxexamlock.GeofenceSecurityVerdict
@@ -52,8 +53,25 @@ internal fun buildPreparationChecklistStatusText(
     }
     val overlayStatusLabel = when {
         bypassOverlay -> t("Bypassed", "Bypass")
+        overlayAppsDetected.isNotEmpty() -> t(
+            "${overlayAppsDetected.size} App Overlay",
+            "${overlayAppsDetected.size} App Overlay"
+        )
         overlayRiskResult.confirmedInteractionDetected -> t("Danger", "Bahaya")
         overlayRiskResult.heuristicRisk -> t("Warning", "Peringatan")
+        overlayRiskResult.shieldStatus.supported &&
+            overlayRiskResult.shieldStatus.requested &&
+            overlayRiskResult.shieldStatus.lastApplySucceeded == false -> t("Warning", "Peringatan")
+        runtimeSecurity.dpcRuntimeStatus.protectionTier == DpcProtectionTier.LegacyDpcAndroid7 ->
+            t("Legacy DPC", "DPC Legacy")
+        runtimeSecurity.dpcRuntimeStatus.protectionTier == DpcProtectionTier.None &&
+            !overlayRiskResult.shieldStatus.supported -> t("Legacy Risk", "Risiko Legacy")
+        runtimeSecurity.dpcRuntimeStatus.protectionTier == DpcProtectionTier.DpcOverlayRestrictedWithShield ->
+            t("Best", "Terbaik")
+        runtimeSecurity.dpcRuntimeStatus.protectionTier == DpcProtectionTier.DpcOverlayRestricted ->
+            t("Strong", "Kuat")
+        runtimeSecurity.dpcRuntimeStatus.protectionTier == DpcProtectionTier.NormalApk ->
+            t("Good", "Baik")
         else -> t("Safe", "Aman")
     }
     val geofenceStatusLabel = when {

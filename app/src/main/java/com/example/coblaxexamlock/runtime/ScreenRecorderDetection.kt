@@ -11,7 +11,7 @@ import android.content.pm.PackageManager
  * Phase 2: Keyword-based scan of all installed user (non-system) packages.
  *
  * System built-in recorders (Samsung Game Tools, Xiaomi built-in, Google Recorder)
- * are excluded because they ship with the OEM ROM and are not cheating indicators.
+ * are excluded because package presence alone is not evidence that recording is active.
  */
 
 internal val KnownScreenRecorderPackages = listOf(
@@ -43,6 +43,15 @@ internal val KnownScreenRecorderPackages = listOf(
     "com.xinternalstudio.screenrecord",
     // REC Screen Recorder
     "com.spectrl.rec"
+)
+
+private val OemBundledScreenRecorderPackages = setOf(
+    "com.miui.screenrecorder",
+    "com.coloros.screenrecorder",
+    "com.heytap.screenrecorder",
+    "com.oplus.screenrecorder",
+    "com.vivo.screenrecorder",
+    "com.huawei.screenrecorder"
 )
 
 internal enum class ScreenRecorderDetectionSource {
@@ -149,6 +158,9 @@ internal fun findScreenRecorderMatchesFromInventory(
 
     // Phase 1: Check known package names (fast exact-match lookup).
     for (packageName in KnownScreenRecorderPackages) {
+        if (isOemBundledScreenRecorderPackage(packageName)) {
+            continue
+        }
         val record = inventory.get(packageName) ?: fallbackRecordProvider(packageName) ?: continue
         results[packageName] = ScreenRecorderPackageMatch(
             packageName = packageName,
@@ -162,6 +174,7 @@ internal fun findScreenRecorderMatchesFromInventory(
     for (record in inventory.records) {
         // Only user-installed apps are suspicious in keyword scan.
         if (record.systemApp) continue
+        if (isOemBundledScreenRecorderPackage(record.packageName)) continue
         val pkg = record.packageName.lowercase()
         if (ScreenRecorderKeywords.any { keyword -> pkg.contains(keyword) }) {
             results.putIfAbsent(
@@ -177,6 +190,10 @@ internal fun findScreenRecorderMatchesFromInventory(
     }
 
     return results.values.toList()
+}
+
+private fun isOemBundledScreenRecorderPackage(packageName: String): Boolean {
+    return packageName.lowercase() in OemBundledScreenRecorderPackages
 }
 
 private fun buildScreenRecorderAppReport(
