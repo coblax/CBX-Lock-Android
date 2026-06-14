@@ -593,6 +593,7 @@ class PreparationStateSlicingTest {
                 onOpenAccessibilitySettings = noOp,
                 onOpenOverlayAccessibilitySettings = noOp,
                 onOpenOverlaySettings = noOp,
+                onOpenOverlayGuardSettings = noOp,
                 onOpenAppSettings = noOp,
                 onOpenCastSettings = noOp
             )

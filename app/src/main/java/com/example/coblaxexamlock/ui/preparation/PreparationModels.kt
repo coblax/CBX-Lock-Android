@@ -105,7 +105,8 @@ internal data class PreparationRuntimeSecurityState(
     val integritySummary: String,
     val integrityBypassActive: Boolean,
     val dpcRuntimeStatus: DpcRuntimeStatus = defaultDpcRuntimeStatus(),
-    val overlayAppsDetected: List<OverlayAppInfo> = emptyList()
+    val overlayAppsDetected: List<OverlayAppInfo> = emptyList(),
+    val overlayGuardPermissionGranted: Boolean = false
 )
 
 internal data class PreparationBypassState(
@@ -220,6 +221,7 @@ internal data class PreparationScreenState(
     val bypassMultiWindow: Boolean get() = bypass.bypassMultiWindow
     val staticSecurityInitialScanComplete: Boolean get() = runtimeSecurity.staticSecurityInitialScanComplete
     val overlayAppsDetected: List<OverlayAppInfo> get() = runtimeSecurity.overlayAppsDetected
+    val overlayGuardPermissionGranted: Boolean get() = runtimeSecurity.overlayGuardPermissionGranted
     val preExamHealthCheckSnapshot: PreExamHealthSnapshot get() = diagnostics.preExamHealthCheckSnapshot
     val deviceSurvivalPolicy: DeviceSurvivalPolicy get() = diagnostics.deviceSurvivalPolicy
     val previousExamSessionBreadcrumb: PreviousExamSessionBreadcrumb get() = diagnostics.previousExamSessionBreadcrumb
@@ -279,6 +281,7 @@ internal data class PreparationRuntimeSecurityActions(
     val onOpenAccessibilitySettings: () -> Unit,
     val onOpenOverlayAccessibilitySettings: () -> Unit,
     val onOpenOverlaySettings: () -> Unit,
+    val onOpenOverlayGuardSettings: () -> Unit,
     val onOpenAppSettings: () -> Unit,
     val onOpenCastSettings: () -> Unit
 )

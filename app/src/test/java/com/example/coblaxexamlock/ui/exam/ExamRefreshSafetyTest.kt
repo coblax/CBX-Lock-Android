@@ -1,11 +1,102 @@
 package com.example.coblaxexamlock.ui.exam
 
+import com.example.coblaxexamlock.DeviceCompatibilityProfile
+import com.example.coblaxexamlock.ScreenPinningMode
+import com.example.coblaxexamlock.model.DiagnosticEventLevel
 import org.junit.Assert.assertEquals
 import org.junit.Assert.assertFalse
 import org.junit.Assert.assertTrue
 import org.junit.Test
 
 class ExamRefreshSafetyTest {
+    @Test
+    fun manualRefreshUsesBrowserLikeReloadWhenSafe() {
+        var softLoads = 0
+        var browserReloads = 0
+        var serverProbes = 0
+        val actions = buildExamRuntimeChromeActionsForSession(
+            examSessionStarted = true,
+            screenPinningMode = ScreenPinningMode.Enforced,
+            screenPinningAvailable = true,
+            lockTaskRequestPending = false,
+            deviceCompatibilityProfile = DeviceCompatibilityProfile(),
+            isIndonesian = true,
+            isCurrentlyLoading = { false },
+            lockTaskAlreadyActive = { true },
+            markTrustedRuntimeChromeAction = {},
+            clearWebViewError = {},
+            loadExamUrl = { softLoads += 1 },
+            reloadExamUrlLikeBrowser = { browserReloads += 1 },
+            stopWebViewLoading = {},
+            setLoadingProgress = {},
+            setWebViewStopRequested = {},
+            setLastExamRefreshDecision = {},
+            setScreenPinningMessage = {},
+            setShowExitExamDialog = {},
+            launchExamServerProbe = { _, _ -> serverProbes += 1 },
+            recordAction = { _: String, _: String, _: DiagnosticEventLevel -> },
+            sendBuiltInKeyboardText = {},
+            sendBuiltInKeyboardBackspace = {},
+            sendKeyboardArrowLeft = {},
+            sendKeyboardArrowRight = {},
+            toggleSideArrowControls = { true },
+            sendBuiltInKeyboardEnter = {},
+            toggleBuiltInKeyboardShift = {}
+        )
+
+        actions.onRefreshPage()
+
+        assertEquals(0, softLoads)
+        assertEquals(1, browserReloads)
+        assertEquals(1, serverProbes)
+    }
+
+    @Test
+    fun manualRefreshStopsLoadingPageInsteadOfReloadingAgain() {
+        var browserReloads = 0
+        var stopLoads = 0
+        var stopRequested = false
+        var loadingProgress = 0f
+        val events = mutableListOf<String>()
+        val actions = buildExamRuntimeChromeActionsForSession(
+            examSessionStarted = true,
+            screenPinningMode = ScreenPinningMode.Enforced,
+            screenPinningAvailable = true,
+            lockTaskRequestPending = false,
+            deviceCompatibilityProfile = DeviceCompatibilityProfile(),
+            isIndonesian = true,
+            isCurrentlyLoading = { true },
+            lockTaskAlreadyActive = { true },
+            markTrustedRuntimeChromeAction = {},
+            clearWebViewError = {},
+            loadExamUrl = {},
+            reloadExamUrlLikeBrowser = { browserReloads += 1 },
+            stopWebViewLoading = { stopLoads += 1 },
+            setLoadingProgress = { loadingProgress = it },
+            setWebViewStopRequested = { stopRequested = it },
+            setLastExamRefreshDecision = {},
+            setScreenPinningMessage = {},
+            setShowExitExamDialog = {},
+            launchExamServerProbe = { _, _ -> },
+            recordAction = { code: String, _: String, _: DiagnosticEventLevel -> events += code },
+            sendBuiltInKeyboardText = {},
+            sendBuiltInKeyboardBackspace = {},
+            sendKeyboardArrowLeft = {},
+            sendKeyboardArrowRight = {},
+            toggleSideArrowControls = { true },
+            sendBuiltInKeyboardEnter = {},
+            toggleBuiltInKeyboardShift = {}
+        )
+
+        actions.onRefreshPage()
+
+        assertEquals(0, browserReloads)
+        assertEquals(1, stopLoads)
+        assertTrue(stopRequested)
+        assertEquals(1f, loadingProgress, 0.0f)
+        assertTrue(events.contains(ExamRuntimeHardeningDiagnostics.ExamRefreshStoppedByUser))
+    }
+
     @Test
     fun activePinnedExamReloadsWithoutRequestingLockTask() {
         val decision = resolveExamRefreshSafetyDecision(

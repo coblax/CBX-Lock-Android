@@ -18,6 +18,7 @@ internal fun buildExamRuntimeChromeActionsForSession(
     markTrustedRuntimeChromeAction: (String) -> Unit,
     clearWebViewError: () -> Unit,
     loadExamUrl: () -> Unit,
+    reloadExamUrlLikeBrowser: () -> Unit,
     stopWebViewLoading: () -> Unit,
     setLoadingProgress: (Float) -> Unit,
     setWebViewStopRequested: (Boolean) -> Unit,
@@ -96,7 +97,7 @@ internal fun buildExamRuntimeChromeActionsForSession(
                 clearWebViewError()
                 setLoadingProgress(0.05f)
                 launchExamServerProbe("manual_refresh", true)
-                loadExamUrl()
+                reloadExamUrlLikeBrowser()
                 recordAction(
                     ExamRuntimeHardeningDiagnostics.ExamRefreshCompleted,
                     refreshSafetyDecision.diagnosticDetails,

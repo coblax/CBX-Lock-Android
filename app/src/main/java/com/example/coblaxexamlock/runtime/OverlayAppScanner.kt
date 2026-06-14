@@ -3,6 +3,7 @@ package com.example.coblaxexamlock.runtime
 import android.app.AppOpsManager
 import android.content.Context
 import android.content.pm.ApplicationInfo
+import android.content.pm.PackageInfo
 import android.content.pm.PackageManager
 import android.os.Build
 
@@ -52,6 +53,8 @@ private val OverlaySafeSystemPackages = setOf(
     "com.android.nfc"
 )
 
+private const val SystemAlertWindowPermission = "android.permission.SYSTEM_ALERT_WINDOW"
+
 internal fun scanOverlayApps(context: Context): OverlayAppScanResult {
     val appContext = context.applicationContext
     val appOpsManager = appContext.getSystemService(Context.APP_OPS_SERVICE) as? AppOpsManager
@@ -74,14 +77,19 @@ internal fun scanOverlayApps(context: Context): OverlayAppScanResult {
 
     for (appInfo in installedApps) {
         val packageName = appInfo.packageName ?: continue
+        val packageInfo = getPackageInfoWithPermissions(pm, packageName)
 
-        // Skip our own package
-        if (packageName == ownPackageName) continue
-
-        // Skip safe system packages
-        if (packageName in OverlaySafeSystemPackages) continue
-
-        val isSystemApp = (appInfo.flags and ApplicationInfo.FLAG_SYSTEM) != 0
+        if (
+            shouldSkipOverlayAppCandidate(
+                packageName = packageName,
+                ownPackageName = ownPackageName,
+                flags = appInfo.flags,
+                enabled = appInfo.enabled,
+                requestedPermissions = packageInfo?.requestedPermissions
+            )
+        ) {
+            continue
+        }
 
         // Check if SYSTEM_ALERT_WINDOW is granted
         val overlayAllowed = isOverlayPermissionGranted(
@@ -99,7 +107,7 @@ internal fun scanOverlayApps(context: Context): OverlayAppScanResult {
                 OverlayAppInfo(
                     packageName = packageName,
                     appLabel = label,
-                    isSystemApp = isSystemApp
+                    isSystemApp = isSystemApp(appInfo.flags)
                 )
             )
         }
@@ -109,6 +117,49 @@ internal fun scanOverlayApps(context: Context): OverlayAppScanResult {
         packagesWithOverlayPermission = riskyApps,
         totalCount = riskyApps.size
     )
+}
+
+internal fun shouldSkipOverlayAppCandidate(
+    packageName: String,
+    ownPackageName: String,
+    flags: Int,
+    enabled: Boolean,
+    requestedPermissions: Array<String>?
+): Boolean {
+    val normalizedPackageName = packageName.trim()
+    if (normalizedPackageName.isBlank()) return true
+    if (normalizedPackageName == ownPackageName) return true
+    if (!enabled) return true
+    if (normalizedPackageName in OverlaySafeSystemPackages) return true
+
+    // OEM ROMs often grant SYSTEM_ALERT_WINDOW app-ops to many framework
+    // services. Students cannot reasonably disable those, and they are
+    // covered by separate root/device-integrity checks if the ROM is tampered.
+    if (isSystemApp(flags)) return true
+
+    return requestedPermissions?.contains(SystemAlertWindowPermission) != true
+}
+
+private fun isSystemApp(flags: Int): Boolean {
+    val systemFlags = ApplicationInfo.FLAG_SYSTEM or ApplicationInfo.FLAG_UPDATED_SYSTEM_APP
+    return flags and systemFlags != 0
+}
+
+private fun getPackageInfoWithPermissions(
+    packageManager: PackageManager,
+    packageName: String
+): PackageInfo? {
+    return runCatching {
+        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.TIRAMISU) {
+            packageManager.getPackageInfo(
+                packageName,
+                PackageManager.PackageInfoFlags.of(PackageManager.GET_PERMISSIONS.toLong())
+            )
+        } else {
+            @Suppress("DEPRECATION")
+            packageManager.getPackageInfo(packageName, PackageManager.GET_PERMISSIONS)
+        }
+    }.getOrNull()
 }
 
 @Suppress("DEPRECATION")

@@ -200,6 +200,7 @@ internal class ExamRuntimeRenderedUiCallbacks(
         val shouldExit = adminUiState.exitOnSecurityIssueDialogDismiss.value
         adminUiState.securityIssueDialogTitle.value = null
         adminUiState.securityIssueDialogMessage.value = null
+        adminUiState.securityIssueDialogCode.value = null
         adminUiState.exitOnSecurityIssueDialogDismiss.value = false
         examAlarmController.stop()
         if (shouldExit) {

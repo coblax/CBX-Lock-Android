@@ -70,6 +70,7 @@ internal fun RuntimePrimaryGuardEffects(
         val hostActivity = mainActivity
         val shieldShouldBeRequested =
             hostActivity != null &&
+                examGuardArmed &&
                 overlayBypassState != OverlayBypassState.Active
 
         securityUiState.overlayShieldRequested.value = shieldShouldBeRequested
@@ -105,6 +106,15 @@ internal fun RuntimePrimaryGuardEffects(
                     DiagnosticEventLevel.INFO
                 }
             )
+            if (shieldShouldBeRequested && applyResult != true) {
+                securityUiState.overlayViolationCount.intValue += 1
+                securityUiState.lastOverlayTrigger.value = OverlaySignal.OverlayShieldUnsupported.diagnosticLabel()
+                securityUiState.lastOverlayAt.value = diagnosticTimestamp()
+                securityUiState.lastOverlayContext.value =
+                    "overlay_shield_apply_result=${applyResult ?: "unsupported"}"
+                securityUiState.showOverlayViolationDialog.value = true
+                startAlarm()
+            }
         } else {
             securityUiState.overlayShieldLastApplySucceeded.value = null
             securityUiState.overlayShieldLastAppliedAt.value = null
@@ -327,7 +337,6 @@ internal fun RuntimePrimaryGuardEffects(
                             }
 
                             securityUiState.overlayWindowFocusLossPending.value = false
-                            val hasOverlayApps = securityUiState.overlayAppsDetected.value.isNotEmpty()
                             when (
                                 decideExamOverlayWindowFocusLoss(
                                     appSwitchRuntimeMonitoringActive = appSwitchRuntimeMonitoringActive,
@@ -335,7 +344,7 @@ internal fun RuntimePrimaryGuardEffects(
                                         securityUiState.pendingForcedExitViolation.value,
                                     appSwitchLifecycleResumePending =
                                         adminUiState.appSwitchLifecycleResumePending.value,
-                                    hasOverlayAppsDetected = hasOverlayApps
+                                    hasOverlayAppsDetected = false
                                 )
                             ) {
                                 ExamOverlayFocusLossDecision.SuppressCoveredByAppSwitch -> {

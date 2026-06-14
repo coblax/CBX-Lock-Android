@@ -531,10 +531,7 @@ class MainActivity : ComponentActivity() {
             return null
         }
         return runCatching {
-            javaClass.getMethod(
-                "setHideOverlayWindows",
-                Boolean::class.javaPrimitiveType
-            ).invoke(this, enabled)
+            window.setHideOverlayWindows(enabled)
             true
         }.getOrElse { false }
     }

@@ -1,0 +1,1315 @@
+--------- beginning of main
+06-07 06:59:53.510   777   935 D InetDiagMessage: Destroyed 0 sockets, proto=IPPROTO_TCP, family=AF_INET, states=14
+06-07 06:59:53.511   777   935 D InetDiagMessage: Destroyed 0 sockets, proto=IPPROTO_TCP, family=AF_INET6, states=14
+06-07 06:59:53.516   777   935 D InetDiagMessage: Destroyed live tcp sockets for uids={10170} in 3ms
+06-07 06:59:53.519   777   935 D InetDiagMessage: Destroyed 0 sockets, proto=IPPROTO_TCP, family=AF_INET, states=14
+06-07 06:59:53.519   777   935 D InetDiagMessage: Destroyed 0 sockets, proto=IPPROTO_TCP, family=AF_INET6, states=14
+06-07 06:59:53.519   777   935 D InetDiagMessage: Destroyed live tcp sockets for uids={20170} in 4ms
+06-07 06:59:53.933  8640  8640 W libbinder.BackendUnifiedServiceManager: Thread Pool max thread count is 0. Cannot cache binder as linkToDeath cannot be implemented. serviceName: gfxinfo
+--------- beginning of system
+06-07 06:59:53.938   777  1675 D ActivityManager: freezer override set to true
+06-07 06:59:53.955   777  1675 D ActivityManager: sync unfroze 7854 com.google.android.gms.unstable for 19
+06-07 06:59:53.957   777  1675 D ActivityManager: sync unfroze 8233 android.process.acore for 19
+06-07 06:59:53.961   777  1675 D ActivityManager: sync unfroze 8402 com.google.android.tts for 19
+06-07 06:59:54.010   777  1675 D ActivityManager: freezer override set to false
+06-07 06:59:54.033  1093  8632 D android.hardware.gnss-service.ranchu: GnssHwListener:consume:87 sz=64
+06-07 06:59:54.036  7928  7928 D BoundBrokerSvc: onUnbind: Intent { act=com.google.android.gms.scheduler.ACTION_PROXY_SCHEDULE dat=chimera-action:/... xflg=0x4 cmp=com.google.android.gms/.chimera.PersistentDirectBootAwareApiService }
+06-07 06:59:54.061  1093  8632 D android.hardware.gnss-service.ranchu: GnssHwListener:consume:87 sz=64
+06-07 06:59:54.062  1093  8632 D android.hardware.gnss-service.ranchu: GnssHwListener:consume:87 sz=1
+06-07 06:59:54.063  1093  8632 D android.hardware.gnss-service.ranchu: Gnss:onGnssLocationCb:311
+06-07 06:59:54.064  1093  8632 D android.hardware.gnss-service.ranchu: Gnss:onGnssLocationCb:321
+06-07 06:59:55.013  8569  8574 W oid.apps.photos: userfaultfd: MOVE ioctl seems unsupported: Connection timed out
+06-07 06:59:55.036  1093  8632 D android.hardware.gnss-service.ranchu: GnssHwListener:consume:87 sz=64
+06-07 06:59:55.039  1093  8632 D android.hardware.gnss-service.ranchu: GnssHwListener:consume:87 sz=64
+06-07 06:59:55.040  1093  8632 D android.hardware.gnss-service.ranchu: GnssHwListener:consume:87 sz=1
+06-07 06:59:55.040  1093  8632 D android.hardware.gnss-service.ranchu: Gnss:onGnssLocationCb:311
+06-07 06:59:55.040  1093  8632 D android.hardware.gnss-service.ranchu: Gnss:onGnssLocationCb:321
+06-07 06:59:55.360  1176  1309 D SatelliteController: iisInCarrierRoamingNbIotNtn: satellite is disabled
+06-07 06:59:55.365  8633  8639 W dex2oat64: Compilation of void m7.avp.f(int, m7.avh) took 115.268ms
+06-07 06:59:55.367  7928  7928 D BoundBrokerSvc: onUnbind: Intent { act=com.google.android.gms.common.telemetry.service.START dat=chimera-action:/... xflg=0x4 cmp=com.google.android.gms/.chimera.PersistentApiService }
+06-07 06:59:55.431  1176  1309 D SatelliteController: getCarrierRoamingNtnConnectType: Falling back to global carrier config connect type: 0
+06-07 06:59:55.637  8633  8633 W dex2oat64: Compilation of int m7.axh.c(java.lang.Object, byte[], int, int, int, m7.auy) took 146.067ms
+06-07 06:59:55.880   777   923 I HalDevMgr: bestIfaceCreationProposal is null, requestIface=STA, existingIface=[name=wlan0 type=STA]
+06-07 06:59:56.052  1093  8632 D android.hardware.gnss-service.ranchu: GnssHwConn:workerThread:119
+06-07 06:59:56.067   777   799 W AlarmManager: Unrecognized alarm listener com.android.server.location.gnss.GnssLocationProvider$$ExternalSyntheticLambda14@9ac83fa
+06-07 06:59:56.067   777   799 W AlarmManager: Unrecognized alarm listener com.android.server.location.gnss.GnssLocationProvider$$ExternalSyntheticLambda13@c068dab
+06-07 06:59:56.437  8633  8637 I dex2oat64: Priority-to-niceness mapping: 19, 16, 13, 10, 0, -2, -4, -5, -6, -8
+06-07 06:59:56.503  7928  7928 D BoundBrokerSvc: onUnbind: Intent { act=com.google.android.gms.auth.aang.events.services.START dat=chimera-action:/... xflg=0x4 cmp=com.google.android.gms/.chimera.PersistentApiService }
+06-07 06:59:56.703  8633  8633 I dex2oat64: dex2oat took 3.526s (7.626s cpu) (threads: 4) arena alloc=5357KB (5485880B) java alloc=1005KB (1029344B) native alloc=7598KB (7780560B) free=3395KB (3476560B)
+06-07 06:59:56.751  2309  4878 I artd    : dex2oat returned code 0
+06-07 06:59:56.753  2309  4878 W libbinder.Binder: Binder transaction to com.android.server.art.IArtd code 16 took 3821ms. Data bytes: 1832 Reply bytes: 48 Flags: 16
+06-07 06:59:56.762   777  4835 I ArtService: Dexopt result: [packageName = com.google.android.gms] DexContainerFileDexoptResult{dexContainerFile=/data/app/~~KYfxxQknJlPjhvj9MRSqfQ==/com.google.android.gms-mCh4I2ARTwdtyTDudCgsaA==/split_MeasurementDynamite_installtime.apk, primaryAbi=true, abi=x86_64, actualCompilerFilter=speed, status=PERFORMED, dex2oatWallTimeMillis=3735, dex2oatCpuTimeMillis=7760, sizeBytes=3436692, sizeBeforeBytes=0, extendedStatusFlags=[]}
+06-07 06:59:56.784   777   877 D ActivityManager: freezing 8515 com.google.android.apps.messaging
+06-07 06:59:56.815  8661  8661 W libbinder.BackendUnifiedServiceManager: Thread Pool max thread count is 0. Cannot cache binder as linkToDeath cannot be implemented. serviceName: package
+06-07 06:59:57.390   777   813 I ActivityManager: Force stopping com.google.android.gms appid=10155 user=-1: installPackageLI
+06-07 06:59:57.408   777   813 I ActivityManager: Killing 7928:com.google.android.gms.persistent/u0a155 (adj 100): stop com.google.android.gms due to installPackageLI
+06-07 06:59:57.416   777   813 W libbinder.IPCThreadState: Sending oneway calls to frozen process.
+06-07 06:59:57.556   777   841 I PackageManager: installation completed for package:com.google.android.gms. Final code path: /data/app/~~KYfxxQknJlPjhvj9MRSqfQ==/com.google.android.gms-mCh4I2ARTwdtyTDudCgsaA==
+06-07 06:59:57.572   777   799 I ServiceWatcher: [fused] disconnected from 10155/com.google.android.gms/com.google.android.location.fused.FusedLocationService@1
+06-07 06:59:57.573   777   799 W ServiceWatcher: [fused] 10155/com.google.android.gms/com.google.android.location.fused.FusedLocationService@1 died
+06-07 06:59:57.589   777   813 W libbinder.IPCThreadState: Sending oneway calls to frozen process.
+06-07 06:59:57.589   777   813 W libbinder.IPCThreadState: Sending oneway calls to frozen process.
+06-07 06:59:57.590   777   813 W libbinder.IPCThreadState: Sending oneway calls to frozen process.
+06-07 06:59:57.590   777   813 W libbinder.IPCThreadState: Sending oneway calls to frozen process.
+06-07 06:59:57.591   777   813 W libbinder.IPCThreadState: Sending oneway calls to frozen process.
+06-07 06:59:57.597   777   813 W libbinder.IPCThreadState: Sending oneway calls to frozen process.
+06-07 06:59:57.597   777   813 W libbinder.IPCThreadState: Sending oneway calls to frozen process.
+06-07 06:59:57.598   777   813 W libbinder.IPCThreadState: Sending oneway calls to frozen process.
+06-07 06:59:57.598   777   813 W libbinder.IPCThreadState: Sending oneway calls to frozen process.
+06-07 06:59:57.602   777   799 I ServiceWatcher: [GeofenceProxy] disconnected from 10155/com.google.android.gms/com.google.android.location.internal.GoogleLocationManagerService@1
+06-07 06:59:57.611   777   799 W ServiceWatcher: [GeofenceProxy] 10155/com.google.android.gms/com.google.android.location.internal.GoogleLocationManagerService@1 died
+06-07 06:59:57.611   777   799 I ServiceWatcher: [GnssAssistanceProxy] disconnected from 10155/com.google.android.gms/.location.gnssassistance.GnssAssistanceService@1
+06-07 06:59:57.611   777   799 W ServiceWatcher: [GnssAssistanceProxy] 10155/com.google.android.gms/.location.gnssassistance.GnssAssistanceService@1 died
+06-07 06:59:57.612   777   799 I ServiceWatcher: [network] disconnected from 10155/com.google.android.gms/com.google.android.location.network.NetworkLocationService@2
+06-07 06:59:57.612   777   799 W ServiceWatcher: [network] 10155/com.google.android.gms/com.google.android.location.network.NetworkLocationService@2 died
+06-07 06:59:57.612   777   799 I ServiceWatcher: [TrustManagerService] disconnected from 10155/com.google.android.gms/.chimera.PersistentInternalBoundBrokerService@-2147483648
+06-07 06:59:57.618   777   799 W ServiceWatcher: [TrustManagerService] 10155/com.google.android.gms/.chimera.PersistentInternalBoundBrokerService@-2147483648 died
+06-07 06:59:57.619   777   799 I ServiceWatcher: [GeocoderProxy] disconnected from 10155/com.google.android.gms/.location.geocode.GeocodeService@2
+06-07 06:59:57.619   777   799 W ServiceWatcher: [GeocoderProxy] 10155/com.google.android.gms/.location.geocode.GeocodeService@2 died
+06-07 06:59:57.619   777   799 I ServiceWatcher: [HardwareActivityRecognitionProxy] disconnected from 10155/com.google.android.gms/com.google.android.location.internal.server.HardwareArProviderService@1
+06-07 06:59:57.620   777   799 W ServiceWatcher: [HardwareActivityRecognitionProxy] 10155/com.google.android.gms/com.google.android.location.internal.server.HardwareArProviderService@1 died
+06-07 06:59:57.620   777   799 I ServiceWatcher: [RealLocationTimeZoneProviderProxy] disconnected from 10155/com.google.android.gms/.geotimezone.GeoTimeZoneService@1
+06-07 06:59:57.629   777   799 W ServiceWatcher: [RealLocationTimeZoneProviderProxy] 10155/com.google.android.gms/.geotimezone.GeoTimeZoneService@1 died
+06-07 06:59:57.638   550   550 I Zygote  : Process 7928 exited due to signal 9 (Killed)
+06-07 06:59:57.673   777   815 I libprocessgroup: Removed cgroup /sys/fs/cgroup/apps/uid_10155/pid_7928
+06-07 06:59:57.741   777   813 I ActivityManager: Killing 7854:com.google.android.gms.unstable/u0a155 (adj 905): stop com.google.android.gms due to installPackageLI
+06-07 06:59:57.750   777   813 I ActivityManager: Killing 7228:com.google.android.gms/u0a155 (adj 905): stop com.google.android.gms due to installPackageLI
+06-07 06:59:57.853   777   813 I ActivityManager: Test idle passed
+06-07 06:59:57.854   777   800 W Looper  : Slow dispatch took 108ms android.ui app=system_server main=false group=TOP_APP h=com.android.server.am.ActivityManagerService$UiHandler c=com.android.server.am.UidObserverController$$ExternalSyntheticLambda0@8aceeee m=0
+06-07 06:59:57.862   777  1290 V ActivityManager: Got obituary of 7928:com.google.android.gms.persistent
+06-07 06:59:57.868   777   777 W Looper  : Slow dispatch took 260ms main app=system_server main=true group=FOREGROUND h=android.app.ActivityThread$H c=android.app.LoadedApk$ServiceDispatcher$RunConnection@bd67956 m=0
+06-07 06:59:57.992  8551  8558 W ssioncontroller: userfaultfd: MOVE ioctl seems unsupported: Connection timed out
+06-07 06:59:58.010   777  1009 W Looper  : Slow dispatch took 129ms android.perm app=system_server main=false group=FOREGROUND h=android.os.Handler c=com.android.internal.infra.ServiceConnector$Impl$$ExternalSyntheticLambda0@1ceeab5 m=0
+06-07 06:59:58.081   550   550 I Zygote  : Process 7228 exited due to signal 9 (Killed)
+06-07 06:59:58.082   550   550 I Zygote  : Process 7854 exited due to signal 9 (Killed)
+06-07 06:59:58.104   777   799 I ServiceWatcher: [fused] chose new implementation 10155/com.google.android.gms/com.google.android.location.fused.FusedLocationService@1
+06-07 06:59:58.111   777   815 I libprocessgroup: Removed cgroup /sys/fs/cgroup/apps/uid_10155/pid_7854
+06-07 06:59:58.148   550   550 D Zygote  : Forked child process 8674
+06-07 06:59:58.150   777   985 D BackgroundInstallControlService: Package event received: 0
+06-07 06:59:58.154   777   799 I ServiceWatcher: [GeofenceProxy] chose new implementation 10155/com.google.android.gms/com.google.android.location.internal.GoogleLocationManagerService@1
+06-07 06:59:58.155   777  1290 V ActivityManager: Got obituary of 7228:com.google.android.gms
+06-07 06:59:58.157   777   793 V ActivityManager: Got obituary of 7854:com.google.android.gms.unstable
+06-07 06:59:58.184   777   799 I ServiceWatcher: [GnssAssistanceProxy] chose new implementation 10155/com.google.android.gms/.location.gnssassistance.GnssAssistanceService@1
+06-07 06:59:58.185   777   799 I ServiceWatcher: [network] chose new implementation 10155/com.google.android.gms/com.google.android.location.network.NetworkLocationService@2
+06-07 06:59:58.185   777   799 I ServiceWatcher: [TrustManagerService] chose new implementation 10155/com.google.android.gms/.chimera.PersistentInternalBoundBrokerService@-2147483648
+06-07 06:59:58.186   777   799 I ServiceWatcher: [GeocoderProxy] chose new implementation 10155/com.google.android.gms/.location.geocode.GeocodeService@2
+06-07 06:59:58.186   777   799 I ServiceWatcher: [HardwareActivityRecognitionProxy] chose new implementation 10155/com.google.android.gms/com.google.android.location.internal.server.HardwareArProviderService@1
+06-07 06:59:58.188   777   799 I ServiceWatcher: [RealLocationTimeZoneProviderProxy] chose new implementation 10155/com.google.android.gms/.geotimezone.GeoTimeZoneService@1
+06-07 06:59:58.235   777   814 W ActivityManager: Slow operation: 126ms so far, now at startProcess: done updating battery stats
+06-07 06:59:58.235   777   814 W ActivityManager: Slow operation: 127ms so far, now at startProcess: building log message
+06-07 06:59:58.235   777   814 I ActivityManager: Start proc 8674:com.google.android.gms.persistent/u0a155 for service {com.google.android.gms/com.google.android.location.fused.FusedLocationService}
+06-07 06:59:58.236   777   814 W ActivityManager: Slow operation: 127ms so far, now at startProcess: starting to update pids map
+06-07 06:59:58.236   777   814 W ActivityManager: Slow operation: 127ms so far, now at startProcess: done updating pids map
+06-07 06:59:58.260  2309  4879 I artd    : GetBestInfo: /data/app/~~KYfxxQknJlPjhvj9MRSqfQ==/com.google.android.gms-mCh4I2ARTwdtyTDudCgsaA==/base.apk has no usable artifacts
+06-07 06:59:58.295   777   815 I libprocessgroup: Removed cgroup /sys/fs/cgroup/apps/uid_10155/pid_7228
+06-07 06:59:58.337   777   841 I ActivityManager: Force stopping com.google.android.gms appid=10155 user=0: pkg removed
+06-07 06:59:58.339  2309  4879 I artd    : GetBestInfo: odex next to the dex file (/data/app/~~KYfxxQknJlPjhvj9MRSqfQ==/com.google.android.gms-mCh4I2ARTwdtyTDudCgsaA==/oat/x86_64/split_AdsDynamite_installtime.odex) is kOatUpToDate with filter 'speed' executable 'false'
+06-07 06:59:58.360  8674  8674 I Zygote  : Process 8674 created for com.google.android.gms.persistent
+06-07 06:59:58.361   777   841 E ActivityManager: Unable to freeze binder for 8674: java.lang.RuntimeException: Unable to freeze/unfreeze binder
+06-07 06:59:58.365   777   841 I ActivityManager: Killing 8674:com.google.android.gms.persistent/u0a155 (adj -10000): stop com.google.android.gms due to pkg removed
+06-07 06:59:58.381   777   841 I ActivityManager:   Force stopping service ServiceRecord{8ad6a84 u0 com.google.android.gms/com.google.android.location.internal.server.HardwareArProviderService c:android}
+06-07 06:59:58.381   777   841 I ActivityManager:   Force stopping service ServiceRecord{bdb75a8 u0 com.google.android.gms/com.google.android.location.internal.GoogleLocationManagerService c:android}
+06-07 06:59:58.381   777   841 I ActivityManager:   Force stopping service ServiceRecord{9ed51c0 u0 com.google.android.gms/com.google.android.location.network.NetworkLocationService c:android}
+06-07 06:59:58.381   777   841 I ActivityManager:   Force stopping service ServiceRecord{8d8aaf0 u0 com.google.android.gms/.geotimezone.GeoTimeZoneService c:android}
+06-07 06:59:58.382   777   841 I ActivityManager:   Force stopping service ServiceRecord{313c353 u0 com.google.android.gms/com.google.android.location.fused.FusedLocationService c:android}
+06-07 06:59:58.382   777   841 I ActivityManager:   Force stopping service ServiceRecord{1ab98d8 u0 com.google.android.gms/.location.geocode.GeocodeService c:android}
+06-07 06:59:58.382   777   841 I ActivityManager:   Force stopping service ServiceRecord{1464454 u0 com.google.android.gms/.location.gnssassistance.GnssAssistanceService c:android}
+06-07 06:59:58.382   777   841 I ActivityManager:   Force stopping service ServiceRecord{535c9ec u0 com.google.android.gms/.chimera.PersistentInternalBoundBrokerService c:android}
+06-07 06:59:58.422   777   841 W libbinder.IPCThreadState: Sending oneway calls to frozen process.
+06-07 06:59:58.433   777   841 I ActivityManager: Force stopping com.google.android.gms appid=10155 user=0: pkg removed
+06-07 06:59:58.438  2309  4879 I artd    : GetBestInfo: odex next to the dex file (/data/app/~~KYfxxQknJlPjhvj9MRSqfQ==/com.google.android.gms-mCh4I2ARTwdtyTDudCgsaA==/oat/x86_64/split_CronetDynamite_installtime.odex) is kOatUpToDate with filter 'speed' executable 'false'
+06-07 06:59:58.455  2309  4879 I artd    : GetBestInfo: odex next to the dex file (/data/app/~~KYfxxQknJlPjhvj9MRSqfQ==/com.google.android.gms-mCh4I2ARTwdtyTDudCgsaA==/oat/x86_64/split_DynamiteLoader_installtime.odex) is kOatUpToDate with filter 'speed' executable 'false'
+06-07 06:59:58.456   550   550 I Zygote  : Process 8674 exited due to signal 9 (Killed)
+06-07 06:59:58.456   777   841 W libbinder.IPCThreadState: Sending oneway calls to frozen process.
+06-07 06:59:58.500   777   815 I libprocessgroup: Removed cgroup /sys/fs/cgroup/apps/uid_10155/pid_8674
+06-07 06:59:58.569   777   877 D ActivityManager: freezing 8569 com.google.android.apps.photos
+06-07 06:59:58.611  2309  4879 I artd    : GetBestInfo: odex next to the dex file (/data/app/~~KYfxxQknJlPjhvj9MRSqfQ==/com.google.android.gms-mCh4I2ARTwdtyTDudCgsaA==/oat/x86_64/split_DynamiteModulesA_installtime.odex) is kOatUpToDate with filter 'speed' executable 'false'
+06-07 06:59:58.627  1030  1030 D ControlsListingControllerImpl: ServiceConfig reloaded, count: 0
+06-07 06:59:58.693   777   777 W Looper  : Slow dispatch took 192ms main app=system_server main=true group=FOREGROUND h=android.app.ActivityThread$H c=null m=133
+06-07 06:59:58.693   777   777 W Looper  : Slow delivery took 215ms main app=system_server main=true group=FOREGROUND h=android.os.Handler c=com.android.internal.content.PackageMonitor$$ExternalSyntheticLambda0@f987ae4 m=0
+06-07 06:59:58.694   777   799 W ServiceWatcher: [TrustManagerService] 10155/com.google.android.gms/.chimera.PersistentInternalBoundBrokerService@-2147483648 died
+06-07 06:59:58.695   777   799 W Looper  : Slow delivery took 312ms android.fg app=system_server main=false group=FOREGROUND h=android.os.Handler c=android.app.LoadedApk$ServiceDispatcher$RunConnection@9b5fb4d m=0
+06-07 06:59:58.695   777   799 W ServiceWatcher: [GnssAssistanceProxy] 10155/com.google.android.gms/.location.gnssassistance.GnssAssistanceService@1 died
+06-07 06:59:58.696   777   799 W ServiceWatcher: [GeocoderProxy] 10155/com.google.android.gms/.location.geocode.GeocodeService@2 died
+06-07 06:59:58.696   777   799 W ServiceWatcher: [fused] 10155/com.google.android.gms/com.google.android.location.fused.FusedLocationService@1 died
+06-07 06:59:58.696   777   799 W ServiceWatcher: [RealLocationTimeZoneProviderProxy] 10155/com.google.android.gms/.geotimezone.GeoTimeZoneService@1 died
+06-07 06:59:58.696   777   799 W ServiceWatcher: [network] 10155/com.google.android.gms/com.google.android.location.network.NetworkLocationService@2 died
+06-07 06:59:58.696   777   799 W ServiceWatcher: [GeofenceProxy] 10155/com.google.android.gms/com.google.android.location.internal.GoogleLocationManagerService@1 died
+06-07 06:59:58.697   777   799 W ServiceWatcher: [HardwareActivityRecognitionProxy] 10155/com.google.android.gms/com.google.android.location.internal.server.HardwareArProviderService@1 died
+06-07 06:59:58.703   777   984 D ShortcutService: received package broadcast intent: Intent { act=android.intent.action.PACKAGE_REMOVED dat=package: flg=0x4000010 (has extras) }
+06-07 06:59:58.762   777   904 W PackageConfigPersister: App-specific configuration not found for packageName: com.google.android.gms and userId: 0
+06-07 06:59:58.774  2309  4879 I artd    : GetBestInfo: odex next to the dex file (/data/app/~~KYfxxQknJlPjhvj9MRSqfQ==/com.google.android.gms-mCh4I2ARTwdtyTDudCgsaA==/oat/x86_64/split_DynamiteModulesC_installtime.odex) is kOatUpToDate with filter 'speed' executable 'false'
+06-07 06:59:58.786   777   799 I ServiceWatcher: [HardwareActivityRecognitionProxy] chose new implementation 10155/com.google.android.gms/com.google.android.location.internal.server.HardwareArProviderService@1
+06-07 06:59:58.787   777   799 I ServiceWatcher: [fused] chose new implementation 10155/com.google.android.gms/com.google.android.location.fused.FusedLocationService@1
+06-07 06:59:58.790   777   799 I ServiceWatcher: [RealLocationTimeZoneProviderProxy] chose new implementation 10155/com.google.android.gms/.geotimezone.GeoTimeZoneService@1
+06-07 06:59:58.791   777   799 I ServiceWatcher: [GeofenceProxy] chose new implementation 10155/com.google.android.gms/com.google.android.location.internal.GoogleLocationManagerService@1
+06-07 06:59:58.791   777   799 I ServiceWatcher: [GeocoderProxy] chose new implementation 10155/com.google.android.gms/.location.geocode.GeocodeService@2
+06-07 06:59:58.792   777   799 I ServiceWatcher: [GnssAssistanceProxy] chose new implementation 10155/com.google.android.gms/.location.gnssassistance.GnssAssistanceService@1
+06-07 06:59:58.792   777   799 I ServiceWatcher: [network] chose new implementation 10155/com.google.android.gms/com.google.android.location.network.NetworkLocationService@2
+06-07 06:59:58.792   777   799 I ServiceWatcher: [TrustManagerService] chose new implementation 10155/com.google.android.gms/.chimera.PersistentInternalBoundBrokerService@-2147483648
+06-07 06:59:58.851   777   935 I SatelliteAccessController: SmsRoleUids:{10154} Opt-InUids:{10154, 10156, 10160, 10167}
+06-07 06:59:58.957  2309  4879 I artd    : GetBestInfo: odex next to the dex file (/data/app/~~KYfxxQknJlPjhvj9MRSqfQ==/com.google.android.gms-mCh4I2ARTwdtyTDudCgsaA==/oat/x86_64/split_GoogleCertificates_installtime.odex) is kOatUpToDate with filter 'speed' executable 'false'
+06-07 06:59:58.959  7270  7270 I Finsky  : [2] ajyz - Received: android.intent.action.PACKAGE_REMOVED, [5RgnIEJQaOQbqneqo2SF47BEgT9fG5svDK6hS_daqhI]
+06-07 06:59:59.001   777   923 I HalDevMgr: bestIfaceCreationProposal is null, requestIface=STA, existingIface=[name=wlan0 type=STA]
+06-07 06:59:59.092  2309  4879 I artd    : GetBestInfo: odex next to the dex file (/data/app/~~KYfxxQknJlPjhvj9MRSqfQ==/com.google.android.gms-mCh4I2ARTwdtyTDudCgsaA==/oat/x86_64/split_MapsDynamite_installtime.odex) is kOatUpToDate with filter 'speed' executable 'false'
+06-07 06:59:59.108  7085  7085 I Finsky:background: [2] ajyp - Received: android.intent.action.PACKAGE_REMOVED, [5RgnIEJQaOQbqneqo2SF47BEgT9fG5svDK6hS_daqhI]
+06-07 06:59:59.110   777   985 D BackgroundInstallControlService: Package event received: 0
+06-07 06:59:59.146   777   793 W AppOpService: Ignored setUidMode call for runtime permission app op: uid = 1001, code = READ_SMS, mode = allow, callingUid = 1001, oldMode = allow
+06-07 06:59:59.176  2309  4879 I artd    : GetBestInfo: odex next to the dex file (/data/app/~~KYfxxQknJlPjhvj9MRSqfQ==/com.google.android.gms-mCh4I2ARTwdtyTDudCgsaA==/oat/x86_64/split_MeasurementDynamite_installtime.odex) is kOatUpToDate with filter 'speed' executable 'false'
+06-07 06:59:59.193   777   985 D BackgroundInstallControlService: Package event received: 0
+06-07 06:59:59.193   777   985 D BackgroundInstallControlService: Package event received: 0
+06-07 06:59:59.193   777   985 D BackgroundInstallControlService: Package event received: 0
+06-07 06:59:59.193   777   985 D BackgroundInstallControlService: Package event received: 0
+06-07 06:59:59.193   777   985 D BackgroundInstallControlService: Package event received: 0
+06-07 06:59:59.194   777   985 D BackgroundInstallControlService: Package event received: 0
+06-07 06:59:59.201   777   942 E AppOps  : attributionTag VCN not declared in manifest of android
+06-07 06:59:59.379  2309  4879 W artd    : Could not get dex checksums for location /data/app/~~hbiIONFHaCdu_hZnY-5dzA==/com.google.android.gms-hzTkChCsM6Ndzah6AYkMDg==/base.apk, fd=-1
+06-07 06:59:59.382  1030  1030 D ControlsListingControllerImpl: ServiceConfig reloaded, count: 0
+06-07 06:59:59.390  2309  4879 I artd    : GetBestInfo: /data/user_de/0/com.google.android.gms/app_chimera/m/00000001/CronetDynamite.apk has no usable artifacts
+06-07 06:59:59.207   777  1290 W AppOpService: Ignored setUidMode call for runtime permission app op: uid = 1001, code = RECEIVE_SMS, mode = allow, callingUid = 1001, oldMode = allow
+06-07 06:59:59.422  1176  1309 I SatelliteAppTracker: onPackageUpdateFinished : com.google.android.gms
+06-07 06:59:59.423  1176  1309 I SatelliteAppTracker: onPackageModified : com.google.android.gms
+06-07 06:59:59.425  1176  1309 E SatelliteAppTracker: packageName: com.google.android.gms, value: com.google.android.gms
+06-07 06:59:59.430  1176  1309 E SatelliteAppTracker: packageName: com.google.android.gms, value: com.google.android.gms
+06-07 06:59:59.435  2309  4879 W artd    : Could not get dex checksums for location /data/app/~~hbiIONFHaCdu_hZnY-5dzA==/com.google.android.gms-hzTkChCsM6Ndzah6AYkMDg==/base.apk, fd=-1
+06-07 06:59:59.435   777   777 W Looper  : Slow dispatch took 576ms main app=system_server main=true group=FOREGROUND h=android.app.ActivityThread$H c=android.app.LoadedApk$ReceiverDispatcher$Args$$ExternalSyntheticLambda0@fd19c64 m=0
+06-07 06:59:59.436  2309  4879 I artd    : GetBestInfo: /data/user_de/0/com.google.android.gms/app_chimera/m/00000002/DynamiteLoader.apk has no usable artifacts
+06-07 06:59:59.442  2309  4879 I artd    : GetBestInfo: /data/user_de/0/com.google.android.gms/app_chimera/m/0000000d/dl-VisionOcr.optional_253434100000.apk has no usable artifacts
+06-07 06:59:59.447  2309  4879 I artd    : GetBestInfo: /data/user_de/0/com.google.android.gms/app_chimera/m/00000005/GoogleCertificates.apk has no usable artifacts
+06-07 06:59:59.451  6282  6735 I HWUI    : Davey! duration=773ms; Flags=0, FrameTimelineVsyncId=25416, IntendedVsync=996924610789, Vsync=997041277451, InputEventId=0, HandleInputStart=997047015253, AnimationStart=997047070153, PerformTraversalsStart=997591223553, DrawStart=997591377953, FrameDeadline=996941277455, FrameStartTime=997045907853, FrameInterval=16666666, WorkloadTarget=16666666, SyncQueued=997593249853, SyncStart=997686521153, IssueDrawCommandsStart=997686720253, SwapBuffers=997688875353, FrameCompleted=997791866953, DequeueBufferDuration=56900, QueueBufferDuration=1360000, GpuCompleted=997791866953, SwapBuffersCompleted=997692818653, DisplayPresentTime=0, CommandSubmissionCompleted=997688875353, 
+06-07 06:59:59.460  2309  4879 I artd    : GetBestInfo: /data/user_de/0/com.google.android.gms/app_chimera/m/00000008/dl-MlkitBarcodeUi.optional_253434100800.apk has no usable artifacts
+06-07 06:59:59.466   777   942 E AppOps  : attributionTag VCN not declared in manifest of android
+06-07 06:59:59.472   777   799 W Looper  : Drained
+06-07 06:59:59.473   777   799 W Looper  : Slow dispatch took 679ms android.fg app=system_server main=false group=FOREGROUND h=android.os.Handler c=com.android.server.servicewatcher.ServiceWatcherImpl$$ExternalSyntheticLambda0@d7cfac9 m=0
+06-07 06:59:59.475   777  1005 W AppOpService: Ignored setUidMode call for runtime permission app op: uid = 1001, code = RECEIVE_WAP_PUSH, mode = allow, callingUid = 1001, oldMode = allow
+06-07 06:59:59.476   777  1005 W AppOpService: Ignored setUidMode call for runtime permission app op: uid = 1001, code = SEND_SMS, mode = allow, callingUid = 1001, oldMode = allow
+06-07 06:59:59.476  2309  4879 I artd    : GetBestInfo: /data/user_de/0/com.google.android.gms/app_chimera/m/0000000e/dl-MlkitOcrCommon.optional_253434100800.apk has no usable artifacts
+06-07 06:59:59.479   777  1005 W AppOpService: Ignored setUidMode call for runtime permission app op: uid = 1001, code = READ_CELL_BROADCASTS, mode = allow, callingUid = 1001, oldMode = allow
+06-07 06:59:59.480   777   985 D BackgroundInstallControlService: Package event received: 0
+06-07 06:59:59.480   777   985 D BackgroundInstallControlService: Package event received: 0
+06-07 06:59:59.484   777   799 W Looper  : Slow delivery took 686ms android.fg app=system_server main=false group=FOREGROUND h=android.os.Handler c=com.android.server.servicewatcher.ServiceWatcherImpl$$ExternalSyntheticLambda0@663e0da m=0
+06-07 06:59:59.484   777   814 W ActivityManager: Slow operation: 56ms so far, now at startProcess: asking zygote to start proc
+06-07 06:59:59.499  8551  8551 D ActivityThread: Package [com.google.android.gms] reported as REPLACED, but missing application info. Assuming REMOVED.
+06-07 06:59:59.504  6282  6282 D ActivityThread: Package [com.google.android.gms] reported as REPLACED, but missing application info. Assuming REMOVED.
+06-07 06:59:59.511  8233  8233 D ActivityThread: Package [com.google.android.gms] reported as REPLACED, but missing application info. Assuming REMOVED.
+06-07 06:59:59.522  1030  1160 I PluginActionManager[com.android.systemui.action.FALSING_PLUGIN]: Found 0 plugins
+06-07 06:59:59.537  1030  1160 I PluginActionManager[com.android.systemui.action.PLUGIN_SENSOR_MANAGER]: Found 0 plugins
+06-07 06:59:59.540  2309  4879 I artd    : GetBestInfo: /data/user_de/0/com.google.android.gms/app_chimera/m/0000000b/dl-Appsearch.optional_253434100800.apk has no usable artifacts
+06-07 06:59:59.541   777   935 D ConnectivityService: Switching to new default network for: uid/pid:1000/777 activeRequest: 349 callbackRequest: 349 [NetworkRequest [ TRACK_DEFAULT id=349, [ Capabilities: INTERNET&NOT_RESTRICTED&TRUSTED&NOT_VPN&NOT_VCN_MANAGED&NOT_BANDWIDTH_CONSTRAINED Uids: <{10156-10156, 10160-10160, 10167-10167}> RequestorUid: 1000 RequestorPkg: android UnderlyingNetworks: Null] ], NetworkRequest [ REQUEST id=350, [ Transports: SATELLITE Capabilities: INTERNET&NOT_RESTRICTED&TRUSTED&NOT_VPN&NOT_VCN_MANAGED Uids: <{10156-10156, 10160-10160, 10167-10167}> UnderlyingNetworks: Null] ]] callback flags: 0 order: 40 isUidTracked: false declaredMethods: NONE using NetworkAgentInfo{network{100}  handle{432902426637}  ni{WIFI CONNECTED extra: } created=2026-06-06T23:13:46.709Z Score(Policies : TRANSPORT_PRIMARY&EVER_EVALUATED&IS_UNMETERED&EVER_VALIDATED&IS_VALIDATED ; KeepConnected : 0)  created 57249 firstValidated 69041 lastValidated 69041  lp{{InterfaceName: wlan0 LinkAddresses: [ fe80::9bf8:f95e:681:42f/64,fec0::8dbc:90ae:ef61:57f0/64,fec0::7daf:80eb:ae3:bf0c/64,10.0.2.16/24 ] DnsAddresses: [ /fec0::3,/10.0.2.3 ] Domains: null MTU: 0 ServerAddress: /10.0.2.2 TcpBufferSizes: 524288,1048576,2097152,262144,524288,1048576 Routes: [ fe80::/64 -> :: wlan0 mtu 0,::/0 -> fe80::2 wlan0 mtu 0,fec0::/64 -> :: wlan0 mtu 0,10.0.2.0/24 -> 0.0.0.0 wlan0 mtu 0,0.0.0.0/0 -> 10.0.2.2 wlan0 mtu 0 ]}}  nc{[ Transports: WIFI Capabilities: NOT_METERED&INTERNET&NOT_RESTRICTED&TRUSTED&NOT_VPN&VALIDATED&NOT_ROAMING&FOREGROUND&NOT_CONGESTED&NOT_SUSPENDED&NOT_VCN_MANAGED&NOT_BANDWIDTH_CONSTRAINED LinkUpBandwidth>=12000Kbps LinkDnBandwidth>=30000Kbps Specifier: <WifiNetworkAgentSpecifier [WifiConfiguration=, SSID="AndroidWifi", BSSID=00:13:10:85:fe:01, band=1, mMatchLocalOnlySpecifiers=false]> TransportInfo: <SSID: "AndroidWifi", BSSID: 00:13:10:85:fe:01, MAC: 02:15:b2:00:00:00, IP: /10.0.2.16, Security type: 0, Supplicant state: COMPLETED, Wi-Fi standard: legacy, RSSI: -50, Link speed: 2Mbps, Tx Link speed: 2Mbps, Max Supported Tx Link speed: 11Mbps, Rx Link speed: 2Mbps, Max Supported Rx Link speed: 11Mbps, Frequency: 2447MHz, Net ID: 0, Metered hint: false, score: 83, isUsable: true, CarrierMerged: false, SubscriptionId: -1, IsPrimary: 1, Trusted: true, Restricted: false, Ephemeral: false, OEM paid: false, OEM private: false, OSU AP: false, FQDN: <none>, Provider friendly name: <none>, Requesting package name: <none>"AndroidWifi"openMLO Information: , Is TID-To-Link negotiation supported by the AP: false, AP MLD Address: <none>, AP MLO Link Id: <none>, AP MLO Affiliated links: <none>, Vendor Data: <none>> SignalStrength: -50 OwnerUid: 10189 AdminUids: [10189] SSID: "AndroidWifi" UnderlyingNetworks: Null]}  factorySerialNumber=6}
+06-07 06:59:59.541   777   841 W libbinder.IPCThreadState: Sending oneway calls to frozen process.
+06-07 06:59:59.541   777   841 W libbinder.IPCThreadState: Sending oneway calls to frozen process.
+06-07 06:59:59.543  8402  8402 D ActivityThread: Package [com.google.android.gms] reported as REPLACED, but missing application info. Assuming REMOVED.
+06-07 06:59:59.543  6945  6945 D ActivityThread: Package [com.google.android.gms] reported as REPLACED, but missing application info. Assuming REMOVED.
+06-07 06:59:59.550  1030  1030 D ActivityThread: Package [com.google.android.gms] reported as REPLACED, but missing application info. Assuming REMOVED.
+06-07 06:59:59.552  7745  7745 D ActivityThread: Package [com.google.android.gms] reported as REPLACED, but missing application info. Assuming REMOVED.
+06-07 06:59:59.556  1169  1169 D ActivityThread: Package [com.google.android.gms] reported as REPLACED, but missing application info. Assuming REMOVED.
+06-07 06:59:59.558  1592  1592 D ActivityThread: Package [com.google.android.gms] reported as REPLACED, but missing application info. Assuming REMOVED.
+06-07 06:59:59.585  6946  6946 D ActivityThread: Package [com.google.android.gms] reported as REPLACED, but missing application info. Assuming REMOVED.
+06-07 06:59:59.585  8327  8327 D ActivityThread: Package [com.google.android.gms] reported as REPLACED, but missing application info. Assuming REMOVED.
+06-07 06:59:59.586  6930  6930 D ActivityThread: Package [com.google.android.gms] reported as REPLACED, but missing application info. Assuming REMOVED.
+06-07 06:59:59.590  2309  4879 W artd    : Could not get dex checksums for location /data/app/~~hbiIONFHaCdu_hZnY-5dzA==/com.google.android.gms-hzTkChCsM6Ndzah6AYkMDg==/base.apk, fd=-1
+06-07 06:59:59.596  1030  1160 I PluginActionManager[com.android.systemui.action.PLUGIN_AUTH_CONTEXT]: Found 0 plugins
+06-07 06:59:59.600  6823  6823 D ActivityThread: Package [com.google.android.gms] reported as REPLACED, but missing application info. Assuming REMOVED.
+06-07 06:59:59.603  2309  4879 W artd    : Could not get dex checksums for location /data/app/~~hbiIONFHaCdu_hZnY-5dzA==/com.google.android.gms-hzTkChCsM6Ndzah6AYkMDg==/base.apk, fd=-1
+06-07 06:59:59.610  1030  1160 I PluginActionManager[com.android.systemui.action.PLUGIN_VOLUME]: Found 0 plugins
+06-07 06:59:59.623  1030  1160 I PluginActionManager[com.android.systemui.action.PLUGIN_TOAST]: Found 0 plugins
+06-07 06:59:59.721  1030  1160 I PluginActionManager[com.android.systemui.action.PLUGIN_GLOBAL_ACTIONS]: Found 0 plugins
+06-07 06:59:59.722  1515  1515 D ActivityThread: Package [com.google.android.gms] reported as REPLACED, but missing application info. Assuming REMOVED.
+06-07 06:59:59.724   777   899 V AccessibilityUserState: updateShortcutTargets: type:accessibility_shortcut_target_service, current:{}, new:{}
+06-07 06:59:59.724   777   899 V AccessibilityUserState: updateShortcutTargets: type:accessibility_qs_targets, current:{}, new:{}
+06-07 06:59:59.724   777   899 V AccessibilityUserState: updateShortcutTargets: type:accessibility_button_targets, current:{}, new:{}
+06-07 06:59:59.724   777   899 V AccessibilityUserState: updateShortcutTargets: type:accessibility_gesture_targets, current:{}, new:{}
+06-07 06:59:59.724   777   899 V AccessibilityUserState: updateShortcutTargets: type:accessibility_key_gesture_targets, current:{}, new:{}
+06-07 06:59:59.725   777   899 V AccessibilityManagerService: onUserStateChangedLocked for userId: 0, forceUpdate: false
+06-07 06:59:59.726  1129  1129 D ActivityThread: Package [com.google.android.gms] reported as REPLACED, but missing application info. Assuming REMOVED.
+06-07 06:59:59.728   777   985 D BackgroundInstallControlService: Package event received: 0
+06-07 06:59:59.729   777   985 D BackgroundInstallControlService: Package event received: 0
+06-07 06:59:59.729   777   985 D BackgroundInstallControlService: Package event received: 0
+06-07 06:59:59.730   777   935 D ConnectivityService: Switching to new default network for: uid/pid:1000/777 activeRequest: 347 callbackRequest: 347 [NetworkRequest [ TRACK_DEFAULT id=347, [ Capabilities: INTERNET&NOT_RESTRICTED&TRUSTED&NOT_VPN&NOT_VCN_MANAGED&NOT_BANDWIDTH_CONSTRAINED Uid: 10154 RequestorUid: 1000 RequestorPkg: android UnderlyingNetworks: Null] ], NetworkRequest [ REQUEST id=348, [ Transports: SATELLITE Capabilities: INTERNET&TRUSTED&NOT_VPN&NOT_VCN_MANAGED Uid: 10154 UnderlyingNetworks: Null] ]] callback flags: 0 order: 40 isUidTracked: false declaredMethods: NONE using NetworkAgentInfo{network{100}  handle{432902426637}  ni{WIFI CONNECTED extra: } created=2026-06-06T23:13:46.709Z Score(Policies : TRANSPORT_PRIMARY&EVER_EVALUATED&IS_UNMETERED&EVER_VALIDATED&IS_VALIDATED ; KeepConnected : 0)  created 57249 firstValidated 69041 lastValidated 69041  lp{{InterfaceName: wlan0 LinkAddresses: [ fe80::9bf8:f95e:681:42f/64,fec0::8dbc:90ae:ef61:57f0/64,fec0::7daf:80eb:ae3:bf0c/64,10.0.2.16/24 ] DnsAddresses: [ /fec0::3,/10.0.2.3 ] Domains: null MTU: 0 ServerAddress: /10.0.2.2 TcpBufferSizes: 524288,1048576,2097152,262144,524288,1048576 Routes: [ fe80::/64 -> :: wlan0 mtu 0,::/0 -> fe80::2 wlan0 mtu 0,fec0::/64 -> :: wlan0 mtu 0,10.0.2.0/24 -> 0.0.0.0 wlan0 mtu 0,0.0.0.0/0 -> 10.0.2.2 wlan0 mtu 0 ]}}  nc{[ Transports: WIFI Capabilities: NOT_METERED&INTERNET&NOT_RESTRICTED&TRUSTED&NOT_VPN&VALIDATED&NOT_ROAMING&FOREGROUND&NOT_CONGESTED&NOT_SUSPENDED&NOT_VCN_MANAGED&NOT_BANDWIDTH_CONSTRAINED LinkUpBandwidth>=12000Kbps LinkDnBandwidth>=30000Kbps Specifier: <WifiNetworkAgentSpecifier [WifiConfiguration=, SSID="AndroidWifi", BSSID=00:13:10:85:fe:01, band=1, mMatchLocalOnlySpecifiers=false]> TransportInfo: <SSID: "AndroidWifi", BSSID: 00:13:10:85:fe:01, MAC: 02:15:b2:00:00:00, IP: /10.0.2.16, Security type: 0, Supplicant state: COMPLETED, Wi-Fi standard: legacy, RSSI: -50, Link speed: 2Mbps, Tx Link speed: 2Mbps, Max Supported Tx Link speed: 11Mbps, Rx Link speed: 2Mbps, Max Supported Rx Link speed: 11Mbps, Frequency: 2447MHz, Net ID: 0, Metered hint: false, score: 83, isUsable: true, CarrierMerged: false, SubscriptionId: -1, IsPrimary: 1, Trusted: true, Restricted: false, Ephemeral: false, OEM paid: false, OEM private: false, OSU AP: false, FQDN: <none>, Provider friendly name: <none>, Requesting package name: <none>"AndroidWifi"openMLO Information: , Is TID-To-Link negotiation supported by the AP: false, AP MLD Address: <none>, AP MLO Link Id: <none>, AP MLO Affiliated links: <none>, Vendor Data: <none>> SignalStrength: -50 OwnerUid: 10189 AdminUids: [10189] SSID: "AndroidWifi" UnderlyingNetworks: Null]}  factorySerialNumber=6}
+06-07 06:59:59.731  1030  1160 I PluginActionManager[com.android.systemui.action.PLUGIN_QS]: Found 0 plugins
+06-07 06:59:59.746  1030  1160 I PluginActionManager[com.android.systemui.action.PLUGIN_NOTIFICATION_ASSISTANT]: Found 0 plugins
+06-07 06:59:59.747   777   899 V AccessibilityUserState: updateShortcutTargets: type:accessibility_shortcut_target_service, current:{}, new:{}
+06-07 06:59:59.748   777   899 V AccessibilityUserState: updateShortcutTargets: type:accessibility_button_targets, current:{}, new:{}
+06-07 06:59:59.748   777   899 V AccessibilityUserState: updateShortcutTargets: type:accessibility_gesture_targets, current:{}, new:{}
+06-07 06:59:59.748   777   899 V AccessibilityUserState: updateShortcutTargets: type:accessibility_qs_targets, current:{}, new:{}
+06-07 06:59:59.748   777   899 V AccessibilityUserState: updateShortcutTargets: type:accessibility_key_gesture_targets, current:{}, new:{}
+06-07 06:59:59.748   777   899 W MagnificationConnectionManager: requestConnection duplicated request: connect=false, mConnectionState=DISCONNECTED
+06-07 06:59:59.748   777   899 V AccessibilityUserState: updateShortcutTargets: type:accessibility_button_targets, current:{}, new:{}
+06-07 06:59:59.748   777   899 V AccessibilityUserState: updateShortcutTargets: type:accessibility_qs_targets, current:{}, new:{}
+06-07 06:59:59.755   777   935 D ConnectivityService: NetReassign [347 : null ? 100, 349 : null ? 100] [c 0] [a 366] [i 0]
+06-07 06:59:59.756   777   935 D ConnectivityService: NetReassign [no changes] [c 0] [a 0] [i 0]
+06-07 06:59:59.767   777   935 D InetDiagMessage: Destroyed 0 sockets, proto=IPPROTO_TCP, family=AF_INET, states=14
+06-07 06:59:59.768   777   935 D InetDiagMessage: Destroyed 0 sockets, proto=IPPROTO_TCP, family=AF_INET6, states=14
+06-07 06:59:59.768   777   935 D InetDiagMessage: Destroyed live tcp sockets for uids={10170} in 11ms
+06-07 06:59:59.808   777   985 D BackgroundInstallControlService: Package event received: 0
+06-07 06:59:59.825   777   899 V AccessibilityUserState: updateShortcutTargets: type:accessibility_shortcut_target_service, current:{}, new:{}
+06-07 06:59:59.834   777   899 V AccessibilityUserState: updateShortcutTargets: type:accessibility_qs_targets, current:{}, new:{}
+06-07 06:59:59.835   777   899 V AccessibilityUserState: updateShortcutTargets: type:accessibility_button_targets, current:{}, new:{}
+06-07 06:59:59.835   777   899 V AccessibilityUserState: updateShortcutTargets: type:accessibility_gesture_targets, current:{}, new:{}
+06-07 06:59:59.835   777   899 V AccessibilityUserState: updateShortcutTargets: type:accessibility_key_gesture_targets, current:{}, new:{}
+06-07 06:59:59.836  8551  8551 D ActivityThread: Package [com.google.android.gms] reported as REPLACED, but missing application info. Assuming REMOVED.
+06-07 06:59:59.836  8233  8233 D ActivityThread: Package [com.google.android.gms] reported as REPLACED, but missing application info. Assuming REMOVED.
+06-07 06:59:59.836   777   841 W libbinder.IPCThreadState: Sending oneway calls to frozen process.
+06-07 06:59:59.837   777   841 W libbinder.IPCThreadState: Sending oneway calls to frozen process.
+06-07 06:59:59.838  6945  6945 D ActivityThread: Package [com.google.android.gms] reported as REPLACED, but missing application info. Assuming REMOVED.
+06-07 06:59:59.838  6930  6930 D ActivityThread: Package [com.google.android.gms] reported as REPLACED, but missing application info. Assuming REMOVED.
+06-07 06:59:59.838   777   899 V AccessibilityManagerService: onUserStateChangedLocked for userId: 0, forceUpdate: false
+06-07 06:59:59.839  8402  8402 D ActivityThread: Package [com.google.android.gms] reported as REPLACED, but missing application info. Assuming REMOVED.
+06-07 06:59:59.841   777   899 V AccessibilityUserState: updateShortcutTargets: type:accessibility_shortcut_target_service, current:{}, new:{}
+06-07 06:59:59.841   777   899 V AccessibilityUserState: updateShortcutTargets: type:accessibility_button_targets, current:{}, new:{}
+06-07 06:59:59.841   777   899 V AccessibilityUserState: updateShortcutTargets: type:accessibility_gesture_targets, current:{}, new:{}
+06-07 06:59:59.841   777   899 V AccessibilityUserState: updateShortcutTargets: type:accessibility_qs_targets, current:{}, new:{}
+06-07 06:59:59.841   777   899 V AccessibilityUserState: updateShortcutTargets: type:accessibility_key_gesture_targets, current:{}, new:{}
+06-07 06:59:59.833  1030  1160 I PluginActionManager[com.android.systemui.action.PLUGIN_OVERLAY]: Found 0 plugins
+06-07 06:59:59.842   777   899 W MagnificationConnectionManager: requestConnection duplicated request: connect=false, mConnectionState=DISCONNECTED
+06-07 06:59:59.846  7745  7745 D ActivityThread: Package [com.google.android.gms] reported as REPLACED, but missing application info. Assuming REMOVED.
+06-07 06:59:59.848   777   799 W Looper  : Slow dispatch took 339ms android.fg app=system_server main=false group=FOREGROUND h=android.os.Handler c=com.android.server.servicewatcher.ServiceWatcherImpl$$ExternalSyntheticLambda0@6db91a9 m=0
+06-07 06:59:59.857  1169  1169 D ActivityThread: Package [com.google.android.gms] reported as REPLACED, but missing application info. Assuming REMOVED.
+06-07 06:59:59.857  1030  1160 I PluginActionManager[com.android.systemui.action.PLUGIN_NOTIFICATION_MENU_ROW]: Found 0 plugins
+06-07 06:59:59.861  1592  1592 D ActivityThread: Package [com.google.android.gms] reported as REPLACED, but missing application info. Assuming REMOVED.
+06-07 06:59:59.863  8291  8291 D ActivityThread: Package [com.google.android.gms] reported as REPLACED, but missing application info. Assuming REMOVED.
+06-07 06:59:59.866  1515  1515 D ActivityThread: Package [com.google.android.gms] reported as REPLACED, but missing application info. Assuming REMOVED.
+06-07 06:59:59.872  8681  8681 I Zygote  : Process 8681 created for com.android.keychain
+06-07 06:59:59.886  8681  8681 I ndroid.keychain: Using CollectorTypeCMC GC.
+06-07 06:59:59.891  8681  8681 W ndroid.keychain: Unexpected CPU variant for x86: x86_64.
+06-07 06:59:59.891  8681  8681 W ndroid.keychain: Known variants: atom, sandybridge, silvermont, goldmont, goldmont-plus, goldmont-without-sha-xsaves, tremont, kabylake, alderlake, default
+06-07 06:59:59.893  1030  1030 D ActivityThread: Package [com.google.android.gms] reported as REPLACED, but missing application info. Assuming REMOVED.
+06-07 06:59:59.922   550   550 D Zygote  : Forked child process 8681
+06-07 06:59:59.923  2309  4879 W artd    : Could not get dex checksums for location /data/app/~~hbiIONFHaCdu_hZnY-5dzA==/com.google.android.gms-hzTkChCsM6Ndzah6AYkMDg==/base.apk, fd=-1
+06-07 06:59:59.931  2309  4879 W artd    : Could not get dex checksums for location /data/app/~~hbiIONFHaCdu_hZnY-5dzA==/com.google.android.gms-hzTkChCsM6Ndzah6AYkMDg==/base.apk, fd=-1
+06-07 06:59:59.954  8681  8681 D nativeloader: Load libframework-connectivity-tiramisu-jni.so using APEX ns com_android_tethering for caller /apex/com.android.tethering/javalib/framework-connectivity-t.jar: ok
+06-07 06:59:59.963   777   814 W ActivityManager: Slow operation: 538ms so far, now at startProcess: returned from zygote!
+06-07 06:59:59.967  1030  1160 I PluginActionManager[com.android.systemui.action.PLUGIN_NOTIFICATION_MENU_ROW]: Found 0 plugins
+06-07 06:59:59.969  8327  8327 D ActivityThread: Package [com.google.android.gms] reported as REPLACED, but missing application info. Assuming REMOVED.
+06-07 06:59:59.969  1129  1129 D ActivityThread: Package [com.google.android.gms] reported as REPLACED, but missing application info. Assuming REMOVED.
+06-07 06:59:59.969  8291  8291 D ActivityThread: Package [com.google.android.gms] reported as REPLACED, but missing application info. Assuming REMOVED.
+06-07 06:59:59.972  1030  1160 I PluginActionManager[com.android.systemui.action.PLUGIN_NOTIFICATION_MENU_ROW]: Found 0 plugins
+06-07 06:59:59.974  6800  6800 D ActivityThread: Package [com.google.android.gms] reported as REPLACED, but missing application info. Assuming REMOVED.
+06-07 06:59:59.979  6800  6800 D ActivityThread: Package [com.google.android.gms] reported as REPLACED, but missing application info. Assuming REMOVED.
+06-07 07:00:00.037  6823  6823 D ActivityThread: Package [com.google.android.gms] reported as REPLACED, but missing application info. Assuming REMOVED.
+06-07 07:00:00.040   777   777 W Looper  : Slow dispatch took 107ms main app=system_server main=true group=FOREGROUND h=android.app.ActivityThread$H c=android.app.LoadedApk$ReceiverDispatcher$Args$$ExternalSyntheticLambda0@15378c7 m=0
+06-07 07:00:00.055   777   799 W Looper  : Slow dispatch took 207ms android.fg app=system_server main=false group=FOREGROUND h=android.os.Handler c=com.android.server.servicewatcher.ServiceWatcherImpl$$ExternalSyntheticLambda0@aad5660 m=0
+06-07 07:00:00.068   777   985 D BackgroundInstallControlService: Package event received: 0
+06-07 07:00:00.069   777   814 W ActivityManager: Slow operation: 633ms so far, now at startProcess: done updating battery stats
+06-07 07:00:00.069   777   814 W ActivityManager: Slow operation: 644ms so far, now at startProcess: building log message
+06-07 07:00:00.069   777   814 I ActivityManager: Start proc 8681:com.android.keychain/1000 for service {com.android.keychain/com.android.keychain.KeyChainService}
+06-07 07:00:00.069   777   814 W ActivityManager: Slow operation: 644ms so far, now at startProcess: starting to update pids map
+06-07 07:00:00.069   777   814 W ActivityManager: Slow operation: 645ms so far, now at startProcess: done updating pids map
+06-07 07:00:00.070   777   814 W ActivityManager: Slow operation: 607ms so far, now at startProcess: asking zygote to start proc
+06-07 07:00:00.080   550   550 D Zygote  : Forked child process 8693
+06-07 07:00:00.080  2309  4879 W artd    : Could not get dex checksums for location /data/app/~~hbiIONFHaCdu_hZnY-5dzA==/com.google.android.gms-hzTkChCsM6Ndzah6AYkMDg==/base.apk, fd=-1
+06-07 07:00:00.081   777   814 W ActivityManager: Slow operation: 619ms so far, now at startProcess: returned from zygote!
+06-07 07:00:00.100  2309  4879 W artd    : Could not get dex checksums for location /data/app/~~hbiIONFHaCdu_hZnY-5dzA==/com.google.android.gms-hzTkChCsM6Ndzah6AYkMDg==/base.apk, fd=-1
+06-07 07:00:00.101  6946  6946 D ActivityThread: Package [com.google.android.gms] reported as REPLACED, but missing application info. Assuming REMOVED.
+06-07 07:00:00.102  2309  4879 I artd    : GetBestInfo: /data/user_de/0/com.google.android.gms/app_chimera/m/00000017/dl-MapsCoreDynamite.integ_254515602100800.apk has no usable artifacts
+06-07 07:00:00.103   777   814 W ActivityManager: Slow operation: 620ms so far, now at startProcess: done updating battery stats
+06-07 07:00:00.103   777   814 W ActivityManager: Slow operation: 640ms so far, now at startProcess: building log message
+06-07 07:00:00.103   777   814 I ActivityManager: Start proc 8693:com.google.android.gms.persistent/u0a155 for service {com.google.android.gms/com.google.android.location.internal.server.HardwareArProviderService}
+06-07 07:00:00.103   777   814 W ActivityManager: Slow operation: 640ms so far, now at startProcess: starting to update pids map
+06-07 07:00:00.104   777   814 W ActivityManager: Slow operation: 641ms so far, now at startProcess: done updating pids map
+06-07 07:00:00.104   777   777 I Telecom : CarModeTracker: Package com.google.android.gms is not tracked.: SSH.oR@AJQ
+06-07 07:00:00.104   777   777 I Telecom : InCallController: updateCarModeForConnections: car mode apps: : SSH.oR@AJQ
+06-07 07:00:00.106   777   841 D PackageInstallerSession: Marking session 2054996885 as applied
+06-07 07:00:00.110   777   985 D BackgroundInstallControlService: Package event received: 0
+06-07 07:00:00.115  6282  6282 I Choreographer: Skipped 30 frames!  The application may be doing too much work on its main thread.
+06-07 07:00:00.122  2309  4879 W artd    : Could not get dex checksums for location /data/app/~~hbiIONFHaCdu_hZnY-5dzA==/com.google.android.gms-hzTkChCsM6Ndzah6AYkMDg==/base.apk, fd=-1
+06-07 07:00:00.126  2309  4879 W artd    : Could not get dex checksums for location /data/app/~~hbiIONFHaCdu_hZnY-5dzA==/com.google.android.gms-hzTkChCsM6Ndzah6AYkMDg==/base.apk, fd=-1
+06-07 07:00:00.134  2309  4879 I artd    : GetBestInfo: /data/user_de/0/com.google.android.gms/app_chimera/m/0000000f/dl-PlayCloudSearch.optional_253434100000.apk has no usable artifacts
+06-07 07:00:00.135  2309  4879 W artd    : Could not get dex checksums for location /data/app/~~hbiIONFHaCdu_hZnY-5dzA==/com.google.android.gms-hzTkChCsM6Ndzah6AYkMDg==/base.apk, fd=-1
+06-07 07:00:00.172   777   789 W system_server: Suspending all threads took: 39.750ms
+06-07 07:00:00.180  8693  8693 I Zygote  : Process 8693 created for com.google.android.gms.persistent
+06-07 07:00:00.181  8693  8693 I .gms.persistent: Using CollectorTypeCMC GC.
+06-07 07:00:00.183  8693  8693 W .gms.persistent: Unexpected CPU variant for x86: x86_64.
+06-07 07:00:00.183  8693  8693 W .gms.persistent: Known variants: atom, sandybridge, silvermont, goldmont, goldmont-plus, goldmont-without-sha-xsaves, tremont, kabylake, alderlake, default
+06-07 07:00:00.209  8693  8693 D nativeloader: Load libframework-connectivity-tiramisu-jni.so using APEX ns com_android_tethering for caller /apex/com.android.tethering/javalib/framework-connectivity-t.jar: ok
+06-07 07:00:00.240   777   777 I Telecom : InCallController: update carmode current:UserHandle{0} parent:null: SSH.oR@AJQ
+06-07 07:00:00.241   777   777 W Looper  : Slow dispatch took 200ms main app=system_server main=true group=FOREGROUND h=android.app.ActivityThread$H c=android.app.LoadedApk$ReceiverDispatcher$Args$$ExternalSyntheticLambda0@8ca48a8 m=0
+06-07 07:00:00.266   777   799 I ServiceWatcher: [TrustManagerService] chose new implementation 10155/com.google.android.gms/.chimera.PersistentInternalBoundBrokerService@-2147483648
+06-07 07:00:00.268   777   799 I ServiceWatcher: [GnssAssistanceProxy] chose new implementation 10155/com.google.android.gms/.location.gnssassistance.GnssAssistanceService@1
+06-07 07:00:00.269   777   799 I ServiceWatcher: [GeocoderProxy] chose new implementation 10155/com.google.android.gms/.location.geocode.GeocodeService@2
+06-07 07:00:00.270   777   935 I SatelliteAccessController: SmsRoleUids:{10154} Opt-InUids:{10154, 10155, 10156, 10160, 10167}
+06-07 07:00:00.271   777   799 I ServiceWatcher: [fused] chose new implementation 10155/com.google.android.gms/com.google.android.location.fused.FusedLocationService@1
+06-07 07:00:00.271   777   985 D BackgroundInstallControlService: Package event received: 0
+06-07 07:00:00.271   777   985 D BackgroundInstallControlService: Package event received: 0
+06-07 07:00:00.283   777   799 I ServiceWatcher: [RealLocationTimeZoneProviderProxy] chose new implementation 10155/com.google.android.gms/.geotimezone.GeoTimeZoneService@1
+06-07 07:00:00.283   777   799 I ServiceWatcher: [network] chose new implementation 10155/com.google.android.gms/com.google.android.location.network.NetworkLocationService@2
+06-07 07:00:00.284   777   799 I ServiceWatcher: [GeofenceProxy] chose new implementation 10155/com.google.android.gms/com.google.android.location.internal.GoogleLocationManagerService@1
+06-07 07:00:00.284   777   799 I ServiceWatcher: [HardwareActivityRecognitionProxy] chose new implementation 10155/com.google.android.gms/com.google.android.location.internal.server.HardwareArProviderService@1
+06-07 07:00:00.322   777   991 I SdkSandboxManager: No SDKs used. Skipping SDK data reconcilation for CallingInfo{mUid=10155, mPackageName='com.google.android.gms, mAppProcessToken='null'}
+06-07 07:00:00.325  2309  4879 W artd    : Could not get dex checksums for location /data/app/~~_8LrTu6skPmJ1_vZQaQWyw==/com.android.vending-7ymJ43OKUoHdM0fQBDZPpw==/base.apk, fd=-1
+06-07 07:00:00.332  6282  6282 D ActivityThread: Package [com.google.android.gms] reported as REPLACED, but missing application info. Assuming REMOVED.
+06-07 07:00:00.347  2309  4879 W artd    : Could not get dex checksums for location /data/app/~~hbiIONFHaCdu_hZnY-5dzA==/com.google.android.gms-hzTkChCsM6Ndzah6AYkMDg==/base.apk, fd=-1
+06-07 07:00:00.363   777   942 E AppOps  : attributionTag VCN not declared in manifest of android
+06-07 07:00:00.364   777   935 D ConnectivityService: Switching to new default network for: uid/pid:1000/777 activeRequest: 363 callbackRequest: 363 [NetworkRequest [ TRACK_DEFAULT id=363, [ Capabilities: INTERNET&NOT_RESTRICTED&TRUSTED&NOT_VPN&NOT_VCN_MANAGED&NOT_BANDWIDTH_CONSTRAINED Uids: <{10155-10155, 10156-10156, 10160-10160, 10167-10167}> RequestorUid: 1000 RequestorPkg: android UnderlyingNetworks: Null] ], NetworkRequest [ REQUEST id=364, [ Transports: SATELLITE Capabilities: INTERNET&NOT_RESTRICTED&TRUSTED&NOT_VPN&NOT_VCN_MANAGED Uids: <{10155-10155, 10156-10156, 10160-10160, 10167-10167}> UnderlyingNetworks: Null] ]] callback flags: 0 order: 40 isUidTracked: false declaredMethods: NONE using NetworkAgentInfo{network{100}  handle{432902426637}  ni{WIFI CONNECTED extra: } created=2026-06-06T23:13:46.709Z Score(Policies : TRANSPORT_PRIMARY&EVER_EVALUATED&IS_UNMETERED&EVER_VALIDATED&IS_VALIDATED ; KeepConnected : 0)  created 57249 firstValidated 69041 lastValidated 69041  lp{{InterfaceName: wlan0 LinkAddresses: [ fe80::9bf8:f95e:681:42f/64,fec0::8dbc:90ae:ef61:57f0/64,fec0::7daf:80eb:ae3:bf0c/64,10.0.2.16/24 ] DnsAddresses: [ /fec0::3,/10.0.2.3 ] Domains: null MTU: 0 ServerAddress: /10.0.2.2 TcpBufferSizes: 524288,1048576,2097152,262144,524288,1048576 Routes: [ fe80::/64 -> :: wlan0 mtu 0,::/0 -> fe80::2 wlan0 mtu 0,fec0::/64 -> :: wlan0 mtu 0,10.0.2.0/24 -> 0.0.0.0 wlan0 mtu 0,0.0.0.0/0 -> 10.0.2.2 wlan0 mtu 0 ]}}  nc{[ Transports: WIFI Capabilities: NOT_METERED&INTERNET&NOT_RESTRICTED&TRUSTED&NOT_VPN&VALIDATED&NOT_ROAMING&FOREGROUND&NOT_CONGESTED&NOT_SUSPENDED&NOT_VCN_MANAGED&NOT_BANDWIDTH_CONSTRAINED LinkUpBandwidth>=12000Kbps LinkDnBandwidth>=30000Kbps Specifier: <WifiNetworkAgentSpecifier [WifiConfiguration=, SSID="AndroidWifi", BSSID=00:13:10:85:fe:01, band=1, mMatchLocalOnlySpecifiers=false]> TransportInfo: <SSID: "AndroidWifi", BSSID: 00:13:10:85:fe:01, MAC: 02:15:b2:00:00:00, IP: /10.0.2.16, Security type: 0, Supplicant state: COMPLETED, Wi-Fi standard: legacy, RSSI: -50, Link speed: 2Mbps, Tx Link speed: 2Mbps, Max Supported Tx Link speed: 11Mbps, Rx Link speed: 2Mbps, Max Supported Rx Link speed: 11Mbps, Frequency: 2447MHz, Net ID: 0, Metered hint: false, score: 83, isUsable: true, CarrierMerged: false, SubscriptionId: -1, IsPrimary: 1, Trusted: true, Restricted: false, Ephemeral: false, OEM paid: false, OEM private: false, OSU AP: false, FQDN: <none>, Provider friendly name: <none>, Requesting package name: <none>"AndroidWifi"openMLO Information: , Is TID-To-Link negotiation supported by the AP: false, AP MLD Address: <none>, AP MLO Link Id: <none>, AP MLO Affiliated links: <none>, Vendor Data: <none>> SignalStrength: -50 OwnerUid: 10189 AdminUids: [10189] SSID: "AndroidWifi" UnderlyingNetworks: Null]}  factorySerialNumber=6}
+06-07 07:00:00.365   777   777 D ActivityThread: Package [com.google.android.gms] reported as REPLACED, but missing application info. Assuming REMOVED.
+06-07 07:00:00.367   777   935 D ConnectivityService: Switching to new default network for: uid/pid:1000/777 activeRequest: 361 callbackRequest: 361 [NetworkRequest [ TRACK_DEFAULT id=361, [ Capabilities: INTERNET&NOT_RESTRICTED&TRUSTED&NOT_VPN&NOT_VCN_MANAGED&NOT_BANDWIDTH_CONSTRAINED Uid: 10154 RequestorUid: 1000 RequestorPkg: android UnderlyingNetworks: Null] ], NetworkRequest [ REQUEST id=362, [ Transports: SATELLITE Capabilities: INTERNET&TRUSTED&NOT_VPN&NOT_VCN_MANAGED Uid: 10154 UnderlyingNetworks: Null] ]] callback flags: 0 order: 40 isUidTracked: false declaredMethods: NONE using NetworkAgentInfo{network{100}  handle{432902426637}  ni{WIFI CONNECTED extra: } created=2026-06-06T23:13:46.709Z Score(Policies : TRANSPORT_PRIMARY&EVER_EVALUATED&IS_UNMETERED&EVER_VALIDATED&IS_VALIDATED ; KeepConnected : 0)  created 57249 firstValidated 69041 lastValidated 69041  lp{{InterfaceName: wlan0 LinkAddresses: [ fe80::9bf8:f95e:681:42f/64,fec0::8dbc:90ae:ef61:57f0/64,fec0::7daf:80eb:ae3:bf0c/64,10.0.2.16/24 ] DnsAddresses: [ /fec0::3,/10.0.2.3 ] Domains: null MTU: 0 ServerAddress: /10.0.2.2 TcpBufferSizes: 524288,1048576,2097152,262144,524288,1048576 Routes: [ fe80::/64 -> :: wlan0 mtu 0,::/0 -> fe80::2 wlan0 mtu 0,fec0::/64 -> :: wlan0 mtu 0,10.0.2.0/24 -> 0.0.0.0 wlan0 mtu 0,0.0.0.0/0 -> 10.0.2.2 wlan0 mtu 0 ]}}  nc{[ Transports: WIFI Capabilities: NOT_METERED&INTERNET&NOT_RESTRICTED&TRUSTED&NOT_VPN&VALIDATED&NOT_ROAMING&FOREGROUND&NOT_CONGESTED&NOT_SUSPENDED&NOT_VCN_MANAGED&NOT_BANDWIDTH_CONSTRAINED LinkUpBandwidth>=12000Kbps LinkDnBandwidth>=30000Kbps Specifier: <WifiNetworkAgentSpecifier [WifiConfiguration=, SSID="AndroidWifi", BSSID=00:13:10:85:fe:01, band=1, mMatchLocalOnlySpecifiers=false]> TransportInfo: <SSID: "AndroidWifi", BSSID: 00:13:10:85:fe:01, MAC: 02:15:b2:00:00:00, IP: /10.0.2.16, Security type: 0, Supplicant state: COMPLETED, Wi-Fi standard: legacy, RSSI: -50, Link speed: 2Mbps, Tx Link speed: 2Mbps, Max Supported Tx Link speed: 11Mbps, Rx Link speed: 2Mbps, Max Supported Rx Link speed: 11Mbps, Frequency: 2447MHz, Net ID: 0, Metered hint: false, score: 83, isUsable: true, CarrierMerged: false, SubscriptionId: -1, IsPrimary: 1, Trusted: true, Restricted: false, Ephemeral: false, OEM paid: false, OEM private: false, OSU AP: false, FQDN: <none>, Provider friendly name: <none>, Requesting package name: <none>"AndroidWifi"openMLO Information: , Is TID-To-Link negotiation supported by the AP: false, AP MLD Address: <none>, AP MLO Link Id: <none>, AP MLO Affiliated links: <none>, Vendor Data: <none>> SignalStrength: -50 OwnerUid: 10189 AdminUids: [10189] SSID: "AndroidWifi" UnderlyingNetworks: Null]}  factorySerialNumber=6}
+06-07 07:00:00.370   777   935 D ConnectivityService: NetReassign [363 : null ? 100, 361 : null ? 100] [c 0] [a 9] [i 1]
+06-07 07:00:00.400   777   777 W libbinder.IPCThreadState: Sending oneway calls to frozen process.
+06-07 07:00:00.402   777   777 W libbinder.IPCThreadState: Sending oneway calls to frozen process.
+06-07 07:00:00.402   777   777 D ActivityThread: Package [com.google.android.gms] reported as REPLACED, but missing application info. Assuming REMOVED.
+06-07 07:00:00.399  1176  1176 D CarrierSvcBindHelper: onPackageUpdateFinished: com.google.android.gms
+06-07 07:00:00.412  1176  1176 D CarrierSvcBindHelper: No carrier app for: 0
+06-07 07:00:00.412  1176  1176 D CarrierSvcBindHelper: onPackageModified: com.google.android.gms
+06-07 07:00:00.413  1176  1176 D CarrierSvcBindHelper: No carrier app for: 0
+06-07 07:00:00.416   777   984 D ShortcutService: received package broadcast intent: Intent { act=android.intent.action.PACKAGE_ADDED dat=package: flg=0x4000010 (has extras) }
+06-07 07:00:00.416   777   984 D ShortcutService: replacing package: com.google.android.gms userId=0
+06-07 07:00:00.455   777   799 W Looper  : Slow dispatch took 165ms android.fg app=system_server main=false group=FOREGROUND h=android.os.Handler c=com.android.server.servicewatcher.ServiceWatcherImpl$$ExternalSyntheticLambda0@fd4f649 m=0
+06-07 07:00:00.503   777   935 D ConnectivityService: NetReassign [no changes] [c 111] [a 1] [i 0]
+06-07 07:00:00.520  1515  1515 I MediaProvider: Invalidating LocalCallingIdentity cache for package com.google.android.gms. Reason: package android.intent.action.PACKAGE_REMOVED
+06-07 07:00:00.536  1515  1515 W MediaProvider: WorkProfileOwnerApps cache is empty
+06-07 07:00:00.566  1030  1160 I PluginActionManager[com.android.systemui.action.FALSING_PLUGIN]: Found 0 plugins
+06-07 07:00:00.634  6800  7257 D WellbeingModel: Changes in apps: intent = [Intent { act=android.intent.action.PACKAGE_REMOVED dat=package: flg=0x4000010 (has extras) }]
+06-07 07:00:00.635  6800  7257 D WellbeingModel: Changes in apps: intent = [Intent { act=android.intent.action.PACKAGE_ADDED dat=package: flg=0x4000010 (has extras) }]
+06-07 07:00:00.635  6800  7257 I WellbeingModel: updateActionsWithRetry(); retryCount: 0, package: com.google.android.gms
+06-07 07:00:00.635  6800  7257 D WellbeingModel: retrieveActions() called with: packageNames = [com.google.android.gms]
+06-07 07:00:00.640  1030  1160 I PluginActionManager[com.android.systemui.action.PLUGIN_SENSOR_MANAGER]: Found 0 plugins
+06-07 07:00:00.648  1515  1515 D PickerSyncLockManager: Trying to acquire lock com.android.providers.media.photopicker.sync.CloseableReentrantLock@3671291[Unlocked]. Lock Name = CLOUD_PROVIDER_LOCK. Threads that may be waiting to acquire this lock = []
+06-07 07:00:00.666  1030  1160 I PluginActionManager[com.android.systemui.action.PLUGIN_AUTH_CONTEXT]: Found 0 plugins
+06-07 07:00:00.666  1515  1515 D CloseableReentrantLock: Successfully acquired lock com.android.providers.media.photopicker.sync.CloseableReentrantLock@3671291[Locked by thread main]. Lock Name = CLOUD_PROVIDER_LOCK. Threads that may be waiting to acquire this lock = []
+06-07 07:00:00.676  1030  1030 D ControlsListingControllerImpl: ServiceConfig reloaded, count: 0
+06-07 07:00:00.681  1030  1160 I PluginActionManager[com.android.systemui.action.PLUGIN_VOLUME]: Found 0 plugins
+06-07 07:00:00.695   777   777 W Looper  : Slow dispatch took 195ms main app=system_server main=true group=FOREGROUND h=android.app.ActivityThread$H c=android.app.LoadedApk$ReceiverDispatcher$Args$$ExternalSyntheticLambda0@82923fe m=0
+06-07 07:00:00.703   777   879 I RoleService: Granting default roles...
+06-07 07:00:00.733  6800  6854 I PluginActionManager[com.android.systemui.action.ICON_WRAPPER_PLUGIN]: Found 0 plugins
+06-07 07:00:00.735  6800  6854 I PluginActionManager[com.android.systemui.action.PLUGIN_CUSTOM_WIDGET]: Found 0 plugins
+06-07 07:00:00.740   777  1675 W libbinder.Binder: Binder transaction to android.content.pm.IPackageManager code 1598311760 took 3924ms. Data bytes: 80 Reply bytes: 4 Flags: 16
+06-07 07:00:00.741  1030  1160 I PluginActionManager[com.android.systemui.action.PLUGIN_TOAST]: Found 0 plugins
+06-07 07:00:00.744  6800  6854 I PluginActionManager[com.android.systemui.action.PLUGIN_NETWORK_FETCHER_ACTIONS]: Found 0 plugins
+06-07 07:00:00.746  6800  6854 I PluginActionManager[com.android.systemui.action.PLUGIN_LAUNCHER_OVERLAY]: Found 0 plugins
+06-07 07:00:00.747  6800  6854 I PluginActionManager[com.android.systemui.action.PLUGIN_ALL_APPS_ACTIONS]: Found 0 plugins
+06-07 07:00:00.748  1030  1160 I PluginActionManager[com.android.systemui.action.PLUGIN_GLOBAL_ACTIONS]: Found 0 plugins
+06-07 07:00:00.749  6800  6854 I PluginActionManager[com.android.systemui.action.PLUGIN_BC_SMARTSPACE_DATA]: Found 0 plugins
+06-07 07:00:00.750  1030  1160 I PluginActionManager[com.android.systemui.action.PLUGIN_QS]: Found 0 plugins
+06-07 07:00:00.751   777   864 W AppOpService: Ignored setUidMode call for runtime permission app op: uid = 1001, code = READ_SMS, mode = allow, callingUid = 1001, oldMode = allow
+06-07 07:00:00.751  6800  6854 I PluginActionManager[com.android.systemui.action.ICON_WRAPPER_PLUGIN]: Found 0 plugins
+06-07 07:00:00.752  6800  6854 I PluginActionManager[com.android.systemui.action.PLUGIN_CUSTOM_WIDGET]: Found 0 plugins
+06-07 07:00:00.754  6800  6854 I PluginActionManager[com.android.systemui.action.PLUGIN_NETWORK_FETCHER_ACTIONS]: Found 0 plugins
+06-07 07:00:00.754   777  1653 W AppOpService: Ignored setUidMode call for runtime permission app op: uid = 1001, code = RECEIVE_SMS, mode = allow, callingUid = 1001, oldMode = allow
+06-07 07:00:00.755  6800  6854 I PluginActionManager[com.android.systemui.action.PLUGIN_LAUNCHER_OVERLAY]: Found 0 plugins
+06-07 07:00:00.755   777  1653 W AppOpService: Ignored setUidMode call for runtime permission app op: uid = 1001, code = RECEIVE_WAP_PUSH, mode = allow, callingUid = 1001, oldMode = allow
+06-07 07:00:00.757   777  1653 W AppOpService: Ignored setUidMode call for runtime permission app op: uid = 1001, code = SEND_SMS, mode = allow, callingUid = 1001, oldMode = allow
+06-07 07:00:00.757   777  1653 W AppOpService: Ignored setUidMode call for runtime permission app op: uid = 1001, code = READ_CELL_BROADCASTS, mode = allow, callingUid = 1001, oldMode = allow
+06-07 07:00:00.758  6800  6854 I PluginActionManager[com.android.systemui.action.PLUGIN_ALL_APPS_ACTIONS]: Found 0 plugins
+06-07 07:00:00.762  6800  6854 I PluginActionManager[com.android.systemui.action.PLUGIN_BC_SMARTSPACE_DATA]: Found 0 plugins
+06-07 07:00:00.763   777  1131 W SignedPackage: Package doesn't have required signing certificate: com.google.android.retaildemo
+06-07 07:00:00.764   777  1131 E RoleControllerServiceImpl: Default/fallback role holder package doesn't qualify for the role, package: com.google.android.gms.supervision, role: android.app.role.SYSTEM_SUPERVISION, user: 0
+06-07 07:00:00.816  1030  1160 I PluginActionManager[com.android.systemui.action.PLUGIN_NOTIFICATION_ASSISTANT]: Found 0 plugins
+06-07 07:00:00.901  1515  1515 D CloseableReentrantLock: Successfully released lock com.android.providers.media.photopicker.sync.CloseableReentrantLock@3671291[Unlocked]. Lock Name = CLOUD_PROVIDER_LOCK. Threads that may be waiting to acquire this lock = []
+06-07 07:00:01.013  8681  8681 D nativeloader: Configuring clns-shared-9 for other apk /system/app/KeyChain/KeyChain.apk. target_sdk_version=36, uses_libraries=, library_path=/system/app/KeyChain/lib/x86_64:/system/app/KeyChain/KeyChain.apk!/lib/x86_64:/system/lib64:/system_ext/lib64, permitted_path=/data:/mnt/expand:/data/user/0/com.android.keychain:/system/app/KeyChain:/system/lib64:/system_ext/lib64
+06-07 07:00:01.087  1030  1160 I PluginActionManager[com.android.systemui.action.PLUGIN_OVERLAY]: Found 0 plugins
+06-07 07:00:01.091  8551  8551 E ashmem  : Pinning is deprecated since Android Q. Please use trim or other methods.
+06-07 07:00:01.096  8551  8551 I SafetyLabelChangedBroadcastReceiver: received broadcast packageName: com.google.android.gms, current user: UserHandle{0}, packageChangeEvent: UPDATE, intent user: UserHandle{0}
+06-07 07:00:01.098   777   799 W Looper  : Slow dispatch took 601ms android.fg app=system_server main=false group=FOREGROUND h=android.os.Handler c=com.android.server.servicewatcher.ServiceWatcherImpl$$ExternalSyntheticLambda0@6e3d047 m=0
+06-07 07:00:01.146   777   985 D BackgroundInstallControlService: Package event received: 0
+06-07 07:00:01.146   777   985 D BackgroundInstallControlService: Package event received: 0
+06-07 07:00:01.146   777   985 D BackgroundInstallControlService: Package event received: 0
+06-07 07:00:01.148  1030  1160 I PluginActionManager[com.android.systemui.action.PLUGIN_NOTIFICATION_MENU_ROW]: Found 0 plugins
+06-07 07:00:01.191  7085  8682 I Finsky:background: [110] Wrote row to frosting DB: 1096
+06-07 07:00:01.192  1030  1160 I PluginActionManager[com.android.systemui.action.PLUGIN_NOTIFICATION_MENU_ROW]: Found 0 plugins
+06-07 07:00:01.202   777  1081 V Configuration: Updating configuration, locales updated from [] to [en_US]
+06-07 07:00:01.202   777  1081 V Configuration: Updating configuration, locales updated from [] to [en_US]
+06-07 07:00:01.203   777  1081 V Configuration: Updating configuration, locales updated from [] to [en_US]
+06-07 07:00:01.266  1030  1160 I PluginActionManager[com.android.systemui.action.PLUGIN_NOTIFICATION_MENU_ROW]: Found 0 plugins
+06-07 07:00:01.347   777  1005 W ActivityManager: Slow operation: 75ms so far, now at startProcess: done creating new process record
+06-07 07:00:01.347   777  1005 W ActivityManager: Slow operation: 75ms so far, now at startProcess: stepping in to startProcess
+06-07 07:00:01.360   777  1005 W ActivityManager: Slow operation: 88ms so far, now at startProcess: done starting proc!
+06-07 07:00:01.361   777  1005 W ContentProviderHelper: Slow operation: 91ms so far, now at getContentProviderImpl: after start process
+06-07 07:00:01.362   777  1005 W ContentProviderHelper: Slow operation: 92ms so far, now at getContentProviderImpl: updating data structures
+06-07 07:00:01.365   777  1005 W ContentProviderHelper: Slow operation: 94ms so far, now at getContentProviderImpl: done!
+06-07 07:00:01.409   777  1005 W AppOpService: Ignored setUidMode call for runtime permission app op: uid = 1001, code = READ_SMS, mode = allow, callingUid = 1001, oldMode = allow
+06-07 07:00:01.424   777   789 I system_server: Background concurrent mark compact GC freed 16MB AllocSpace bytes, 9(200KB) LOS objects, 37% free, 40MB/64MB, paused 68.473ms,6.238ms total 2.937s
+06-07 07:00:01.429   777   777 W Looper  : Slow dispatch took 732ms main app=system_server main=true group=FOREGROUND h=android.app.ActivityThread$H c=android.app.LoadedApk$ReceiverDispatcher$Args$$ExternalSyntheticLambda0@696382f m=0
+06-07 07:00:01.432   777  1131 W SignedPackage: Package doesn't have required signing certificate: com.google.android.apps.work.clouddpc
+06-07 07:00:01.447   550   550 D Zygote  : Forked child process 8718
+06-07 07:00:01.451  8693  8693 D ApplicationLoaders: Returning zygote-cached class loader: /system/framework/org.apache.http.legacy.jar
+06-07 07:00:01.452  8693  8693 D ApplicationLoaders: Returning zygote-cached class loader: /system/framework/com.android.location.provider.jar
+06-07 07:00:01.452  8693  8693 D ApplicationLoaders: Returning zygote-cached class loader: /system/framework/com.android.media.remotedisplay.jar
+06-07 07:00:01.467  8718  8718 I Zygote  : Process 8718 created for com.google.android.apps.wellbeing
+06-07 07:00:01.467  8718  8718 I .apps.wellbeing: Using CollectorTypeCMC GC.
+06-07 07:00:01.468  8718  8718 W .apps.wellbeing: Unexpected CPU variant for x86: x86_64.
+06-07 07:00:01.468  8718  8718 W .apps.wellbeing: Known variants: atom, sandybridge, silvermont, goldmont, goldmont-plus, goldmont-without-sha-xsaves, tremont, kabylake, alderlake, default
+06-07 07:00:01.469   777   799 W Looper  : Slow dispatch took 142ms android.fg app=system_server main=false group=FOREGROUND h=android.os.Handler c=com.android.server.servicewatcher.ServiceWatcherImpl$$ExternalSyntheticLambda0@a8eb8e6 m=0
+06-07 07:00:01.474   777   799 W Looper  : Drained
+06-07 07:00:01.505   777   814 W ActivityManager: Slow operation: 157ms so far, now at startProcess: returned from zygote!
+06-07 07:00:01.507   777   814 W ActivityManager: Slow operation: 159ms so far, now at startProcess: done updating battery stats
+06-07 07:00:01.507   777   814 W ActivityManager: Slow operation: 159ms so far, now at startProcess: building log message
+06-07 07:00:01.507   777   814 I ActivityManager: Start proc 8718:com.google.android.apps.wellbeing/u0a159 for content provider {com.google.android.apps.wellbeing/com.google.android.apps.wellbeing.api.impl.WellbeingSettingsProvider}
+06-07 07:00:01.508   777   814 W ActivityManager: Slow operation: 160ms so far, now at startProcess: starting to update pids map
+06-07 07:00:01.508   777   814 W ActivityManager: Slow operation: 160ms so far, now at startProcess: done updating pids map
+06-07 07:00:01.518   777   777 D AS.AudioService: received android.intent.action.PACKAGE_ADDED replacing: true archival: false for package com.google.android.gms with uid 10155
+06-07 07:00:01.557   777  1675 W AppOpService: Ignored setUidMode call for runtime permission app op: uid = 1001, code = RECEIVE_SMS, mode = allow, callingUid = 1001, oldMode = allow
+06-07 07:00:01.562  8693  8693 D nativeloader: Configuring clns-9 for other apk /system_ext/framework/com.android.extensions.appfunctions.jar. target_sdk_version=37, uses_libraries=ALL, library_path=/data/app/~~KYfxxQknJlPjhvj9MRSqfQ==/com.google.android.gms-mCh4I2ARTwdtyTDudCgsaA==/lib/x86_64:/data/app/~~KYfxxQknJlPjhvj9MRSqfQ==/com.google.android.gms-mCh4I2ARTwdtyTDudCgsaA==/base.apk!/lib/x86_64, permitted_path=/data:/mnt/expand:/data/user/0/com.google.android.gms
+06-07 07:00:01.564  8693  8693 D ApplicationLoaders: Returning zygote-cached class loader: /system_ext/framework/androidx.window.extensions.jar
+06-07 07:00:01.564  8693  8693 D ApplicationLoaders: Returning zygote-cached class loader: /system_ext/framework/androidx.window.sidecar.jar
+06-07 07:00:01.568  7270  7270 I Finsky  : [2] ajyz - Received: android.intent.action.PACKAGE_REMOVED, [5RgnIEJQaOQbqneqo2SF47BEgT9fG5svDK6hS_daqhI]
+06-07 07:00:01.568   617  7957 D NativePermissionController: updatePackagesForUid, UidPackageState{uid: 10155, packageStates: [PackageState{packageName: com.google.android.gms, targetSdk: 37, isPlaybackCaptureAllowed: true}]}
+06-07 07:00:01.573  7085  7085 I Finsky:background: [2] ajyp - Received: android.intent.action.PACKAGE_REMOVED, [5RgnIEJQaOQbqneqo2SF47BEgT9fG5svDK6hS_daqhI]
+06-07 07:00:01.588   777   942 E AppOps  : attributionTag VCN not declared in manifest of android
+06-07 07:00:01.589   777   777 D AppSearchAppsIndexerManagerS: userid in package receiver: 10155
+06-07 07:00:01.643   777  1645 W AppOpService: Ignored setUidMode call for runtime permission app op: uid = 1001, code = RECEIVE_WAP_PUSH, mode = allow, callingUid = 1001, oldMode = allow
+06-07 07:00:01.648   777   991 I SdkSandboxManager: No SDKs used. Skipping SDK data reconcilation for CallingInfo{mUid=10155, mPackageName='com.google.android.gms, mAppProcessToken='null'}
+06-07 07:00:01.648   777   985 D BackgroundInstallControlService: Package event received: 0
+06-07 07:00:01.648   777   985 D BackgroundInstallControlService: Package event received: 0
+06-07 07:00:01.648   777   985 D BackgroundInstallControlService: Package event received: 0
+06-07 07:00:01.648   777   985 D BackgroundInstallControlService: Package event received: 0
+06-07 07:00:01.648   777   985 D BackgroundInstallControlService: Package event received: 0
+06-07 07:00:01.649   777   985 D BackgroundInstallControlService: Package event received: 0
+06-07 07:00:01.649   777   985 D BackgroundInstallControlService: Package event received: 0
+06-07 07:00:01.649   777   985 D BackgroundInstallControlService: Package event received: 0
+06-07 07:00:01.652  7745  7790 D BatteryUsageDataLoader: loadUsageDataSafely() in the AsyncTask
+06-07 07:00:01.658  7745  7745 D PeriodicJobReceiver: refresh periodic job from action=com.android.settings.battery.action.PERIODIC_JOB_UPDATE
+06-07 07:00:01.662   777  1005 W AppOpService: Ignored setUidMode call for runtime permission app op: uid = 1001, code = SEND_SMS, mode = allow, callingUid = 1001, oldMode = allow
+06-07 07:00:01.682  7270  7270 I Finsky  : [2] ajyz - Deduping intent android.intent.action.PACKAGE_REMOVED
+06-07 07:00:01.683  7270  7270 D ActivityThread: Package [com.google.android.gms] reported as REPLACED, but missing application info. Assuming REMOVED.
+06-07 07:00:01.688   777   864 W AppOpService: Ignored setUidMode call for runtime permission app op: uid = 1001, code = READ_CELL_BROADCASTS, mode = allow, callingUid = 1001, oldMode = allow
+06-07 07:00:01.702  7270  7270 D ActivityThread: Package [com.google.android.gms] reported as REPLACED, but missing application info. Assuming REMOVED.
+06-07 07:00:01.706   777  1009 W Looper  : Slow dispatch took 152ms android.perm app=system_server main=false group=FOREGROUND h=android.os.Handler c=com.android.internal.infra.ServiceConnector$Impl$$ExternalSyntheticLambda2@e23dad7 m=0
+06-07 07:00:01.733  8681  8681 V GraphicsEnvironment: Currently set values for:
+06-07 07:00:01.733  8681  8681 V GraphicsEnvironment:   angle_gl_driver_selection_pkgs=[]
+06-07 07:00:01.733  8681  8681 V GraphicsEnvironment:   angle_gl_driver_selection_values=[]
+06-07 07:00:01.733  8681  8681 V GraphicsEnvironment: com.android.keychain is not listed in per-application setting
+06-07 07:00:01.734  8681  8681 V GraphicsEnvironment: ANGLE allowlist from config: com.dreamgames.royalmatch com.dts.freefiremax com.dxx.firenow com.gramgames.mergedragons com.ludo.king com.mojang.minecraftpe com.my.defense com.nintendo.zaka com.os.airforce com.playrix.fishdomdd.gplay io.teslatech.callbreak jp.konami.prospia net.peakgames.toonblast
+06-07 07:00:01.734  8681  8681 V GraphicsEnvironment: No special selections for ANGLE, returning default driver choice
+06-07 07:00:01.734  8681  8681 V GraphicsEnvironment: Neither updatable production driver nor prerelease driver is supported.
+06-07 07:00:01.742  8551  8551 I SafetyLabelChangedBroadcastReceiver: writeSafetyLabel called for packageName: com.google.android.gms, currentUser: UserHandle{0}
+06-07 07:00:01.748  8718  8718 D nativeloader: Load libframework-connectivity-tiramisu-jni.so using APEX ns com_android_tethering for caller /apex/com.android.tethering/javalib/framework-connectivity-t.jar: ok
+06-07 07:00:01.755  7085  7085 I Finsky:background: [2] ajyp - Deduping intent android.intent.action.PACKAGE_REMOVED
+06-07 07:00:01.756  7085  7085 D ActivityThread: Package [com.google.android.gms] reported as REPLACED, but missing application info. Assuming REMOVED.
+06-07 07:00:01.822  7270  7399 I Finsky  : [59] RECEIVER_PACKAGE_MONITOR#logWorkEndAndFinishGoAsync: SUCCESS
+06-07 07:00:01.848  7085  7085 D ActivityThread: Package [com.google.android.gms] reported as REPLACED, but missing application info. Assuming REMOVED.
+06-07 07:00:01.866   777  1131 I Role    : com.google.android.gms not qualified for android.app.role.SYSTEM_DEPENDENCY_INSTALLER due to missing RequiredComponent{mIntentFilterData=IntentFilterData{mAction='android.content.pm.action.INSTALL_DEPENDENCY', mCategories='[]', mDataScheme='null', mDataType='null'}, mMinTargetSdkVersion=1, mFlags='0', mPermission='android.permission.BIND_DEPENDENCY_INSTALLER', mQueryFlags=0, mMetaData=[]}
+06-07 07:00:01.866   777  1131 E RoleControllerServiceImpl: Default/fallback role holder package doesn't qualify for the role, package: com.google.android.gms, role: android.app.role.SYSTEM_DEPENDENCY_INSTALLER, user: 0
+06-07 07:00:01.891  8551  8564 I PermissionControllerServiceImpl: Updating user sensitive for uid 10155
+06-07 07:00:01.894  8551  8551 I SafetyLabelChangedBroadcastReceiver: appMetadataBundle PersistableBundle[{}]
+06-07 07:00:01.951  1176  1319 D ImsResolver: maybeAddedImsService, packageName: com.google.android.gms
+06-07 07:00:01.951  1176  1319 V ImsResolver: searchForImsServices: package=com.google.android.gms, users=[UserHandle{0}]
+06-07 07:00:01.954  1176  1319 V ImsResolver: searchForImsServices: package=com.google.android.gms, users=[UserHandle{0}]
+06-07 07:00:02.007  7085  7321 I Finsky:background: [75] RECEIVER_PACKAGE_MONITOR_BACKGROUND#logWorkEndAndFinishGoAsync: SUCCESS
+06-07 07:00:02.023  7745  7745 D PeriodicJobManager: schedule next alarm job at Jun 07, 2026, 08:00:00
+06-07 07:00:02.044   777  1290 W ActivityManager: Slow operation: 114ms so far, now at attachApplicationLocked: immediately after bindApplication
+06-07 07:00:02.044   777  1290 W ActivityManager: Slow operation: 114ms so far, now at attachApplicationLocked: after updateLruProcessLocked
+06-07 07:00:02.054   777   923 I HalDevMgr: bestIfaceCreationProposal is null, requestIface=STA, existingIface=[name=wlan0 type=STA]
+06-07 07:00:02.062  7085  8682 I Finsky:background: [110] Wrote row to frosting DB: 1097
+06-07 07:00:02.113  7270  8712 I Finsky  : [125] SCH: Received scheduling request: Id: 12-1, Constraints: [{ L: 15000, D: 86400000, C: CHARGING_NONE, I: IDLE_NONE, N: NET_ANY, B: BATTERY_ANY }]
+06-07 07:00:02.128  1176  1176 W VvmPkgInstalledRcvr: carrierVvmPkgAdded: carrier vvm packages doesn't contain com.google.android.gms
+06-07 07:00:02.129  1176  1176 D ActivityThread: Package [com.google.android.gms] reported as REPLACED, but missing application info. Assuming REMOVED.
+06-07 07:00:02.131   777  1290 W ActivityManager: Slow operation: 201ms so far, now at attachApplicationLocked: after updateOomAdjLocked
+06-07 07:00:02.141  7085  7272 I Finsky:background: [63] IQ:PSL: onPackageRemoved com.google.android.gms, replacing=true existingStatus=[Package:com.google.android.gms, isid:t2bNy6U5RF6qSGEQIZYjAA] state:INSTALLING
+06-07 07:00:02.156  1176  1176 D ActivityThread: Package [com.google.android.gms] reported as REPLACED, but missing application info. Assuming REMOVED.
+06-07 07:00:02.157   777  1131 E RoleControllerServiceImpl: Default/fallback role holder package doesn't qualify for the role, package: com.google.android.gms, role: android.app.role.WALLET, user: 0
+06-07 07:00:02.218  7085  7272 I Finsky:background: [63] IQ:PRCC: should not cancel queued up install for com.google.android.gms because this is a regular app update
+06-07 07:00:02.291  8718  8718 D nativeloader: Configuring clns-9 for other apk /system_ext/framework/com.android.extensions.appfunctions.jar. target_sdk_version=36, uses_libraries=ALL, library_path=/data/app/~~At2LzGagRS37B48v-Gefgg==/com.google.android.apps.wellbeing-uxUsb6-e-PsGeaopjUo8wg==/lib/x86_64:/data/app/~~At2LzGagRS37B48v-Gefgg==/com.google.android.apps.wellbeing-uxUsb6-e-PsGeaopjUo8wg==/base.apk!/lib/x86_64:/data/app/~~At2LzGagRS37B48v-Gefgg==/com.google.android.apps.wellbeing-uxUsb6-e-PsGeaopjUo8wg==/split_config.xxhdpi.apk!/lib/x86_64, permitted_path=/data:/mnt/expand:/data/user/0/com.google.android.apps.wellbeing
+06-07 07:00:02.294  8718  8718 D ApplicationLoaders: Returning zygote-cached class loader: /system_ext/framework/androidx.window.extensions.jar
+06-07 07:00:02.300  8718  8718 D ApplicationLoaders: Returning zygote-cached class loader: /system_ext/framework/androidx.window.sidecar.jar
+06-07 07:00:02.307  8681  8732 E ashmem  : Pinning is deprecated since Android Q. Please use trim or other methods.
+06-07 07:00:02.314   777  1131 W SignedPackage: Cannot get ApplicationInfo for package: com.google.android.devicelockcontroller
+06-07 07:00:02.317   777   777 W Looper  : Slow dispatch took 650ms main app=system_server main=true group=FOREGROUND h=android.app.ActivityThread$H c=android.app.LoadedApk$ReceiverDispatcher$Args$$ExternalSyntheticLambda0@a9ed06d m=0
+06-07 07:00:02.333   777   985 D BackgroundInstallControlService: Package event received: 0
+06-07 07:00:02.366  7085  8682 I Finsky:background: [110] Wrote row to frosting DB: 1098
+06-07 07:00:02.389  1176  1176 D SatelliteController: packageStateChanged: package:com.google.android.gms defaultSmsPackageName: com.google.android.apps.messaging satelliteGatewayServicePackageName: 
+06-07 07:00:02.435   550   550 D Zygote  : Forked child process 8734
+06-07 07:00:02.435   777   814 W ActivityManager: Slow operation: 101ms so far, now at startProcess: returned from zygote!
+06-07 07:00:02.436   777   814 W ActivityManager: Slow operation: 101ms so far, now at startProcess: done updating battery stats
+06-07 07:00:02.436   777   814 W ActivityManager: Slow operation: 101ms so far, now at startProcess: building log message
+06-07 07:00:02.436   777   814 I ActivityManager: Start proc 8734:com.google.android.gms/u0a155 for service {com.google.android.gms/com.google.android.gms.backup.component.D2dTransportService}
+06-07 07:00:02.436   777   814 W ActivityManager: Slow operation: 102ms so far, now at startProcess: starting to update pids map
+06-07 07:00:02.437   777   814 W ActivityManager: Slow operation: 102ms so far, now at startProcess: done updating pids map
+06-07 07:00:02.453   777   777 W Looper  : Slow dispatch took 114ms main app=system_server main=true group=FOREGROUND h=android.app.ActivityThread$H c=android.app.LoadedApk$ReceiverDispatcher$Args$$ExternalSyntheticLambda0@f4c07ab m=0
+06-07 07:00:02.467   777   777 D AS.AudioService: received android.intent.action.PACKAGE_REPLACED replacing: true archival: false for package com.google.android.gms with uid 10155
+06-07 07:00:02.468   777   777 D AppSearchAppsIndexerManagerS: userid in package receiver: 10155
+06-07 07:00:02.543   777   777 W Looper  : Drained
+06-07 07:00:02.546   777   777 D PermissionMonitor: setLocalNetworkPermissions in onPermissionsChanged took 33 microseconds.
+06-07 07:00:02.588   777  1675 D TelephonyManager: requestModemActivityInfo: Sending result to app: ModemActivityInfo{ mTimestamp=1000808 mSleepTimeMs=168 mIdleTimeMs=56 mActivityStatsTechSpecificInfo=[{mRat=UNKNOWN,mFrequencyRange=UNKNOWN,mTxTimeMs[]=[4, 12, 24, 32, 36],mRxTimeMs=36}]}
+06-07 07:00:02.598  8734  8734 I Zygote  : Process 8734 created for com.google.android.gms
+06-07 07:00:02.598  8734  8734 I gle.android.gms: Using CollectorTypeCMC GC.
+06-07 07:00:02.600  8734  8734 W gle.android.gms: Unexpected CPU variant for x86: x86_64.
+06-07 07:00:02.600  8734  8734 W gle.android.gms: Known variants: atom, sandybridge, silvermont, goldmont, goldmont-plus, goldmont-without-sha-xsaves, tremont, kabylake, alderlake, default
+06-07 07:00:02.614  8734  8734 D nativeloader: Load libframework-connectivity-tiramisu-jni.so using APEX ns com_android_tethering for caller /apex/com.android.tethering/javalib/framework-connectivity-t.jar: ok
+06-07 07:00:02.649  8734  8734 D ApplicationLoaders: Returning zygote-cached class loader: /system/framework/org.apache.http.legacy.jar
+06-07 07:00:02.649  8734  8734 D ApplicationLoaders: Returning zygote-cached class loader: /system/framework/com.android.location.provider.jar
+06-07 07:00:02.649  8734  8734 D ApplicationLoaders: Returning zygote-cached class loader: /system/framework/com.android.media.remotedisplay.jar
+06-07 07:00:02.651  8734  8734 D nativeloader: Configuring clns-9 for other apk /system_ext/framework/com.android.extensions.appfunctions.jar. target_sdk_version=37, uses_libraries=ALL, library_path=/data/app/~~KYfxxQknJlPjhvj9MRSqfQ==/com.google.android.gms-mCh4I2ARTwdtyTDudCgsaA==/lib/x86_64:/data/app/~~KYfxxQknJlPjhvj9MRSqfQ==/com.google.android.gms-mCh4I2ARTwdtyTDudCgsaA==/base.apk!/lib/x86_64, permitted_path=/data:/mnt/expand:/data/user/0/com.google.android.gms
+06-07 07:00:02.653  8734  8734 D ApplicationLoaders: Returning zygote-cached class loader: /system_ext/framework/androidx.window.extensions.jar
+06-07 07:00:02.653  8734  8734 D ApplicationLoaders: Returning zygote-cached class loader: /system_ext/framework/androidx.window.sidecar.jar
+06-07 07:00:02.778  7085  8682 I Finsky:background: [110] Wrote row to frosting DB: 1099
+06-07 07:00:02.847   777   777 W Looper  : Slow dispatch took 300ms main app=system_server main=true group=FOREGROUND h=android.os.Handler c=null m=1
+06-07 07:00:02.848   777   777 W Looper  : Slow delivery took 307ms main app=system_server main=true group=FOREGROUND h=android.os.Handler c=null m=1
+06-07 07:00:02.882   777  1629 I HealthFirstGrantTimeMan: State for user: 0 has not been restored and validated.
+06-07 07:00:02.924  8718  8718 W .apps.wellbeing: Failed to find entry 'classes.dex': Entry not found
+06-07 07:00:02.925  8718  8718 D nativeloader: Configuring clns-10 for other apk /data/app/~~At2LzGagRS37B48v-Gefgg==/com.google.android.apps.wellbeing-uxUsb6-e-PsGeaopjUo8wg==/base.apk:/data/app/~~At2LzGagRS37B48v-Gefgg==/com.google.android.apps.wellbeing-uxUsb6-e-PsGeaopjUo8wg==/split_config.xxhdpi.apk. target_sdk_version=36, uses_libraries=, library_path=/data/app/~~At2LzGagRS37B48v-Gefgg==/com.google.android.apps.wellbeing-uxUsb6-e-PsGeaopjUo8wg==/lib/x86_64:/data/app/~~At2LzGagRS37B48v-Gefgg==/com.google.android.apps.wellbeing-uxUsb6-e-PsGeaopjUo8wg==/base.apk!/lib/x86_64:/data/app/~~At2LzGagRS37B48v-Gefgg==/com.google.android.apps.wellbeing-uxUsb6-e-PsGeaopjUo8wg==/split_config.xxhdpi.apk!/lib/x86_64, permitted_path=/data:/mnt/expand:/data/user/0/com.google.android.apps.wellbeing
+06-07 07:00:02.967   777   823 E BluetoothPowerStatsCollector: Cannot acquire BluetoothActivityEnergyInfo
+06-07 07:00:02.967   777   823 E BluetoothPowerStatsCollector: java.util.concurrent.ExecutionException: java.lang.RuntimeException: error: 9
+06-07 07:00:02.967   777   823 E BluetoothPowerStatsCollector: 	at java.util.concurrent.CompletableFuture.reportGet(CompletableFuture.java:372)
+06-07 07:00:02.967   777   823 E BluetoothPowerStatsCollector: 	at java.util.concurrent.CompletableFuture.get(CompletableFuture.java:2072)
+06-07 07:00:02.967   777   823 E BluetoothPowerStatsCollector: 	at com.android.server.power.stats.BluetoothPowerStatsCollector.collectBluetoothActivityInfo(BluetoothPowerStatsCollector.java:191)
+06-07 07:00:02.967   777   823 E BluetoothPowerStatsCollector: 	at com.android.server.power.stats.BluetoothPowerStatsCollector.collectStats(BluetoothPowerStatsCollector.java:155)
+06-07 07:00:02.967   777   823 E BluetoothPowerStatsCollector: 	at com.android.server.power.stats.PowerStatsCollector.collectAndDeliverStats(PowerStatsCollector.java:196)
+06-07 07:00:02.967   777   823 E BluetoothPowerStatsCollector: 	at com.android.server.power.stats.PowerStatsCollector.lambda$forceSchedule$1(PowerStatsCollector.java:185)
+06-07 07:00:02.967   777   823 E BluetoothPowerStatsCollector: 	at com.android.server.power.stats.PowerStatsCollector.$r8$lambda$S8t6eDCBuELjdSNvyveTMprEzE0(PowerStatsCollector.java:0)
+06-07 07:00:02.967   777   823 E BluetoothPowerStatsCollector: 	at com.android.server.power.stats.PowerStatsCollector$$ExternalSyntheticLambda0.run(R8$$SyntheticClass:0)
+06-07 07:00:02.967   777   823 E BluetoothPowerStatsCollector: 	at android.os.Handler.handleCallback(Handler.java:1070)
+06-07 07:00:02.967   777   823 E BluetoothPowerStatsCollector: 	at android.os.Handler.dispatchMessage(Handler.java:125)
+06-07 07:00:02.967   777   823 E BluetoothPowerStatsCollector: 	at android.os.Looper.dispatchMessage(Looper.java:333)
+06-07 07:00:02.967   777   823 E BluetoothPowerStatsCollector: 	at android.os.Looper.loopOnce(Looper.java:263)
+06-07 07:00:02.967   777   823 E BluetoothPowerStatsCollector: 	at android.os.Looper.loop(Looper.java:367)
+06-07 07:00:02.967   777   823 E BluetoothPowerStatsCollector: 	at android.os.HandlerThread.run(HandlerThread.java:139)
+06-07 07:00:02.967   777   823 E BluetoothPowerStatsCollector: Caused by: java.lang.RuntimeException: error: 9
+06-07 07:00:02.967   777   823 E BluetoothPowerStatsCollector: 	at com.android.server.power.stats.BluetoothPowerStatsCollector$1.onBluetoothActivityEnergyInfoError(BluetoothPowerStatsCollector.java:180)
+06-07 07:00:02.967   777   823 E BluetoothPowerStatsCollector: 	at android.bluetooth.BluetoothAdapter.lambda$requestControllerActivityEnergyInfo$27(BluetoothAdapter.java:2513)
+06-07 07:00:02.967   777   823 E BluetoothPowerStatsCollector: 	at android.bluetooth.BluetoothAdapter$$ExternalSyntheticLambda27.run(D8$$SyntheticClass:0)
+06-07 07:00:02.967   777   823 E BluetoothPowerStatsCollector: 	at com.android.server.SystemServerInitThreadPool$$ExternalSyntheticLambda0.execute(R8$$SyntheticClass:0)
+06-07 07:00:02.967   777   823 E BluetoothPowerStatsCollector: 	at android.bluetooth.BluetoothAdapter.requestControllerActivityEnergyInfo(BluetoothAdapter.java:2511)
+06-07 07:00:02.967   777   823 E BluetoothPowerStatsCollector: 	at com.android.server.power.stats.BatteryStatsImpl$BluetoothStatsRetrieverImpl.requestControllerActivityEnergyInfo(BatteryStatsImpl.java:471)
+06-07 07:00:02.967   777   823 E BluetoothPowerStatsCollector: 	at com.android.server.power.stats.BluetoothPowerStatsCollector.collectBluetoothActivityInfo(BluetoothPowerStatsCollector.java:169)
+06-07 07:00:02.967   777   823 E BluetoothPowerStatsCollector: 	... 11 more
+06-07 07:00:02.988  7270  7270 I Finsky  : [2] ajyz - Received: android.intent.action.PACKAGE_REMOVED, [5RgnIEJQaOQbqneqo2SF47BEgT9fG5svDK6hS_daqhI]
+06-07 07:00:03.051   777   777 W Looper  : Drained
+06-07 07:00:03.058  7270  7270 I Finsky  : [2] ajyz - Deduping intent android.intent.action.PACKAGE_REMOVED
+06-07 07:00:03.059  7270  7270 I Finsky  : [2] ajyz - Received: android.intent.action.PACKAGE_ADDED, [5RgnIEJQaOQbqneqo2SF47BEgT9fG5svDK6hS_daqhI]
+06-07 07:00:03.107  8718  8718 V GraphicsEnvironment: Currently set values for:
+06-07 07:00:03.107  8718  8718 V GraphicsEnvironment:   angle_gl_driver_selection_pkgs=[]
+06-07 07:00:03.107  8718  8718 V GraphicsEnvironment:   angle_gl_driver_selection_values=[]
+06-07 07:00:03.107  8718  8718 V GraphicsEnvironment: com.google.android.apps.wellbeing is not listed in per-application setting
+06-07 07:00:03.107  8718  8718 V GraphicsEnvironment: ANGLE allowlist from config: com.dreamgames.royalmatch com.dts.freefiremax com.dxx.firenow com.gramgames.mergedragons com.ludo.king com.mojang.minecraftpe com.my.defense com.nintendo.zaka com.os.airforce com.playrix.fishdomdd.gplay io.teslatech.callbreak jp.konami.prospia net.peakgames.toonblast
+06-07 07:00:03.108  8718  8718 V GraphicsEnvironment: No special selections for ANGLE, returning default driver choice
+06-07 07:00:03.108  8718  8718 V GraphicsEnvironment: Neither updatable production driver nor prerelease driver is supported.
+06-07 07:00:03.113   777   823 W KernelCpuProcStringReader: File not found. It's normal if not implemented: /proc/uid_time_in_state
+06-07 07:00:03.113   777   823 W KernelCpuProcStringReader: File not found. It's normal if not implemented: /proc/uid_concurrent_active_time
+06-07 07:00:03.113   777   823 W KernelCpuProcStringReader: File not found. It's normal if not implemented: /proc/uid_concurrent_policy_time
+06-07 07:00:03.197   777   912 I CredentialManager: CredentialManagerServiceImpl constructed for: com.google.android.gms/com.google.android.gms.auth.api.credentials.credman.service.PasswordAndPasskeyService
+06-07 07:00:03.197   777   912 I CredentialManager: newServiceInfoLocked, mInfo null, com.google.android.gms/com.google.android.gms.auth.api.credentials.credman.service.PasswordAndPasskeyService
+06-07 07:00:03.209   777   985 D BackgroundInstallControlService: Package event received: 0
+06-07 07:00:03.209   777   985 D BackgroundInstallControlService: Package event received: 0
+06-07 07:00:03.211   777   985 D BackgroundInstallControlService: Package event received: 0
+06-07 07:00:03.211   777   985 D BackgroundInstallControlService: Package event received: 0
+06-07 07:00:03.211   777   985 D BackgroundInstallControlService: Package event received: 0
+06-07 07:00:03.211   777   985 D BackgroundInstallControlService: Package event received: 0
+06-07 07:00:03.235   777  1005 D TelephonyManager: requestModemActivityInfo: Sending result to app: ModemActivityInfo{ mTimestamp=1001587 mSleepTimeMs=210 mIdleTimeMs=70 mActivityStatsTechSpecificInfo=[{mRat=UNKNOWN,mFrequencyRange=UNKNOWN,mTxTimeMs[]=[5, 15, 30, 40, 45],mRxTimeMs=45}]}
+06-07 07:00:03.240  7270  7270 I Finsky  : [2] Set autoupdate of com.google.android.gms to 1 (install/update)
+06-07 07:00:03.242   777   985 D BackgroundInstallControlService: Package event received: 0
+06-07 07:00:03.246  8291  8291 I AiAiAutofill: Created AiAiAugmentedAutofillService.
+06-07 07:00:03.256  7085  7085 I Finsky:background: [2] ajyp - Received: android.intent.action.PACKAGE_REMOVED, [5RgnIEJQaOQbqneqo2SF47BEgT9fG5svDK6hS_daqhI]
+06-07 07:00:03.316  8291  8592 I AiAiEcho: AppIndexer Package:[com.google.android.gms] UserProfile:[0] Enabled:[true].
+06-07 07:00:03.316  8291  8592 I AiAiEcho: AppFetcherImplV2 updateApps package:[com.google.android.gms], userId:[0], reason:[package is updated.].
+06-07 07:00:03.413   777  1675 D TelephonyManager: requestModemActivityInfo: Sending result to app: ModemActivityInfo{ mTimestamp=1001764 mSleepTimeMs=252 mIdleTimeMs=84 mActivityStatsTechSpecificInfo=[{mRat=UNKNOWN,mFrequencyRange=UNKNOWN,mTxTimeMs[]=[6, 18, 36, 48, 54],mRxTimeMs=54}]}
+06-07 07:00:03.433  7085  7090 W ding:background: Suspending all threads took: 18.350ms
+06-07 07:00:03.480  8718  8718 I MultiDex: VM with version 2.1.0 has multidex support
+06-07 07:00:03.481  8718  8718 I MultiDex: Installing application
+06-07 07:00:03.481  8718  8718 I MultiDex: VM has multidex support, MultiDex support library is disabled.
+06-07 07:00:03.499  7085  8682 I Finsky:background: [110] Wrote row to frosting DB: 1100
+06-07 07:00:03.537  7085  7085 W ding:background: Weak pointer dereference blocked for 34 milliseconds.
+06-07 07:00:03.552  7085  7085 I Finsky:background: [2] ajyp - Deduping intent android.intent.action.PACKAGE_REMOVED
+06-07 07:00:03.554  7085  7085 I Finsky:background: [2] ajyp - Received: android.intent.action.PACKAGE_ADDED, [5RgnIEJQaOQbqneqo2SF47BEgT9fG5svDK6hS_daqhI]
+06-07 07:00:03.583   777   823 E BluetoothPowerStatsCollector: Cannot acquire BluetoothActivityEnergyInfo
+06-07 07:00:03.583   777   823 E BluetoothPowerStatsCollector: java.util.concurrent.ExecutionException: java.lang.RuntimeException: error: 9
+06-07 07:00:03.583   777   823 E BluetoothPowerStatsCollector: 	at java.util.concurrent.CompletableFuture.reportGet(CompletableFuture.java:372)
+06-07 07:00:03.583   777   823 E BluetoothPowerStatsCollector: 	at java.util.concurrent.CompletableFuture.get(CompletableFuture.java:2072)
+06-07 07:00:03.583   777   823 E BluetoothPowerStatsCollector: 	at com.android.server.power.stats.BluetoothPowerStatsCollector.collectBluetoothActivityInfo(BluetoothPowerStatsCollector.java:191)
+06-07 07:00:03.583   777   823 E BluetoothPowerStatsCollector: 	at com.android.server.power.stats.BluetoothPowerStatsCollector.collectStats(BluetoothPowerStatsCollector.java:155)
+06-07 07:00:03.583   777   823 E BluetoothPowerStatsCollector: 	at com.android.server.power.stats.PowerStatsCollector.collectAndDeliverStats(PowerStatsCollector.java:196)
+06-07 07:00:03.583   777   823 E BluetoothPowerStatsCollector: 	at com.android.server.power.stats.PowerStatsCollector.lambda$forceSchedule$1(PowerStatsCollector.java:185)
+06-07 07:00:03.583   777   823 E BluetoothPowerStatsCollector: 	at com.android.server.power.stats.PowerStatsCollector.$r8$lambda$S8t6eDCBuELjdSNvyveTMprEzE0(PowerStatsCollector.java:0)
+06-07 07:00:03.583   777   823 E BluetoothPowerStatsCollector: 	at com.android.server.power.stats.PowerStatsCollector$$ExternalSyntheticLambda0.run(R8$$SyntheticClass:0)
+06-07 07:00:03.583   777   823 E BluetoothPowerStatsCollector: 	at android.os.Handler.handleCallback(Handler.java:1070)
+06-07 07:00:03.583   777   823 E BluetoothPowerStatsCollector: 	at android.os.Handler.dispatchMessage(Handler.java:125)
+06-07 07:00:03.583   777   823 E BluetoothPowerStatsCollector: 	at android.os.Looper.dispatchMessage(Looper.java:333)
+06-07 07:00:03.583   777   823 E BluetoothPowerStatsCollector: 	at android.os.Looper.loopOnce(Looper.java:263)
+06-07 07:00:03.583   777   823 E BluetoothPowerStatsCollector: 	at android.os.Looper.loop(Looper.java:367)
+06-07 07:00:03.583   777   823 E BluetoothPowerStatsCollector: 	at android.os.HandlerThread.run(HandlerThread.java:139)
+06-07 07:00:03.583   777   823 E BluetoothPowerStatsCollector: Caused by: java.lang.RuntimeException: error: 9
+06-07 07:00:03.583   777   823 E BluetoothPowerStatsCollector: 	at com.android.server.power.stats.BluetoothPowerStatsCollector$1.onBluetoothActivityEnergyInfoError(BluetoothPowerStatsCollector.java:180)
+06-07 07:00:03.583   777   823 E BluetoothPowerStatsCollector: 	at android.bluetooth.BluetoothAdapter.lambda$requestControllerActivityEnergyInfo$27(BluetoothAdapter.java:2513)
+06-07 07:00:03.583   777   823 E BluetoothPowerStatsCollector: 	at android.bluetooth.BluetoothAdapter$$ExternalSyntheticLambda27.run(D8$$SyntheticClass:0)
+06-07 07:00:03.583   777   823 E BluetoothPowerStatsCollector: 	at com.android.server.SystemServerInitThreadPool$$ExternalSyntheticLambda0.execute(R8$$SyntheticClass:0)
+06-07 07:00:03.583   777   823 E BluetoothPowerStatsCollector: 	at android.bluetooth.BluetoothAdapter.requestControllerActivityEnergyInfo(BluetoothAdapter.java:2511)
+06-07 07:00:03.583   777   823 E BluetoothPowerStatsCollector: 	at com.android.server.power.stats.BatteryStatsImpl$BluetoothStatsRetrieverImpl.requestControllerActivityEnergyInfo(BatteryStatsImpl.java:471)
+06-07 07:00:03.583   777   823 E BluetoothPowerStatsCollector: 	at com.android.server.power.stats.BluetoothPowerStatsCollector.collectBluetoothActivityInfo(BluetoothPowerStatsCollector.java:169)
+06-07 07:00:03.583   777   823 E BluetoothPowerStatsCollector: 	... 11 more
+06-07 07:00:03.588  8291  8353 I AiAiAutofill: Connected AiAiAugmentedAutofillService.
+06-07 07:00:03.701  7085  7085 I Finsky:background: [2] ajyp - Received: android.intent.action.PACKAGE_ADDED, [5RgnIEJQaOQbqneqo2SF47BEgT9fG5svDK6hS_daqhI]
+06-07 07:00:03.711   777  1653 W libbinder.Binder: Binder transaction to com.android.internal.app.IBatteryStats code 16 took 1801ms. Data bytes: 180 Reply bytes: 168 Flags: 18
+06-07 07:00:03.714  7745  7790 D DataProcessor: getBatteryUsageStats() from BatteryStatsManager in 1816/ms, maxStatsAgeMs=0
+06-07 07:00:03.715  7745  7790 W DataProcessor: shouldShowBatteryAttributionList(): 0.1
+06-07 07:00:03.715  7745  7790 W BatteryUsageDataLoader: getBatteryEntryList() returns null or empty content
+06-07 07:00:03.715  7745  7790 D BatteryUsageDataLoader: getBatteryUsageStats() in 2026/ms
+06-07 07:00:03.741  7085  7085 I Finsky:background: [2] ajyp - Deduping intent android.intent.action.PACKAGE_ADDED
+06-07 07:00:03.787  7085  7085 I Finsky:background: [2] ajyp - Received: android.intent.action.PACKAGE_ADDED, [5RgnIEJQaOQbqneqo2SF47BEgT9fG5svDK6hS_daqhI]
+06-07 07:00:03.855  7745  7790 D DatabaseUtils: insert() data into database with isFullChargeStart:false
+06-07 07:00:03.868  7085  7085 I Finsky:background: [2] ajyp - Deduping intent android.intent.action.PACKAGE_ADDED
+06-07 07:00:03.870  7085  7273 I Finsky:background: [64] RECEIVER_PACKAGE_MONITOR_BACKGROUND#logWorkEndAndFinishGoAsync: SUCCESS
+06-07 07:00:03.877  7745  7790 D DatabaseUtils: sendBatteryEntryData() size=1 in 162/ms
+06-07 07:00:03.897  7270  7270 I Finsky  : [2] DTU: Received onPackageAdded, replacing: true
+06-07 07:00:03.918  7270  8712 I Finsky  : [125] SCH: Received scheduling request: Id: 12-1, Constraints: [{ L: 15000, D: 86400000, C: CHARGING_NONE, I: IDLE_NONE, N: NET_ANY, B: BATTERY_ANY }]
+06-07 07:00:03.919  8291  8295 W ogle.android.as: Suspending all threads took: 15.725ms
+06-07 07:00:03.969  7085  8682 I Finsky:background: [110] Wrote row to frosting DB: 1101
+06-07 07:00:03.985  8718  8730 W PrimesLoggerHolder: Primes not initialized, returning default (no-op) Primes instance which will ignore all calls. Please call Primes.initialize(...) before using any Primes API.
+06-07 07:00:04.025  7745  7790 D BatteryUsageContentProvider: getQueryUserId from uri: content://com.android.settings.battery.usage.provider/appUsageLatestTimestamp?userid=0
+06-07 07:00:04.027  7745  7790 D BatteryUsageContentProvider: getAppUsageLatestTimestamp() for user 0 in 2/ms
+06-07 07:00:04.038  7745  7790 D DatabaseUtils: getAppUsageStartTimestampOfUser() userId=0 latestTimestamp=May 22, 2026, 18:59:34 in 23/ms
+06-07 07:00:04.043   777  2179 V Configuration: Updating configuration, locales updated from [] to [en_US]
+06-07 07:00:04.068   777  2179 V Configuration: Updating configuration, locales updated from [] to [en_US]
+06-07 07:00:04.068   777  2179 V Configuration: Updating configuration, locales updated from [] to [en_US]
+06-07 07:00:04.068   777  2179 V Configuration: Updating configuration, locales updated from [] to [en_US]
+06-07 07:00:04.070  7745  7790 D DataProcessor: getAppUsageEventsForUser(): 0 from 1780246800000 to 1780790404015 in 31/ms
+06-07 07:00:04.070  7745  7790 D DataProcessor: getAppUsageEvents() for all unlocked users in 55/ms
+06-07 07:00:04.074   777   877 D ActivityManager: freezing 8402 com.google.android.tts
+06-07 07:00:04.082   777   877 D ActivityManager: freezing 8233 android.process.acore
+06-07 07:00:04.089   777   935 D InetDiagMessage: Destroyed 0 sockets, proto=IPPROTO_TCP, family=AF_INET, states=14
+06-07 07:00:04.090   777   935 D InetDiagMessage: Destroyed 0 sockets, proto=IPPROTO_TCP, family=AF_INET6, states=14
+06-07 07:00:04.091   777   935 D InetDiagMessage: Destroyed live tcp sockets for uids={10165} in 6ms
+06-07 07:00:04.092   777   935 D InetDiagMessage: Destroyed 0 sockets, proto=IPPROTO_TCP, family=AF_INET, states=14
+06-07 07:00:04.093   777   935 D InetDiagMessage: Destroyed 0 sockets, proto=IPPROTO_TCP, family=AF_INET6, states=14
+06-07 07:00:04.093   777   935 D InetDiagMessage: Destroyed live tcp sockets for uids={10104} in 1ms
+06-07 07:00:04.185  7085  8682 I Finsky:background: [110] Wrote row to frosting DB: 1102
+06-07 07:00:04.349  7745  7790 D DataProcessor: Read 5 relevant events (5 total) from UsageStatsManager for user 0
+06-07 07:00:04.349  7745  7790 W DataProcessor: Read 5 relevant events (5 total) from UsageStatsManager for all users
+06-07 07:00:04.349  7745  7790 D BatteryUsageDataLoader: loadAppUsageData() size=5 in 334/ms
+06-07 07:00:05.134   777   923 I HalDevMgr: bestIfaceCreationProposal is null, requestIface=STA, existingIface=[name=wlan0 type=STA]
+06-07 07:00:05.186  7745  7794 D SharedPreferencesImpl: Time required to fsync /data/user_de/0/com.android.settings/shared_prefs/battery_usage_shared_prefs.xml: [<1: 0, <2: 0, <4: 0, <8: 0, <16: 0, <32: 1, <64: 1, <128: 0, <256: 0, <512: 0, <1024: 1, <2048: 0, <4096: 0, <8192: 0, <16384: 0, >=16384: 0]
+06-07 07:00:05.187  7085  8682 I Finsky:background: [110] Wrote row to frosting DB: 1103
+06-07 07:00:05.282  7745  7790 D DatabaseUtils: insert() app usage events data into database
+06-07 07:00:05.283  7745  7790 D DatabaseUtils: sendAppUsageEventData() size=5 in 933/ms
+06-07 07:00:05.290  7270  7270 I Finsky  : [2] ajyz - Received: android.intent.action.PACKAGE_ADDED, [5RgnIEJQaOQbqneqo2SF47BEgT9fG5svDK6hS_daqhI]
+06-07 07:00:05.303  7270  7270 I Finsky  : [2] ajyz - Deduping intent android.intent.action.PACKAGE_ADDED
+06-07 07:00:05.306  7270  7270 I Finsky  : [2] ajyz - Received: android.intent.action.PACKAGE_ADDED, [5RgnIEJQaOQbqneqo2SF47BEgT9fG5svDK6hS_daqhI]
+06-07 07:00:05.322  7270  7270 I Finsky  : [2] ajyz - Deduping intent android.intent.action.PACKAGE_ADDED
+06-07 07:00:05.324  7270  7397 I Finsky  : [57] RECEIVER_PACKAGE_MONITOR#logWorkEndAndFinishGoAsync: SUCCESS
+06-07 07:00:05.369  1176  1309 D SatelliteController: iisInCarrierRoamingNbIotNtn: satellite is disabled
+06-07 07:00:05.374  1176  1309 D SatelliteController: getCarrierRoamingNtnConnectType: Falling back to global carrier config connect type: 0
+06-07 07:00:05.556  7745  7790 D BatteryUsageContentProvider: getLastFullChargeTimestamp() in 2/ms
+06-07 07:00:05.557  7270  7278 W android.vending: Suspending all threads took: 94.459ms
+06-07 07:00:05.559  7745  7790 D DatabaseUtils: getLastFullChargeTime() lastFullChargeTime=Jun 07, 2026, 06:57:29 in 6/ms
+06-07 07:00:05.559  7745  7790 D DatabaseUtils: getBatteryEvents for timestamp: 1780790249501
+06-07 07:00:05.560  7745  7790 D BatteryUsageContentProvider: getQueryBatteryEventTypes from uri: content://com.android.settings.battery.usage.provider/BatteryEvent?timestamp=1780790249501&batteryEventType=3%2C4
+06-07 07:00:05.560  7745  7790 D BatteryUsageContentProvider: getQueryTimestamp from uri: content://com.android.settings.battery.usage.provider/BatteryEvent?timestamp=1780790249501&batteryEventType=3%2C4
+06-07 07:00:05.565  7745  7790 W BatteryUsageContentProvider: getBatteryEvents() in 5/ms
+06-07 07:00:05.566  7745  7790 D DatabaseUtils: getBatteryEvents size=1 in 7/ms
+06-07 07:00:05.571  7745  7790 D DataProcessManager: getPeriodBatteryLevelData() startTimestamp=Jun 07, 2026, 06:57:29
+06-07 07:00:05.572  7745  7790 D DataProcessManager: execute getBatteryLevelData in 18/ms, batteryLevelRecordEvents.size=1
+06-07 07:00:05.573  7745  7790 D BatteryUsageDataLoader: preprocessBatteryUsageSlots() no new battery usage data.
+06-07 07:00:05.573  7745  7790 D BatteryUsageDataLoader: loadUsageDataSafely() in 3921/ms
+06-07 07:00:05.587   777   985 D BackgroundInstallControlService: Package event received: 0
+06-07 07:00:05.589   777  1653 V GrammaticalInflectionUtils: AttributionSource: android.content.AttributionSource@94a37fda does not have READ_SYSTEM_GRAMMATICAL_GENDER permission.
+06-07 07:00:05.590   777  1653 D CompatChangeReporter: Compat change id reported: 151861875; UID 10157; state: ENABLED
+06-07 07:00:05.646   777   814 W ActivityManager: Slow operation: 55ms so far, now at startProcess: asking zygote to start proc
+06-07 07:00:05.655   777  1653 W ActivityManager: Slow operation: 69ms so far, now at startProcess: done starting proc!
+06-07 07:00:05.655   777  1653 W ContentProviderHelper: Slow operation: 73ms so far, now at getContentProviderImpl: after start process
+06-07 07:00:05.655   777  1653 W ContentProviderHelper: Slow operation: 73ms so far, now at getContentProviderImpl: updating data structures
+06-07 07:00:05.655   777  1653 W ContentProviderHelper: Slow operation: 73ms so far, now at getContentProviderImpl: done!
+06-07 07:00:05.657   550   550 D Zygote  : Forked child process 8768
+06-07 07:00:05.658   777   814 W ActivityManager: Slow operation: 67ms so far, now at startProcess: returned from zygote!
+06-07 07:00:05.659   777   814 W ActivityManager: Slow operation: 68ms so far, now at startProcess: done updating battery stats
+06-07 07:00:05.659   777   814 W ActivityManager: Slow operation: 68ms so far, now at startProcess: building log message
+06-07 07:00:05.659   777   814 I ActivityManager: Start proc 8768:com.google.android.settings.intelligence/u0a157 for content provider {com.google.android.settings.intelligence/com.google.android.settings.intelligence.modules.gmscoreproxy.impl.PhenotypeProxyContentProvider}
+06-07 07:00:05.659   777   814 W ActivityManager: Slow operation: 68ms so far, now at startProcess: starting to update pids map
+06-07 07:00:05.660   777   814 W ActivityManager: Slow operation: 69ms so far, now at startProcess: done updating pids map
+06-07 07:00:05.710  7085  8682 I Finsky:background: [110] Wrote row to frosting DB: 1104
+06-07 07:00:05.807  8768  8768 I Zygote  : Process 8768 created for com.google.android.settings.intelligence
+06-07 07:00:05.807  8768  8768 I gs.intelligence: Using CollectorTypeCMC GC.
+06-07 07:00:05.813  8768  8768 W gs.intelligence: Unexpected CPU variant for x86: x86_64.
+06-07 07:00:05.813  8768  8768 W gs.intelligence: Known variants: atom, sandybridge, silvermont, goldmont, goldmont-plus, goldmont-without-sha-xsaves, tremont, kabylake, alderlake, default
+06-07 07:00:06.103  8291  8300 I libbinder.IPCThreadState: oneway function results for code 2 on binder at 0x713318a2aff0 will be dropped but finished with status UNKNOWN_TRANSACTION
+06-07 07:00:06.108  8327  8327 I AstreaGrpcService: AstreaGrpcService#onDestroy called.
+06-07 07:00:06.135  8768  8768 I berberis: Initialized Berberis ((null)), version 16.0.0
+06-07 07:00:06.194  7270  7432 I Finsky  : [66] WM::SCH: Logging work initialize for 12-1
+06-07 07:00:06.210  7270  7432 I Finsky  : [66] WM::SCH: Logging work initialize for 12-1
+06-07 07:00:06.406  8718  8718 I lru     : SslGuard completed installation.
+06-07 07:00:06.452   777  1290 V SafetySourceDataValidat: Package: com.android.vending has expected signature
+06-07 07:00:06.452   777  1290 V SafetySourceDataValidat: Package: com.android.vending has expected signature
+06-07 07:00:06.469  7270  7476 I Finsky  : [68] SCH: Scheduling phonesky job Id: 12-1, CT: 1780790402121, Constraints: [{ L: 15000, D: 86400000, C: CHARGING_NONE, I: IDLE_NONE, N: NET_ANY, B: BATTERY_ANY }]
+06-07 07:00:06.476   777   985 D BackgroundInstallControlService: Package event received: 0
+06-07 07:00:06.546   777  1001 D FileUtils: Rounded bytes from 2061946880 to 4000000000
+06-07 07:00:06.590  7270  7500 I Finsky  : [73] SCH: Scheduling 1 system job(s)
+06-07 07:00:06.591  7270  7500 I Finsky  : [73] SCH: Scheduling system job Id: 9394, L: 10530, D: 47260223, C: false, I: false, N: 1
+06-07 07:00:06.612   777   985 D BackgroundInstallControlService: Package event received: 0
+06-07 07:00:06.636   777   985 D BackgroundInstallControlService: Package event received: 0
+06-07 07:00:06.763  7270  7513 I Finsky  : [79] SCH: Scheduling phonesky job Id: 12-1, CT: 1780790403919, Constraints: [{ L: 15000, D: 86400000, C: CHARGING_NONE, I: IDLE_NONE, N: NET_ANY, B: BATTERY_ANY }]
+06-07 07:00:06.764  7270  7433 I Finsky  : [67] [ContentSync] finished, scheduled=true
+06-07 07:00:06.781  7270  7500 I Finsky  : [73] SCH: Scheduling 0 system job(s)
+06-07 07:00:06.784  7270  7500 I Finsky  : [73] [ContentSync] finished, scheduled=true
+06-07 07:00:06.932   777  1621 D MetadataSyncAdapter: b/400587895: getPackageToFunctionIdMapWithRetry is retrying for schemaType = AppFunctionRuntimeMetadata
+06-07 07:00:06.948  8718  8730 E ashmem  : Pinning is deprecated since Android Q. Please use trim or other methods.
+06-07 07:00:06.951  8788  8788 W libbinder.BackendUnifiedServiceManager: Thread Pool max thread count is 0. Cannot cache binder as linkToDeath cannot be implemented. serviceName: package
+06-07 07:00:07.273  8768  8768 D nativeloader: Load libframework-connectivity-tiramisu-jni.so using APEX ns com_android_tethering for caller /apex/com.android.tethering/javalib/framework-connectivity-t.jar: ok
+06-07 07:00:07.281   777   985 D BackgroundInstallControlService: Package event received: 0
+06-07 07:00:07.656   777  1290 W ActivityManager: Slow operation: 59ms so far, now at attachApplicationLocked: immediately after bindApplication
+06-07 07:00:07.662   777  1290 W ActivityManager: Slow operation: 65ms so far, now at attachApplicationLocked: after updateLruProcessLocked
+06-07 07:00:07.664   777  1290 W ActivityManager: Slow operation: 67ms so far, now at attachApplicationLocked: after updateOomAdjLocked
+06-07 07:00:07.680  8768  8768 D ApplicationLoaders: Returning zygote-cached class loader: /system/framework/org.apache.http.legacy.jar
+06-07 07:00:07.680  8768  8768 D ApplicationLoaders: Returning zygote-cached class loader: /system_ext/framework/androidx.window.extensions.jar
+06-07 07:00:07.680  8768  8768 D ApplicationLoaders: Returning zygote-cached class loader: /system_ext/framework/androidx.window.sidecar.jar
+06-07 07:00:07.745  2309  4879 I artd    : GetBestInfo: /data/app/~~KYfxxQknJlPjhvj9MRSqfQ==/com.google.android.gms-mCh4I2ARTwdtyTDudCgsaA==/base.apk has no usable artifacts
+06-07 07:00:07.752  1176  1176 D SatelliteAccessController: mLocationModeChangedBroadcastReceiver: PROVIDERS_CHANGED_ACTION
+06-07 07:00:07.766  2309  4879 I artd    : GetBestInfo: odex next to the dex file (/data/app/~~KYfxxQknJlPjhvj9MRSqfQ==/com.google.android.gms-mCh4I2ARTwdtyTDudCgsaA==/oat/x86_64/split_AdsDynamite_installtime.odex) is kOatUpToDate with filter 'speed' executable 'false'
+06-07 07:00:07.799  2309  4879 I artd    : GetBestInfo: odex next to the dex file (/data/app/~~KYfxxQknJlPjhvj9MRSqfQ==/com.google.android.gms-mCh4I2ARTwdtyTDudCgsaA==/oat/x86_64/split_CronetDynamite_installtime.odex) is kOatUpToDate with filter 'speed' executable 'false'
+06-07 07:00:07.800  1176  1328 D SatelliteAccessController: handleEventLocationProvidersChanged: mIsLocationSettingsEnabled=true, mIsLocationProviderEnabled=true
+06-07 07:00:07.807  8768  8768 D nativeloader: InitLlndkLibrariesProduct: libEGL.so:libGLESv1_CM.so:libGLESv2.so:libGLESv3.so:libRS.so:libandroid_net.so:libapexsupport.so:libavf.so:libbinder_ndk.so:libc.so:libcgrouprc.so:libclang_rt.asan-x86_64-android.so:libcom.android.tethering.connectivity_native.so:libdl.so:libft2.so:liblog.so:libm.so:libmediandk.so:libnativewindow.so:libneuralnetworks.so:libselinux.so:libsync.so:libvendorsupport.so:libvndksupport.so:libvulkan.so
+06-07 07:00:07.807  8768  8768 D nativeloader: Configuring product-clns-9 for unbundled product apk /product/priv-app/SettingsIntelligenceGooglePrebuilt/SettingsIntelligenceGooglePrebuilt.apk. target_sdk_version=35, uses_libraries=, library_path=/product/priv-app/SettingsIntelligenceGooglePrebuilt/lib/arm64:/product/priv-app/SettingsIntelligenceGooglePrebuilt/SettingsIntelligenceGooglePrebuilt.apk!/lib/arm64-v8a:/product/lib64:/system/product/lib64, permitted_path=/data:/mnt/expand:/data/user/0/com.google.android.settings.intelligence:/product/lib64:/system/product/lib64
+06-07 07:00:07.808  2309  4879 I artd    : GetBestInfo: odex next to the dex file (/data/app/~~KYfxxQknJlPjhvj9MRSqfQ==/com.google.android.gms-mCh4I2ARTwdtyTDudCgsaA==/oat/x86_64/split_DynamiteLoader_installtime.odex) is kOatUpToDate with filter 'speed' executable 'false'
+06-07 07:00:07.823  2309  4879 I artd    : GetBestInfo: odex next to the dex file (/data/app/~~KYfxxQknJlPjhvj9MRSqfQ==/com.google.android.gms-mCh4I2ARTwdtyTDudCgsaA==/oat/x86_64/split_DynamiteModulesA_installtime.odex) is kOatUpToDate with filter 'speed' executable 'false'
+06-07 07:00:07.885  2309  4879 I artd    : GetBestInfo: odex next to the dex file (/data/app/~~KYfxxQknJlPjhvj9MRSqfQ==/com.google.android.gms-mCh4I2ARTwdtyTDudCgsaA==/oat/x86_64/split_DynamiteModulesC_installtime.odex) is kOatUpToDate with filter 'speed' executable 'false'
+06-07 07:00:07.907  2309  4879 I artd    : GetBestInfo: odex next to the dex file (/data/app/~~KYfxxQknJlPjhvj9MRSqfQ==/com.google.android.gms-mCh4I2ARTwdtyTDudCgsaA==/oat/x86_64/split_GoogleCertificates_installtime.odex) is kOatUpToDate with filter 'speed' executable 'false'
+06-07 07:00:07.939  2309  4879 I artd    : GetBestInfo: odex next to the dex file (/data/app/~~KYfxxQknJlPjhvj9MRSqfQ==/com.google.android.gms-mCh4I2ARTwdtyTDudCgsaA==/oat/x86_64/split_MapsDynamite_installtime.odex) is kOatUpToDate with filter 'speed' executable 'false'
+06-07 07:00:07.956  2309  4879 I artd    : GetBestInfo: odex next to the dex file (/data/app/~~KYfxxQknJlPjhvj9MRSqfQ==/com.google.android.gms-mCh4I2ARTwdtyTDudCgsaA==/oat/x86_64/split_MeasurementDynamite_installtime.odex) is kOatUpToDate with filter 'speed' executable 'false'
+06-07 07:00:07.958  8718  8730 W DynamiteModule: Local module descriptor class for com.google.android.gms.googlecertificates not found.
+06-07 07:00:07.961  2309  4879 W artd    : Could not get dex checksums for location /data/app/~~hbiIONFHaCdu_hZnY-5dzA==/com.google.android.gms-hzTkChCsM6Ndzah6AYkMDg==/base.apk, fd=-1
+06-07 07:00:07.968  2309  4879 I artd    : GetBestInfo: /data/user_de/0/com.google.android.gms/app_chimera/m/00000001/CronetDynamite.apk has no usable artifacts
+06-07 07:00:07.969  2309  4879 W artd    : Could not get dex checksums for location /data/app/~~hbiIONFHaCdu_hZnY-5dzA==/com.google.android.gms-hzTkChCsM6Ndzah6AYkMDg==/base.apk, fd=-1
+06-07 07:00:07.999  2309  4879 I artd    : GetBestInfo: /data/user_de/0/com.google.android.gms/app_chimera/m/00000002/DynamiteLoader.apk has no usable artifacts
+06-07 07:00:08.007  2309  4879 I artd    : GetBestInfo: /data/user_de/0/com.google.android.gms/app_chimera/m/0000000d/dl-VisionOcr.optional_253434100000.apk has no usable artifacts
+06-07 07:00:08.008  2309  4879 I artd    : GetBestInfo: /data/user_de/0/com.google.android.gms/app_chimera/m/00000005/GoogleCertificates.apk has no usable artifacts
+06-07 07:00:08.019  2309  4879 I artd    : GetBestInfo: /data/user_de/0/com.google.android.gms/app_chimera/m/00000008/dl-MlkitBarcodeUi.optional_253434100800.apk has no usable artifacts
+06-07 07:00:08.021   777   985 D BackgroundInstallControlService: Package event received: 0
+06-07 07:00:08.028  2309  4879 I artd    : GetBestInfo: /data/user_de/0/com.google.android.gms/app_chimera/m/0000000e/dl-MlkitOcrCommon.optional_253434100800.apk has no usable artifacts
+06-07 07:00:08.034  2309  4879 I artd    : GetBestInfo: /data/user_de/0/com.google.android.gms/app_chimera/m/0000000b/dl-Appsearch.optional_253434100800.apk has no usable artifacts
+06-07 07:00:08.124  8768  8768 D nativeloader: InitVndkspLibrariesProduct: VNDK is deprecated with product
+06-07 07:00:08.130  2309  4879 W artd    : Could not get dex checksums for location /data/app/~~hbiIONFHaCdu_hZnY-5dzA==/com.google.android.gms-hzTkChCsM6Ndzah6AYkMDg==/base.apk, fd=-1
+06-07 07:00:08.136  2309  4879 W artd    : Could not get dex checksums for location /data/app/~~hbiIONFHaCdu_hZnY-5dzA==/com.google.android.gms-hzTkChCsM6Ndzah6AYkMDg==/base.apk, fd=-1
+06-07 07:00:08.139  2309  4879 W artd    : Could not get dex checksums for location /data/app/~~hbiIONFHaCdu_hZnY-5dzA==/com.google.android.gms-hzTkChCsM6Ndzah6AYkMDg==/base.apk, fd=-1
+06-07 07:00:08.145  2309  4879 W artd    : Could not get dex checksums for location /data/app/~~hbiIONFHaCdu_hZnY-5dzA==/com.google.android.gms-hzTkChCsM6Ndzah6AYkMDg==/base.apk, fd=-1
+06-07 07:00:08.151  2309  4879 W artd    : Could not get dex checksums for location /data/app/~~hbiIONFHaCdu_hZnY-5dzA==/com.google.android.gms-hzTkChCsM6Ndzah6AYkMDg==/base.apk, fd=-1
+06-07 07:00:08.155  2309  4879 W artd    : Could not get dex checksums for location /data/app/~~hbiIONFHaCdu_hZnY-5dzA==/com.google.android.gms-hzTkChCsM6Ndzah6AYkMDg==/base.apk, fd=-1
+06-07 07:00:08.158  2309  4879 I artd    : GetBestInfo: /data/user_de/0/com.google.android.gms/app_chimera/m/00000017/dl-MapsCoreDynamite.integ_254515602100800.apk has no usable artifacts
+06-07 07:00:08.164  8768  8768 D CompatChangeReporter: Compat change id reported: 202956589; UID 10157; state: ENABLED
+06-07 07:00:08.167  2309  4879 W artd    : Could not get dex checksums for location /data/app/~~hbiIONFHaCdu_hZnY-5dzA==/com.google.android.gms-hzTkChCsM6Ndzah6AYkMDg==/base.apk, fd=-1
+06-07 07:00:08.238  2309  4879 W artd    : Could not get dex checksums for location /data/app/~~hbiIONFHaCdu_hZnY-5dzA==/com.google.android.gms-hzTkChCsM6Ndzah6AYkMDg==/base.apk, fd=-1
+06-07 07:00:08.251  2309  4879 I artd    : GetBestInfo: /data/user_de/0/com.google.android.gms/app_chimera/m/0000000f/dl-PlayCloudSearch.optional_253434100000.apk has no usable artifacts
+06-07 07:00:08.252  2309  4878 W artd    : Could not get dex checksums for location /data/app/~~hbiIONFHaCdu_hZnY-5dzA==/com.google.android.gms-hzTkChCsM6Ndzah6AYkMDg==/base.apk, fd=-1
+06-07 07:00:08.256  2309  4879 W artd    : Could not get dex checksums for location /data/app/~~_8LrTu6skPmJ1_vZQaQWyw==/com.android.vending-7ymJ43OKUoHdM0fQBDZPpw==/base.apk, fd=-1
+06-07 07:00:08.263  2309  4879 W artd    : Could not get dex checksums for location /data/app/~~hbiIONFHaCdu_hZnY-5dzA==/com.google.android.gms-hzTkChCsM6Ndzah6AYkMDg==/base.apk, fd=-1
+06-07 07:00:08.347   777   923 I HalDevMgr: bestIfaceCreationProposal is null, requestIface=STA, existingIface=[name=wlan0 type=STA]
+06-07 07:00:08.371   777  1001 W libbinder.Binder: Binder transaction to android.content.pm.IPackageManager code 1598311760 took 1418ms. Data bytes: 80 Reply bytes: 4 Flags: 16
+06-07 07:00:08.473  8768  8768 V GraphicsEnvironment: Currently set values for:
+06-07 07:00:08.473  8768  8768 V GraphicsEnvironment:   angle_gl_driver_selection_pkgs=[]
+06-07 07:00:08.473  8768  8768 V GraphicsEnvironment:   angle_gl_driver_selection_values=[]
+06-07 07:00:08.473  8768  8768 V GraphicsEnvironment: com.google.android.settings.intelligence is not listed in per-application setting
+06-07 07:00:08.473  8768  8768 V GraphicsEnvironment: ANGLE allowlist from config: com.dreamgames.royalmatch com.dts.freefiremax com.dxx.firenow com.gramgames.mergedragons com.ludo.king com.mojang.minecraftpe com.my.defense com.nintendo.zaka com.os.airforce com.playrix.fishdomdd.gplay io.teslatech.callbreak jp.konami.prospia net.peakgames.toonblast
+06-07 07:00:08.474  8768  8768 V GraphicsEnvironment: No special selections for ANGLE, returning default driver choice
+06-07 07:00:08.474  8768  8768 V GraphicsEnvironment: Neither updatable production driver nor prerelease driver is supported.
+06-07 07:00:08.516   777  1621 W AppSearchManagerService: Received persistToDisk call. Use AppSearchManagerService persistence schedule.
+06-07 07:00:08.630   777   789 W system_server: Suspending all threads took: 6.388ms
+06-07 07:00:08.748   777   789 I system_server: Background young concurrent mark compact GC freed 22MB AllocSpace bytes, 28(840KB) LOS objects, 39% free, 36MB/60MB, paused 11.004ms,4.014ms total 392.685ms
+06-07 07:00:09.495  8768  8811 D CompatChangeReporter: Compat change id reported: 312399441; UID 10157; state: ENABLED
+06-07 07:00:09.574  8768  8768 W BatterySettingsContentProvider: create content provider from null
+06-07 07:00:09.612   777   985 D BackgroundInstallControlService: Package event received: 0
+06-07 07:00:09.616  8768  8811 E ashmem  : Pinning is deprecated since Android Q. Please use trim or other methods.
+06-07 07:00:09.687  8768  8768 W PrimesLoggerHolder: Primes not initialized, returning default (no-op) Primes instance which will ignore all calls. Please call Primes.initialize(...) before using any Primes API.
+06-07 07:00:09.689   777   985 D BackgroundInstallControlService: Package event received: 0
+06-07 07:00:09.768  8768  8768 D CompatChangeReporter: Compat change id reported: 311402873; UID 10157; state: ENABLED
+06-07 07:00:09.768  8768  8768 D CompatChangeReporter: Compat change id reported: 323349338; UID 10157; state: ENABLED
+06-07 07:00:09.768  8768  8768 W JobInfo : Job 'com.google.android.settings.intelligence/.modules.routines.impl.RoutinesJobIntentService#1728' has a deadline with no functional constraints. The deadline won't improve job execution latency. Consider removing the deadline.
+06-07 07:00:09.772   777  1290 D CompatChangeReporter: Compat change id reported: 311402873; UID 10157; state: ENABLED
+06-07 07:00:09.772   777  1290 D CompatChangeReporter: Compat change id reported: 323349338; UID 10157; state: ENABLED
+06-07 07:00:09.772   777  1290 W JobInfo : Job 'com.google.android.settings.intelligence/.modules.routines.impl.RoutinesJobIntentService#1728' has a deadline with no functional constraints. The deadline won't improve job execution latency. Consider removing the deadline.
+06-07 07:00:09.881   777  1005 W JobInfo : Job 'com.google.android.settings.intelligence/.modules.routines.impl.RoutinesJobIntentService#1728' has a deadline with no functional constraints. The deadline won't improve job execution latency. Consider removing the deadline.
+06-07 07:00:09.883   777  1005 W JobInfo : Job 'com.google.android.settings.intelligence/.modules.routines.impl.RoutinesJobIntentService#1728' has a deadline with no functional constraints. The deadline won't improve job execution latency. Consider removing the deadline.
+06-07 07:00:10.296   777  1290 D CompatChangeReporter: Compat change id reported: 311208629; UID 10157; state: ENABLED
+06-07 07:00:11.122   777   935 D InetDiagMessage: Destroyed 0 sockets, proto=IPPROTO_TCP, family=AF_INET, states=14
+06-07 07:00:11.125   777   935 D InetDiagMessage: Destroyed 0 sockets, proto=IPPROTO_TCP, family=AF_INET6, states=14
+06-07 07:00:11.125   777   935 D InetDiagMessage: Destroyed live tcp sockets for uids={10144} in 4ms
+06-07 07:00:11.126   777   935 D InetDiagMessage: Destroyed 0 sockets, proto=IPPROTO_TCP, family=AF_INET, states=14
+06-07 07:00:11.127   777   935 D InetDiagMessage: Destroyed 0 sockets, proto=IPPROTO_TCP, family=AF_INET6, states=14
+06-07 07:00:11.127   777   935 D InetDiagMessage: Destroyed live tcp sockets for uids={20144} in 1ms
+06-07 07:00:11.424   777   923 I HalDevMgr: bestIfaceCreationProposal is null, requestIface=STA, existingIface=[name=wlan0 type=STA]
+06-07 07:00:11.426  8734  8734 D nativeloader: Configuring clns-10 for other apk /data/app/~~KYfxxQknJlPjhvj9MRSqfQ==/com.google.android.gms-mCh4I2ARTwdtyTDudCgsaA==/base.apk. target_sdk_version=37, uses_libraries=, library_path=/data/app/~~KYfxxQknJlPjhvj9MRSqfQ==/com.google.android.gms-mCh4I2ARTwdtyTDudCgsaA==/lib/x86_64:/data/app/~~KYfxxQknJlPjhvj9MRSqfQ==/com.google.android.gms-mCh4I2ARTwdtyTDudCgsaA==/base.apk!/lib/x86_64, permitted_path=/data:/mnt/expand:/data/user/0/com.google.android.gms
+06-07 07:00:11.456  8693  8693 D nativeloader: Configuring clns-10 for other apk /data/app/~~KYfxxQknJlPjhvj9MRSqfQ==/com.google.android.gms-mCh4I2ARTwdtyTDudCgsaA==/base.apk. target_sdk_version=37, uses_libraries=, library_path=/data/app/~~KYfxxQknJlPjhvj9MRSqfQ==/com.google.android.gms-mCh4I2ARTwdtyTDudCgsaA==/lib/x86_64:/data/app/~~KYfxxQknJlPjhvj9MRSqfQ==/com.google.android.gms-mCh4I2ARTwdtyTDudCgsaA==/base.apk!/lib/x86_64, permitted_path=/data:/mnt/expand:/data/user/0/com.google.android.gms
+06-07 07:00:11.476  8734  8734 V GraphicsEnvironment: Currently set values for:
+06-07 07:00:11.477  8734  8734 V GraphicsEnvironment:   angle_gl_driver_selection_pkgs=[]
+06-07 07:00:11.477  8734  8734 V GraphicsEnvironment:   angle_gl_driver_selection_values=[]
+06-07 07:00:11.477  8734  8734 V GraphicsEnvironment: com.google.android.gms is not listed in per-application setting
+06-07 07:00:11.478  8734  8734 V GraphicsEnvironment: ANGLE allowlist from config: com.dreamgames.royalmatch com.dts.freefiremax com.dxx.firenow com.gramgames.mergedragons com.ludo.king com.mojang.minecraftpe com.my.defense com.nintendo.zaka com.os.airforce com.playrix.fishdomdd.gplay io.teslatech.callbreak jp.konami.prospia net.peakgames.toonblast
+06-07 07:00:11.478  8734  8734 V GraphicsEnvironment: No special selections for ANGLE, returning default driver choice
+06-07 07:00:11.478  8734  8734 V GraphicsEnvironment: Neither updatable production driver nor prerelease driver is supported.
+06-07 07:00:11.531  8693  8693 V GraphicsEnvironment: Currently set values for:
+06-07 07:00:11.531  8693  8693 V GraphicsEnvironment:   angle_gl_driver_selection_pkgs=[]
+06-07 07:00:11.531  8693  8693 V GraphicsEnvironment:   angle_gl_driver_selection_values=[]
+06-07 07:00:11.532  8693  8693 V GraphicsEnvironment: com.google.android.gms is not listed in per-application setting
+06-07 07:00:11.534  8693  8693 V GraphicsEnvironment: ANGLE allowlist from config: com.dreamgames.royalmatch com.dts.freefiremax com.dxx.firenow com.gramgames.mergedragons com.ludo.king com.mojang.minecraftpe com.my.defense com.nintendo.zaka com.os.airforce com.playrix.fishdomdd.gplay io.teslatech.callbreak jp.konami.prospia net.peakgames.toonblast
+06-07 07:00:11.534  8693  8693 V GraphicsEnvironment: No special selections for ANGLE, returning default driver choice
+06-07 07:00:11.535  8693  8693 V GraphicsEnvironment: Neither updatable production driver nor prerelease driver is supported.
+06-07 07:00:11.707  8693  8693 W .gms.persistent: Verification of void com.google.android.gms.common.app.GmsApplication.attachBaseContext(android.content.Context) took 139.525ms (15825.09 bytecodes/s) (0B arena alloc)
+06-07 07:00:12.991  8734  8734 I GmsApplication: Staging modules and/or updating config
+06-07 07:00:13.070  8734  8734 I GmsApplication: Updating config
+06-07 07:00:13.106   777  1005 W JobInfo : Job 'com.google.android.settings.intelligence/.modules.routines.impl.RoutinesJobIntentService#1728' has a deadline with no functional constraints. The deadline won't improve job execution latency. Consider removing the deadline.
+06-07 07:00:13.172  8734  8734 W SQLiteCompatibilityWalFlags: Cannot read global setting sqlite_compatibility_wal_flags - Application state not available
+06-07 07:00:13.216   777   985 D BackgroundInstallControlService: Package event received: 0
+06-07 07:00:13.407  8693  8693 I Safeboot: Checking safeboot...
+06-07 07:00:13.512  8693  8693 I GmsApplication: Staging modules and/or updating config
+06-07 07:00:13.631  8734  8734 I GmsModuleFndr: Beginning GMS chimera module scan
+06-07 07:00:13.656  8734  8734 I FileApkMgr: Extracting modules...
+06-07 07:00:14.005  8734  8734 I FileApkMgr: Skip staging and digest computation for AdsDynamite.apk as there's already an installed split.
+06-07 07:00:14.006  8734  8734 I FileApkMgr: Skip staging and digest computation for CronetDynamite.apk as there's already an installed split.
+06-07 07:00:14.006  8734  8734 I FileApkMgr: Skip staging and digest computation for DynamiteLoader.apk as there's already an installed split.
+06-07 07:00:14.006  8734  8734 I FileApkMgr: Skip staging and digest computation for DynamiteModulesA.apk as there's already an installed split.
+06-07 07:00:14.006  8734  8734 I FileApkMgr: Skip staging and digest computation for DynamiteModulesC.apk as there's already an installed split.
+06-07 07:00:14.006  8734  8734 I FileApkMgr: Skip staging and digest computation for GoogleCertificates.apk as there's already an installed split.
+06-07 07:00:14.006  8734  8734 I FileApkMgr: Skip staging and digest computation for MapsDynamite.apk as there's already an installed split.
+06-07 07:00:14.006  8734  8734 I FileApkMgr: Skip staging and digest computation for MeasurementDynamite.apk as there's already an installed split.
+06-07 07:00:14.051  8734  8734 I FileApkMgr: Extracting modules completed
+06-07 07:00:14.201  8734  8734 W ChimeraApkLoader: Config is out of date: ContainerApk(com.google.android.gms) has been modified
+06-07 07:00:14.202  8734  8734 W ModuleManager: Unable to get current module's fulfilled APIs in ModuleManager created with non-module Context
+06-07 07:00:14.202  8734  8734 W ModuleManager: Unable to get current module's fulfilled APIs in ModuleManager created with non-module Context
+06-07 07:00:14.202  8734  8734 W ModuleManager: Unable to get current module's fulfilled APIs in ModuleManager created with non-module Context
+06-07 07:00:14.205  8734  8734 W ModuleManager: Unable to get current module's fulfilled APIs in ModuleManager created with non-module Context
+06-07 07:00:14.205  8734  8734 W ChimeraApkLoader: Config is out of date: ContainerApk(com.google.android.gms) has been modified
+06-07 07:00:14.205  8734  8734 W ModuleManager: Unable to get current module's fulfilled APIs in ModuleManager created with non-module Context
+06-07 07:00:14.206  8734  8734 W ModuleManager: Unable to get current module's fulfilled APIs in ModuleManager created with non-module Context
+06-07 07:00:14.206  8734  8734 W ModuleManager: Unable to get current module's fulfilled APIs in ModuleManager created with non-module Context
+06-07 07:00:14.206  8734  8734 W ModuleManager: Unable to get current module's fulfilled APIs in ModuleManager created with non-module Context
+06-07 07:00:14.206  8734  8734 W ChimeraApkLoader: Config is out of date: ContainerApk(com.google.android.gms) has been modified
+06-07 07:00:14.207  8734  8734 W ModuleManager: Unable to get current module's fulfilled APIs in ModuleManager created with non-module Context
+06-07 07:00:14.207  8734  8734 W ModuleManager: Unable to get current module's fulfilled APIs in ModuleManager created with non-module Context
+06-07 07:00:14.207  8734  8734 W ModuleManager: Unable to get current module's fulfilled APIs in ModuleManager created with non-module Context
+06-07 07:00:14.207  8734  8734 W ModuleManager: Unable to get current module's fulfilled APIs in ModuleManager created with non-module Context
+06-07 07:00:14.207  8734  8734 W ChimeraApkLoader: Config is out of date: ContainerApk(com.google.android.gms) has been modified
+06-07 07:00:14.207  8734  8734 W ModuleManager: Unable to get current module's fulfilled APIs in ModuleManager created with non-module Context
+06-07 07:00:14.207  8734  8734 W ModuleManager: Unable to get current module's fulfilled APIs in ModuleManager created with non-module Context
+06-07 07:00:14.207  8734  8734 W ModuleManager: Unable to get current module's fulfilled APIs in ModuleManager created with non-module Context
+06-07 07:00:14.207  8734  8734 W ModuleManager: Unable to get current module's fulfilled APIs in ModuleManager created with non-module Context
+06-07 07:00:14.207  8734  8734 W ChimeraApkLoader: Config is out of date: ContainerApk(com.google.android.gms) has been modified
+06-07 07:00:14.207  8734  8734 W ModuleManager: Unable to get current module's fulfilled APIs in ModuleManager created with non-module Context
+06-07 07:00:14.208  8734  8734 W ModuleManager: Unable to get current module's fulfilled APIs in ModuleManager created with non-module Context
+06-07 07:00:14.208  8734  8734 W ModuleManager: Unable to get current module's fulfilled APIs in ModuleManager created with non-module Context
+06-07 07:00:14.208  8734  8734 W ModuleManager: Unable to get current module's fulfilled APIs in ModuleManager created with non-module Context
+06-07 07:00:14.208  8734  8734 W ChimeraApkLoader: Config is out of date: ContainerApk(com.google.android.gms) has been modified
+06-07 07:00:14.208  8734  8734 W ModuleManager: Unable to get current module's fulfilled APIs in ModuleManager created with non-module Context
+06-07 07:00:14.208  8734  8734 W ModuleManager: Unable to get current module's fulfilled APIs in ModuleManager created with non-module Context
+06-07 07:00:14.208  8734  8734 W ModuleManager: Unable to get current module's fulfilled APIs in ModuleManager created with non-module Context
+06-07 07:00:14.208  8734  8734 W ModuleManager: Unable to get current module's fulfilled APIs in ModuleManager created with non-module Context
+06-07 07:00:14.260  8734  8734 D nativeloader: Load /data/app/~~KYfxxQknJlPjhvj9MRSqfQ==/com.google.android.gms-mCh4I2ARTwdtyTDudCgsaA==/base.apk!/lib/x86_64/libgmscore.so using class loader ns clns-10 (caller=/data/app/~~KYfxxQknJlPjhvj9MRSqfQ==/com.google.android.gms-mCh4I2ARTwdtyTDudCgsaA==/base.apk): ok
+06-07 07:00:14.274  8734  8738 W gle.android.gms: userfaultfd: MOVE ioctl seems unsupported: Connection timed out
+06-07 07:00:14.322  8734  8734 I ModuleSetResolution: Computing pending module set with APKs: [[AdsFdrDynamite.integ:260480602100000], [Appsearch.optional:260834100800], [Appsearch.optional:261332100800], [Appsearch.optional:261631100800], [MapsCoreDynamite.integ:254515602100800], [MapsCoreDynamite.integ:260830201100800], [MapsCoreDynamite.integ:260830202100800], [MlkitBarcodeUi.optional:260834100800], [MlkitBarcodeUi.optional:261332100800], [MlkitBarcodeUi.optional:261631100800], [MlkitOcrCommon.optional:260834100800], [MlkitOcrCommon.optional:261332100800], [MlkitOcrCommon.optional:261631100800], [PlayCloudSearch.optional:260834100000], [PlayCloudSearch.optional:261332100000], [PlayCloudSearch.optional:261631100000], [TfliteDynamiteDynamite.integ:252130102100800], [TfliteDynamiteDynamite.integ:260580502100800], [VisionBarcode.optional:260834100800], [VisionBarcode.optional:261332100800], [VisionBarcode.optional:261631100800], [VisionOcr.optional:260834100000], [VisionOcr.optional:261332100000], [VisionOcr.optional:261631100000], [Cronetdynamite:262031260800], [Dynamiteloader:262031260000], [Dynamitemodulesa:262031260000], [Dynamitemodulesc:262031260000], [Googlecertificates:262031260000], [Mapsdynamite:262031260000], [Measurementdynamite:262031260000]]
+06-07 07:00:14.334  8734  8734 E ashmem  : Pinning is deprecated since Android Q. Please use trim or other methods.
+06-07 07:00:14.457  8734  8734 I ModuleSetResolution: Pending container module APKs: [[MapsCoreDynamite.integ:260830202100800]]
+06-07 07:00:14.458  8734  8734 I ModuleSetResolution: Pending non-container module APKs: [[TfliteDynamiteDynamite.integ:260580502100800], [AdsFdrDynamite.integ:260480602100000]]
+06-07 07:00:14.466   777   923 I HalDevMgr: bestIfaceCreationProposal is null, requestIface=STA, existingIface=[name=wlan0 type=STA]
+06-07 07:00:14.647  8734  8734 V Configuration: Updating configuration, locales updated from [] to [en_US]
+06-07 07:00:14.710  8734  8734 V Configuration: Updating configuration, locales updated from [] to [en_US]
+06-07 07:00:14.746  8734  8734 I ChimeraCfgMgr: APKs changed, regenerating config
+06-07 07:00:14.917  8734  8738 W gle.android.gms: Suspending all threads took: 12.812ms
+06-07 07:00:15.355  1176  1309 D SatelliteController: iisInCarrierRoamingNbIotNtn: satellite is disabled
+06-07 07:00:15.396  1176  1309 D SatelliteController: getCarrierRoamingNtnConnectType: Falling back to global carrier config connect type: 0
+06-07 07:00:15.662  8734  8734 I GmsDebugLogger: [121] motionsicknessassist,systemserviceacl,talisman
+06-07 07:00:15.882   777  1290 D WifiNl80211Manager: Scan result ready event
+06-07 07:00:15.883   777  1290 D WifiNative: Scan result ready event
+06-07 07:00:15.985   777   923 I HalDevMgr: bestIfaceCreationProposal is null, requestIface=STA, existingIface=[name=wlan0 type=STA]
+06-07 07:00:16.035  8837  8837 D AndroidRuntime: >>>>>> START com.android.internal.os.RuntimeInit uid 2000 <<<<<<
+06-07 07:00:16.040  8734  8734 I ChimeraCfgMgr: Updating module config: ads_fdr:2604806025100000,container:2608349260800+appsearch_impl+maps_core+mlkit.barcode.ui+mlkit.ocr.common+play_cloud_search+vision.barcode+vision.ocr,container:2613320260800+appsearch_impl+maps_core+mlkit.barcode.ui+mlkit.ocr.common+play_cloud_search+vision.barcode+vision.ocr,container:2616310260800+appsearch_impl+maps_core+mlkit.barcode.ui+mlkit.ocr.common+play_cloud_search+vision.barcode+vision.ocr,tflite_dynamite:2605805025100800+tflite_dynamite -> ads_fdr:2604806025100000,container:2620319260800+maps_core,tflite_dynamite:2605805025100800+tflite_dynamite
+06-07 07:00:16.041  8734  8734 E DowngradeHelper: isModuleDowngradeRequired false
+06-07 07:00:16.071  8837  8837 I AndroidRuntime: Using default boot image
+06-07 07:00:16.071  8837  8837 I AndroidRuntime: Leaving lock profiling enabled
+06-07 07:00:16.085  8837  8837 I app_process: Using CollectorTypeCMC GC.
+06-07 07:00:16.156   777   813 I ActivityManager: Extending process start timeout by 2776ms for ProcessRecord{23e1ad0 8693:com.google.android.gms.persistent/u0a155}
+06-07 07:00:16.163   777   877 D ActivityManager: freezing 8327 com.google.android.as.oss
+06-07 07:00:16.176   777   935 D InetDiagMessage: Destroyed 0 sockets, proto=IPPROTO_TCP, family=AF_INET, states=14
+06-07 07:00:16.184   777   935 D InetDiagMessage: Destroyed 0 sockets, proto=IPPROTO_TCP, family=AF_INET6, states=14
+06-07 07:00:16.184   777   935 D InetDiagMessage: Destroyed live tcp sockets for uids={10144} in 9ms
+06-07 07:00:16.510  8837  8837 D nativeloader: InitDefaultPublicLibraries for_preload=1: libandroid.so:libaaudio.so:libamidi.so:libbinder_ndk.so:libc.so:libcamera2ndk.so:libdl.so:libEGL.so:libGLESv1_CM.so:libGLESv2.so:libGLESv3.so:libicu.so:libicui18n.so:libicuuc.so:libjnigraphics.so:liblog.so:libmediandk.so:libm.so:libnativehelper.so:libnativewindow.so:libOpenMAXAL.so:libOpenSLES.so:libRS.so:libstdc++.so:libsync.so:libvulkan.so:libwebviewchromium_plat_support.so:libz.so
+06-07 07:00:16.659  8838  8838 W libbinder.BackendUnifiedServiceManager: Thread Pool max thread count is 0. Cannot cache binder as linkToDeath cannot be implemented. serviceName: package
+06-07 07:00:16.673  8837  8837 D nativeloader: Load libicu_jni.so using APEX ns com_android_art for caller /apex/com.android.art/javalib/core-oj.jar: ok
+06-07 07:00:16.674  8837  8837 D app_process: u_setTimeZoneFilesDirectory("/apex/com.android.tzdata/etc/tz/versioned/9/icu") succeeded. 
+06-07 07:00:16.675  8837  8837 D app_process: I18n APEX ICU file found: /apex/com.android.i18n/etc/icu/icudt76l.dat
+06-07 07:00:16.699  8837  8837 D nativeloader: Load libjavacore.so using APEX ns com_android_art for caller /apex/com.android.art/javalib/core-oj.jar: ok
+06-07 07:00:16.720  8837  8837 D nativeloader: Load libopenjdk.so using APEX ns com_android_art for caller /apex/com.android.art/javalib/core-oj.jar: ok
+06-07 07:00:16.723  8837  8837 I app_process: Priority-to-niceness mapping: 19, 16, 13, 10, 0, -2, -4, -5, -6, -8
+06-07 07:00:16.724  8837  8837 W app_process: Unexpected CPU variant for x86: x86_64.
+06-07 07:00:16.724  8837  8837 W app_process: Known variants: atom, sandybridge, silvermont, goldmont, goldmont-plus, goldmont-without-sha-xsaves, tremont, kabylake, alderlake, default
+06-07 07:00:16.782  8837  8837 W app_process: ClassLoaderContext shared library size mismatch. Expected=2, found=0 (PCL[]{PCL[/system/framework/android.test.base.jar*1947731759]#PCL[/system/framework/android.test.mock.jar*3673435773]} | PCL[])
+06-07 07:00:16.813  8837  8837 W app_process: ClassLoaderContext classpath size mismatch. expected=0, found=1 (PCL[]{PCL[/system/framework/android.test.runner.jar*3527284906]{PCL[/system/framework/android.test.base.jar*1947731759]#PCL[/system/framework/android.test.mock.jar*3673435773]}#PCL[/system/framework/android.test.base.jar*1947731759]} | PCL[/system/framework/android.test.runner.jar*3527284906])
+06-07 07:00:17.087  8837  8837 D nativeloader: Load libframework-connectivity-tiramisu-jni.so using APEX ns com_android_tethering for caller /apex/com.android.tethering/javalib/framework-connectivity-t.jar: ok
+06-07 07:00:17.088  8837  8837 D AndroidRuntime: Calling main entry com.android.commands.uiautomator.Launcher
+06-07 07:00:17.196  8837  8837 I AconfigPackage: android.media.swcodec.flags is mapped to com.android.media.swcodec
+06-07 07:00:17.210  8837  8837 I AconfigPackage: com.android.permission.flags is mapped to com.android.permission
+06-07 07:00:17.210  8837  8837 I AconfigPackage: com.android.permissioncontroller.flags is mapped to com.android.permission
+06-07 07:00:17.226  8837  8837 I AconfigPackage: com.android.icu is mapped to com.android.i18n
+06-07 07:00:17.233  8837  8837 I AconfigPackage: com.android.appsearch.flags is mapped to com.android.appsearch
+06-07 07:00:17.248  8837  8837 I AconfigPackage: android.uprobestats.mainline.flags is mapped to com.android.uprobestats
+06-07 07:00:17.255  8837  8837 I AconfigPackage: com.android.crashrecovery.flags is mapped to com.android.crashrecovery
+06-07 07:00:17.267  8837  8837 I AconfigPackage: android.provider.flags is mapped to com.android.configinfrastructure
+06-07 07:00:17.267  8837  8837 I AconfigPackage: com.android.server.deviceconfig is mapped to com.android.configinfrastructure
+06-07 07:00:17.279  8837  8837 I AconfigPackage: com.android.compos.flags is mapped to com.android.compos
+06-07 07:00:17.290  8837  8837 I AconfigPackage: com.android.art.flags is mapped to com.android.art
+06-07 07:00:17.290  8837  8837 I AconfigPackage: com.android.art.rw.flags is mapped to com.android.art
+06-07 07:00:17.290  8837  8837 I AconfigPackage: com.android.libcore is mapped to com.android.art
+06-07 07:00:17.301  8837  8837 I AconfigPackage: com.android.telephony.flags is mapped to com.android.telephonycore
+06-07 07:00:17.305  2309  4879 I artd    : GetBestInfo: /data/app/~~KYfxxQknJlPjhvj9MRSqfQ==/com.google.android.gms-mCh4I2ARTwdtyTDudCgsaA==/base.apk has no usable artifacts
+06-07 07:00:17.306  8837  8837 I AconfigPackage: com.android.media.extractor.flags is mapped to com.android.media
+06-07 07:00:17.307  8837  8837 I AconfigPackage: com.android.media.mainline.flags is mapped to com.android.media
+06-07 07:00:17.313  8837  8837 I AconfigPackage: com.android.wifi.flags is mapped to com.android.wifi
+06-07 07:00:17.314  8837  8837 I AconfigPackage: com.android.org.conscrypt.flags is mapped to com.android.conscrypt
+06-07 07:00:17.315  8837  8837 I AconfigPackage: com.android.org.conscrypt.net.flags is mapped to com.android.conscrypt
+06-07 07:00:17.316  2309  4879 I artd    : GetBestInfo: odex next to the dex file (/data/app/~~KYfxxQknJlPjhvj9MRSqfQ==/com.google.android.gms-mCh4I2ARTwdtyTDudCgsaA==/oat/x86_64/split_AdsDynamite_installtime.odex) is kOatUpToDate with filter 'speed' executable 'false'
+06-07 07:00:17.321  8837  8837 I AconfigPackage: com.android.healthfitness.flags is mapped to com.android.healthfitness
+06-07 07:00:17.326  2309  4879 I artd    : GetBestInfo: odex next to the dex file (/data/app/~~KYfxxQknJlPjhvj9MRSqfQ==/com.google.android.gms-mCh4I2ARTwdtyTDudCgsaA==/oat/x86_64/split_CronetDynamite_installtime.odex) is kOatUpToDate with filter 'speed' executable 'false'
+06-07 07:00:17.328  8837  8837 I AconfigPackage: com.android.ipsec.flags is mapped to com.android.ipsec
+06-07 07:00:17.333  8837  8837 I AconfigPackage: com.android.nfc.module.flags is mapped to com.android.nfcservices
+06-07 07:00:17.333  2309  4879 I artd    : GetBestInfo: odex next to the dex file (/data/app/~~KYfxxQknJlPjhvj9MRSqfQ==/com.google.android.gms-mCh4I2ARTwdtyTDudCgsaA==/oat/x86_64/split_DynamiteLoader_installtime.odex) is kOatUpToDate with filter 'speed' executable 'false'
+06-07 07:00:17.338  8837  8837 I AconfigPackage: com.android.adservices.ondevicepersonalization.flags is mapped to com.android.ondevicepersonalization
+06-07 07:00:17.343  2309  4879 I artd    : GetBestInfo: odex next to the dex file (/data/app/~~KYfxxQknJlPjhvj9MRSqfQ==/com.google.android.gms-mCh4I2ARTwdtyTDudCgsaA==/oat/x86_64/split_DynamiteModulesA_installtime.odex) is kOatUpToDate with filter 'speed' executable 'false'
+06-07 07:00:17.346  8837  8837 I AconfigPackage: com.android.adbd.flags is mapped to com.android.adbd
+06-07 07:00:17.352  2309  4879 I artd    : GetBestInfo: odex next to the dex file (/data/app/~~KYfxxQknJlPjhvj9MRSqfQ==/com.google.android.gms-mCh4I2ARTwdtyTDudCgsaA==/oat/x86_64/split_DynamiteModulesC_installtime.odex) is kOatUpToDate with filter 'speed' executable 'false'
+06-07 07:00:17.355  8837  8837 I AconfigPackage: com.android.bluetooth.flags is mapped to com.android.bt
+06-07 07:00:17.362  8837  8837 I AconfigPackage: com.android.devicelock.flags is mapped to com.android.devicelock
+06-07 07:00:17.367  2309  4879 I artd    : GetBestInfo: odex next to the dex file (/data/app/~~KYfxxQknJlPjhvj9MRSqfQ==/com.google.android.gms-mCh4I2ARTwdtyTDudCgsaA==/oat/x86_64/split_GoogleCertificates_installtime.odex) is kOatUpToDate with filter 'speed' executable 'false'
+06-07 07:00:17.370  8837  8837 I AconfigPackage: android.os.profiling is mapped to com.android.profiling
+06-07 07:00:17.370  8837  8837 I AconfigPackage: android.os.profiling.anomaly.flags is mapped to com.android.profiling
+06-07 07:00:17.378  8837  8837 I AconfigPackage: com.android.os.statsd.flags is mapped to com.android.os.statsd
+06-07 07:00:17.383  2309  4879 I artd    : GetBestInfo: odex next to the dex file (/data/app/~~KYfxxQknJlPjhvj9MRSqfQ==/com.google.android.gms-mCh4I2ARTwdtyTDudCgsaA==/oat/x86_64/split_MapsDynamite_installtime.odex) is kOatUpToDate with filter 'speed' executable 'false'
+06-07 07:00:17.385  8837  8837 I AconfigPackage: com.android.rkpd.flags is mapped to com.android.rkpd
+06-07 07:00:17.389  2309  4879 I artd    : GetBestInfo: odex next to the dex file (/data/app/~~KYfxxQknJlPjhvj9MRSqfQ==/com.google.android.gms-mCh4I2ARTwdtyTDudCgsaA==/oat/x86_64/split_MeasurementDynamite_installtime.odex) is kOatUpToDate with filter 'speed' executable 'false'
+06-07 07:00:17.391  2309  4879 W artd    : Could not get dex checksums for location /data/app/~~hbiIONFHaCdu_hZnY-5dzA==/com.google.android.gms-hzTkChCsM6Ndzah6AYkMDg==/base.apk, fd=-1
+06-07 07:00:17.394  8837  8837 I AconfigPackage: com.android.cellbroadcastreceiver.flags is mapped to com.android.cellbroadcast
+06-07 07:00:17.401  8837  8837 I AconfigPackage: com.android.adservices.flags is mapped to com.android.adservices
+06-07 07:00:17.401  8837  8837 I AconfigPackage: com.android.sdksandbox.flags is mapped to com.android.adservices
+06-07 07:00:17.401  2309  4879 I artd    : GetBestInfo: /data/user_de/0/com.google.android.gms/app_chimera/m/00000001/CronetDynamite.apk has no usable artifacts
+06-07 07:00:17.404  2309  4879 W artd    : Could not get dex checksums for location /data/app/~~hbiIONFHaCdu_hZnY-5dzA==/com.google.android.gms-hzTkChCsM6Ndzah6AYkMDg==/base.apk, fd=-1
+06-07 07:00:17.407  2309  4879 I artd    : GetBestInfo: /data/user_de/0/com.google.android.gms/app_chimera/m/00000002/DynamiteLoader.apk has no usable artifacts
+06-07 07:00:17.408  8837  8837 I AconfigPackage: com.android.uwb.flags is mapped to com.android.uwb
+06-07 07:00:17.409  8837  8837 I AconfigPackage: com.android.ranging.flags is mapped to com.android.uwb
+06-07 07:00:17.418  8837  8837 I AconfigPackage: android.graphics.pdf.flags is mapped to com.android.mediaprovider
+06-07 07:00:17.418  8837  8837 I AconfigPackage: com.android.providers.media.flags is mapped to com.android.mediaprovider
+06-07 07:00:17.418  8837  8837 I AconfigPackage: android.graphics.pdf.flags.readonly is mapped to com.android.mediaprovider
+06-07 07:00:17.419  2309  4879 I artd    : GetBestInfo: /data/user_de/0/com.google.android.gms/app_chimera/m/0000000d/dl-VisionOcr.optional_253434100000.apk has no usable artifacts
+06-07 07:00:17.426  2309  4879 I artd    : GetBestInfo: /data/user_de/0/com.google.android.gms/app_chimera/m/00000005/GoogleCertificates.apk has no usable artifacts
+06-07 07:00:17.430  8837  8837 I AconfigPackage: com.android.tethering.mainline.beta is mapped to com.android.tethering
+06-07 07:00:17.430  8837  8837 I AconfigPackage: android.net.http is mapped to com.android.tethering
+06-07 07:00:17.430  8837  8837 I AconfigPackage: com.android.tethering.readonly.flags is mapped to com.android.tethering
+06-07 07:00:17.430  8837  8837 I AconfigPackage: android.net.vcn is mapped to com.android.tethering
+06-07 07:00:17.430  8837  8837 I AconfigPackage: com.android.net.flags is mapped to com.android.tethering
+06-07 07:00:17.430  8837  8837 I AconfigPackage: com.android.tethering.beta.test is mapped to com.android.tethering
+06-07 07:00:17.430  8837  8837 I AconfigPackage: com.android.nearby.flags is mapped to com.android.tethering
+06-07 07:00:17.430  8837  8837 I AconfigPackage: com.android.net.ct.flags is mapped to com.android.tethering
+06-07 07:00:17.431  8837  8837 I AconfigPackage: com.android.net.thread.flags is mapped to com.android.tethering
+06-07 07:00:17.436  2309  4879 I artd    : GetBestInfo: /data/user_de/0/com.google.android.gms/app_chimera/m/00000008/dl-MlkitBarcodeUi.optional_253434100800.apk has no usable artifacts
+06-07 07:00:17.437  8837  8837 I AconfigPackage: com.android.system.virtualmachine.flags is mapped to com.android.virt
+06-07 07:00:17.437  8837  8837 E FeatureFlagsImplExport: android.os.flagging.AconfigStorageReadException: ERROR_PACKAGE_NOT_FOUND: package android.xr cannot be found on the device
+06-07 07:00:17.441  2309  4879 I artd    : GetBestInfo: /data/user_de/0/com.google.android.gms/app_chimera/m/0000000e/dl-MlkitOcrCommon.optional_253434100800.apk has no usable artifacts
+06-07 07:00:17.452  2309  4879 I artd    : GetBestInfo: /data/user_de/0/com.google.android.gms/app_chimera/m/0000000b/dl-Appsearch.optional_253434100800.apk has no usable artifacts
+06-07 07:00:17.455  2309  4879 W artd    : Could not get dex checksums for location /data/app/~~hbiIONFHaCdu_hZnY-5dzA==/com.google.android.gms-hzTkChCsM6Ndzah6AYkMDg==/base.apk, fd=-1
+06-07 07:00:17.457  2309  4879 W artd    : Could not get dex checksums for location /data/app/~~hbiIONFHaCdu_hZnY-5dzA==/com.google.android.gms-hzTkChCsM6Ndzah6AYkMDg==/base.apk, fd=-1
+06-07 07:00:17.461  8837  8837 D UiAutomationConnection: Created on user UserHandle{0}
+06-07 07:00:17.461  8837  8837 I UiAutomation: Initialized for user 0 on display 0
+06-07 07:00:17.461  8837  8837 W UiAutomation: Created with deprecatead constructor, assumes DEFAULT_DISPLAY
+06-07 07:00:17.462  2309  4879 W artd    : Could not get dex checksums for location /data/app/~~hbiIONFHaCdu_hZnY-5dzA==/com.google.android.gms-hzTkChCsM6Ndzah6AYkMDg==/base.apk, fd=-1
+06-07 07:00:17.465  2309  4879 W artd    : Could not get dex checksums for location /data/app/~~hbiIONFHaCdu_hZnY-5dzA==/com.google.android.gms-hzTkChCsM6Ndzah6AYkMDg==/base.apk, fd=-1
+06-07 07:00:17.470   777  1290 D AccessibilityManagerService: changeCurrentUserForTestAutomationIfNeededLocked(0): ignoring because device doesn't support visible background users
+06-07 07:00:17.473   777  1290 I UiAutomationManager: Registering UiTestAutomationService (id=com.android.server.accessibility/UiAutomation, flags=0x0) when called by user 0
+06-07 07:00:17.478  2309  4879 W artd    : Could not get dex checksums for location /data/app/~~hbiIONFHaCdu_hZnY-5dzA==/com.google.android.gms-hzTkChCsM6Ndzah6AYkMDg==/base.apk, fd=-1
+06-07 07:00:17.479   777  1290 V AccessibilityManagerService: onUserStateChangedLocked for userId: 0, forceUpdate: false
+06-07 07:00:17.482  2309  4879 W artd    : Could not get dex checksums for location /data/app/~~hbiIONFHaCdu_hZnY-5dzA==/com.google.android.gms-hzTkChCsM6Ndzah6AYkMDg==/base.apk, fd=-1
+06-07 07:00:17.485  2309  4879 I artd    : GetBestInfo: /data/user_de/0/com.google.android.gms/app_chimera/m/00000017/dl-MapsCoreDynamite.integ_254515602100800.apk has no usable artifacts
+06-07 07:00:17.486   777  1290 V AccessibilityUserState: updateShortcutTargets: type:accessibility_shortcut_target_service, current:{}, new:{}
+06-07 07:00:17.486   777  1290 V AccessibilityUserState: updateShortcutTargets: type:accessibility_button_targets, current:{}, new:{}
+06-07 07:00:17.486   777  1290 V AccessibilityUserState: updateShortcutTargets: type:accessibility_gesture_targets, current:{}, new:{}
+06-07 07:00:17.486   777  1290 V AccessibilityUserState: updateShortcutTargets: type:accessibility_qs_targets, current:{}, new:{}
+06-07 07:00:17.486   777  1290 V AccessibilityUserState: updateShortcutTargets: type:accessibility_key_gesture_targets, current:{}, new:{}
+06-07 07:00:17.488  2309  4878 W artd    : Could not get dex checksums for location /data/app/~~hbiIONFHaCdu_hZnY-5dzA==/com.google.android.gms-hzTkChCsM6Ndzah6AYkMDg==/base.apk, fd=-1
+06-07 07:00:17.489  8291  8300 I AiAiEcho: Settings changed for uri: content://settings/secure/accessibility_enabled
+06-07 07:00:17.491  2309  4878 W artd    : Could not get dex checksums for location /data/app/~~hbiIONFHaCdu_hZnY-5dzA==/com.google.android.gms-hzTkChCsM6Ndzah6AYkMDg==/base.apk, fd=-1
+06-07 07:00:17.497  2309  4878 I artd    : GetBestInfo: /data/user_de/0/com.google.android.gms/app_chimera/m/0000000f/dl-PlayCloudSearch.optional_253434100000.apk has no usable artifacts
+06-07 07:00:17.500   777  1290 W MagnificationConnectionManager: requestConnection duplicated request: connect=false, mConnectionState=DISCONNECTED
+06-07 07:00:17.502  2309  4879 W artd    : Could not get dex checksums for location /data/app/~~hbiIONFHaCdu_hZnY-5dzA==/com.google.android.gms-hzTkChCsM6Ndzah6AYkMDg==/base.apk, fd=-1
+06-07 07:00:17.508   777   923 I HalDevMgr: bestIfaceCreationProposal is null, requestIface=STA, existingIface=[name=wlan0 type=STA]
+06-07 07:00:17.518  2309  4879 W artd    : Could not get dex checksums for location /data/app/~~_8LrTu6skPmJ1_vZQaQWyw==/com.android.vending-7ymJ43OKUoHdM0fQBDZPpw==/base.apk, fd=-1
+06-07 07:00:17.528  2309  4879 W artd    : Could not get dex checksums for location /data/app/~~hbiIONFHaCdu_hZnY-5dzA==/com.google.android.gms-hzTkChCsM6Ndzah6AYkMDg==/base.apk, fd=-1
+06-07 07:00:17.567   777   777 W libbinder.IPCThreadState: Sending oneway calls to frozen process.
+06-07 07:00:17.574   777   777 W libbinder.IPCThreadState: Sending oneway calls to frozen process.
+06-07 07:00:17.588   777   777 W libbinder.IPCThreadState: Sending oneway calls to frozen process.
+06-07 07:00:17.599   777   777 D BatterySaverPolicy: accessibility changed to true, updating policy.
+06-07 07:00:17.633   777  1645 V AccessibilityManagerService: onUserStateChangedLocked for userId: 0, forceUpdate: false
+06-07 07:00:17.635   777   813 I ActivityManager: Extending process start timeout by 1965ms for ProcessRecord{418e18f 8734:com.google.android.gms/u0a155}
+06-07 07:00:17.649  8291  8300 I AiAiEcho: Settings changed for uri: content://settings/secure/accessibility_enabled
+06-07 07:00:17.656   777  1645 V AccessibilityUserState: updateShortcutTargets: type:accessibility_shortcut_target_service, current:{}, new:{}
+06-07 07:00:17.656   777  1645 V AccessibilityUserState: updateShortcutTargets: type:accessibility_button_targets, current:{}, new:{}
+06-07 07:00:17.657   777  1645 V AccessibilityUserState: updateShortcutTargets: type:accessibility_gesture_targets, current:{}, new:{}
+06-07 07:00:17.662   777  1645 V AccessibilityUserState: updateShortcutTargets: type:accessibility_qs_targets, current:{}, new:{}
+06-07 07:00:17.672   777  1645 V AccessibilityUserState: updateShortcutTargets: type:accessibility_key_gesture_targets, current:{}, new:{}
+06-07 07:00:17.673   777  1645 W MagnificationConnectionManager: requestConnection duplicated request: connect=false, mConnectionState=DISCONNECTED
+06-07 07:00:17.684   777   777 W libbinder.IPCThreadState: Sending oneway calls to frozen process.
+06-07 07:00:17.687   777   777 W libbinder.IPCThreadState: Sending oneway calls to frozen process.
+06-07 07:00:17.745   777  1005 W libbinder.Binder: Binder transaction to android.content.pm.IPackageManager code 1598311760 took 1082ms. Data bytes: 80 Reply bytes: 4 Flags: 16
+06-07 07:00:17.749  8291  8308 I AiAiEcho: Predicting[0]:  [CONTEXT sampling_count=5 ]
+06-07 07:00:17.761  8291  8308 I AiAiEcho: EchoTargets: 
+06-07 07:00:17.761  8291  8308 I AiAiEcho: Filtered by AiAi flag check: 
+06-07 07:00:17.761  8291  8308 I AiAiEcho: [CONTEXT ratelimit_period="10 SECONDS" ]
+06-07 07:00:17.778  8291  8308 I AiAiEcho: #remoteViewsTwiddler: feature disabled.
+06-07 07:00:17.788  8291  8308 I AiAiEcho: Predicting[0]:  [CONTEXT sampling_count=5 ]
+06-07 07:00:17.789  8291  8308 I AiAiEcho: EchoTargets: 
+06-07 07:00:17.789  8291  8308 I AiAiEcho: Filtered by AiAi flag check: 
+06-07 07:00:17.789  8291  8308 I AiAiEcho: [CONTEXT ratelimit_period="10 SECONDS" ]
+06-07 07:00:17.793  8291  8308 I AiAiEcho: #remoteViewsTwiddler: feature disabled.
+06-07 07:00:17.800  8291  8308 I AiAiEcho: Predicting[0]:  [CONTEXT sampling_count=5 ]
+06-07 07:00:17.801  8291  8308 I AiAiEcho: EchoTargets: 
+06-07 07:00:17.801  8291  8308 I AiAiEcho: Filtered by AiAi flag check: 
+06-07 07:00:17.801  8291  8308 I AiAiEcho: [CONTEXT ratelimit_period="10 SECONDS" ]
+06-07 07:00:17.804  8291  8308 I AiAiEcho: #remoteViewsTwiddler: feature disabled.
+06-07 07:00:17.805  8291  8308 I AiAiEcho: Predicting[0]:  [CONTEXT sampling_count=5 ]
+06-07 07:00:17.805  8291  8308 I AiAiEcho: EchoTargets: 
+06-07 07:00:17.805  8291  8308 I AiAiEcho: Filtered by AiAi flag check: 
+06-07 07:00:17.805  8291  8308 I AiAiEcho: [CONTEXT ratelimit_period="10 SECONDS" ]
+06-07 07:00:17.810  8291  8308 I AiAiEcho: #remoteViewsTwiddler: feature disabled.
+06-07 07:00:17.812  8291  8308 I AiAiEcho: Predicting[0]:  [CONTEXT sampling_count=5 ]
+06-07 07:00:17.813  8291  8308 I AiAiEcho: EchoTargets: 
+06-07 07:00:17.813  8291  8308 I AiAiEcho: Filtered by AiAi flag check: 
+06-07 07:00:17.813  8291  8308 I AiAiEcho: [CONTEXT ratelimit_period="10 SECONDS" ]
+06-07 07:00:17.813  8551  8854 D AccessibilitySourceService: enabled a11y services count 0
+06-07 07:00:17.814  8551  8854 D AccessibilitySourceService: a11y source sending 0 issue to sc
+06-07 07:00:17.815   777  1653 D SafetySourceDataValidat: No cert check requested for package com.google.android.permissioncontroller
+06-07 07:00:17.817  8291  8308 I AiAiEcho: #remoteViewsTwiddler: feature disabled.
+06-07 07:00:17.820  8291  8308 I AiAiEcho: Predicting[0]:  [CONTEXT sampling_count=5 ]
+06-07 07:00:17.820  8291  8308 I AiAiEcho: EchoTargets: 
+06-07 07:00:17.820  8291  8308 I AiAiEcho: Filtered by AiAi flag check: 
+06-07 07:00:17.820  8291  8308 I AiAiEcho: [CONTEXT ratelimit_period="10 SECONDS" ]
+06-07 07:00:17.823  8291  8308 I AiAiEcho: #remoteViewsTwiddler: feature disabled.
+06-07 07:00:17.836  8291  8308 I AiAiEcho: #postPredictionTargets: Sending updates to UISurface home with targets# 0 (types=[])
+06-07 07:00:17.853  8291  8308 I AiAiEcho: #postPredictionTargets: Sending updates to UISurface lockscreen with targets# 0 (types=[])
+06-07 07:00:17.856  8291  8308 I AiAiEcho: #postPredictionTargets: Sending updates to UISurface ambientcue with targets# 0 (types=[])
+06-07 07:00:17.858   777  1653 D AccessibilityManagerService: .getAccessibilityShortcutTargets {shortcutType=32, userId=0}
+06-07 07:00:17.863  8291  8308 I AiAiEcho: #postPredictionTargets: Sending updates to UISurface home with targets# 0 (types=[])
+06-07 07:00:17.862  1030  1150 I AmbientCueRepository: Receiving SmartSpace targets # 0
+06-07 07:00:17.868  8291  8308 I AiAiEcho: #postPredictionTargets: Sending updates to UISurface lockscreen with targets# 0 (types=[])
+06-07 07:00:17.872  8291  8308 I AiAiEcho: #postPredictionTargets: Sending updates to UISurface ambientcue with targets# 0 (types=[])
+06-07 07:00:17.880  1030  1150 I AmbientCueRepository: Receiving SmartSpace targets # 0
+06-07 07:00:17.932  1030  1030 W SsPagerDots: Total number of pages invalid: 0. Assuming 1 page.
+06-07 07:00:17.954  1030  1030 W SsPagerDots: Total number of pages invalid: 0. Assuming 1 page.
+06-07 07:00:17.955  8734  8734 I NewModuleHelper: Sending com.google.android.chimera.IntentOperation.NEW_MODULE Container service: com.google.android.gms.chimera.GmsIntentOperationService Intents: 1,false,true
+06-07 07:00:17.963  8734  8734 I NewModuleHelper: Sending com.google.android.chimera.IntentOperation.NEW_MODULE Container service: com.google.android.gms.chimera.PersistentIntentOperationService Intents: 1,false,true
+06-07 07:00:17.975  8734  8734 I GmsDebugLogger: [46] ads_fdr:2604806025100000,container:2608349260800+appsearch_impl+maps_core+mlkit.barcode.ui+mlkit.ocr.common+play_cloud_search+vision.barcode+vision.ocr,container:2613320260800+appsearch_impl+maps_core+mlkit.barcode.ui+mlkit.ocr.common+play_cloud_search+vision.barcode+vision.ocr,container:2616310260800+appsearch_impl+maps_core+mlkit.barcode.ui+mlkit.ocr.common+play_cloud_search+vision.barcode+vision.ocr,tflite_dynamite:2605805025100800+tflite_dynamite
+06-07 07:00:17.981  8734  8734 I GmsApplication: Updating config completed
+06-07 07:00:18.139  8693  8693 I GmsApplication: Staging modules and/or updating config already complete
+06-07 07:00:18.315  8734  8857 W gle.android.gms: Verification of czam czcf.d(jaoz, czce) took 186.174ms (10619.05 bytecodes/s) (0B arena alloc)
+06-07 07:00:18.346  8734  8738 W gle.android.gms: Suspending all threads took: 16.645ms
+06-07 07:00:18.411  8734  8734 W ProviderHelper: Unknown dynamite feature providerinstaller.dynamite
+06-07 07:00:18.411  8734  8734 I DynamiteModule: Considering local module com.google.android.gms.providerinstaller.dynamite:1 and remote module com.google.android.gms.providerinstaller.dynamite:0
+06-07 07:00:18.411  8734  8734 I DynamiteModule: Selected local version of com.google.android.gms.providerinstaller.dynamite
+06-07 07:00:18.481  8734  8734 D nativeloader: Load /data/app/~~KYfxxQknJlPjhvj9MRSqfQ==/com.google.android.gms-mCh4I2ARTwdtyTDudCgsaA==/base.apk!/lib/x86_64/libconscrypt_gmscore_jni.so using class loader ns clns-10 (caller=/data/app/~~KYfxxQknJlPjhvj9MRSqfQ==/com.google.android.gms-mCh4I2ARTwdtyTDudCgsaA==/base.apk): ok
+06-07 07:00:18.513  8734  8734 V NativeCrypto: Registering com/google/android/gms/org/conscrypt/NativeCrypto's 337 native methods...
+06-07 07:00:18.732  8693  8703 I GservicesProvider: Gservices pushing to system: true; secure/global: true
+06-07 07:00:18.744  8837  8837 W AccessibilityNodeInfoDumper: Fetch time: 11ms
+06-07 07:00:18.753   777  1653 V AccessibilityManagerService: onUserStateChangedLocked for userId: 0, forceUpdate: false
+06-07 07:00:18.764   777  1653 V AccessibilityUserState: updateShortcutTargets: type:accessibility_shortcut_target_service, current:{}, new:{}
+06-07 07:00:18.764   777  1653 V AccessibilityUserState: updateShortcutTargets: type:accessibility_button_targets, current:{}, new:{}
+06-07 07:00:18.764   777  1653 V AccessibilityUserState: updateShortcutTargets: type:accessibility_gesture_targets, current:{}, new:{}
+06-07 07:00:18.764   777  1653 V AccessibilityUserState: updateShortcutTargets: type:accessibility_qs_targets, current:{}, new:{}
+06-07 07:00:18.764   777  1653 V AccessibilityUserState: updateShortcutTargets: type:accessibility_key_gesture_targets, current:{}, new:{}
+06-07 07:00:18.765   777  1653 W MagnificationConnectionManager: requestConnection duplicated request: connect=false, mConnectionState=DISCONNECTED
+06-07 07:00:18.765   777  1653 D AccessibilityManagerService: restoreCurrentUserForTestAutomationIfNeededLocked(): ignoring because device doesn't support visible background users
+06-07 07:00:18.769   777   777 W libbinder.IPCThreadState: Sending oneway calls to frozen process.
+06-07 07:00:18.776  8291  8300 I AiAiEcho: Settings changed for uri: content://settings/secure/accessibility_enabled
+06-07 07:00:18.795  8693  8859 W .gms.persistent: Verification of void jaot.<init>(int[][][], byte[][]) took 109.008ms (55.04 bytecodes/s) (0B arena alloc)
+06-07 07:00:18.798  8291  8308 I AiAiEcho: Predicting[0]:  [CONTEXT sampling_count=5 ]
+06-07 07:00:18.799  8291  8308 I AiAiEcho: EchoTargets: 
+06-07 07:00:18.799  8291  8308 I AiAiEcho: Filtered by AiAi flag check: 
+06-07 07:00:18.799  8291  8308 I AiAiEcho: [CONTEXT ratelimit_period="10 SECONDS" ]
+06-07 07:00:18.801  8291  8308 I AiAiEcho: #remoteViewsTwiddler: feature disabled.
+06-07 07:00:18.803  8837  8837 D AndroidRuntime: Shutting down VM
+06-07 07:00:18.806   777   777 W libbinder.IPCThreadState: Sending oneway calls to frozen process.
+06-07 07:00:18.808  8837  8850 W libbinder.IPCThreadState: call to talkWithDriver in joinThreadPool returned error: -9 (Bad file descriptor), FD: -1
+06-07 07:00:18.810  8291  8308 I AiAiEcho: Predicting[0]:  [CONTEXT sampling_count=5 ]
+06-07 07:00:18.813  8837  8851 W libbinder.IPCThreadState: call to talkWithDriver in joinThreadPool returned error: -9 (Bad file descriptor), FD: -1
+06-07 07:00:18.814  8291  8308 I AiAiEcho: EchoTargets: 
+06-07 07:00:18.814  8291  8308 I AiAiEcho: Filtered by AiAi flag check: 
+06-07 07:00:18.814  8291  8308 I AiAiEcho: [CONTEXT ratelimit_period="10 SECONDS" ]
+06-07 07:00:18.817  8291  8308 I AiAiEcho: #remoteViewsTwiddler: feature disabled.
+06-07 07:00:18.818  8291  8308 I AiAiEcho: Predicting[0]:  [CONTEXT sampling_count=5 ]
+06-07 07:00:18.818  8291  8308 I AiAiEcho: EchoTargets: 
+06-07 07:00:18.818  8291  8308 I AiAiEcho: Filtered by AiAi flag check: 
+06-07 07:00:18.818  8291  8308 I AiAiEcho: [CONTEXT ratelimit_period="10 SECONDS" ]
+06-07 07:00:18.821  8291  8308 I AiAiEcho: #remoteViewsTwiddler: feature disabled.
+06-07 07:00:18.823  8291  8308 I AiAiEcho: #postPredictionTargets: Sending updates to UISurface home with targets# 0 (types=[])
+06-07 07:00:18.829  8291  8308 I AiAiEcho: #postPredictionTargets: Sending updates to UISurface lockscreen with targets# 0 (types=[])
+06-07 07:00:18.833  8291  8308 I AiAiEcho: #postPredictionTargets: Sending updates to UISurface ambientcue with targets# 0 (types=[])
+06-07 07:00:18.836  8693  8703 E ashmem  : Pinning is deprecated since Android Q. Please use trim or other methods.
+06-07 07:00:18.836  1030  1030 W SsPagerDots: Total number of pages invalid: 0. Assuming 1 page.
+06-07 07:00:18.844   777   777 W libbinder.IPCThreadState: Sending oneway calls to frozen process.
+06-07 07:00:18.845   777   777 D BatterySaverPolicy: accessibility changed to false, updating policy.
+06-07 07:00:18.901  8734  8734 I ProviderInstaller: Installed default security provider GmsCore_OpenSSL
+06-07 07:00:18.906  1030  1150 I AmbientCueRepository: Receiving SmartSpace targets # 0
+06-07 07:00:18.927  8693  8859 W .gms.persistent: Verification of void jaot.<init>(int[][][], char[][][]) took 117.579ms (51.03 bytecodes/s) (0B arena alloc)
+06-07 07:00:18.982   777  8869 D ActivityManager: created ANR temporary file:/data/anr/temp_anr_372267749147998253.txt
+06-07 07:00:18.983   777  8869 I ActivityManager: Collecting stacks for pid 8693 into temporary file temp_anr_372267749147998253.txt
+06-07 07:00:18.986  8693  8693 W ProviderHelper: Unknown dynamite feature providerinstaller.dynamite
+06-07 07:00:18.982   777   777 W AnrMainProcessD: type=1400 audit(0.0:381): avc:  denied  { read } for  name="transactions" dev="binder" ino=1048588 scontext=u:r:system_server:s0 tcontext=u:object_r:binderfs_logs_transactions:s0 tclass=file permissive=0
+06-07 07:00:18.994  8693  8693 I DynamiteModule: Considering local module com.google.android.gms.providerinstaller.dynamite:1 and remote module com.google.android.gms.providerinstaller.dynamite:0
+06-07 07:00:18.994  8693  8693 I DynamiteModule: Selected local version of com.google.android.gms.providerinstaller.dynamite
+06-07 07:00:19.002   777  8870 I ActivityManager: dumpStackTraces pids=null
+06-07 07:00:19.015   777  8870 I ActivityManager: Dumping to /data/anr/anr_2026-06-07-07-00-19-007
+06-07 07:00:19.019   777  8869 I system_server: libdebuggerd_client: started dumping process 8693
+06-07 07:00:19.026   317   317 I tombstoned: registered intercept for pid 8693 and type kDebuggerdJavaBacktrace
+06-07 07:00:19.030  8693  8694 I .gms.persistent: Thread[2,tid=8694,WaitingInMainSignalCatcherLoop,Thread*=0x713158a152c0,peer=0x20e8020,"Signal Catcher"]: reacting to signal 3
+06-07 07:00:19.030  8693  8694 I .gms.persistent: 
+06-07 07:00:19.039  8734  8734 W gle.android.gms: Verification of void bjdr.run() took 132.817ms (3101.99 bytecodes/s) (0B arena alloc)
+06-07 07:00:19.153  8693  8859 W .gms.persistent: Verification of void jaot.<init>(short[][][], short[][]) took 163.681ms (36.66 bytecodes/s) (0B arena alloc)
+06-07 07:00:19.189  8693  8693 D nativeloader: Load /data/app/~~KYfxxQknJlPjhvj9MRSqfQ==/com.google.android.gms-mCh4I2ARTwdtyTDudCgsaA==/base.apk!/lib/x86_64/libconscrypt_gmscore_jni.so using class loader ns clns-10 (caller=/data/app/~~KYfxxQknJlPjhvj9MRSqfQ==/com.google.android.gms-mCh4I2ARTwdtyTDudCgsaA==/base.apk): ok
+06-07 07:00:19.212  8693  8693 V NativeCrypto: Registering com/google/android/gms/org/conscrypt/NativeCrypto's 337 native methods...
+06-07 07:00:19.248  8734  8738 W gle.android.gms: Suspending all threads took: 9.663ms
+06-07 07:00:19.335   777   985 D BackgroundInstallControlService: Package event received: 0
+06-07 07:00:19.368  8734  8738 W gle.android.gms: Suspending all threads took: 36.612ms
+06-07 07:00:19.398  8693  8859 W .gms.persistent: Verification of void jaot.<init>(boolean[][][], float[]) took 104.403ms (57.47 bytecodes/s) (0B arena alloc)
+06-07 07:00:19.403   317   317 I tombstoned: received crash request for pid 8693
+06-07 07:00:19.405   317   317 I tombstoned: found intercept fd 512 for pid 8693 and type kDebuggerdJavaBacktrace
+06-07 07:00:19.406  8693  8694 I .gms.persistent: Wrote stack traces to tombstoned
+06-07 07:00:19.406   317   317 W tombstoned: skipping tombstone file creation due to intercept
+06-07 07:00:19.417   777  8869 I system_server: libdebuggerd_client: done dumping process 8693
+06-07 07:00:19.436   777  8870 I ActivityManager: dumpStackTraces nativepids=null
+06-07 07:00:19.436   777  8870 I ActivityManager: dumpStackTraces extraPids=null
+06-07 07:00:19.436   777  8870 I ActivityManager: Done dumping
+06-07 07:00:19.439   777  8870 E ActivityManager: ANR in com.google.android.gms.persistent
+06-07 07:00:19.439   777  8870 E ActivityManager: PID: 8693
+06-07 07:00:19.439   777  8870 E ActivityManager: Reason: Process ProcessRecord{23e1ad0 8693:com.google.android.gms.persistent/u0a155} failed to complete startup
+06-07 07:00:19.439   777  8870 E ActivityManager: ErrorId: 635c1255-6fc7-4281-9583-4d2402d6de1e
+06-07 07:00:19.439   777  8870 E ActivityManager: Frozen: false
+06-07 07:00:19.439   777  8870 E ActivityManager: Load: 0.0 / 0.0 / 0.0
+06-07 07:00:19.439   777  8870 E ActivityManager: ----- Output from /proc/pressure/memory -----
+06-07 07:00:19.439   777  8870 E ActivityManager: some avg10=1.10 avg60=7.04 avg300=12.27 total=100322576
+06-07 07:00:19.439   777  8870 E ActivityManager: full avg10=0.39 avg60=3.22 avg300=5.95 total=50893686
+06-07 07:00:19.439   777  8870 E ActivityManager: ----- End output from /proc/pressure/memory -----
+06-07 07:00:19.439   777  8870 E ActivityManager: ----- Output from /proc/pressure/cpu -----
+06-07 07:00:19.439   777  8870 E ActivityManager: some avg10=33.89 avg60=43.35 avg300=42.78 total=430305630
+06-07 07:00:19.439   777  8870 E ActivityManager: full avg10=0.00 avg60=0.00 avg300=0.00 total=0
+06-07 07:00:19.439   777  8870 E ActivityManager: ----- End output from /proc/pressure/cpu -----
+06-07 07:00:19.439   777  8870 E ActivityManager: ----- Output from /proc/pressure/io -----
+06-07 07:00:19.439   777  8870 E ActivityManager: some avg10=27.56 avg60=32.46 avg300=28.75 total=245262197
+06-07 07:00:19.439   777  8870 E ActivityManager: full avg10=13.52 avg60=12.31 avg300=9.25 total=78855005
+06-07 07:00:19.439   777  8870 E ActivityManager: ----- End output from /proc/pressure/io -----
+06-07 07:00:19.439   777  8870 E ActivityManager: 
+06-07 07:00:19.439   777  8870 E ActivityManager: CPU usage from 66391ms to -1ms ago (2026-06-07 06:59:12.564 to 2026-06-07 07:00:18.956):
+06-07 07:00:19.439   777  8870 E ActivityManager:   33% 777/system_server: 7% user + 26% kernel / faults: 22726 minor 2218 major
+06-07 07:00:19.439   777  8870 E ActivityManager:   27% 565/android.hardware.sensors-service.multihal: 0.4% user + 26% kernel
+06-07 07:00:19.439   777  8870 E ActivityManager:   20% 8402/com.google.android.tts: 17% user + 2.7% kernel / faults: 34263 minor 521 major
+06-07 07:00:19.439   777  8870 E ActivityManager:   4.3% 1030/com.android.systemui: 0.9% user + 3.4% kernel / faults: 2290 minor 4202 major
+06-07 07:00:19.439   777  8870 E ActivityManager:   4.2% 569/android.hardware.graphics.composer3-service.ranchu: 0.2% user + 4% kernel
+06-07 07:00:19.439   777  8870 E ActivityManager:   3.9% 622/surfaceflinger: 0.3% user + 3.6% kernel / faults: 15 minor 27 major
+06-07 07:00:19.439   777  8870 E ActivityManager:   3.2% 2309/artd: 1.1% user + 2% kernel / faults: 23721 minor 71 major
+06-07 07:00:19.439   777  8870 E ActivityManager:   3.1% 7270/com.android.vending: 0% user + 3.1% kernel / faults: 2570 minor 5973 major
+06-07 07:00:19.439   777  8870 E ActivityManager:   2.8% 629/adbd: 0.1% user + 2.7% kernel / faults: 16048 minor 62 major
+06-07 07:00:19.439   777  8870 E ActivityManager:   2.8% 8291/com.google.android.as: 0.6% user + 2.1% kernel / faults: 3057 minor 77 major
+06-07 07:00:19.439   777  8870 E ActivityManager: 84% TOTAL: 24% user + 47% kernel + 10% iowait + 1.3% softirq
+06-07 07:00:19.439   777  8870 E ActivityManager: CPU usage from 1017309ms to 1017309ms ago (1970-01-01 07:00:00.000 to 1970-01-01 07:00:00.000) with 0% awake:
+06-07 07:00:19.439   777  8870 E ActivityManager: 0% TOTAL: 0% user + 0% kernel
+06-07 07:00:19.446  8693  8697 W .gms.persistent: Suspending all threads took: 14.323ms
+06-07 07:00:19.451   777  8870 I ActivityManager: Killing 8693:com.google.android.gms.persistent/u0a155 (adj 0): bg anr
+06-07 07:00:19.454   777  8879 I DropBoxManagerService: add tag=system_app_anr isTagEnabled=true flags=0x6
+06-07 07:00:19.456   777  8870 D ActivityManager: Completed ANR of com.google.android.gms.persistent in 502ms, latency 9ms
+06-07 07:00:19.500  8734  8876 I GMS_MM_Logger: (REDACTED) Start time: %s
+06-07 07:00:19.511  8734  8876 I GMS_MM_Logger: Started.
+06-07 07:00:19.512   550   550 I Zygote  : Process 8693 exited due to signal 9 (Killed)
+06-07 07:00:19.518   777  1645 W ActivityManager: pid 8768 com.google.android.settings.intelligence sent binder code 1 with flags 2 and got error -32
+06-07 07:00:19.518  8768  8810 I ActivityThread: Removing dead content provider:android.content.ContentProviderProxy@91b0061
+06-07 07:00:19.523  8768  8803 D ActivityThread: Too many transaction errors, throttling freezer binder callback.
+06-07 07:00:19.527   777   815 I libprocessgroup: Removed cgroup /sys/fs/cgroup/apps/uid_10155/pid_8693
+06-07 07:00:19.532   777  1675 E libbinder.IPCThreadState: Binder transaction failure. id: 421739, cmd: BR_DEAD_REPLY (29189), error: -3 (No such process)
+06-07 07:00:19.533   777  1675 I ActivityManager: Process com.google.android.gms.persistent (pid 8693) early provider death
+06-07 07:00:19.538  6930  6930 I ActivityThread: Removing dead content provider:android.content.ContentProviderProxy@68e4f3
+06-07 07:00:19.539  6930  6930 I ActivityThread: Removing dead content provider:android.content.ContentProviderProxy@68e4f3
+06-07 07:00:19.542   777  1645 W ActivityManager: pid 8718 com.google.android.apps.wellbeing sent binder code 1 with flags 2 and got error -32
+06-07 07:00:19.543  8718  8730 I ActivityThread: Removing dead content provider:android.content.ContentProviderProxy@a131307
+06-07 07:00:19.543  8718  8730 I ActivityThread: Removing dead content provider:android.content.ContentProviderProxy@a131307
+06-07 07:00:19.546   777  1645 D ActivityManager: Too many transaction errors, throttling freezer binder callback.
+06-07 07:00:19.552  8768  8820 D ActivityThread: Too many transaction errors, throttling freezer binder callback.
+06-07 07:00:19.553  8768  8820 I ActivityThread: Removing dead content provider:android.content.ContentProviderProxy@6a2e786
+06-07 07:00:19.554   777   813 W ActivityManager: ProcessRecord{23e1ad0 0:com.google.android.gms.persistent/u0a155} is attached to a previous process 8693
+06-07 07:00:19.557  8718  8730 W DynamiteModule: Failed to retrieve remote module version.
+06-07 07:00:19.558   777  1290 V ActivityManager: Got obituary of 8693:com.google.android.gms.persistent
+06-07 07:00:19.561  8768  8820 W ConfigurationContentLdr: ContentProvider query failed, using default values
+06-07 07:00:19.561  8768  8820 W ConfigurationContentLdr: android.os.DeadObjectException
+06-07 07:00:19.561  8768  8820 W ConfigurationContentLdr: 	at android.os.BinderProxy.transactNative(Native Method)
+06-07 07:00:19.561  8768  8820 W ConfigurationContentLdr: 	at android.os.BinderProxy.transact(BinderProxy.java:599)
+06-07 07:00:19.561  8768  8820 W ConfigurationContentLdr: 	at android.content.ContentProviderProxy.query(ContentProviderNative.java:493)
+06-07 07:00:19.561  8768  8820 W ConfigurationContentLdr: 	at android.content.ContentProviderClient.query(ContentProviderClient.java:196)
+06-07 07:00:19.561  8768  8820 W ConfigurationContentLdr: 	at android.content.ContentProviderClient.query(ContentProviderClient.java:178)
+06-07 07:00:19.561  8768  8820 W ConfigurationContentLdr: 	at android.content.ContentProviderClient.query(ContentProviderClient.java:168)
+06-07 07:00:19.561  8768  8820 W ConfigurationContentLdr: 	at eud.a(PG:28)
+06-07 07:00:19.561  8768  8820 W ConfigurationContentLdr: 	at cjy.aV(PG:1)
+06-07 07:00:19.561  8768  8820 W ConfigurationContentLdr: 	at euf.b(PG:21)
+06-07 07:00:19.561  8768  8820 W ConfigurationContentLdr: 	at evd.b(PG:447)
+06-07 07:00:19.561  8768  8820 W ConfigurationContentLdr: 	at jbw.g(PG:3)
+06-07 07:00:19.561  8768  8820 W ConfigurationContentLdr: 	at edg.w(PG:7)
+06-07 07:00:19.561  8768  8820 W ConfigurationContentLdr: 	at qn.call(PG:327)
+06-07 07:00:19.561  8768  8820 W ConfigurationContentLdr: 	at hck.call(PG:13)
+06-07 07:00:19.561  8768  8820 W ConfigurationContentLdr: 	at hyz.a(PG:3)
+06-07 07:00:19.561  8768  8820 W ConfigurationContentLdr: 	at hza.a(PG:59)
+06-07 07:00:19.561  8768  8820 W ConfigurationContentLdr: 	at iaq.a(PG:3)
+06-07 07:00:19.561  8768  8820 W ConfigurationContentLdr: 	at hzw.run(PG:19)
+06-07 07:00:19.561  8768  8820 W ConfigurationContentLdr: 	at ias.run(PG:5)
+06-07 07:00:19.561  8768  8820 W ConfigurationContentLdr: 	at hzc.run(PG:17)
+06-07 07:00:19.561  8768  8820 W ConfigurationContentLdr: 	at iai.run(PG:3)
+06-07 07:00:19.561  8768  8820 W ConfigurationContentLdr: 	at iaj.run(PG:64)
+06-07 07:00:19.561  8768  8820 W ConfigurationContentLdr: 	at dtt.run(PG:7)
+06-07 07:00:19.561  8768  8820 W ConfigurationContentLdr: 	at htj.run(PG:44)
+06-07 07:00:19.561  8768  8820 W ConfigurationContentLdr: 	at aqj.run(PG:197)
+06-07 07:00:19.561  8768  8820 W ConfigurationContentLdr: 	at java.lang.Thread.run(Thread.java:1563)
+06-07 07:00:19.561  8768  8820 W ConfigurationContentLdr: 	at dvc.run(PG:58)
+06-07 07:00:19.562  8718  8730 D ApplicationLoaders: Returning zygote-cached class loader: /system/framework/org.apache.http.legacy.jar
+06-07 07:00:19.563  8718  8730 D ApplicationLoaders: Returning zygote-cached class loader: /system/framework/com.android.location.provider.jar
+06-07 07:00:19.564  8718  8730 D ApplicationLoaders: Returning zygote-cached class loader: /system/framework/com.android.media.remotedisplay.jar
+06-07 07:00:19.564  8718  8730 D ApplicationLoaders: Returning zygote-cached class loader: /system_ext/framework/androidx.window.extensions.jar
+06-07 07:00:19.564  8718  8730 D ApplicationLoaders: Returning zygote-cached class loader: /system_ext/framework/androidx.window.sidecar.jar
+06-07 07:00:19.565  8768  8803 W ConfigurationContentLdr: ContentProvider query failed, using default values
+06-07 07:00:19.565  8768  8803 W ConfigurationContentLdr: android.os.DeadObjectException
+06-07 07:00:19.565  8768  8803 W ConfigurationContentLdr: 	at android.os.BinderProxy.transactNative(Native Method)
+06-07 07:00:19.565  8768  8803 W ConfigurationContentLdr: 	at android.os.BinderProxy.transact(BinderProxy.java:599)
+06-07 07:00:19.565  8768  8803 W ConfigurationContentLdr: 	at android.content.ContentProviderProxy.query(ContentProviderNative.java:493)
+06-07 07:00:19.565  8768  8803 W ConfigurationContentLdr: 	at android.content.ContentProviderClient.query(ContentProviderClient.java:196)
+06-07 07:00:19.565  8768  8803 W ConfigurationContentLdr: 	at android.content.ContentProviderClient.query(ContentProviderClient.java:178)
+06-07 07:00:19.565  8768  8803 W ConfigurationContentLdr: 	at android.content.ContentProviderClient.query(ContentProviderClient.java:168)
+06-07 07:00:19.565  8768  8803 W ConfigurationContentLdr: 	at eud.a(PG:28)
+06-07 07:00:19.565  8768  8803 W ConfigurationContentLdr: 	at cjy.aV(PG:1)
+06-07 07:00:19.565  8768  8803 W ConfigurationContentLdr: 	at euf.b(PG:21)
+06-07 07:00:19.565  8768  8803 W ConfigurationContentLdr: 	at evd.b(PG:447)
+06-07 07:00:19.565  8768  8803 W ConfigurationContentLdr: 	at com.google.android.settings.intelligence.modules.gmscoreproxy.impl.PhenotypeProxyContentProvider.call(PG:138)
+06-07 07:00:19.565  8768  8803 W ConfigurationContentLdr: 	at android.content.ContentProvider.call(ContentProvider.java:2746)
+06-07 07:00:19.565  8768  8803 W ConfigurationContentLdr: 	at android.content.ContentProvider$Transport.call(ContentProvider.java:640)
+06-07 07:00:19.565  8768  8803 W ConfigurationContentLdr: 	at android.content.ContentProviderNative.onTransact(ContentProviderNative.java:307)
+06-07 07:00:19.565  8768  8803 W ConfigurationContentLdr: 	at android.os.Binder.execTransactInternal(Binder.java:1473)
+06-07 07:00:19.565  8768  8803 W ConfigurationContentLdr: 	at android.os.Binder.execTransact(Binder.java:1418)
+06-07 07:00:19.590   550   550 D Zygote  : Forked child process 8882
+06-07 07:00:19.595   777   985 D BackgroundInstallControlService: Package event received: 0
+06-07 07:00:19.600   777   985 D BackgroundInstallControlService: Package event received: 0
+06-07 07:00:19.629  8734  8876 I Watchcat: Started
+06-07 07:00:19.645   777   814 W ActivityManager: Slow operation: 89ms so far, now at startProcess: returned from zygote!
+06-07 07:00:19.648   777   814 W ActivityManager: Slow operation: 92ms so far, now at startProcess: done updating battery stats
+06-07 07:00:19.654  8882  8882 I Zygote  : Process 8882 created for com.google.android.gms.persistent
+06-07 07:00:19.655  8882  8882 I .gms.persistent: Using CollectorTypeCMC GC.
+06-07 07:00:19.659  8882  8882 W .gms.persistent: Unexpected CPU variant for x86: x86_64.
+06-07 07:00:19.659  8882  8882 W .gms.persistent: Known variants: atom, sandybridge, silvermont, goldmont, goldmont-plus, goldmont-without-sha-xsaves, tremont, kabylake, alderlake, default
+06-07 07:00:19.670   777   814 W ActivityManager: Slow operation: 114ms so far, now at startProcess: building log message
+06-07 07:00:19.672   777   814 I ActivityManager: Start proc 8882:com.google.android.gms.persistent/u0a155 for broadcast {com.google.android.gms/com.google.android.gms.chimera.GmsIntentOperationService$PersistentInternalReceiver}
+06-07 07:00:19.672   777   814 W ActivityManager: Slow operation: 116ms so far, now at startProcess: starting to update pids map
+06-07 07:00:19.673   777   814 W ActivityManager: Slow operation: 116ms so far, now at startProcess: done updating pids map
+06-07 07:00:19.687  8882  8882 D nativeloader: Load libframework-connectivity-tiramisu-jni.so using APEX ns com_android_tethering for caller /apex/com.android.tethering/javalib/framework-connectivity-t.jar: ok
+06-07 07:00:19.749  8768  8811 W JobInfo : Requested important-while-foreground flag for job144 is ignored and takes no effect
+06-07 07:00:19.796  8882  8882 D ApplicationLoaders: Returning zygote-cached class loader: /system/framework/org.apache.http.legacy.jar
+06-07 07:00:19.797  8882  8882 D ApplicationLoaders: Returning zygote-cached class loader: /system/framework/com.android.location.provider.jar
+06-07 07:00:19.797  8882  8882 D ApplicationLoaders: Returning zygote-cached class loader: /system/framework/com.android.media.remotedisplay.jar
+06-07 07:00:19.802  8882  8882 D nativeloader: Configuring clns-9 for other apk /system_ext/framework/com.android.extensions.appfunctions.jar. target_sdk_version=37, uses_libraries=ALL, library_path=/data/app/~~KYfxxQknJlPjhvj9MRSqfQ==/com.google.android.gms-mCh4I2ARTwdtyTDudCgsaA==/lib/x86_64:/data/app/~~KYfxxQknJlPjhvj9MRSqfQ==/com.google.android.gms-mCh4I2ARTwdtyTDudCgsaA==/base.apk!/lib/x86_64, permitted_path=/data:/mnt/expand:/data/user/0/com.google.android.gms
+06-07 07:00:19.805  8882  8882 D ApplicationLoaders: Returning zygote-cached class loader: /system_ext/framework/androidx.window.extensions.jar
+06-07 07:00:19.805  8882  8882 D ApplicationLoaders: Returning zygote-cached class loader: /system_ext/framework/androidx.window.sidecar.jar
+06-07 07:00:19.859  8768  8811 W JobInfo : Requested important-while-foreground flag for job145 is ignored and takes no effect
+06-07 07:00:19.916  8768  8811 W JobInfo : Requested important-while-foreground flag for job146 is ignored and takes no effect
+06-07 07:00:19.982  8768  8811 W JobInfo : Requested important-while-foreground flag for job147 is ignored and takes no effect
+06-07 07:00:20.005  8894  8894 W libbinder.BackendUnifiedServiceManager: Thread Pool max thread count is 0. Cannot cache binder as linkToDeath cannot be implemented. serviceName: gfxinfo
+06-07 07:00:20.007   777  1645 D ActivityManager: freezer override set to true
+06-07 07:00:20.012   777  1645 D ActivityManager: sync unfroze 8402 com.google.android.tts for 19
+06-07 07:00:20.030   777  1645 D ActivityManager: sync unfroze 8569 com.google.android.apps.photos for 19
+06-07 07:00:20.032   777  1645 D ActivityManager: sync unfroze 8515 com.google.android.apps.messaging for 19
+06-07 07:00:20.033   777  1645 D ActivityManager: sync unfroze 8233 android.process.acore for 19
+06-07 07:00:20.035   777  1645 D ActivityManager: sync unfroze 8327 com.google.android.as.oss for 19
+06-07 07:00:20.039  8569  8569 D ActivityThread: Package [com.google.android.gms] reported as REPLACED, but missing application info. Assuming REMOVED.
+06-07 07:00:20.061  8569  8569 D ActivityThread: Package [com.google.android.gms] reported as REPLACED, but missing application info. Assuming REMOVED.
+06-07 07:00:20.072   777  1645 D ActivityManager: freezer override set to false
+06-07 07:00:20.125  8515  8515 D ActivityThread: Package [com.google.android.gms] reported as REPLACED, but missing application info. Assuming REMOVED.
+06-07 07:00:20.133  8569  8574 W oid.apps.photos: Suspending all threads took: 52.687ms
+06-07 07:00:20.135  8515  8515 D ActivityThread: Package [com.google.android.gms] reported as REPLACED, but missing application info. Assuming REMOVED.
+06-07 07:00:20.244   777   985 D BackgroundInstallControlService: Package event received: 0
+06-07 07:00:20.315   777   985 D BackgroundInstallControlService: Package event received: 0
+06-07 07:00:20.315  8907  8907 W libbinder.BackendUnifiedServiceManager: Thread Pool max thread count is 0. Cannot cache binder as linkToDeath cannot be implemented. serviceName: gfxinfo
+06-07 07:00:20.316   777  1645 D ActivityManager: freezer override set to true
+06-07 07:00:20.356   777  1645 D ActivityManager: freezer override set to false
+06-07 07:00:20.384  8734  8743 I DynamiteModule: Considering local module com.google.android.gms.googlecertificates:7 and remote module com.google.android.gms.googlecertificates:0
+06-07 07:00:20.385  8734  8743 I DynamiteModule: Selected local version of com.google.android.gms.googlecertificates
+06-07 07:00:20.421  8515  8543 I ForwardSyncCache: reclaimMemory: Clearing caches
+06-07 07:00:20.514  8515  8543 W Bugle   : TextClassifierLibManagerImpl: Reclaiming memory at level: 40
+06-07 07:00:20.596   777   923 I HalDevMgr: bestIfaceCreationProposal is null, requestIface=STA, existingIface=[name=wlan0 type=STA]
+06-07 07:00:20.615  8515  8549 I Bugle   : BugleStartup: Registering SIM change receiver...
+06-07 07:00:20.645  8515  8549 I Bugle   : BugleStartup: Updating app config...

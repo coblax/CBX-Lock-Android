@@ -59,6 +59,7 @@ internal data class NetworkReadinessStatus(
     val transportLabel: String,
     val quickFixReason: String?,
     val dnsProbeStatus: NetworkDnsProbeStatus = NetworkDnsProbeStatus(),
+    val globalDnsProbeStatus: NetworkDnsProbeStatus = NetworkDnsProbeStatus(),
     val userFacingVerdict: NetworkReadinessUserVerdict = NetworkReadinessUserVerdict.Stable,
     val userFacingQuickFixText: String? = null
 )

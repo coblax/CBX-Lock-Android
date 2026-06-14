@@ -253,6 +253,7 @@ import kotlinx.coroutines.launch
 import kotlinx.coroutines.suspendCancellableCoroutine
 import kotlinx.coroutines.withContext
 import kotlinx.coroutines.withTimeoutOrNull
+import kotlinx.coroutines.yield
 
 
 @Suppress("AssignedValueIsNeverRead")
@@ -269,6 +270,7 @@ internal fun WebView.applyExamWebViewSettings(examUserAgent: String, lowRamProfi
         // can time out and produce NET_ERR_CONNECTION_TIMED_OUT even though internet
         // is fine. LOAD_CACHE_ELSE_NETWORK serves cached content first and falls back
         // to network, making the WebView far more resilient to transient slowdowns.
+        // Manual refresh overrides this with a browser-like revalidation reload.
         cacheMode = WebSettings.LOAD_CACHE_ELSE_NETWORK
         useWideViewPort = true
         loadWithOverviewMode = true
@@ -323,32 +325,51 @@ internal fun resolveExamWebViewUserAgent(context: Context, examUserAgent: String
 
 private const val ExamWebViewSessionResetTimeoutMillis = 8_000L
 
+internal enum class ExamWebViewSessionResetStep {
+    ClearCookies,
+    ClearStorage,
+    ClearDatabase,
+    PrepareWebView,
+    Complete
+}
+
 @Suppress("DEPRECATION")
 internal suspend fun clearExamWebViewSessionData(
     context: Context,
     existingWebView: WebView?,
-    lowRamProfile: LowRamProfile = LowRamProfile()
+    lowRamProfile: LowRamProfile = LowRamProfile(),
+    onProgress: ((ExamWebViewSessionResetStep) -> Unit)? = null
 ): Result<Unit> = withContext(Dispatchers.Main.immediate) {
     withTimeoutOrNull(ExamWebViewSessionResetTimeoutMillis) {
         runCatching {
+            suspend fun notifyProgress(step: ExamWebViewSessionResetStep) {
+                onProgress?.invoke(step)
+                yield()
+            }
+
+            notifyProgress(ExamWebViewSessionResetStep.ClearCookies)
             val cookieManager = CookieManager.getInstance()
             awaitWebViewCookieClear(cookieManager::removeSessionCookies)
             awaitWebViewCookieClear(cookieManager::removeAllCookies)
             cookieManager.flush()
 
+            notifyProgress(ExamWebViewSessionResetStep.ClearStorage)
             WebStorage.getInstance().deleteAllData()
 
+            notifyProgress(ExamWebViewSessionResetStep.ClearDatabase)
             val webViewDatabase = WebViewDatabase.getInstance(context.applicationContext)
             webViewDatabase.clearFormData()
             webViewDatabase.clearHttpAuthUsernamePassword()
             clearLegacyWebViewUsernamePassword(webViewDatabase)
 
+            notifyProgress(ExamWebViewSessionResetStep.PrepareWebView)
             existingWebView?.prepareForFreshExamSession(
                 clearHttpCache = shouldClearWebViewHttpCacheForSessionReset(
                     lowRamProfile = lowRamProfile,
                     hasExistingWebView = true
                 )
             )
+            notifyProgress(ExamWebViewSessionResetStep.Complete)
             Unit
         }
     } ?: Result.failure(
@@ -376,7 +397,7 @@ private fun clearLegacyWebViewUsernamePassword(webViewDatabase: WebViewDatabase)
 internal fun shouldClearWebViewHttpCacheForSessionReset(
     lowRamProfile: LowRamProfile,
     hasExistingWebView: Boolean
-): Boolean = !lowRamProfile.ultra || hasExistingWebView
+): Boolean = hasExistingWebView && !lowRamProfile.ultra
 
 @Suppress("DEPRECATION")
 internal fun WebView.prepareForFreshExamSession(clearHttpCache: Boolean = true) {

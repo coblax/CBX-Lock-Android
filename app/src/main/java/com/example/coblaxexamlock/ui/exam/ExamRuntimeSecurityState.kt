@@ -1,6 +1,7 @@
 package com.example.coblaxexamlock.ui.exam
 
 import android.content.Context
+import android.os.Build
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.MutableIntState
 import androidx.compose.runtime.mutableIntStateOf
@@ -91,6 +92,8 @@ internal class ExamRuntimeSecurityUiState(
     val overlayAppsDetected: MutableState<List<OverlayAppInfo>>,
     val overlayAppViolationCount: MutableIntState,
     val showOverlayAppViolationDialog: MutableState<Boolean>,
+    val overlayGuardPermissionGranted: MutableState<Boolean>,
+    val overlayGuardActive: MutableState<Boolean>,
     val geofenceEvaluation: MutableState<GeofenceEvaluation>,
     val geofenceSecurityStatus: MutableState<GeofenceSecurityStatus>,
     val fakeLocationSecurityStatus: MutableState<LocationSpoofSecurityStatus>
@@ -184,6 +187,10 @@ internal fun rememberExamRuntimeSecurityUiState(
     val overlayAppsDetected = remember { mutableStateOf(emptyList<OverlayAppInfo>()) }
     val overlayAppViolationCount = rememberSaveable { mutableIntStateOf(0) }
     val showOverlayAppViolationDialog = rememberSaveable { mutableStateOf(false) }
+    val overlayGuardPermissionGranted = rememberSaveable {
+        mutableStateOf(Build.VERSION.SDK_INT >= Build.VERSION_CODES.S)
+    }
+    val overlayGuardActive = rememberSaveable { mutableStateOf(false) }
     val initialGeofenceEvaluation = remember(
         geofenceConfigParseResult,
         context
@@ -297,6 +304,8 @@ internal fun rememberExamRuntimeSecurityUiState(
         overlayAppsDetected = overlayAppsDetected,
         overlayAppViolationCount = overlayAppViolationCount,
         showOverlayAppViolationDialog = showOverlayAppViolationDialog,
+        overlayGuardPermissionGranted = overlayGuardPermissionGranted,
+        overlayGuardActive = overlayGuardActive,
         geofenceEvaluation = geofenceEvaluation,
         geofenceSecurityStatus = geofenceSecurityStatus,
         fakeLocationSecurityStatus = fakeLocationSecurityStatus

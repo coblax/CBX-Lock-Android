@@ -108,6 +108,9 @@ internal data class ExamDiagnosticSnapshot(
     val networkTransport: String,
     val networkValidated: Boolean,
     val networkCaptivePortal: Boolean,
+    val networkGlobalDnsProbe: String,
+    val networkGlobalDnsProbeHost: String,
+    val networkGlobalDnsLatencyBucket: String,
     val networkDnsProbe: String,
     val networkDnsProbeHost: String,
     val networkDnsLatencyBucket: String,
@@ -207,6 +210,9 @@ internal data class ExamDiagnosticSnapshot(
             "transport" to networkTransport,
             "validated" to networkValidated,
             "captivePortal" to networkCaptivePortal,
+            "globalDnsProbe" to networkGlobalDnsProbe,
+            "globalDnsProbeHost" to networkGlobalDnsProbeHost,
+            "globalDnsLatencyBucket" to networkGlobalDnsLatencyBucket,
             "dnsProbe" to networkDnsProbe,
             "dnsProbeHost" to networkDnsProbeHost,
             "dnsLatencyBucket" to networkDnsLatencyBucket,
@@ -275,7 +281,8 @@ internal data class ExamDiagnosticSnapshot(
         appendLine("WebView provider fix: ${webViewProviderQuickFix ?: "-"}")
         appendLine("Memory trim: ${lastTrimMemoryAction ?: "-"}")
         appendLine("Network: verdict=$networkVerdict user=$networkUserVerdict transport=$networkTransport validated=$networkValidated captivePortal=$networkCaptivePortal")
-        appendLine("DNS: $networkDnsProbe host=$networkDnsProbeHost latency=$networkDnsLatencyBucket")
+        appendLine("Global DNS: $networkGlobalDnsProbe host=$networkGlobalDnsProbeHost latency=$networkGlobalDnsLatencyBucket")
+        appendLine("Exam DNS: $networkDnsProbe host=$networkDnsProbeHost latency=$networkDnsLatencyBucket")
         appendLine("Network fix: ${networkQuickFix ?: "-"}")
         appendLine("Geofence: verdict=$geofenceVerdict enabled=$geofenceEnabled source=$geofencePolicySource violations=$geofenceViolationCount")
         appendLine("Fake location: verdict=$fakeLocationVerdict violations=$fakeLocationViolationCount")
@@ -407,6 +414,9 @@ internal fun buildExamDiagnosticSnapshot(input: ExamDiagnosticSnapshotInput): Ex
         networkTransport = network.transportLabel.ifBlank { "-" },
         networkValidated = network.diagnostics.isValidated,
         networkCaptivePortal = network.diagnostics.isCaptivePortal,
+        networkGlobalDnsProbe = network.globalDnsProbeStatus.verdict.name,
+        networkGlobalDnsProbeHost = redactUrlToHost(network.globalDnsProbeStatus.host),
+        networkGlobalDnsLatencyBucket = network.globalDnsProbeStatus.latencyBucket.name,
         networkDnsProbe = network.dnsProbeStatus.verdict.name,
         networkDnsProbeHost = redactUrlToHost(network.dnsProbeStatus.host),
         networkDnsLatencyBucket = network.dnsProbeStatus.latencyBucket.name,
@@ -511,6 +521,9 @@ internal fun buildAdminExamDiagnosticSnapshot(
         networkTransport = networkStatus.transportLabel,
         networkValidated = networkStatus.diagnostics.isValidated,
         networkCaptivePortal = networkStatus.diagnostics.isCaptivePortal,
+        networkGlobalDnsProbe = networkStatus.globalDnsProbeStatus.verdict.name,
+        networkGlobalDnsProbeHost = redactUrlToHost(networkStatus.globalDnsProbeStatus.host),
+        networkGlobalDnsLatencyBucket = networkStatus.globalDnsProbeStatus.latencyBucket.name,
         networkDnsProbe = "NotRun",
         networkDnsProbeHost = "-",
         networkDnsLatencyBucket = "Unknown",

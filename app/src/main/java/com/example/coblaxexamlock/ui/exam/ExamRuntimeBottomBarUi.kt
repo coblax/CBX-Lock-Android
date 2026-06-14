@@ -28,6 +28,7 @@ import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.rounded.Close
 import androidx.compose.material.icons.rounded.Home
 import androidx.compose.material.icons.rounded.KeyboardArrowLeft
 import androidx.compose.material.icons.rounded.KeyboardArrowRight
@@ -252,6 +253,7 @@ internal fun ExamWebViewBottomBar(
                         showBatteryPercent = layoutSpec.showBatteryPercent
                     )
                     ExamFooterActionCluster(
+                        isRefreshing = isRefreshing,
                         refreshContainerColor = refreshContainerColor,
                         refreshRotation = refreshRotation,
                         actionButtonSize = actionButtonSize,
@@ -314,6 +316,7 @@ internal fun ExamWebViewBottomBar(
                     )
 
                     ExamFooterActionCluster(
+                        isRefreshing = isRefreshing,
                         refreshContainerColor = refreshContainerColor,
                         refreshRotation = refreshRotation,
                         actionButtonSize = actionButtonSize,
@@ -331,6 +334,7 @@ internal fun ExamWebViewBottomBar(
 
 @Composable
 private fun ExamFooterActionCluster(
+    isRefreshing: Boolean,
     refreshContainerColor: Color,
     refreshRotation: Float,
     actionButtonSize: Dp,
@@ -341,6 +345,14 @@ private fun ExamFooterActionCluster(
     onGoHome: () -> Unit,
     modifier: Modifier = Modifier
 ) {
+    val refreshIcon = if (isRefreshing) Icons.Rounded.Close else Icons.Rounded.Refresh
+    val refreshContentDescription = if (isRefreshing) {
+        tr("Stop loading exam page", "Batalkan loading halaman ujian")
+    } else {
+        tr("Refresh exam page", "Refresh halaman ujian")
+    }
+    val refreshIconRotation = if (isRefreshing) 0f else refreshRotation
+
     Row(
         modifier = modifier,
         horizontalArrangement = Arrangement.spacedBy(actionSpacing, Alignment.CenterHorizontally),
@@ -348,14 +360,14 @@ private fun ExamFooterActionCluster(
     ) {
         ExamFooterIconButton(
             onClick = onRefresh,
-            icon = Icons.Rounded.Refresh,
-            contentDescription = tr("Refresh exam page", "Refresh halaman ujian"),
+            icon = refreshIcon,
+            contentDescription = refreshContentDescription,
             containerColor = refreshContainerColor,
             contentColor = LockOnDark,
             size = actionButtonSize,
             touchTargetSize = actionTouchTargetSize,
             iconSize = iconSize,
-            iconRotation = refreshRotation
+            iconRotation = refreshIconRotation
         )
 
         ExamFooterIconButton(

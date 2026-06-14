@@ -87,15 +87,23 @@ internal fun buildPreparationChecklistNetworkText(
             )
         else -> null
     }
+    val globalNetworkProbeMeta = networkReadinessStatus.globalDnsProbeStatus
+        .takeIf { it.verdict.name !in setOf("NotRun", "Skipped") }
+        ?.let { probe ->
+            t(
+                "Global DNS: ${probe.verdict.name} | ${probe.latencyBucket.name.lowercase(Locale.US)}",
+                "DNS global: ${probe.verdict.name} | ${probe.latencyBucket.name.lowercase(Locale.US)}"
+            )
+        }
     val networkProbeMeta = networkReadinessStatus.dnsProbeStatus
         .takeIf { it.verdict.name !in setOf("NotRun", "Skipped") }
         ?.let { probe ->
             t(
-                "DNS probe: ${probe.verdict.name} | ${probe.latencyBucket.name.lowercase(Locale.US)}",
-                "Probe DNS: ${probe.verdict.name} | ${probe.latencyBucket.name.lowercase(Locale.US)}"
+                "Exam DNS: ${probe.verdict.name} | ${probe.latencyBucket.name.lowercase(Locale.US)}",
+                "DNS ujian: ${probe.verdict.name} | ${probe.latencyBucket.name.lowercase(Locale.US)}"
             )
         }
-    val networkMeta = listOfNotNull(networkFlapMeta, networkProbeMeta)
+    val networkMeta = listOfNotNull(networkFlapMeta, globalNetworkProbeMeta, networkProbeMeta)
         .joinToString("\n")
         .ifBlank { null }
     val networkActionDetail = networkReadinessStatus.userFacingQuickFixText ?: when (networkReadinessStatus.userFacingVerdict) {

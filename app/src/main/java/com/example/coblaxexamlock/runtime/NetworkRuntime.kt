@@ -31,6 +31,7 @@ import java.net.InetAddress
 import java.net.URI
 import java.util.Locale
 
+internal const val GlobalDnsProbeHost = "one.one.one.one"
 
 internal fun calculateWifiSignalLevel(rssi: Int): Int {
     return when {
@@ -373,20 +374,40 @@ internal suspend fun readNetworkReadinessStatusWithExamHostProbe(
 internal suspend fun readNetworkReadinessStatusWithProbe(
     context: Context,
     probeHost: String = "example.com",
+    globalProbeHost: String = GlobalDnsProbeHost,
     timeoutMillis: Long = 3_000L,
     slowThresholdMillis: Long = 1_500L
 ): NetworkReadinessStatus {
     val baseStatus = readNetworkReadinessStatus(context)
-    val probeStatus =
+    val skipProbeReason =
         if (!baseStatus.examStatus.isConnected ||
             baseStatus.verdict == NetworkReadinessVerdict.AirplaneMode ||
-            baseStatus.verdict == NetworkReadinessVerdict.VpnActive ||
-            baseStatus.verdict == NetworkReadinessVerdict.CaptivePortal
+            baseStatus.verdict == NetworkReadinessVerdict.VpnActive
         ) {
+            baseStatus.verdict
+        } else {
+            null
+        }
+    val globalProbeStatus =
+        if (skipProbeReason != null) {
+            NetworkDnsProbeStatus(
+                verdict = NetworkDnsProbeVerdict.Skipped,
+                host = globalProbeHost,
+                error = skipProbeReason.name.lowercase(Locale.US)
+            )
+        } else {
+            probeNetworkDnsStatus(
+                host = globalProbeHost,
+                timeoutMillis = timeoutMillis,
+                slowThresholdMillis = slowThresholdMillis
+            )
+        }
+    val probeStatus =
+        if (skipProbeReason != null) {
             NetworkDnsProbeStatus(
                 verdict = NetworkDnsProbeVerdict.Skipped,
                 host = probeHost,
-                error = baseStatus.verdict.name.lowercase(Locale.US)
+                error = skipProbeReason.name.lowercase(Locale.US)
             )
         } else {
             probeNetworkDnsStatus(
@@ -395,13 +416,19 @@ internal suspend fun readNetworkReadinessStatusWithProbe(
                 slowThresholdMillis = slowThresholdMillis
             )
         }
-    val userVerdict = resolveNetworkReadinessUserVerdict(baseStatus.verdict, probeStatus)
+    val userVerdict = resolveNetworkReadinessUserVerdict(
+        verdict = baseStatus.verdict,
+        dnsProbeStatus = probeStatus,
+        globalDnsProbeStatus = globalProbeStatus
+    )
     return baseStatus.copy(
         dnsProbeStatus = probeStatus,
+        globalDnsProbeStatus = globalProbeStatus,
         userFacingVerdict = userVerdict,
         userFacingQuickFixText = resolveNetworkReadinessQuickFixText(
             verdict = baseStatus.verdict,
-            dnsProbeStatus = probeStatus
+            dnsProbeStatus = probeStatus,
+            globalDnsProbeStatus = globalProbeStatus
         )
     )
 }
@@ -460,9 +487,24 @@ internal fun resolveNetworkLatencyBucket(
     }
 }
 
+private fun dnsProbeFailedOrTimedOut(status: NetworkDnsProbeStatus): Boolean {
+    return status.verdict == NetworkDnsProbeVerdict.Failed ||
+        status.verdict == NetworkDnsProbeVerdict.Timeout
+}
+
+private fun dnsProbeSlow(status: NetworkDnsProbeStatus): Boolean {
+    return status.latencyBucket == NetworkLatencyBucket.Slow
+}
+
+private fun dnsProbeUnresolved(status: NetworkDnsProbeStatus): Boolean {
+    return status.verdict == NetworkDnsProbeVerdict.NotRun ||
+        status.verdict == NetworkDnsProbeVerdict.Skipped
+}
+
 internal fun resolveNetworkReadinessUserVerdict(
     verdict: NetworkReadinessVerdict,
-    dnsProbeStatus: NetworkDnsProbeStatus
+    dnsProbeStatus: NetworkDnsProbeStatus,
+    globalDnsProbeStatus: NetworkDnsProbeStatus
 ): NetworkReadinessUserVerdict {
     return when (verdict) {
         NetworkReadinessVerdict.Offline -> NetworkReadinessUserVerdict.Offline
@@ -472,26 +514,49 @@ internal fun resolveNetworkReadinessUserVerdict(
         NetworkReadinessVerdict.AirplaneMode -> NetworkReadinessUserVerdict.AirplaneMode
         NetworkReadinessVerdict.Unstable -> NetworkReadinessUserVerdict.Unstable
         NetworkReadinessVerdict.ConnectedStable -> when {
-            dnsProbeStatus.verdict == NetworkDnsProbeVerdict.Failed ||
-                dnsProbeStatus.verdict == NetworkDnsProbeVerdict.Timeout ->
+            dnsProbeFailedOrTimedOut(dnsProbeStatus) ||
+                (dnsProbeUnresolved(dnsProbeStatus) && dnsProbeFailedOrTimedOut(globalDnsProbeStatus)) ->
                 NetworkReadinessUserVerdict.DnsFailed
-            dnsProbeStatus.latencyBucket == NetworkLatencyBucket.Slow ->
+            dnsProbeSlow(dnsProbeStatus) ||
+                (dnsProbeUnresolved(dnsProbeStatus) && dnsProbeSlow(globalDnsProbeStatus)) ->
                 NetworkReadinessUserVerdict.Slow
             else -> NetworkReadinessUserVerdict.Stable
         }
     }
 }
 
-internal fun resolveNetworkReadinessQuickFixText(
+internal fun resolveNetworkReadinessUserVerdict(
     verdict: NetworkReadinessVerdict,
     dnsProbeStatus: NetworkDnsProbeStatus
+): NetworkReadinessUserVerdict {
+    return resolveNetworkReadinessUserVerdict(
+        verdict = verdict,
+        dnsProbeStatus = dnsProbeStatus,
+        globalDnsProbeStatus = NetworkDnsProbeStatus()
+    )
+}
+
+internal fun resolveNetworkReadinessQuickFixText(
+    verdict: NetworkReadinessVerdict,
+    dnsProbeStatus: NetworkDnsProbeStatus,
+    globalDnsProbeStatus: NetworkDnsProbeStatus
 ): String? {
-    return when (resolveNetworkReadinessUserVerdict(verdict, dnsProbeStatus)) {
+    return when (resolveNetworkReadinessUserVerdict(verdict, dnsProbeStatus, globalDnsProbeStatus)) {
         NetworkReadinessUserVerdict.Stable -> null
         NetworkReadinessUserVerdict.Slow ->
             "Koneksi terdeteksi lambat. Pindah ke Wi-Fi/data yang lebih stabil sebelum mulai ujian."
-        NetworkReadinessUserVerdict.DnsFailed ->
-            "DNS gagal merespons. Ganti DNS/jaringan, matikan VPN bila perlu, lalu refresh."
+        NetworkReadinessUserVerdict.DnsFailed -> {
+            val globalFailed = dnsProbeFailedOrTimedOut(globalDnsProbeStatus)
+            val examFailed = dnsProbeFailedOrTimedOut(dnsProbeStatus)
+            when {
+                globalFailed && examFailed ->
+                    "DNS global dan host ujian gagal. Ganti jaringan/DNS, matikan VPN bila perlu, lalu refresh."
+                globalFailed ->
+                    "DNS global gagal. Ganti jaringan/DNS, matikan VPN bila perlu, lalu refresh."
+                else ->
+                    "DNS host ujian gagal. Cek jaringan/server ujian, ganti DNS bila perlu, lalu refresh."
+            }
+        }
         NetworkReadinessUserVerdict.VpnActive ->
             "VPN terdeteksi aktif. Matikan VPN dari pengaturan jaringan, lalu refresh."
         NetworkReadinessUserVerdict.Offline ->
@@ -505,6 +570,17 @@ internal fun resolveNetworkReadinessQuickFixText(
         NetworkReadinessUserVerdict.Unstable ->
             "Gunakan jaringan paling stabil sebelum mulai ujian."
     }
+}
+
+internal fun resolveNetworkReadinessQuickFixText(
+    verdict: NetworkReadinessVerdict,
+    dnsProbeStatus: NetworkDnsProbeStatus
+): String? {
+    return resolveNetworkReadinessQuickFixText(
+        verdict = verdict,
+        dnsProbeStatus = dnsProbeStatus,
+        globalDnsProbeStatus = NetworkDnsProbeStatus()
+    )
 }
 
 internal fun readExamNetworkStatus(context: Context): ExamNetworkStatus {

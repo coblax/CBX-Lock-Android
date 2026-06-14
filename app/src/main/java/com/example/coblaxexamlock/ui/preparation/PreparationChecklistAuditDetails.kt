@@ -35,6 +35,7 @@ internal fun buildPreparationNetworkAuditDetail(
 ): String {
     val diagnostics = status.diagnostics
     val probe = status.dnsProbeStatus
+    val globalProbe = status.globalDnsProbeStatus
     return buildAuditBlock(
         uiLanguage = uiLanguage,
         englishTitle = "Technical details",
@@ -56,11 +57,16 @@ internal fun buildPreparationNetworkAuditDetail(
             "VPN bypass tampered: ${yesNo(vpnBypassState == VpnBypassState.Tampered)}",
             "Airplane mode: ${yesNo(diagnostics.isAirplaneModeEnabled)}",
             "Interface: ${diagnostics.interfaceName.ifBlank { "-" }}",
-            "DNS probe: ${probe.verdict.name}",
-            "DNS host: ${probe.host.ifBlank { "-" }}",
-            "DNS latency: ${probe.latencyMillis?.let { "$it ms" } ?: "-"}",
-            "DNS latency bucket: ${probe.latencyBucket.name}",
-            "DNS error: ${probe.error?.ifBlank { "-" } ?: "-"}",
+            "Global DNS probe: ${globalProbe.verdict.name}",
+            "Global DNS host: ${globalProbe.host.ifBlank { "-" }}",
+            "Global DNS latency: ${globalProbe.latencyMillis?.let { "$it ms" } ?: "-"}",
+            "Global DNS latency bucket: ${globalProbe.latencyBucket.name}",
+            "Global DNS error: ${globalProbe.error?.ifBlank { "-" } ?: "-"}",
+            "Exam DNS probe: ${probe.verdict.name}",
+            "Exam DNS host: ${probe.host.ifBlank { "-" }}",
+            "Exam DNS latency: ${probe.latencyMillis?.let { "$it ms" } ?: "-"}",
+            "Exam DNS latency bucket: ${probe.latencyBucket.name}",
+            "Exam DNS error: ${probe.error?.ifBlank { "-" } ?: "-"}",
             "Unstable active: ${yesNo(unstableStatus.unstableActive)}",
             "Network changes/flaps: ${unstableStatus.flapCount}",
             "Last flap at: ${unstableStatus.lastFlapAt?.ifBlank { "-" } ?: "-"}",

@@ -10,7 +10,6 @@ import com.example.coblaxexamlock.LocationSpoofSecurityStatus
 import com.example.coblaxexamlock.LocationSpoofSecurityVerdict
 import com.example.coblaxexamlock.RootSecurityStatus
 import com.example.coblaxexamlock.runtime.buildRootIssueMessage
-import com.example.coblaxexamlock.runtime.OverlayAppInfo
 import com.example.coblaxexamlock.ScreenPinningMode
 import com.example.coblaxexamlock.SplitLocationSecurityStatus
 import com.example.coblaxexamlock.i18n.localized
@@ -208,9 +207,9 @@ internal fun resolveStartExamNetworkReachabilityBlockMessage(
 ): StartExamBlockMessage? {
     val shouldBlock = when (status.userFacingVerdict) {
         NetworkReadinessUserVerdict.Offline,
-        NetworkReadinessUserVerdict.CaptivePortal,
         NetworkReadinessUserVerdict.AirplaneMode -> true
         NetworkReadinessUserVerdict.Stable,
+        NetworkReadinessUserVerdict.CaptivePortal,
         NetworkReadinessUserVerdict.Unvalidated,
         NetworkReadinessUserVerdict.DnsFailed,
         NetworkReadinessUserVerdict.Slow,
@@ -226,14 +225,56 @@ internal fun resolveStartExamNetworkReachabilityBlockMessage(
         details = buildNetworkEventDetails(
             trigger = "start_exam_precheck",
             status = status,
-            extraContext = "probe_host=$host | dns_error=${status.dnsProbeStatus.error ?: "-"}"
+            extraContext = "probe_host=$host | global_dns_error=${status.globalDnsProbeStatus.error ?: "-"} | " +
+                "exam_dns_error=${status.dnsProbeStatus.error ?: "-"}"
         ),
         title = localized(uiLanguage, "Exam Network Not Ready", "Network Ujian Belum Siap"),
-        message = localized(
-            uiLanguage,
-            "The app could not verify the exam host ($host). Switch to a stable Wi-Fi or cellular network, then refresh Network status and start again.",
-            "Aplikasi belum bisa memverifikasi host ujian ($host). Pindah ke Wi-Fi atau data seluler yang stabil, lalu refresh status Network dan mulai lagi."
-        )
+        message = buildStartExamNetworkReachabilityMessage(uiLanguage, status, host)
+    )
+}
+
+private fun buildStartExamNetworkReachabilityMessage(
+    uiLanguage: UiLanguage,
+    status: NetworkReadinessStatus,
+    host: String
+): String {
+    val globalDnsVerdict = status.globalDnsProbeStatus.verdict.name
+    val globalDnsError = status.globalDnsProbeStatus.error?.ifBlank { null } ?: "-"
+    val examDnsVerdict = status.dnsProbeStatus.verdict.name
+    val examDnsError = status.dnsProbeStatus.error?.ifBlank { null } ?: "-"
+    val quickFix = status.userFacingQuickFixText?.ifBlank { null }
+    return localized(
+        uiLanguage,
+        buildString {
+            appendLine("The app could not confirm that the device network is ready for the exam.")
+            appendLine()
+            appendLine("Status: ${status.userFacingVerdict.name}")
+            appendLine("Transport: ${status.transportLabel.ifBlank { "-" }}")
+            appendLine("Exam host: $host")
+            appendLine("Global DNS: $globalDnsVerdict (${status.globalDnsProbeStatus.host.ifBlank { "-" }})")
+            appendLine("Global DNS error: $globalDnsError")
+            appendLine("Exam host DNS: $examDnsVerdict")
+            appendLine("Exam host DNS error: $examDnsError")
+            appendLine("Android validated: ${if (status.diagnostics.isValidated) "yes" else "no"}")
+            appendLine("Captive portal: ${if (status.diagnostics.isCaptivePortal) "yes" else "no"}")
+            appendLine()
+            append(quickFix ?: "Turn Wi-Fi/data back on, wait a few seconds, then refresh Network status.")
+        },
+        buildString {
+            appendLine("Aplikasi belum bisa memastikan jaringan perangkat siap untuk ujian.")
+            appendLine()
+            appendLine("Status: ${status.userFacingVerdict.name}")
+            appendLine("Koneksi: ${status.transportLabel.ifBlank { "-" }}")
+            appendLine("Host ujian: $host")
+            appendLine("DNS global: $globalDnsVerdict (${status.globalDnsProbeStatus.host.ifBlank { "-" }})")
+            appendLine("Error DNS global: $globalDnsError")
+            appendLine("DNS host ujian: $examDnsVerdict")
+            appendLine("Error DNS host ujian: $examDnsError")
+            appendLine("Validasi Android: ${if (status.diagnostics.isValidated) "ya" else "tidak"}")
+            appendLine("Captive portal: ${if (status.diagnostics.isCaptivePortal) "ya" else "tidak"}")
+            appendLine()
+            append(quickFix ?: "Aktifkan ulang Wi-Fi/data, tunggu beberapa detik, lalu refresh status Network.")
+        }
     )
 }
 
@@ -604,21 +645,4 @@ internal fun resolveStartExamLocationBlockMessage(
 
         else -> null
     }
-}
-
-internal fun resolveStartExamOverlayAppBlockMessage(
-    bypassOverlay: Boolean,
-    overlayAppsDetected: List<OverlayAppInfo>
-): StartExamBlockMessage? {
-    if (bypassOverlay || overlayAppsDetected.isEmpty()) {
-        return null
-    }
-    val appNames = overlayAppsDetected.joinToString(", ") { it.appLabel }
-    val packageNames = overlayAppsDetected.joinToString(", ") { it.packageName }
-    return StartExamBlockMessage(
-        code = "START_EXAM_BLOCKED_OVERLAY_APP_PERMISSION",
-        details = "count=${overlayAppsDetected.size} | packages=$packageNames",
-        title = "Izin Overlay (Appear on Top) Terdeteksi",
-        message = "Matikan izin \"Tampilkan di Atas Aplikasi Lain\" (Appear on Top) untuk aplikasi berikut sebelum memulai ujian:\n\n$appNames\n\nBuka Pengaturan -> Aplikasi -> Izin Khusus -> Tampilkan di Atas Aplikasi Lain, lalu nonaktifkan untuk semua app di atas. CBX tidak membutuhkan izin ini."
-    )
 }

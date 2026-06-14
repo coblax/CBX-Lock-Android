@@ -275,7 +275,11 @@ internal fun buildNetworkEventDetails(
         append(" | airplane_mode=").append(if (status.diagnostics.isAirplaneModeEnabled) "yes" else "no")
         append(" | interface=").append(status.diagnostics.interfaceName.ifBlank { "-" })
         append(" | user_verdict=").append(status.userFacingVerdict.name.lowercase(Locale.US))
+        append(" | global_dns_probe=").append(status.globalDnsProbeStatus.verdict.name.lowercase(Locale.US))
+        append(" | global_dns_host=").append(status.globalDnsProbeStatus.host.ifBlank { "-" })
+        append(" | global_dns_latency=").append(status.globalDnsProbeStatus.latencyBucket.name.lowercase(Locale.US))
         append(" | dns_probe=").append(status.dnsProbeStatus.verdict.name.lowercase(Locale.US))
+        append(" | dns_host=").append(status.dnsProbeStatus.host.ifBlank { "-" })
         append(" | dns_latency=").append(status.dnsProbeStatus.latencyBucket.name.lowercase(Locale.US))
         append(" | detail=").append(status.examStatus.detail.ifBlank { "-" })
         extraContext?.takeIf { it.isNotBlank() }?.let {

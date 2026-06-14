@@ -197,10 +197,10 @@ private fun buildOverlayHealthItem(input: PreExamHealthCheckInput): PreExamHealt
         )
         shieldApplyFailed -> PreExamHealthItem(
             category = PreExamHealthCategory.FloatingAppOverlay,
-            verdict = PreExamHealthVerdict.Warning,
+            verdict = PreExamHealthVerdict.Blocking,
             title = "Floating App / Overlay",
-            detail = "Android overlay shield is supported but failed to apply. Floating apps may still appear.$compatibilityDetail$protectionDetail",
-            quickFix = "Close floating apps manually, refresh preparation, or use Device Owner mode for managed devices."
+            detail = "Android overlay shield is supported but failed to apply. Floating apps can still appear.$compatibilityDetail$protectionDetail",
+            quickFix = "Update/reinstall the official APK with overlay shield support, refresh preparation, or use Device Owner mode for managed devices."
         )
         dpcStatus.protectionTier == DpcProtectionTier.LegacyDpcAndroid7 -> PreExamHealthItem(
             category = PreExamHealthCategory.FloatingAppOverlay,
@@ -212,9 +212,9 @@ private fun buildOverlayHealthItem(input: PreExamHealthCheckInput): PreExamHealt
         dpcStatus.protectionTier == DpcProtectionTier.None &&
             !input.overlayRiskResult.shieldStatus.supported -> PreExamHealthItem(
             category = PreExamHealthCategory.FloatingAppOverlay,
-            verdict = PreExamHealthVerdict.Warning,
+            verdict = PreExamHealthVerdict.Blocking,
             title = "Floating App / Overlay",
-            detail = "Legacy Android normal APK cannot fully block floating apps. This mode is not recommended for high-stakes exams.$compatibilityDetail$protectionDetail",
+            detail = "Legacy Android normal APK cannot block floating apps. This mode is not safe for high-stakes exams.$compatibilityDetail$protectionDetail",
             quickFix = "Enroll school devices as Device Owner, or use Android 12+ for overlay shield support."
         )
         else -> PreExamHealthItem(

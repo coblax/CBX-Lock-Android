@@ -11,6 +11,18 @@ class OverlayPermissionGuardrailTest {
         val manifest = projectFile("src/main/AndroidManifest.xml").readText()
 
         assertFalse(manifest.contains("android.permission.SYSTEM_ALERT_WINDOW"))
+        assertTrue(manifest.contains("android.permission.HIDE_OVERLAY_WINDOWS"))
+    }
+
+    @Test
+    fun overlayShieldUsesWindowHideOverlayApi() {
+        val source = projectFile("src/main/java/com/example/coblaxexamlock/MainActivity.kt")
+            .readText()
+        val shieldSource = Regex("fun setOverlayShieldMode[\\s\\S]*?\\n    }")
+            .find(source)?.value.orEmpty()
+
+        assertTrue(shieldSource.contains("window.setHideOverlayWindows(enabled)"))
+        assertFalse(shieldSource.contains("javaClass.getMethod"))
     }
 
     @Test

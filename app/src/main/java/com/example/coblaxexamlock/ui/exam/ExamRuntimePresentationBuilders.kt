@@ -415,6 +415,7 @@ internal fun buildPreparationScreenActions(
             onOpenAccessibilitySettings = onOpenAccessibilitySettings,
             onOpenOverlayAccessibilitySettings = onOpenOverlayAccessibilitySettings,
             onOpenOverlaySettings = onOpenOverlaySettings,
+            onOpenOverlayGuardSettings = onOpenOverlaySettings,
             onOpenAppSettings = onOpenAppSettings,
             onOpenCastSettings = onOpenCastSettings
         )

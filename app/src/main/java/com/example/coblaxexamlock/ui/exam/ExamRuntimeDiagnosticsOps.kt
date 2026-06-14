@@ -53,6 +53,7 @@ import com.example.coblaxexamlock.model.NetworkDnsProbeVerdict
 import com.example.coblaxexamlock.model.NetworkReadinessStatus
 import com.example.coblaxexamlock.model.NetworkTimelineEntry
 import com.example.coblaxexamlock.model.NetworkUnstableRuntimeStatus
+import com.example.coblaxexamlock.runtime.LowRamDispatchers
 import com.example.coblaxexamlock.runtime.SecurityDetectorCache
 import com.example.coblaxexamlock.runtime.acquireBestEffortLocationSnapshot
 import com.example.coblaxexamlock.runtime.hasFineLocationPermission
@@ -63,6 +64,7 @@ import com.example.coblaxexamlock.runtime.readNetworkReadinessStatusWithExamHost
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.launch
+import kotlinx.coroutines.withContext
 import java.util.Locale
 
 internal fun examRuntimeNetworkPollingIntervalMillis(
@@ -639,6 +641,7 @@ internal class ExamRuntimeDiagnosticsOps(
                 refreshedStatus.diagnostics.isAirplaneModeEnabled ||
                 previousStatus.verdict != refreshedStatus.verdict ||
                 previousStatus.userFacingVerdict != refreshedStatus.userFacingVerdict ||
+                previousStatus.globalDnsProbeStatus.verdict != refreshedStatus.globalDnsProbeStatus.verdict ||
                 previousStatus.dnsProbeStatus.verdict != refreshedStatus.dnsProbeStatus.verdict
         if (!coreStateChanged) {
             return
@@ -674,14 +677,17 @@ internal class ExamRuntimeDiagnosticsOps(
         }
         if (
             refreshedStatus.dnsProbeStatus.verdict == NetworkDnsProbeVerdict.Failed ||
-            refreshedStatus.dnsProbeStatus.verdict == NetworkDnsProbeVerdict.Timeout
+            refreshedStatus.dnsProbeStatus.verdict == NetworkDnsProbeVerdict.Timeout ||
+            refreshedStatus.globalDnsProbeStatus.verdict == NetworkDnsProbeVerdict.Failed ||
+            refreshedStatus.globalDnsProbeStatus.verdict == NetworkDnsProbeVerdict.Timeout
         ) {
             recordAction(
                 code = ExamRuntimeHardeningDiagnostics.NetworkDnsProbeFailed,
                 details = currentNetworkEventDetails(
                     trigger = source,
                     status = refreshedStatus,
-                    extraContext = "dns=${refreshedStatus.dnsProbeStatus.verdict.name.lowercase(Locale.US)}"
+                    extraContext = "global_dns=${refreshedStatus.globalDnsProbeStatus.verdict.name.lowercase(Locale.US)} | " +
+                        "exam_dns=${refreshedStatus.dnsProbeStatus.verdict.name.lowercase(Locale.US)}"
                 ),
                 level = DiagnosticEventLevel.WARNING
             )
@@ -769,6 +775,12 @@ internal class ExamRuntimeDiagnosticsOps(
 
     fun launchNetworkManualRefresh(trigger: String) {
         if (networkUiState.networkManualRefreshInFlight.value) {
+            networkUiState.lastNetworkChangeSource.value = "refresh_already_running:$trigger"
+            recordAction(
+                code = "NETWORK_MANUAL_REFRESH_ALREADY_RUNNING",
+                details = "trigger=$trigger",
+                level = DiagnosticEventLevel.INFO
+            )
             return
         }
         coroutineScope.launch {
@@ -822,8 +834,9 @@ internal class ExamRuntimeDiagnosticsOps(
             locationSnapshot = locationSnapshot,
             fixQualityStatus = latestGeofenceStatus.fixQualityStatus,
             developerOptionsEnabled = developerOptionsForLocation,
-            suspiciousFakeLocationPackages =
-                SecurityDetectorCache.readSuspiciousFakeLocationPackages(context),
+            suspiciousFakeLocationPackages = withContext(LowRamDispatchers.detectorIo) {
+                SecurityDetectorCache.readSuspiciousFakeLocationPackages(context)
+            },
             bypassState = fakeLocationBypassState
         )
         securityUiState.geofenceEvaluation.value = latestGeofenceStatus.geofenceEvaluation
@@ -1035,6 +1048,11 @@ internal class ExamRuntimeDiagnosticsOps(
 
     fun launchLocationSecurityManualRefresh(trigger: String) {
         if (flowUiState.geofenceManualRefreshInFlight.value) {
+            recordAction(
+                code = "LOCATION_MANUAL_REFRESH_ALREADY_RUNNING",
+                details = "trigger=$trigger",
+                level = DiagnosticEventLevel.INFO
+            )
             return
         }
         invalidateWarmLocationValidationCache()

@@ -79,6 +79,7 @@ import com.example.coblaxexamlock.DeviceTimeSecurityStatus
 import com.example.coblaxexamlock.DeviceTimeSecurityVerdict
 import com.example.coblaxexamlock.diagnosticLabel
 import com.example.coblaxexamlock.DpcRuntimeStatus
+import com.example.coblaxexamlock.ExamWebViewSessionResetStep
 import com.example.coblaxexamlock.evaluateFakeLocationSecurity
 import com.example.coblaxexamlock.evaluateGeofenceSecurity
 import com.example.coblaxexamlock.evaluateLocationFixQuality
@@ -667,6 +668,7 @@ internal fun ExamRuntimeSessionScreenImpl(
     )
     var securityIssueDialogTitle by adminUiState.securityIssueDialogTitle
     var securityIssueDialogMessage by adminUiState.securityIssueDialogMessage
+    var securityIssueDialogCode by adminUiState.securityIssueDialogCode
     var exitOnSecurityIssueDialogDismiss by adminUiState.exitOnSecurityIssueDialogDismiss
     var screenPinningBypassTamperLogged by adminUiState.screenPinningBypassTamperLogged
     var accessibilityBypassTamperLogged by adminUiState.accessibilityBypassTamperLogged
@@ -1419,10 +1421,38 @@ internal fun ExamRuntimeSessionScreenImpl(
     fun launchTelegramSectionReport(section: DiagnosticSection) = runtimeSecurityOps.launchTelegramSectionReport(section)
 
     class StartExamController {
+        fun showStartExamPreflight(
+            step: StartExamPreflightStep = StartExamPreflightStep.Starting,
+            detail: String? = null
+        ) {
+            showStartExamPreflight(
+                state = flowUiState.startExamPreflight,
+                step = step,
+                detail = detail,
+                startedAtElapsedMs = SystemClock.elapsedRealtime()
+            )
+        }
+
+        fun updateStartExamPreflight(
+            step: StartExamPreflightStep,
+            detail: String? = null
+        ) {
+            updateStartExamPreflightStep(
+                state = flowUiState.startExamPreflight,
+                step = step,
+                detail = detail
+            )
+        }
+
+        fun hideStartExamPreflight() {
+            hideStartExamPreflight(flowUiState.startExamPreflight)
+        }
+
         private fun applyStartExamBlockMessage(
             message: StartExamBlockMessage,
             level: DiagnosticEventLevel = DiagnosticEventLevel.WARNING
         ) {
+            hideStartExamPreflight()
             applyExamRuntimeStartBlockMessage(
                 message = message,
                 level = level,
@@ -1431,7 +1461,8 @@ internal fun ExamRuntimeSessionScreenImpl(
                         recordAction(code = code, details = details, level = eventLevel)
                     },
                     setSecurityIssueDialogTitle = { securityIssueDialogTitle = it },
-                    setSecurityIssueDialogMessage = { securityIssueDialogMessage = it }
+                    setSecurityIssueDialogMessage = { securityIssueDialogMessage = it },
+                    setSecurityIssueDialogCode = { securityIssueDialogCode = it }
                 )
             )
         }
@@ -1441,6 +1472,8 @@ internal fun ExamRuntimeSessionScreenImpl(
         }
 
         fun finalizeExamSessionStart(lockTaskAlreadyActive: Boolean) {
+            updateStartExamPreflight(StartExamPreflightStep.Complete)
+            hideStartExamPreflight()
             applyDpcExamPoliciesForStart(startLockTask = false)
             finalizeStartExamSession(
                 context = context,
@@ -1448,13 +1481,18 @@ internal fun ExamRuntimeSessionScreenImpl(
                 flowUiState = flowUiState,
                 adminUiState = adminUiState,
                 clipboardUiState = clipboardUiState,
+                securityUiState = securityUiState,
                 lockTaskAlreadyActive = lockTaskAlreadyActive,
-                hideSystemKeyboard = ::hideSystemKeyboard
+                hideSystemKeyboard = ::hideSystemKeyboard,
+                recordAction = { code, details, level ->
+                    recordAction(code = code, details = details, level = level)
+                }
             )
         }
 
         suspend fun prepareCleanExamWebViewSessionForStart(): Boolean {
-            return prepareCleanExamWebViewSessionForStart(
+            updateStartExamPreflight(StartExamPreflightStep.PreparingWebView)
+            val prepared = prepareCleanExamWebViewSessionForStart(
                 context = context,
                 existingWebView = webViewInstance,
                 lowRamProfile = lowRamProfile,
@@ -1464,8 +1502,45 @@ internal fun ExamRuntimeSessionScreenImpl(
                 recordAction = { code, details, level ->
                     recordAction(code = code, details = details, level = level)
                 },
-                onRecoveryStateIdle = { examRuntimeRecoveryState = ExamRuntimeRecoveryState.Idle }
+                onRecoveryStateIdle = { examRuntimeRecoveryState = ExamRuntimeRecoveryState.Idle },
+                onResetProgress = { resetStep ->
+                    val detail = when (resetStep) {
+                        ExamWebViewSessionResetStep.ClearCookies -> localized(
+                            uiLanguage,
+                            "Clearing previous exam cookies.",
+                            "Membersihkan cookie ujian sebelumnya."
+                        )
+                        ExamWebViewSessionResetStep.ClearStorage -> localized(
+                            uiLanguage,
+                            "Clearing exam browser storage.",
+                            "Membersihkan storage browser ujian."
+                        )
+                        ExamWebViewSessionResetStep.ClearDatabase -> localized(
+                            uiLanguage,
+                            "Clearing saved browser form and auth data.",
+                            "Membersihkan data form dan autentikasi browser."
+                        )
+                        ExamWebViewSessionResetStep.PrepareWebView -> localized(
+                            uiLanguage,
+                            "Preparing the exam browser instance.",
+                            "Menyiapkan instance browser ujian."
+                        )
+                        ExamWebViewSessionResetStep.Complete -> localized(
+                            uiLanguage,
+                            "Loading the exam page.",
+                            "Memuat halaman ujian."
+                        )
+                    }
+                    updateStartExamPreflight(
+                        StartExamPreflightStep.PreparingWebView,
+                        detail = detail
+                    )
+                }
             )
+            if (!prepared) {
+                hideStartExamPreflight()
+            }
+            return prepared
         }
 
         fun completeStartExamSessionAfterPrechecks() {
@@ -1516,6 +1591,7 @@ internal fun ExamRuntimeSessionScreenImpl(
                     },
                     clearAppSwitchSuppression = ::clearAppSwitchSuppression,
                     setAppSwitchSuppression = { reason -> setAppSwitchSuppression(reason) },
+                    hideStartExamPreflight = this::hideStartExamPreflight,
                     applyStartExamBlockMessage = this::applyStartExamBlockMessage,
                     recordAction = { code, details, level ->
                         recordAction(code = code, details = details, level = level)
@@ -1528,6 +1604,7 @@ internal fun ExamRuntimeSessionScreenImpl(
             if (webViewSessionResetInFlight) {
                 return
             }
+            showStartExamPreflight()
             examRuntimeRecoveryState = ExamRuntimeRecoveryState.Idle
             runExamRuntimeStartPrechecks(
                 context = context,
@@ -1582,6 +1659,8 @@ internal fun ExamRuntimeSessionScreenImpl(
                     refreshKeyboardSecurity = ::refreshKeyboardSecurity,
                     refreshBluetoothSecurity = ::refreshBluetoothSecurity,
                     refreshDeviceIntegritySecurity = ::refreshDeviceIntegritySecurity,
+                    updateStartExamPreflight = this::updateStartExamPreflight,
+                    hideStartExamPreflight = this::hideStartExamPreflight,
                     applyStartExamBlockMessage = this::applyStartExamBlockMessage,
                     refreshDeviceTimeSecurity = { trigger, emitDiagnosticEvent ->
                         refreshDeviceTimeSecurity(
@@ -1643,6 +1722,8 @@ internal fun ExamRuntimeSessionScreenImpl(
                                         fakeLocationStatus = fakeLocationStatus
                                     )
                                 },
+                                updateStartExamPreflight = this::updateStartExamPreflight,
+                                hideStartExamPreflight = this::hideStartExamPreflight,
                                 applyStartExamBlockMessage = this::applyStartExamBlockMessage,
                                 refreshDeviceTimeSecurity = { trigger, emitDiagnosticEvent ->
                                     refreshDeviceTimeSecurity(
@@ -1666,6 +1747,7 @@ internal fun ExamRuntimeSessionScreenImpl(
     LaunchedEffect(retryStartExamAfterLocationPermissionGrant) {
         if (retryStartExamAfterLocationPermissionGrant) {
             retryStartExamAfterLocationPermissionGrant = false
+            startExamController.showStartExamPreflight()
             startExamController.startExamSession()
         }
     }
@@ -1784,6 +1866,7 @@ internal fun ExamRuntimeSessionScreenImpl(
     DisposableEffect(mainActivity) {
         onDispose {
             mainActivity?.setExamLockMode(enabled = false, allowLockTask = false)
+            securityUiState.overlayGuardActive.value = false
         }
     }
 
@@ -2054,6 +2137,7 @@ internal fun ExamRuntimeSessionScreenImpl(
         networkUiState = networkUiState,
         webViewUiState = webViewUiState,
         accessibilityGuardEnabledState = accessibilityGuardEnabledState,
+        coroutineScope = coroutineScope,
         runtimeDiagnosticsOps = runtimeDiagnosticsOps,
         runtimeSecurityOps = runtimeSecurityOps,
         runtimeMonitoringOps = runtimeMonitoringOps,
@@ -2152,6 +2236,15 @@ internal fun ExamRuntimeSessionScreenImpl(
     fun handleExportExamDiagnostics(source: String) = diagnosticExportOps.export(source)
 
     fun handleStartExam() {
+        if (
+            flowUiState.startExamPreflight.visible.value ||
+            flowUiState.webViewSessionResetInFlight.value ||
+            flowUiState.lockTaskRequestPending.value ||
+            flowUiState.geofenceStartValidationInFlight.value
+        ) {
+            return
+        }
+        startExamController.showStartExamPreflight()
         writePreviousSessionBreadcrumb(
             code = PreviousExamSessionBreadcrumbCodes.StartPressed,
             details = "score=${deviceSurvivalPolicy.score.name} | health_blocking=${deviceSurvivalPolicy.healthBlockingCount}"
@@ -2240,6 +2333,9 @@ internal fun ExamRuntimeSessionScreenImpl(
                 webView.loadExamUrlSafely(payload.examUrl)
                 webView.requestedExamUrl = payload.examUrl
             }
+        },
+        reloadExamUrlLikeBrowser = {
+            webViewInstance?.reloadExamUrlLikeBrowserSafely(payload.examUrl)
         },
         stopWebViewLoading = { webViewInstance?.stopLoading() },
         setLoadingProgress = { loadingProgress = it },
@@ -2515,6 +2611,8 @@ internal fun ExamRuntimeSessionScreenImpl(
         screenPinningMessage = if (examSessionStarted) screenPinningMessage else null,
         securityIssueDialogTitle = securityIssueDialogTitle,
         securityIssueDialogMessage = securityIssueDialogMessage,
+        securityIssueDialogCode = securityIssueDialogCode,
+        startExamPreflightState = flowUiState.startExamPreflight,
         bugReportFeedbackTitle = bugReportFeedbackTitle,
         bugReportFeedbackMessage = bugReportFeedbackMessage,
         securityUiState = securityUiState,
@@ -2525,6 +2623,7 @@ internal fun ExamRuntimeSessionScreenImpl(
         onOpenStaticSecurityCastSettings = ::handleOpenCastSettings,
         onRefreshStaticSecurityStatus = ::handleRefreshPreparationStatus,
         onSendStaticSecurityReport = ::launchTelegramSectionReport,
+        onRefreshNetworkStatus = preparationActions.onRefreshNetworkStatus,
         modifier = modifier
     )
 
@@ -2558,6 +2657,8 @@ private fun ExamRuntimeSessionRenderedUiSection(
     screenPinningMessage: String?,
     securityIssueDialogTitle: String?,
     securityIssueDialogMessage: String?,
+    securityIssueDialogCode: String?,
+    startExamPreflightState: StartExamPreflightUiState,
     bugReportFeedbackTitle: String?,
     bugReportFeedbackMessage: String?,
     securityUiState: ExamRuntimeSecurityUiState,
@@ -2568,6 +2669,7 @@ private fun ExamRuntimeSessionRenderedUiSection(
     onOpenStaticSecurityCastSettings: () -> Unit,
     onRefreshStaticSecurityStatus: () -> Unit,
     onSendStaticSecurityReport: (DiagnosticSection) -> Unit,
+    onRefreshNetworkStatus: () -> Unit,
     modifier: Modifier
 ) {
     ExamRuntimeSessionRenderedUi(
@@ -2597,6 +2699,8 @@ private fun ExamRuntimeSessionRenderedUiSection(
         screenPinningMessage = screenPinningMessage,
         securityIssueDialogTitle = securityIssueDialogTitle,
         securityIssueDialogMessage = securityIssueDialogMessage,
+        securityIssueDialogCode = securityIssueDialogCode,
+        startExamPreflightState = startExamPreflightState,
         bugReportFeedbackTitle = bugReportFeedbackTitle,
         bugReportFeedbackMessage = bugReportFeedbackMessage,
         securityUiState = securityUiState,
@@ -2624,6 +2728,7 @@ private fun ExamRuntimeSessionRenderedUiSection(
         onSendStaticSecurityReport = onSendStaticSecurityReport,
         onDismissScreenPinningMessage = renderedUiCallbacks::onDismissScreenPinningMessage,
         onDismissSecurityIssueDialog = renderedUiCallbacks::onDismissSecurityIssueDialog,
+        onRefreshNetworkStatus = onRefreshNetworkStatus,
         onDismissBugReportFeedback = renderedUiCallbacks::onDismissBugReportFeedback,
         modifier = modifier
     )

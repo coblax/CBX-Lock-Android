@@ -204,7 +204,7 @@ class PreExamHealthCheckTest {
     }
 
     @Test
-    fun android7NormalApkWarnsThatFloatingAppsCannotBeFullyBlocked() {
+    fun android7NormalApkBlocksBecauseFloatingAppsCannotBeBlocked() {
         val snapshot = buildPreExamHealthSnapshot(
             defaultInput(
                 overlayRiskResult = defaultOverlayRisk(shieldSupported = false),
@@ -216,13 +216,13 @@ class PreExamHealthCheckTest {
         )
 
         val overlay = snapshot.items.first { it.category == PreExamHealthCategory.FloatingAppOverlay }
-        assertEquals(PreExamHealthVerdict.Warning, overlay.verdict)
+        assertEquals(PreExamHealthVerdict.Blocking, overlay.verdict)
         assertTrue(overlay.detail.contains("Legacy Android"))
-        assertTrue(overlay.detail.contains("not recommended", ignoreCase = true))
+        assertTrue(overlay.detail.contains("not safe", ignoreCase = true))
     }
 
     @Test
-    fun android11NormalApkWarnsThatFloatingAppsCannotBeFullyBlocked() {
+    fun android11NormalApkBlocksBecauseFloatingAppsCannotBeBlocked() {
         val snapshot = buildPreExamHealthSnapshot(
             defaultInput(
                 overlayRiskResult = defaultOverlayRisk(shieldSupported = false),
@@ -234,9 +234,9 @@ class PreExamHealthCheckTest {
         )
 
         val overlay = snapshot.items.first { it.category == PreExamHealthCategory.FloatingAppOverlay }
-        assertEquals(PreExamHealthVerdict.Warning, overlay.verdict)
+        assertEquals(PreExamHealthVerdict.Blocking, overlay.verdict)
         assertTrue(overlay.detail.contains("Legacy Android"))
-        assertTrue(overlay.detail.contains("not recommended", ignoreCase = true))
+        assertTrue(overlay.detail.contains("not safe", ignoreCase = true))
     }
 
     @Test
@@ -278,7 +278,7 @@ class PreExamHealthCheckTest {
     }
 
     @Test
-    fun supportedShieldApplyFailureWarnsInsteadOfReportingGood() {
+    fun supportedShieldApplyFailureBlocksInsteadOfReportingGood() {
         val snapshot = buildPreExamHealthSnapshot(
             defaultInput(
                 overlayRiskResult = defaultOverlayRisk(
@@ -293,7 +293,7 @@ class PreExamHealthCheckTest {
         )
 
         val overlay = snapshot.items.first { it.category == PreExamHealthCategory.FloatingAppOverlay }
-        assertEquals(PreExamHealthVerdict.Warning, overlay.verdict)
+        assertEquals(PreExamHealthVerdict.Blocking, overlay.verdict)
         assertTrue(overlay.detail.contains("failed to apply", ignoreCase = true))
     }
 

@@ -1,6 +1,7 @@
 package com.example.coblaxexamlock.ui.preparation
 
 import com.example.coblaxexamlock.LowRamProfile
+import com.example.coblaxexamlock.model.UiLanguage
 import org.junit.Assert.assertEquals
 import org.junit.Assert.assertFalse
 import org.junit.Assert.assertSame
@@ -71,6 +72,17 @@ class PreparationWizardModeTest {
                 showFullChecklist = false
             )
         )
+    }
+
+    @Test
+    fun loadingChecklistTextKeepsWizardResponsiveBeforeDetailsAreReady() {
+        val english = loadingPreparationChecklistText(UiLanguage.English)
+        val indonesian = loadingPreparationChecklistText(UiLanguage.Indonesian)
+
+        assertEquals("Loading details...", english.networkValue)
+        assertEquals("Checking", english.networkStatusLabel)
+        assertEquals("Memuat detail...", indonesian.networkValue)
+        assertEquals("Mengecek", indonesian.networkStatusLabel)
     }
 
     @Test

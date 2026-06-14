@@ -51,6 +51,40 @@ class NetworkReadinessHardeningTest {
     }
 
     @Test
+    fun connectedWithGlobalDnsFailureBecomesDnsFailedWhenExamProbeDidNotRun() {
+        val verdict = resolveNetworkReadinessUserVerdict(
+            verdict = NetworkReadinessVerdict.ConnectedStable,
+            dnsProbeStatus = NetworkDnsProbeStatus(),
+            globalDnsProbeStatus = NetworkDnsProbeStatus(
+                verdict = NetworkDnsProbeVerdict.Failed,
+                host = GlobalDnsProbeHost,
+                error = "UnknownHostException"
+            )
+        )
+
+        assertEquals(NetworkReadinessUserVerdict.DnsFailed, verdict)
+    }
+
+    @Test
+    fun resolvedExamDnsKeepsStartSignalStableEvenIfGlobalProbeFails() {
+        val verdict = resolveNetworkReadinessUserVerdict(
+            verdict = NetworkReadinessVerdict.ConnectedStable,
+            dnsProbeStatus = NetworkDnsProbeStatus(
+                verdict = NetworkDnsProbeVerdict.Resolved,
+                host = "skansatp.web.id",
+                latencyBucket = NetworkLatencyBucket.Fast
+            ),
+            globalDnsProbeStatus = NetworkDnsProbeStatus(
+                verdict = NetworkDnsProbeVerdict.Failed,
+                host = GlobalDnsProbeHost,
+                error = "UnknownHostException"
+            )
+        )
+
+        assertEquals(NetworkReadinessUserVerdict.Stable, verdict)
+    }
+
+    @Test
     fun captivePortalAndOfflineStayExplicit() {
         assertEquals(
             NetworkReadinessUserVerdict.CaptivePortal,

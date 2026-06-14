@@ -61,7 +61,8 @@ class PreparationChecklistAuditDetailsTest {
         assertTrue(detail.contains("User verdict: VpnActive"))
         assertTrue(detail.contains("VPN active: Yes"))
         assertTrue(detail.contains("VPN bypass tampered: Yes"))
-        assertTrue(detail.contains("DNS probe: Failed"))
+        assertTrue(detail.contains("Global DNS probe: Resolved"))
+        assertTrue(detail.contains("Exam DNS probe: Failed"))
         assertTrue(detail.contains("Network changes/flaps: 2"))
     }
 
@@ -186,6 +187,12 @@ class PreparationChecklistAuditDetailsTest {
                 latencyMillis = 1_250L,
                 latencyBucket = NetworkLatencyBucket.Slow,
                 error = "timeout"
+            ),
+            globalDnsProbeStatus = NetworkDnsProbeStatus(
+                verdict = NetworkDnsProbeVerdict.Resolved,
+                host = "one.one.one.one",
+                latencyMillis = 120L,
+                latencyBucket = NetworkLatencyBucket.Fast
             ),
             userFacingVerdict = NetworkReadinessUserVerdict.VpnActive,
             userFacingQuickFixText = "Turn off VPN, then tap Refresh."

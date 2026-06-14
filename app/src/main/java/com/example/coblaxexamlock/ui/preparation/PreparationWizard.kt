@@ -64,9 +64,7 @@ import com.example.coblaxexamlock.LocalLowRamProfile
 import com.example.coblaxexamlock.i18n.LocalUiLanguage
 import com.example.coblaxexamlock.i18n.localized
 import com.example.coblaxexamlock.i18n.tr
-import com.example.coblaxexamlock.inspectAccessibility
-import com.example.coblaxexamlock.isExamGuardAccessibilityAvailable
-import com.example.coblaxexamlock.isExamGuardAccessibilityEnabled
+import com.example.coblaxexamlock.runtime.LowRamDispatchers
 import com.example.coblaxexamlock.model.DiagnosticSection
 import com.example.coblaxexamlock.runtime.requiresBluetoothExamPermission
 import com.example.coblaxexamlock.ui.theme.LockBackground
@@ -84,6 +82,7 @@ import com.example.coblaxexamlock.ui.theme.LockTextSecondary
 import kotlinx.coroutines.Job
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.launch
+import kotlinx.coroutines.withContext
 
 private val WizardGreen = Color(0xFF2F8F63)
 private val WizardRed = Color(0xFFB34A4A)
@@ -100,12 +99,13 @@ internal fun PreparationWizardScreen(
             val uiLanguage = LocalUiLanguage.current
             val context = LocalContext.current
             val lowRamProfile = LocalLowRamProfile.current
-            val accessibilityInspection = remember(
-                context,
-                accessibilityServiceEnabled
-            ) {
-                inspectAccessibility(context)
+            var accessibilityUiState by remember(context) {
+                mutableStateOf(initialPreparationAccessibilityState())
             }
+            LaunchedEffect(context, accessibilityServiceEnabled) {
+                accessibilityUiState = loadPreparationAccessibilityState(context)
+            }
+            val accessibilityInspection = accessibilityUiState.inspection
             @Suppress("DEPRECATION")
             val lifecycleOwner = LocalLifecycleOwner.current
             var pendingQuickFixTarget by rememberSaveable { mutableStateOf<QuickFixTarget?>(null) }
@@ -139,6 +139,18 @@ internal fun PreparationWizardScreen(
                     return
                 }
                 pendingManualRefreshAction = action
+                val queuedFeedback = localized(
+                    uiLanguage,
+                    "Refresh queued; running shortly.",
+                    "Refresh dijadwalkan; segera berjalan."
+                )
+                quickFixFeedbackText = queuedFeedback
+                manualRefreshScope.launch {
+                    delay((cooldownMillis - elapsedMs).coerceAtLeast(0L) + 500L)
+                    if (quickFixFeedbackText == queuedFeedback) {
+                        quickFixFeedbackText = null
+                    }
+                }
                 if (pendingManualRefreshJob == null) {
                     pendingManualRefreshJob = manualRefreshScope.launch {
                         delay((cooldownMillis - elapsedMs).coerceAtLeast(0L))
@@ -249,12 +261,8 @@ internal fun PreparationWizardScreen(
             }
 
             val needsBluetoothPermission = requiresBluetoothExamPermission()
-            val accessibilityGuardEnabled = remember(context, accessibilityInspection.rawEnabledServices) {
-                isExamGuardAccessibilityEnabled(context)
-            }
-            val accessibilityGuardAvailable = remember(context) {
-                isExamGuardAccessibilityAvailable(context)
-            }
+            val accessibilityGuardEnabled = accessibilityUiState.guardEnabled
+            val accessibilityGuardAvailable = accessibilityUiState.guardAvailable
             val accessibilityGuardRequired =
                 !screenPinningAvailable && !bypassScreenPinning && accessibilityGuardAvailable
 
@@ -349,7 +357,8 @@ internal fun PreparationWizardScreen(
                     showChecklistDetails = state.showChecklistDetails
                 )
             }
-            val stepChecklistText = remember(
+            var stepChecklistText by remember { mutableStateOf<PreparationChecklistText?>(null) }
+            LaunchedEffect(
                 wizardPayloadBuildMode, currentStep,
                 state.session, state.network, state.device, state.location,
                 state.runtimeSecurity, state.bypass, state.diagnostics,
@@ -357,27 +366,30 @@ internal fun PreparationWizardScreen(
                 accessibilityGuardEnabled, accessibilityGuardAvailable,
                 accessibilityGuardRequired, needsBluetoothPermission
             ) {
-                if (wizardPayloadBuildMode == PreparationWizardPayloadBuildMode.FullChecklist) {
-                    buildPreparationChecklistText(
-                        state = state,
-                        uiLanguage = uiLanguage,
-                        accessibilityInspection = accessibilityInspection,
-                        accessibilityGuardEnabled = accessibilityGuardEnabled,
-                        accessibilityGuardAvailable = accessibilityGuardAvailable,
-                        accessibilityGuardRequired = accessibilityGuardRequired,
-                        needsBluetoothPermission = needsBluetoothPermission
-                    )
-                } else {
-                    buildPreparationWizardStepText(
-                        step = currentStep,
-                        state = state,
-                        uiLanguage = uiLanguage,
-                        accessibilityInspection = accessibilityInspection,
-                        accessibilityGuardEnabled = accessibilityGuardEnabled,
-                        accessibilityGuardAvailable = accessibilityGuardAvailable,
-                        accessibilityGuardRequired = accessibilityGuardRequired,
-                        needsBluetoothPermission = needsBluetoothPermission
-                    )
+                stepChecklistText = null
+                stepChecklistText = withContext(LowRamDispatchers.detectorIo) {
+                    if (wizardPayloadBuildMode == PreparationWizardPayloadBuildMode.FullChecklist) {
+                        buildPreparationChecklistText(
+                            state = state,
+                            uiLanguage = uiLanguage,
+                            accessibilityInspection = accessibilityInspection,
+                            accessibilityGuardEnabled = accessibilityGuardEnabled,
+                            accessibilityGuardAvailable = accessibilityGuardAvailable,
+                            accessibilityGuardRequired = accessibilityGuardRequired,
+                            needsBluetoothPermission = needsBluetoothPermission
+                        )
+                    } else {
+                        buildPreparationWizardStepText(
+                            step = currentStep,
+                            state = state,
+                            uiLanguage = uiLanguage,
+                            accessibilityInspection = accessibilityInspection,
+                            accessibilityGuardEnabled = accessibilityGuardEnabled,
+                            accessibilityGuardAvailable = accessibilityGuardAvailable,
+                            accessibilityGuardRequired = accessibilityGuardRequired,
+                            needsBluetoothPermission = needsBluetoothPermission
+                        )
+                    }
                 }
             }
             val stepPayload = remember(
@@ -388,11 +400,12 @@ internal fun PreparationWizardScreen(
                 stepQuickFixActions,
                 wizardPayloadBuildMode
             ) {
+                val visibleStepText = stepChecklistText ?: loadingPreparationChecklistText(uiLanguage)
                 createPreparationWizardStepPayload(
                     currentStep = currentStep,
                     readiness = readiness,
                     sectionHealthMap = sectionHealthMap,
-                    sectionText = stepChecklistText,
+                    sectionText = visibleStepText,
                     quickFixActions = stepQuickFixActions,
                     buildMode = wizardPayloadBuildMode
                 )

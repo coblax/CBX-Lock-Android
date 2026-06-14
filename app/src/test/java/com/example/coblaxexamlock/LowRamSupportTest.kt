@@ -309,7 +309,7 @@ class LowRamSupportTest {
     }
 
     @Test
-    fun ultraWebViewSessionResetSkipsFullHttpCacheWithoutExistingWebView() {
+    fun webViewSessionResetSkipsFullHttpCacheForUltraOrMissingWebView() {
         val ultraProfile = LowRamProfile(enabled = true, severe = true, ultra = true)
         val normalProfile = LowRamProfile()
 
@@ -319,16 +319,22 @@ class LowRamSupportTest {
                 hasExistingWebView = false
             )
         )
-        assertTrue(
+        assertFalse(
             shouldClearWebViewHttpCacheForSessionReset(
                 lowRamProfile = ultraProfile,
                 hasExistingWebView = true
             )
         )
-        assertTrue(
+        assertFalse(
             shouldClearWebViewHttpCacheForSessionReset(
                 lowRamProfile = normalProfile,
                 hasExistingWebView = false
+            )
+        )
+        assertTrue(
+            shouldClearWebViewHttpCacheForSessionReset(
+                lowRamProfile = normalProfile,
+                hasExistingWebView = true
             )
         )
     }

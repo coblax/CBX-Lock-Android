@@ -41,6 +41,7 @@ import com.example.coblaxexamlock.isExamGuardAccessibilityEnabled
 import com.example.coblaxexamlock.model.ExamBatteryStatus
 import com.example.coblaxexamlock.model.DiagnosticEventLevel
 import com.example.coblaxexamlock.model.NetworkReadinessStatus
+import com.example.coblaxexamlock.model.NetworkReadinessUserVerdict
 import com.example.coblaxexamlock.runtime.SecurityDetectorCache
 import com.example.coblaxexamlock.runtime.getExternalDisplayCount
 import com.example.coblaxexamlock.runtime.getVirtualEnvironmentDiagnosticsOnIo
@@ -54,12 +55,17 @@ import com.example.coblaxexamlock.ui.preparation.PreExamHealthCheckInput
 import com.example.coblaxexamlock.ui.preparation.buildPreExamHealthSnapshot
 import com.example.coblaxexamlock.ui.preparation.preExamHealthStartBlocker
 import kotlinx.coroutines.CoroutineScope
+import kotlinx.coroutines.delay
 import kotlinx.coroutines.launch
+
+private const val StartNetworkRecoveryAttempts = 3
+private const val StartNetworkRecoveryRetryDelayMillis = 1_000L
 
 internal class ExamRuntimeStartBlockCallbacks(
     val recordAction: (String, String, DiagnosticEventLevel) -> Unit,
     val setSecurityIssueDialogTitle: (String) -> Unit,
-    val setSecurityIssueDialogMessage: (String) -> Unit
+    val setSecurityIssueDialogMessage: (String) -> Unit,
+    val setSecurityIssueDialogCode: (String?) -> Unit
 )
 
 internal fun applyExamRuntimeStartBlockMessage(
@@ -70,6 +76,7 @@ internal fun applyExamRuntimeStartBlockMessage(
     callbacks.recordAction(message.code, message.details, level)
     callbacks.setSecurityIssueDialogTitle(message.title)
     callbacks.setSecurityIssueDialogMessage(message.message)
+    callbacks.setSecurityIssueDialogCode(message.code)
 }
 
 internal class ExamRuntimeStartPrecheckCallbacks(
@@ -81,6 +88,8 @@ internal class ExamRuntimeStartPrecheckCallbacks(
     val refreshKeyboardSecurity: (Boolean) -> Unit,
     val refreshBluetoothSecurity: (Boolean) -> Unit,
     val refreshDeviceIntegritySecurity: (Boolean) -> Unit,
+    val updateStartExamPreflight: (StartExamPreflightStep, String?) -> Unit,
+    val hideStartExamPreflight: () -> Unit,
     val applyStartExamBlockMessage: (StartExamBlockMessage) -> Unit,
     val refreshDeviceTimeSecurity: (String, Boolean) -> DeviceTimeSecurityStatus,
     val applyNetworkReadinessStatus: (String, NetworkReadinessStatus) -> Unit,
@@ -94,6 +103,38 @@ internal class ExamRuntimeStartPrecheckCallbacks(
     val launchFinalLocationValidation: (Long) -> Unit,
     val debugLogExamStart: (String) -> Unit
 )
+
+internal fun shouldRetryStartExamNetworkStatus(status: NetworkReadinessStatus): Boolean {
+    return when (status.userFacingVerdict) {
+        NetworkReadinessUserVerdict.Offline,
+        NetworkReadinessUserVerdict.CaptivePortal,
+        NetworkReadinessUserVerdict.AirplaneMode -> true
+        NetworkReadinessUserVerdict.Stable,
+        NetworkReadinessUserVerdict.Unvalidated,
+        NetworkReadinessUserVerdict.DnsFailed,
+        NetworkReadinessUserVerdict.Slow,
+        NetworkReadinessUserVerdict.VpnActive,
+        NetworkReadinessUserVerdict.Unstable -> false
+    }
+}
+
+internal suspend fun readStartExamNetworkStatusWithRecovery(
+    attempts: Int = StartNetworkRecoveryAttempts,
+    retryDelayMillis: Long = StartNetworkRecoveryRetryDelayMillis,
+    readStatus: suspend () -> NetworkReadinessStatus
+): NetworkReadinessStatus {
+    var latestStatus = readStatus()
+    repeat(attempts.coerceAtLeast(1) - 1) {
+        if (!shouldRetryStartExamNetworkStatus(latestStatus)) {
+            return latestStatus
+        }
+        if (retryDelayMillis > 0L) {
+            delay(retryDelayMillis)
+        }
+        latestStatus = readStatus()
+    }
+    return latestStatus
+}
 
 internal suspend fun runExamRuntimeStartPrechecks(
     context: Context,
@@ -137,9 +178,19 @@ internal suspend fun runExamRuntimeStartPrechecks(
     if (flowUiState.webViewSessionResetInFlight.value) {
         return
     }
+    fun updatePreflight(step: StartExamPreflightStep, detail: String? = null) {
+        callbacks.updateStartExamPreflight(step, detail)
+    }
+
+    fun applyBlock(message: StartExamBlockMessage) {
+        callbacks.hideStartExamPreflight()
+        callbacks.applyStartExamBlockMessage(message)
+    }
+
     val startExamPressedAt = SystemClock.elapsedRealtime()
     flowUiState.webViewSessionResetError.value = null
     callbacks.recordAction("START_EXAM_PRESSED", "-", DiagnosticEventLevel.INFO)
+    updatePreflight(StartExamPreflightStep.TamperAndIntegrity)
     val startVirtualEnvironmentDiagnostics = getVirtualEnvironmentDiagnosticsOnIo(
         context = context,
         forceRefresh = true
@@ -161,7 +212,7 @@ internal suspend fun runExamRuntimeStartPrechecks(
         apkIntegrityBypassActive = bypassApkIntegrity
     )
     if (tamperBlock != null) {
-        callbacks.applyStartExamBlockMessage(tamperBlock)
+        applyBlock(tamperBlock)
         return
     }
     if (reverseEngineeringDetected && bypassReverseEngineering) {
@@ -189,6 +240,7 @@ internal suspend fun runExamRuntimeStartPrechecks(
         )
     }
 
+    updatePreflight(StartExamPreflightStep.DeviceSecurity)
     callbacks.refreshScreenPinningDiagnostics()
     if (screenPinningMode == ScreenPinningMode.Enforced && !lockTaskBridge.active()) {
         callbacks.ensureDeviceOwnerLockTaskActive()
@@ -205,7 +257,7 @@ internal suspend fun runExamRuntimeStartPrechecks(
         accessibilityGuardEnabled = latestAccessibilityGuardEnabled
     )
     if (screenPinningBlock != null) {
-        callbacks.applyStartExamBlockMessage(screenPinningBlock)
+        applyBlock(screenPinningBlock)
         return
     } else if (
         screenPinningMode == ScreenPinningMode.Enforced &&
@@ -239,10 +291,11 @@ internal suspend fun runExamRuntimeStartPrechecks(
         phaseSuffix = "phase=device_prechecks"
     )
     if (devicePrecheckScreenPinningBlock != null) {
-        callbacks.applyStartExamBlockMessage(devicePrecheckScreenPinningBlock)
+        applyBlock(devicePrecheckScreenPinningBlock)
         return
     }
 
+    updatePreflight(StartExamPreflightStep.DeviceTime)
     val startDeviceTimeStatus = callbacks.refreshDeviceTimeSecurity("start_exam_precheck", true)
     val startDeviceTimeBlock = resolveStartExamDeviceTimeBlockMessage(
         uiLanguage = uiLanguage,
@@ -250,11 +303,17 @@ internal suspend fun runExamRuntimeStartPrechecks(
         status = startDeviceTimeStatus
     )
     if (startDeviceTimeBlock != null) {
-        callbacks.applyStartExamBlockMessage(startDeviceTimeBlock)
+        applyBlock(startDeviceTimeBlock)
         return
     }
 
-    val startNetworkStatus = readNetworkReadinessStatusWithExamHostProbe(context, payload.examUrl)
+    updatePreflight(
+        StartExamPreflightStep.NetworkDns,
+        localized(uiLanguage, "Checking global DNS and the exam host DNS.", "Cek DNS global dan DNS host ujian.")
+    )
+    val startNetworkStatus = readStartExamNetworkStatusWithRecovery {
+        readNetworkReadinessStatusWithExamHostProbe(context, payload.examUrl)
+    }
     callbacks.applyNetworkReadinessStatus("start_exam_precheck", startNetworkStatus)
     if (!bypassVpn) {
         val startVpnBlock = resolveStartExamVpnBlockMessage(
@@ -262,7 +321,7 @@ internal suspend fun runExamRuntimeStartPrechecks(
             status = startNetworkStatus
         )
         if (startVpnBlock != null) {
-            callbacks.applyStartExamBlockMessage(startVpnBlock)
+            applyBlock(startVpnBlock)
             return
         }
     }
@@ -270,9 +329,10 @@ internal suspend fun runExamRuntimeStartPrechecks(
         uiLanguage = uiLanguage,
         status = startNetworkStatus
     )?.let { networkBlock ->
-        callbacks.applyStartExamBlockMessage(networkBlock)
+        applyBlock(networkBlock)
         return
     }
+    updatePreflight(StartExamPreflightStep.ServerProbe)
     val startServerProbe = probeExamServerFooterStatus(payload.examUrl)
     callbacks.recordAction(
         startServerProbe.eventCode,
@@ -290,11 +350,12 @@ internal suspend fun runExamRuntimeStartPrechecks(
         uiLanguage = uiLanguage,
         result = startServerProbe
     )?.let { serverBlock ->
-        callbacks.applyStartExamBlockMessage(serverBlock)
+        applyBlock(serverBlock)
         return
     }
     val startDpcRuntimeStatus = callbacks.refreshDpcRuntimeStatus()
 
+    updatePreflight(StartExamPreflightStep.HealthSnapshot)
     val startHealthSnapshot = buildPreExamHealthSnapshot(
         PreExamHealthCheckInput(
             compatibilityProfile = deviceCompatibilityProfile,
@@ -356,9 +417,11 @@ internal suspend fun runExamRuntimeStartPrechecks(
                 append(healthBlocker.quickFix)
             }
         }
+        callbacks.hideStartExamPreflight()
         return
     }
 
+    updatePreflight(StartExamPreflightStep.StaticSecurity)
     val signatureResult = debugMeasureExamStartWork("startExamSession:signature_check") {
         callbacks.checkSignatureIntegrity(!bypassApkIntegrity)
     }
@@ -368,6 +431,7 @@ internal suspend fun runExamRuntimeStartPrechecks(
             signatureResult.reason,
             DiagnosticEventLevel.WARNING
         )
+        callbacks.hideStartExamPreflight()
         return
     }
     if (ExamPolicyEngine.shouldBlock(signatureResult) && bypassApkIntegrity) {
@@ -387,11 +451,14 @@ internal suspend fun runExamRuntimeStartPrechecks(
 
     if (!bypassBluetooth) {
         if (!bluetoothPermissionReady) {
+            updatePreflight(StartExamPreflightStep.DeviceSecurity)
+            callbacks.hideStartExamPreflight()
             callbacks.requestBluetoothPermission()
             return
         }
         if (securityUiState.bluetoothEnabled.value) {
             securityUiState.showBluetoothViolationDialog.value = true
+            callbacks.hideStartExamPreflight()
             return
         }
     }
@@ -418,21 +485,14 @@ internal suspend fun runExamRuntimeStartPrechecks(
         multiWindowDetected = isInAnySplitMode(context)
     )
     if (staticSecurityBlock != null) {
-        callbacks.applyStartExamBlockMessage(staticSecurityBlock)
+        applyBlock(staticSecurityBlock)
         return
     }
 
-    val overlayAppBlock = resolveStartExamOverlayAppBlockMessage(
-        bypassOverlay = bypassOverlay,
-        overlayAppsDetected = SecurityDetectorCache.readOverlayApps(
-            context = context,
-            forceRefresh = true
-        ).packagesWithOverlayPermission
-    )
-    if (overlayAppBlock != null) {
-        callbacks.applyStartExamBlockMessage(overlayAppBlock)
-        return
-    }
+    securityUiState.overlayGuardPermissionGranted.value =
+        android.os.Build.VERSION.SDK_INT >= android.os.Build.VERSION_CODES.S
+    securityUiState.overlayAppsDetected.value = emptyList()
+    securityUiState.showOverlayAppViolationDialog.value = false
 
     val geofenceEnabled = geofenceConfigParseResult.enabled
     if (geofenceEnabled && !bypassGeofence && geofenceConfigParseResult.config == null) {
@@ -446,7 +506,7 @@ internal suspend fun runExamRuntimeStartPrechecks(
         )
         securityUiState.geofenceSecurityStatus.value = status
         securityUiState.geofenceEvaluation.value = status.geofenceEvaluation
-        callbacks.applyStartExamBlockMessage(
+        applyBlock(
             resolveStartExamGeofenceConfigBlockMessage(
                 uiLanguage = uiLanguage,
                 details = callbacks.currentGeofenceEventDetails("start_exam", status)
@@ -462,6 +522,7 @@ internal suspend fun runExamRuntimeStartPrechecks(
         (preciseLocationRequiredForStart && !preciseLocationGranted) ||
         (!preciseLocationRequiredForStart && !bypassFakeLocation && !coarseOrFineGranted)
     ) {
+        updatePreflight(StartExamPreflightStep.LocationPermission)
         flowUiState.pendingStartExamAfterLocationPermission.value = true
         flowUiState.geofencePermissionRequestInFlight.value = true
         callbacks.recordAction(
@@ -469,6 +530,7 @@ internal suspend fun runExamRuntimeStartPrechecks(
             "trigger=start_exam",
             DiagnosticEventLevel.WARNING
         )
+        callbacks.hideStartExamPreflight()
         callbacks.requestLocationPermission()
         callbacks.debugLogExamStart(
             "startExamSession waiting for location permission after ${SystemClock.elapsedRealtime() - startExamPressedAt} ms"
@@ -487,7 +549,7 @@ internal suspend fun runExamRuntimeStartPrechecks(
         )
         securityUiState.geofenceSecurityStatus.value = status
         securityUiState.geofenceEvaluation.value = status.geofenceEvaluation
-        callbacks.applyStartExamBlockMessage(
+        applyBlock(
             resolveStartExamGeofenceLocationDisabledBlockMessage(
                 uiLanguage = uiLanguage,
                 details = callbacks.currentGeofenceEventDetails("start_exam", status)
@@ -512,7 +574,7 @@ internal suspend fun runExamRuntimeStartPrechecks(
             bypassState = fakeLocationBypassState
         )
         securityUiState.fakeLocationSecurityStatus.value = status
-        callbacks.applyStartExamBlockMessage(
+        applyBlock(
             resolveStartExamFakeLocationServicesDisabledBlockMessage(
                 uiLanguage = uiLanguage,
                 details = callbacks.currentFakeLocationEventDetails("start_exam", status)
@@ -521,6 +583,7 @@ internal suspend fun runExamRuntimeStartPrechecks(
         return
     }
 
+    updatePreflight(StartExamPreflightStep.LocationValidation)
     callbacks.launchFinalLocationValidation(startExamPressedAt)
 }
 
@@ -555,6 +618,7 @@ internal class ExamRuntimeCompleteStartCallbacks(
     val ensureDeviceOwnerLockTaskActive: () -> Boolean,
     val clearAppSwitchSuppression: () -> Unit,
     val setAppSwitchSuppression: (AppSwitchSuppressionReason) -> Unit,
+    val hideStartExamPreflight: () -> Unit,
     val applyStartExamBlockMessage: (StartExamBlockMessage) -> Unit,
     val recordAction: (String, String, DiagnosticEventLevel) -> Unit
 )
@@ -620,7 +684,10 @@ internal fun completeExamRuntimeStartAfterPrechecks(
             prepareCleanExamWebViewSessionForStart = callbacks.prepareCleanExamWebViewSessionForStart,
             armExamRuntimeMonitoring = callbacks.armExamRuntimeMonitoring,
             finalizeExamSessionStart = callbacks.finalizeExamSessionStart,
-            onCleanSessionFailed = { callbacks.setAccessibilityGuardFallbackActive(false) }
+            onCleanSessionFailed = {
+                callbacks.setAccessibilityGuardFallbackActive(false)
+                callbacks.hideStartExamPreflight()
+            }
         )
         return
     }
@@ -715,6 +782,7 @@ internal fun completeExamRuntimeStartAfterPrechecks(
     }
 
     if (screenPinningMode == ScreenPinningMode.Enforced && screenPinningAvailable) {
+        callbacks.hideStartExamPreflight()
         callbacks.applyStartExamBlockMessage(
             resolveStartExamScreenPinningBlockMessage(
                 uiLanguage = uiLanguage,
@@ -774,6 +842,7 @@ internal fun completeExamRuntimeStartAfterPrechecks(
     )
     callbacks.setWebViewErrorMessage(null)
     callbacks.setExitOnSecurityIssueDialogDismiss(false)
+    callbacks.hideStartExamPreflight()
 }
 
 internal class ExamRuntimeStartLocationValidationCallbacks(
@@ -782,6 +851,8 @@ internal class ExamRuntimeStartLocationValidationCallbacks(
     val resolveStartExamLocationValidation: suspend () -> SplitLocationSecurityStatus,
     val currentGeofenceEventDetails: (String, GeofenceSecurityStatus) -> String,
     val currentFakeLocationEventDetails: (String, LocationSpoofSecurityStatus) -> String,
+    val updateStartExamPreflight: (StartExamPreflightStep, String?) -> Unit,
+    val hideStartExamPreflight: () -> Unit,
     val applyStartExamBlockMessage: (StartExamBlockMessage) -> Unit,
     val refreshDeviceTimeSecurity: (String, Boolean) -> DeviceTimeSecurityStatus,
     val completeStartExamSessionAfterPrechecks: () -> Unit,
@@ -802,6 +873,16 @@ internal fun launchExamRuntimeStartLocationValidation(
         return
     }
 
+    fun updatePreflight(step: StartExamPreflightStep, detail: String? = null) {
+        callbacks.updateStartExamPreflight(step, detail)
+    }
+
+    fun applyBlock(message: StartExamBlockMessage) {
+        callbacks.hideStartExamPreflight()
+        callbacks.applyStartExamBlockMessage(message)
+    }
+
+    updatePreflight(StartExamPreflightStep.LocationValidation)
     callbacks.setGeofenceStartValidationInFlight(true)
     coroutineScope.launch {
         val latestLocationStatus = debugMeasureExamStartSuspendWork("startExamSession:location_validation") {
@@ -821,10 +902,11 @@ internal fun launchExamRuntimeStartLocationValidation(
             }
         )
         if (locationBlockMessage != null) {
-            callbacks.applyStartExamBlockMessage(locationBlockMessage)
+            applyBlock(locationBlockMessage)
             return@launch
         }
 
+        updatePreflight(StartExamPreflightStep.DeviceTime)
         val finalDeviceTimeStatus = callbacks.refreshDeviceTimeSecurity(
             "start_exam_final",
             false
@@ -835,7 +917,7 @@ internal fun launchExamRuntimeStartLocationValidation(
             status = finalDeviceTimeStatus
         )
         if (finalDeviceTimeBlock != null) {
-            callbacks.applyStartExamBlockMessage(finalDeviceTimeBlock)
+            applyBlock(finalDeviceTimeBlock)
             return@launch
         }
         val networkNowMillis = TrustedNetworkTimeCoordinator.currentNetworkNowMillis(context)
@@ -852,12 +934,13 @@ internal fun launchExamRuntimeStartLocationValidation(
             deviceTimeStatus = finalDeviceTimeStatus
         )
         if (scheduleBlock != null) {
-            callbacks.applyStartExamBlockMessage(scheduleBlock)
+            applyBlock(scheduleBlock)
             return@launch
         }
         callbacks.debugLogExamStart(
             "startExamSession passed all prechecks in ${SystemClock.elapsedRealtime() - startExamPressedAt} ms"
         )
+        updatePreflight(StartExamPreflightStep.PreparingWebView)
         callbacks.completeStartExamSessionAfterPrechecks()
     }
 }

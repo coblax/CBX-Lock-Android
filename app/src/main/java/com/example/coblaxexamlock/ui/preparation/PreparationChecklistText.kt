@@ -1,6 +1,7 @@
 package com.example.coblaxexamlock.ui.preparation
 
 import com.example.coblaxexamlock.AccessibilityInspectionResult
+import com.example.coblaxexamlock.i18n.localized
 import com.example.coblaxexamlock.model.UiLanguage
 
 internal data class PreparationChecklistText(
@@ -46,6 +47,54 @@ internal data class PreparationChecklistText(
     val multiWindowDetail: String?,
     val appSwitchDetail: String?
 )
+
+internal fun loadingPreparationChecklistText(uiLanguage: UiLanguage): PreparationChecklistText {
+    val loading = localized(uiLanguage, "Loading details...", "Memuat detail...")
+    val pending = localized(uiLanguage, "Checking", "Mengecek")
+    return PreparationChecklistText(
+        accessibilityStatusLabel = pending,
+        overlayStatusLabel = pending,
+        geofenceStatusLabel = pending,
+        geofenceMeta = null,
+        fakeLocationStatusLabel = pending,
+        deviceTimeStatusLabel = pending,
+        networkStatusLabel = pending,
+        networkValue = loading,
+        networkMeta = null,
+        networkDetail = loading,
+        webViewProviderStatusLabel = pending,
+        webViewProviderValue = loading,
+        webViewProviderDetail = loading,
+        deviceTimeDetail = loading,
+        bluetoothStatusLabel = pending,
+        developerStatusLabel = pending,
+        keyboardStatusLabel = pending,
+        rootStatusLabel = pending,
+        signatureStatusLabel = pending,
+        signatureValue = loading,
+        virtualEnvironmentStatusLabel = pending,
+        screenPinningStatusLabel = pending,
+        accessibilityGuardStatusLabel = pending,
+        appSwitchStatusLabel = pending,
+        keyboardDetail = loading,
+        bluetoothDetail = loading,
+        accessibilityDetail = loading,
+        overlayDetail = loading,
+        developerDetail = loading,
+        rootDetail = loading,
+        signatureDetail = loading,
+        virtualEnvironmentDetail = loading,
+        clipboardDetail = loading,
+        geofenceDetail = loading,
+        fakeLocationDetail = loading,
+        screenPinningDetail = loading,
+        accessibilityGuardDetail = loading,
+        screenRecorderDetail = loading,
+        displayMirrorDetail = loading,
+        multiWindowDetail = loading,
+        appSwitchDetail = loading
+    )
+}
 
 internal fun buildPreparationChecklistText(
     state: PreparationScreenState,

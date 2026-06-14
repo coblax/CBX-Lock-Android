@@ -476,6 +476,8 @@ internal fun ExamRuntimeSessionRenderedUi(
     screenPinningMessage: String?,
     securityIssueDialogTitle: String?,
     securityIssueDialogMessage: String?,
+    securityIssueDialogCode: String?,
+    startExamPreflightState: StartExamPreflightUiState,
     bugReportFeedbackTitle: String?,
     bugReportFeedbackMessage: String?,
     securityUiState: ExamRuntimeSecurityUiState,
@@ -503,6 +505,7 @@ internal fun ExamRuntimeSessionRenderedUi(
     onSendStaticSecurityReport: (DiagnosticSection) -> Unit,
     onDismissScreenPinningMessage: () -> Unit,
     onDismissSecurityIssueDialog: () -> Unit,
+    onRefreshNetworkStatus: () -> Unit,
     onDismissBugReportFeedback: () -> Unit,
     modifier: Modifier = Modifier
 ) {
@@ -558,12 +561,16 @@ internal fun ExamRuntimeSessionRenderedUi(
                 screenPinningMessage = screenPinningMessage,
                 securityIssueDialogTitle = securityIssueDialogTitle,
                 securityIssueDialogMessage = securityIssueDialogMessage,
+                securityIssueDialogCode = securityIssueDialogCode,
+                startExamPreflightState = startExamPreflightState,
+                isRefreshingNetwork = preparationState.isRefreshingNetwork,
                 bugReportFeedbackTitle = bugReportFeedbackTitle,
                 bugReportFeedbackMessage = bugReportFeedbackMessage,
                 onDismissPendingSection = onDismissPendingSection,
                 onConfirmPendingSection = onConfirmPendingSection,
                 onDismissScreenPinningMessage = onDismissScreenPinningMessage,
                 onDismissSecurityIssueDialog = onDismissSecurityIssueDialog,
+                onRefreshNetworkStatus = onRefreshNetworkStatus,
                 onDismissBugReportFeedback = onDismissBugReportFeedback
             )
             RuntimeStaticSecurityDialogsHost(

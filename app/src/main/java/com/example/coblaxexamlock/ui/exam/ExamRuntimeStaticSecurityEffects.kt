@@ -4,6 +4,8 @@ import android.content.Context
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.DisposableEffect
 import androidx.compose.runtime.LaunchedEffect
+import androidx.compose.runtime.remember
+import androidx.compose.runtime.rememberCoroutineScope
 import com.example.coblaxexamlock.FakeLocationBypassState
 import com.example.coblaxexamlock.LocationFixQualityStatus
 import com.example.coblaxexamlock.LocalLowRamProfile
@@ -17,19 +19,18 @@ import com.example.coblaxexamlock.runtime.ExternalDisplayInfo
 import com.example.coblaxexamlock.runtime.ExternalDisplaySnapshot
 import com.example.coblaxexamlock.runtime.LowRamDispatchers
 import com.example.coblaxexamlock.runtime.MultiWindowModeInfo
-import com.example.coblaxexamlock.runtime.OverlayAppInfo
 import com.example.coblaxexamlock.runtime.SecurityDetectorCache
 import com.example.coblaxexamlock.runtime.readMultiWindowModeInfo
+import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.delay
+import kotlinx.coroutines.launch
 import kotlinx.coroutines.withContext
+import java.util.concurrent.atomic.AtomicBoolean
 
 private const val RuntimeFastStaticSecurityPollIntervalMillis = 2_000L
 private const val RuntimeScreenRecorderPollIntervalMillis = 15_000L
 private const val RuntimeLowScreenRecorderPollIntervalMillis = 30_000L
 private const val RuntimeUltraScreenRecorderPollIntervalMillis = 45_000L
-private const val RuntimeOverlayAppPollIntervalMillis = 15_000L
-private const val RuntimeLowOverlayAppPollIntervalMillis = 30_000L
-private const val RuntimeUltraOverlayAppPollIntervalMillis = 45_000L
 
 internal fun runtimeFastStaticSecurityPollIntervalMillis(lowRamProfile: LowRamProfile): Long =
     RuntimeFastStaticSecurityPollIntervalMillis * lowRamProfile.slowPollingMultiplier
@@ -39,13 +40,6 @@ internal fun runtimeScreenRecorderPollIntervalMillis(lowRamProfile: LowRamProfil
         lowRamProfile.ultra -> RuntimeUltraScreenRecorderPollIntervalMillis
         lowRamProfile.enabled -> RuntimeLowScreenRecorderPollIntervalMillis
         else -> RuntimeScreenRecorderPollIntervalMillis
-    }
-
-internal fun runtimeOverlayAppPollIntervalMillis(lowRamProfile: LowRamProfile): Long =
-    when {
-        lowRamProfile.ultra -> RuntimeUltraOverlayAppPollIntervalMillis
-        lowRamProfile.enabled -> RuntimeLowOverlayAppPollIntervalMillis
-        else -> RuntimeOverlayAppPollIntervalMillis
     }
 
 internal data class RuntimeStaticSecurityUiMessage(
@@ -58,8 +52,7 @@ internal data class InitialStaticSecuritySnapshot(
     val rootSecurityStatus: RootSecurityStatus,
     val screenRecorderPackages: List<String>,
     val externalDisplaySnapshot: ExternalDisplaySnapshot,
-    val suspiciousFakeLocationPackages: List<String>,
-    val overlayApps: List<OverlayAppInfo>
+    val suspiciousFakeLocationPackages: List<String>
 )
 
 internal data class RuntimeFastStaticSecuritySnapshot(
@@ -112,11 +105,7 @@ internal suspend fun readInitialStaticSecuritySnapshotOnIo(
         suspiciousFakeLocationPackages = SecurityDetectorCache.readSuspiciousFakeLocationPackages(
             context = appContext,
             forceRefresh = forceRefresh
-        ),
-        overlayApps = SecurityDetectorCache.readOverlayApps(
-            context = appContext,
-            forceRefresh = forceRefresh
-        ).packagesWithOverlayPermission
+        )
     )
 }
 
@@ -136,7 +125,8 @@ internal fun applyInitialStaticSecuritySnapshot(
     securityUiState.externalDisplayCount.setIfChanged(snapshot.externalDisplaySnapshot.count)
     securityUiState.externalDisplayInfoList.setIfChanged(snapshot.externalDisplaySnapshot.infoList)
     securityUiState.externalDisplayDetected.setIfChanged(snapshot.externalDisplaySnapshot.detected)
-    securityUiState.overlayAppsDetected.setIfChanged(snapshot.overlayApps)
+    securityUiState.overlayAppsDetected.setIfChanged(emptyList())
+    securityUiState.showOverlayAppViolationDialog.setIfChanged(false)
     securityUiState.fakeLocationSecurityStatus.setIfChanged(
         evaluateFakeLocationSecurity(
             monitoringEnabled = true,
@@ -179,6 +169,16 @@ internal fun readRuntimeFastStaticSecuritySnapshot(
     )
 }
 
+internal suspend fun readRuntimeFastStaticSecuritySnapshotOnIo(
+    context: Context,
+    forceRefresh: Boolean = false
+): RuntimeFastStaticSecuritySnapshot = withContext(LowRamDispatchers.detectorIo) {
+    readRuntimeFastStaticSecuritySnapshot(
+        context = context.applicationContext,
+        forceRefresh = forceRefresh
+    )
+}
+
 internal fun readRuntimeScreenRecorderSnapshot(
     screenRecorderPackagesReader: () -> List<String>
 ): RuntimeScreenRecorderSnapshot {
@@ -198,6 +198,16 @@ internal fun readRuntimeScreenRecorderSnapshot(
                 forceRefresh = forceRefresh
             )
         }
+    )
+}
+
+internal suspend fun readRuntimeScreenRecorderSnapshotOnIo(
+    context: Context,
+    forceRefresh: Boolean = false
+): RuntimeScreenRecorderSnapshot = withContext(LowRamDispatchers.detectorIo) {
+    readRuntimeScreenRecorderSnapshot(
+        context = context.applicationContext,
+        forceRefresh = forceRefresh
     )
 }
 
@@ -237,9 +247,12 @@ internal fun RuntimeStaticSecurityEffects(
 ) {
     val initialScanComplete = securityUiState.staticSecurityInitialScanComplete.value
     val lowRamProfile = LocalLowRamProfile.current
+    val runtimeSecurityScope = rememberCoroutineScope()
+    val fastRefreshInFlight = remember { AtomicBoolean(false) }
+    val screenRecorderRefreshInFlight = remember { AtomicBoolean(false) }
 
-    fun refreshRuntimeFastStaticSecurity(trigger: String, forceRefresh: Boolean = false) {
-        refreshRuntimeFastStaticSecurityState(
+    suspend fun refreshRuntimeFastStaticSecurity(trigger: String, forceRefresh: Boolean = false) {
+        refreshRuntimeFastStaticSecurityStateOnIo(
             context = context,
             examSessionStarted = examSessionStarted,
             bypassDisplayMirror = bypassDisplayMirror,
@@ -248,12 +261,13 @@ internal fun RuntimeStaticSecurityEffects(
             trigger = trigger,
             recordAction = recordAction,
             startAlarm = startAlarm,
-            forceRefresh = forceRefresh
+            forceRefresh = forceRefresh,
+            inFlight = fastRefreshInFlight
         )
     }
 
-    fun refreshRuntimeScreenRecorder(trigger: String, forceRefresh: Boolean = false) {
-        refreshRuntimeScreenRecorderState(
+    suspend fun refreshRuntimeScreenRecorder(trigger: String, forceRefresh: Boolean = false) {
+        refreshRuntimeScreenRecorderStateOnIo(
             context = context,
             examSessionStarted = examSessionStarted,
             bypassScreenRecorder = bypassScreenRecorder,
@@ -261,7 +275,8 @@ internal fun RuntimeStaticSecurityEffects(
             trigger = trigger,
             recordAction = recordAction,
             startAlarm = startAlarm,
-            forceRefresh = forceRefresh
+            forceRefresh = forceRefresh,
+            inFlight = screenRecorderRefreshInFlight
         )
     }
 
@@ -313,40 +328,10 @@ internal fun RuntimeStaticSecurityEffects(
         }
     }
 
-    LaunchedEffect(
-        examSessionStarted,
-        bypassOverlay,
-        initialScanComplete,
-        lowRamProfile,
-        packageInventoryChangeNonce
-    ) {
-        if (!initialScanComplete) {
-            return@LaunchedEffect
-        }
-        refreshRuntimeOverlayAppState(
-            context = context,
-            examSessionStarted = examSessionStarted,
-            bypassOverlay = bypassOverlay,
-            securityUiState = securityUiState,
-            trigger = "overlay_app_effect_start",
-            recordAction = recordAction,
-            startAlarm = startAlarm,
-            forceRefresh = packageInventoryChangeNonce > 0
-        )
-        if (!examSessionStarted) {
-            return@LaunchedEffect
-        }
-        while (true) {
-            delay(runtimeOverlayAppPollIntervalMillis(lowRamProfile))
-            refreshRuntimeOverlayAppState(
-                context = context,
-                examSessionStarted = examSessionStarted,
-                bypassOverlay = bypassOverlay,
-                securityUiState = securityUiState,
-                trigger = "runtime_overlay_app_poll",
-                recordAction = recordAction,
-                startAlarm = startAlarm
-            )
+    LaunchedEffect(initialScanComplete, packageInventoryChangeNonce) {
+        if (initialScanComplete) {
+            securityUiState.overlayAppsDetected.value = emptyList()
+            securityUiState.showOverlayAppViolationDialog.value = false
         }
     }
 
@@ -358,7 +343,9 @@ internal fun RuntimeStaticSecurityEffects(
         } else {
             hostActivity.setOnExamMultiWindowModeChangedHandler {
                 if (securityUiState.staticSecurityInitialScanComplete.value) {
-                    refreshRuntimeFastStaticSecurity("multi_window_mode_changed")
+                    runtimeSecurityScope.launch {
+                        refreshRuntimeFastStaticSecurity("multi_window_mode_changed")
+                    }
                 }
             }
             onDispose {
@@ -386,6 +373,41 @@ internal fun refreshRuntimeStaticSecurityForSession(
         bypassScreenRecorder = bypassScreenRecorder,
         bypassDisplayMirror = bypassDisplayMirror,
         bypassMultiWindow = bypassMultiWindow,
+        securityUiState = securityUiState,
+        trigger = trigger,
+        recordAction = recordAction,
+        startAlarm = startAlarm,
+        forceRefresh = forceRefresh
+    )
+}
+
+internal suspend fun refreshRuntimeStaticSecurityForSessionOnIo(
+    context: Context,
+    examSessionStarted: Boolean,
+    bypassScreenRecorder: Boolean,
+    bypassDisplayMirror: Boolean,
+    bypassMultiWindow: Boolean,
+    securityUiState: ExamRuntimeSecurityUiState,
+    trigger: String,
+    recordAction: (String, String, DiagnosticEventLevel) -> Unit,
+    startAlarm: () -> Unit,
+    forceRefresh: Boolean = false
+) {
+    refreshRuntimeFastStaticSecurityStateOnIo(
+        context = context,
+        examSessionStarted = examSessionStarted,
+        bypassDisplayMirror = bypassDisplayMirror,
+        bypassMultiWindow = bypassMultiWindow,
+        securityUiState = securityUiState,
+        trigger = trigger,
+        recordAction = recordAction,
+        startAlarm = startAlarm,
+        forceRefresh = forceRefresh
+    )
+    refreshRuntimeScreenRecorderStateOnIo(
+        context = context,
+        examSessionStarted = examSessionStarted,
+        bypassScreenRecorder = bypassScreenRecorder,
         securityUiState = securityUiState,
         trigger = trigger,
         recordAction = recordAction,
@@ -447,14 +469,89 @@ internal fun refreshRuntimeFastStaticSecurityState(
         context = context,
         forceRefresh = forceRefresh
     )
-    val latestExternalDisplayCount = latestSnapshot.externalDisplayCount
-    val latestExternalDisplayDetected = latestSnapshot.externalDisplayDetected
-    val latestMultiWindowDetected = latestSnapshot.multiWindowDetected
+    applyRuntimeFastStaticSecuritySnapshot(
+        snapshot = latestSnapshot,
+        previousDisplayMirrorDetected = previousDisplayMirrorDetected,
+        previousMultiWindowDetected = previousMultiWindowDetected,
+        examSessionStarted = examSessionStarted,
+        bypassDisplayMirror = bypassDisplayMirror,
+        bypassMultiWindow = bypassMultiWindow,
+        securityUiState = securityUiState,
+        trigger = trigger,
+        recordAction = recordAction,
+        startAlarm = startAlarm
+    )
+}
+
+internal suspend fun refreshRuntimeFastStaticSecurityStateOnIo(
+    context: Context,
+    examSessionStarted: Boolean,
+    bypassDisplayMirror: Boolean,
+    bypassMultiWindow: Boolean,
+    securityUiState: ExamRuntimeSecurityUiState,
+    trigger: String,
+    recordAction: (String, String, DiagnosticEventLevel) -> Unit,
+    startAlarm: () -> Unit,
+    forceRefresh: Boolean = false,
+    inFlight: AtomicBoolean? = null
+) {
+    if (!tryEnterRuntimeDetectorRefresh(inFlight)) {
+        return
+    }
+    try {
+        val (previousDisplayMirrorDetected, previousMultiWindowDetected) = withContext(Dispatchers.Main.immediate) {
+            securityUiState.externalDisplayDetected.value to securityUiState.multiWindowDetected.value
+        }
+        val latestSnapshot = readRuntimeFastStaticSecuritySnapshotOnIo(
+            context = context,
+            forceRefresh = forceRefresh
+        )
+        withContext(Dispatchers.Main.immediate) {
+            applyRuntimeFastStaticSecuritySnapshot(
+                snapshot = latestSnapshot,
+                previousDisplayMirrorDetected = previousDisplayMirrorDetected,
+                previousMultiWindowDetected = previousMultiWindowDetected,
+                examSessionStarted = examSessionStarted,
+                bypassDisplayMirror = bypassDisplayMirror,
+                bypassMultiWindow = bypassMultiWindow,
+                securityUiState = securityUiState,
+                trigger = trigger,
+                recordAction = recordAction,
+                startAlarm = startAlarm
+            )
+        }
+    } finally {
+        exitRuntimeDetectorRefresh(inFlight)
+    }
+}
+
+internal fun tryEnterRuntimeDetectorRefresh(inFlight: AtomicBoolean?): Boolean =
+    inFlight?.compareAndSet(false, true) != false
+
+internal fun exitRuntimeDetectorRefresh(inFlight: AtomicBoolean?) {
+    inFlight?.set(false)
+}
+
+private fun applyRuntimeFastStaticSecuritySnapshot(
+    snapshot: RuntimeFastStaticSecuritySnapshot,
+    previousDisplayMirrorDetected: Boolean,
+    previousMultiWindowDetected: Boolean,
+    examSessionStarted: Boolean,
+    bypassDisplayMirror: Boolean,
+    bypassMultiWindow: Boolean,
+    securityUiState: ExamRuntimeSecurityUiState,
+    trigger: String,
+    recordAction: (String, String, DiagnosticEventLevel) -> Unit,
+    startAlarm: () -> Unit
+) {
+    val latestExternalDisplayCount = snapshot.externalDisplayCount
+    val latestExternalDisplayDetected = snapshot.externalDisplayDetected
+    val latestMultiWindowDetected = snapshot.multiWindowDetected
 
     securityUiState.externalDisplayCount.setIfChanged(latestExternalDisplayCount)
-    securityUiState.externalDisplayInfoList.setIfChanged(latestSnapshot.externalDisplayInfoList)
+    securityUiState.externalDisplayInfoList.setIfChanged(snapshot.externalDisplayInfoList)
     securityUiState.externalDisplayDetected.setIfChanged(latestExternalDisplayDetected)
-    securityUiState.multiWindowModeInfo.setIfChanged(latestSnapshot.multiWindowModeInfo)
+    securityUiState.multiWindowModeInfo.setIfChanged(snapshot.multiWindowModeInfo)
     securityUiState.multiWindowDetected.setIfChanged(latestMultiWindowDetected)
 
     fun boolLabel(value: Boolean): String = if (value) "yes" else "no"
@@ -551,7 +648,68 @@ internal fun refreshRuntimeScreenRecorderState(
         context = context,
         forceRefresh = forceRefresh
     )
-    val latestScreenRecorderPackages = latestSnapshot.screenRecorderPackages
+    applyRuntimeScreenRecorderSnapshot(
+        snapshot = latestSnapshot,
+        previousScreenRecorderDetected = previousScreenRecorderDetected,
+        examSessionStarted = examSessionStarted,
+        bypassScreenRecorder = bypassScreenRecorder,
+        securityUiState = securityUiState,
+        trigger = trigger,
+        recordAction = recordAction,
+        startAlarm = startAlarm
+    )
+}
+
+internal suspend fun refreshRuntimeScreenRecorderStateOnIo(
+    context: Context,
+    examSessionStarted: Boolean,
+    bypassScreenRecorder: Boolean,
+    securityUiState: ExamRuntimeSecurityUiState,
+    trigger: String,
+    recordAction: (String, String, DiagnosticEventLevel) -> Unit,
+    startAlarm: () -> Unit,
+    forceRefresh: Boolean = false,
+    inFlight: AtomicBoolean? = null
+) {
+    if (!tryEnterRuntimeDetectorRefresh(inFlight)) {
+        return
+    }
+    try {
+        val previousScreenRecorderDetected = withContext(Dispatchers.Main.immediate) {
+            securityUiState.screenRecorderPackages.value.isNotEmpty()
+        }
+        val latestSnapshot = readRuntimeScreenRecorderSnapshotOnIo(
+            context = context,
+            forceRefresh = forceRefresh
+        )
+        withContext(Dispatchers.Main.immediate) {
+            applyRuntimeScreenRecorderSnapshot(
+                snapshot = latestSnapshot,
+                previousScreenRecorderDetected = previousScreenRecorderDetected,
+                examSessionStarted = examSessionStarted,
+                bypassScreenRecorder = bypassScreenRecorder,
+                securityUiState = securityUiState,
+                trigger = trigger,
+                recordAction = recordAction,
+                startAlarm = startAlarm
+            )
+        }
+    } finally {
+        exitRuntimeDetectorRefresh(inFlight)
+    }
+}
+
+private fun applyRuntimeScreenRecorderSnapshot(
+    snapshot: RuntimeScreenRecorderSnapshot,
+    previousScreenRecorderDetected: Boolean,
+    examSessionStarted: Boolean,
+    bypassScreenRecorder: Boolean,
+    securityUiState: ExamRuntimeSecurityUiState,
+    trigger: String,
+    recordAction: (String, String, DiagnosticEventLevel) -> Unit,
+    startAlarm: () -> Unit
+) {
+    val latestScreenRecorderPackages = snapshot.screenRecorderPackages
 
     securityUiState.screenRecorderPackages.setIfChanged(latestScreenRecorderPackages)
 
@@ -616,75 +774,6 @@ internal fun resolveRuntimeStaticSecurityUiMessage(
                 title = "Split-Screen Aktif",
                 message = "Aplikasi ujian berada di mode split-screen atau picture-in-picture. Kembali ke mode satu aplikasi, lalu refresh status keamanan."
             )
-        securityUiState.showOverlayAppViolationDialog.value -> {
-            val apps = securityUiState.overlayAppsDetected.value
-            val appNames = apps.joinToString(", ") { it.appLabel }
-            RuntimeStaticSecurityUiMessage(
-                key = "overlay_app_permission",
-                title = "Aplikasi Overlay (Appear on Top) Terdeteksi",
-                message = "Aplikasi dengan izin 'Tampilkan di Atas Aplikasi Lain' terdeteksi aktif saat ujian: $appNames.\n\nMatikan izin overlay untuk semua app tersebut melalui Pengaturan, lalu refresh status keamanan."
-            )
-        }
         else -> null
-    }
-}
-
-internal fun refreshRuntimeOverlayAppState(
-    context: Context,
-    examSessionStarted: Boolean,
-    bypassOverlay: Boolean,
-    securityUiState: ExamRuntimeSecurityUiState,
-    trigger: String,
-    recordAction: (String, String, DiagnosticEventLevel) -> Unit,
-    startAlarm: () -> Unit,
-    forceRefresh: Boolean = false
-) {
-    val previousOverlayApps = securityUiState.overlayAppsDetected.value
-    val previousHadOverlayApps = previousOverlayApps.isNotEmpty()
-
-    val latestScanResult = SecurityDetectorCache.readOverlayApps(
-        context = context,
-        forceRefresh = forceRefresh
-    )
-    val latestOverlayApps = latestScanResult.packagesWithOverlayPermission
-    val latestHasOverlayApps = latestOverlayApps.isNotEmpty()
-
-    securityUiState.overlayAppsDetected.value = latestOverlayApps
-
-    fun boolLabel(value: Boolean): String = if (value) "yes" else "no"
-    fun overlayAppDetails(): String =
-        "trigger=$trigger | count=${latestScanResult.totalCount} | " +
-            "packages=${latestOverlayApps.joinToString { it.packageName }.ifBlank { "-" }} | " +
-            "bypass=${boolLabel(bypassOverlay)}"
-
-    if (!examSessionStarted) {
-        securityUiState.showOverlayAppViolationDialog.value = false
-        return
-    }
-
-    when {
-        latestHasOverlayApps && !bypassOverlay -> {
-            if (!securityUiState.showOverlayAppViolationDialog.value) {
-                securityUiState.overlayAppViolationCount.intValue += 1
-                recordAction(
-                    ExamRuntimeHardeningDiagnostics.OverlayAppPermissionDetected,
-                    overlayAppDetails(),
-                    DiagnosticEventLevel.SECURITY
-                )
-            }
-            securityUiState.showOverlayAppViolationDialog.value = true
-            if (!previousHadOverlayApps) {
-                startAlarm()
-            }
-        }
-        previousHadOverlayApps && !latestHasOverlayApps -> {
-            recordAction(
-                ExamRuntimeHardeningDiagnostics.OverlayAppPermissionCleared,
-                overlayAppDetails(),
-                DiagnosticEventLevel.INFO
-            )
-            securityUiState.showOverlayAppViolationDialog.value = false
-        }
-        else -> securityUiState.showOverlayAppViolationDialog.value = false
     }
 }

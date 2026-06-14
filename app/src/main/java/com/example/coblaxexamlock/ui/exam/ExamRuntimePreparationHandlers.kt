@@ -51,6 +51,8 @@ import com.example.coblaxexamlock.platform.openExternalUrl
 import com.example.coblaxexamlock.runtime.getBluetoothConnectPermission
 import com.example.coblaxexamlock.showKeyboardPicker
 import com.example.coblaxexamlock.ui.preparation.PreExamHealthSnapshot
+import kotlinx.coroutines.CoroutineScope
+import kotlinx.coroutines.launch
 
 internal class ExamRuntimePreparationRefreshCallbacks(
     val launchNetworkManualRefresh: (String) -> Unit,
@@ -282,6 +284,7 @@ internal class ExamRuntimePreparationActionOps(
     private val networkUiState: ExamRuntimeNetworkUiState,
     private val webViewUiState: ExamRuntimeWebViewUiState,
     private val accessibilityGuardEnabledState: MutableState<Boolean>,
+    private val coroutineScope: CoroutineScope,
     private val runtimeDiagnosticsOps: ExamRuntimeDiagnosticsOps,
     private val runtimeSecurityOps: ExamRuntimeSecurityOps,
     private val runtimeMonitoringOps: ExamRuntimeMonitoringOps,
@@ -655,18 +658,20 @@ internal class ExamRuntimePreparationActionOps(
                     runtimeDiagnosticsOps.refreshDeviceTimeSecurity(trigger = trigger)
                 },
                 refreshRuntimeStaticSecurity = {
-                    refreshRuntimeStaticSecurityForSession(
-                        context = context,
-                        examSessionStarted = flowUiState.examSessionStarted.value,
-                        bypassScreenRecorder = adminSettings.bypassScreenRecorder,
-                        bypassDisplayMirror = adminSettings.bypassDisplayMirror,
-                        bypassMultiWindow = adminSettings.bypassMultiWindow,
-                        securityUiState = securityUiState,
-                        trigger = "checklist_refresh",
-                        recordAction = runtimeDiagnosticsOps::recordAction,
-                        startAlarm = examAlarmController::start,
-                        forceRefresh = true
-                    )
+                    coroutineScope.launch {
+                        refreshRuntimeStaticSecurityForSessionOnIo(
+                            context = context,
+                            examSessionStarted = flowUiState.examSessionStarted.value,
+                            bypassScreenRecorder = adminSettings.bypassScreenRecorder,
+                            bypassDisplayMirror = adminSettings.bypassDisplayMirror,
+                            bypassMultiWindow = adminSettings.bypassMultiWindow,
+                            securityUiState = securityUiState,
+                            trigger = "checklist_refresh",
+                            recordAction = runtimeDiagnosticsOps::recordAction,
+                            startAlarm = examAlarmController::start,
+                            forceRefresh = true
+                        )
+                    }
                 },
                 debugLogExamStart = debugLogExamStart
             )

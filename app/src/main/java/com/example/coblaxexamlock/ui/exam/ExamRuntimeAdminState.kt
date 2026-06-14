@@ -22,6 +22,7 @@ import com.example.coblaxexamlock.ScreenPinningPlatformBridge
 internal class ExamRuntimeAdminUiState(
     val securityIssueDialogTitle: MutableState<String?>,
     val securityIssueDialogMessage: MutableState<String?>,
+    val securityIssueDialogCode: MutableState<String?>,
     val exitOnSecurityIssueDialogDismiss: MutableState<Boolean>,
     val screenPinningBypassTamperLogged: MutableState<Boolean>,
     val accessibilityBypassTamperLogged: MutableState<Boolean>,
@@ -71,6 +72,7 @@ internal fun rememberExamRuntimeAdminUiState(
 ): ExamRuntimeAdminUiState {
     val securityIssueDialogTitle = rememberSaveable { mutableStateOf<String?>(null) }
     val securityIssueDialogMessage = rememberSaveable { mutableStateOf<String?>(null) }
+    val securityIssueDialogCode = rememberSaveable { mutableStateOf<String?>(null) }
     val exitOnSecurityIssueDialogDismiss = rememberSaveable { mutableStateOf(false) }
     val screenPinningBypassTamperLogged = rememberSaveable { mutableStateOf(false) }
     val accessibilityBypassTamperLogged = rememberSaveable { mutableStateOf(false) }
@@ -138,6 +140,7 @@ internal fun rememberExamRuntimeAdminUiState(
     return ExamRuntimeAdminUiState(
         securityIssueDialogTitle = securityIssueDialogTitle,
         securityIssueDialogMessage = securityIssueDialogMessage,
+        securityIssueDialogCode = securityIssueDialogCode,
         exitOnSecurityIssueDialogDismiss = exitOnSecurityIssueDialogDismiss,
         screenPinningBypassTamperLogged = screenPinningBypassTamperLogged,
         accessibilityBypassTamperLogged = accessibilityBypassTamperLogged,

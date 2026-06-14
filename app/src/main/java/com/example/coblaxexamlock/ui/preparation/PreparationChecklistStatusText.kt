@@ -53,10 +53,7 @@ internal fun buildPreparationChecklistStatusText(
     }
     val overlayStatusLabel = when {
         bypassOverlay -> t("Bypassed", "Bypass")
-        overlayAppsDetected.isNotEmpty() -> t(
-            "${overlayAppsDetected.size} App Overlay",
-            "${overlayAppsDetected.size} App Overlay"
-        )
+        overlayGuardPermissionGranted -> t("Shield Ready", "Shield Siap")
         overlayRiskResult.confirmedInteractionDetected -> t("Danger", "Bahaya")
         overlayRiskResult.heuristicRisk -> t("Warning", "Peringatan")
         overlayRiskResult.shieldStatus.supported &&
@@ -72,6 +69,7 @@ internal fun buildPreparationChecklistStatusText(
             t("Strong", "Kuat")
         runtimeSecurity.dpcRuntimeStatus.protectionTier == DpcProtectionTier.NormalApk ->
             t("Good", "Baik")
+        !overlayGuardPermissionGranted -> t("Unsupported", "Tidak Didukung")
         else -> t("Safe", "Aman")
     }
     val geofenceStatusLabel = when {

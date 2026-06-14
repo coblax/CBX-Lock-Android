@@ -3,6 +3,7 @@ package com.example.coblaxexamlock.ui.exam
 import android.content.Context
 import android.os.SystemClock
 import com.example.coblaxexamlock.ActivityLockTaskBridge
+import com.example.coblaxexamlock.ExamWebViewSessionResetStep
 import com.example.coblaxexamlock.clearExamWebViewSessionData
 import com.example.coblaxexamlock.ClipboardChangeDecision
 import com.example.coblaxexamlock.LowRamProfile
@@ -34,8 +35,10 @@ internal fun finalizeStartExamSession(
     flowUiState: ExamRuntimeFlowUiState,
     adminUiState: ExamRuntimeAdminUiState,
     clipboardUiState: ExamRuntimeClipboardUiState,
+    securityUiState: ExamRuntimeSecurityUiState,
     lockTaskAlreadyActive: Boolean,
-    hideSystemKeyboard: () -> Unit
+    hideSystemKeyboard: () -> Unit,
+    recordAction: (String, String, DiagnosticEventLevel) -> Unit
 ) {
     flowUiState.webViewSessionResetError.value = null
     adminUiState.examSessionStartedAtElapsedMs.value = SystemClock.elapsedRealtime()
@@ -64,6 +67,12 @@ internal fun finalizeStartExamSession(
         flowUiState.showBuiltInExamKeyboard.value = false
     }
     flowUiState.sideArrowControlsVisible.value = true
+    securityUiState.overlayGuardActive.value = false
+    recordAction(
+        "OVERLAY_GUARD_WINDOW_DISABLED",
+        "reason=transparent_overlay_does_not_block_foreign_windows",
+        DiagnosticEventLevel.INFO
+    )
 }
 
 internal suspend fun prepareCleanExamWebViewSessionForStart(
@@ -74,7 +83,8 @@ internal suspend fun prepareCleanExamWebViewSessionForStart(
     adminUiState: ExamRuntimeAdminUiState,
     uiLanguage: UiLanguage,
     recordAction: (String, String, DiagnosticEventLevel) -> Unit,
-    onRecoveryStateIdle: () -> Unit
+    onRecoveryStateIdle: () -> Unit,
+    onResetProgress: ((ExamWebViewSessionResetStep) -> Unit)? = null
 ): Boolean {
     if (flowUiState.webViewSessionResetInFlight.value) {
         return false
@@ -88,7 +98,8 @@ internal suspend fun prepareCleanExamWebViewSessionForStart(
         clearExamWebViewSessionData(
             context = context,
             existingWebView = existingWebView,
-            lowRamProfile = lowRamProfile
+            lowRamProfile = lowRamProfile,
+            onProgress = onResetProgress
         )
     }
 

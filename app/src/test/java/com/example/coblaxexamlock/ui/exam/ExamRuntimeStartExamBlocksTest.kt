@@ -1,5 +1,6 @@
 package com.example.coblaxexamlock.ui.exam
 
+import androidx.compose.runtime.mutableStateOf
 import com.example.coblaxexamlock.model.ExamNetworkStatus
 import com.example.coblaxexamlock.model.NetworkDiagnostics
 import com.example.coblaxexamlock.model.NetworkDnsProbeStatus
@@ -8,12 +9,55 @@ import com.example.coblaxexamlock.model.NetworkReadinessStatus
 import com.example.coblaxexamlock.model.NetworkReadinessUserVerdict
 import com.example.coblaxexamlock.model.NetworkReadinessVerdict
 import com.example.coblaxexamlock.model.UiLanguage
+import kotlinx.coroutines.runBlocking
 import org.junit.Assert.assertEquals
+import org.junit.Assert.assertFalse
 import org.junit.Assert.assertNull
 import org.junit.Assert.assertTrue
 import org.junit.Test
 
 class ExamRuntimeStartExamBlocksTest {
+    @Test
+    fun startExamPreflightStateShowsUpdatesAndHides() {
+        val state = startExamPreflightState()
+
+        showStartExamPreflight(
+            state = state,
+            step = StartExamPreflightStep.Starting,
+            detail = "Preparing",
+            startedAtElapsedMs = 123L
+        )
+        assertTrue(state.visible.value)
+        assertEquals(StartExamPreflightStep.Starting, state.step.value)
+        assertEquals("Preparing", state.detail.value)
+        assertEquals(123L, state.startedAtElapsedMs.value)
+
+        updateStartExamPreflightStep(
+            state = state,
+            step = StartExamPreflightStep.NetworkDns,
+            detail = "DNS check"
+        )
+        assertEquals(StartExamPreflightStep.NetworkDns, state.step.value)
+        assertEquals("DNS check", state.detail.value)
+
+        hideStartExamPreflight(state)
+        assertFalse(state.visible.value)
+        assertEquals(StartExamPreflightStep.Idle, state.step.value)
+        assertNull(state.detail.value)
+        assertNull(state.startedAtElapsedMs.value)
+    }
+
+    @Test
+    fun startExamPreflightNetworkStepMentionsGlobalAndExamHostDns() {
+        val detail = startExamPreflightStepDetail(
+            step = StartExamPreflightStep.NetworkDns,
+            uiLanguage = UiLanguage.Indonesian
+        )
+
+        assertTrue(detail.contains("DNS global"))
+        assertTrue(detail.contains("DNS host ujian"))
+    }
+
     @Test
     fun reverseEngineeringDetectedBlocksWhenBypassOff() {
         val block = resolveStartExamTamperBlockMessage(
@@ -137,6 +181,19 @@ class ExamRuntimeStartExamBlocksTest {
         )
 
         assertEquals("START_EXAM_BLOCKED_NETWORK_REACHABILITY", block?.code)
+        assertTrue(block?.message?.contains("Status: Offline") == true)
+        assertTrue(block?.message?.contains("Global DNS") == true)
+        assertTrue(block?.message?.contains("Exam host DNS") == true)
+    }
+
+    @Test
+    fun captivePortalFlagIsAdvisoryForStartExam() {
+        val block = resolveStartExamNetworkReachabilityBlockMessage(
+            uiLanguage = UiLanguage.English,
+            status = networkStatus(userFacingVerdict = NetworkReadinessUserVerdict.CaptivePortal)
+        )
+
+        assertNull(block)
     }
 
     @Test
@@ -156,6 +213,25 @@ class ExamRuntimeStartExamBlocksTest {
     }
 
     @Test
+    fun startExamNetworkRecoveryRetriesTransientOfflineStatus() = runBlocking {
+        var calls = 0
+        val recoveredStatus = readStartExamNetworkStatusWithRecovery(
+            attempts = 3,
+            retryDelayMillis = 0L
+        ) {
+            calls += 1
+            if (calls == 1) {
+                networkStatus(userFacingVerdict = NetworkReadinessUserVerdict.Offline)
+            } else {
+                networkStatus(userFacingVerdict = NetworkReadinessUserVerdict.Stable)
+            }
+        }
+
+        assertEquals(2, calls)
+        assertEquals(NetworkReadinessUserVerdict.Stable, recoveredStatus.userFacingVerdict)
+    }
+
+    @Test
     fun offlineExamServerProbeIsAdvisoryAndDoesNotBlockStartExam() {
         val block = resolveStartExamServerProbeBlockMessage(
             uiLanguage = UiLanguage.English,
@@ -170,6 +246,16 @@ class ExamRuntimeStartExamBlocksTest {
         )
 
         assertNull(block)
+    }
+
+    private fun startExamPreflightState(): StartExamPreflightUiState {
+        return StartExamPreflightUiState(
+            visible = mutableStateOf(false),
+            step = mutableStateOf(StartExamPreflightStep.Idle),
+            detail = mutableStateOf(null),
+            startedAtElapsedMs = mutableStateOf(null),
+            slowHintVisible = mutableStateOf(false)
+        )
     }
 
     private fun networkStatus(

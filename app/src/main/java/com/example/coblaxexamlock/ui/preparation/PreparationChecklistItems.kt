@@ -298,13 +298,10 @@ internal fun PreparationRuntimeInteractionSection(
             title = tr("Overlay / Floating App", "Overlay / Floating App"),
             value = when {
                 bypass.bypassOverlay -> tr("Bypass enabled", "Bypass aktif")
-                runtimeSecurity.overlayAppsDetected.isNotEmpty() -> {
-                    val appNames = runtimeSecurity.overlayAppsDetected.joinToString(", ") { it.appLabel }
-                    tr(
-                        "Apps with overlay permission detected: $appNames. Disable 'Appear on Top' for these listed apps; do not enable it for CBX.",
-                        "Aplikasi dengan izin overlay terdeteksi: $appNames. Matikan izin 'Tampilkan di Atas Aplikasi Lain' untuk app yang terdaftar; jangan aktifkan izin ini untuk CBX."
-                    )
-                }
+                runtimeSecurity.overlayGuardPermissionGranted -> tr(
+                    "CBX Overlay Shield is ready and will hide floating windows during the exam.",
+                    "CBX Overlay Shield siap dan akan menyembunyikan floating window saat ujian."
+                )
                 runtimeSecurity.overlayRiskResult.confirmedInteractionDetected -> tr(
                     "Overlay interaction was confirmed on the exam screen.",
                     "Interaksi overlay terkonfirmasi di layar ujian."
@@ -339,6 +336,10 @@ internal fun PreparationRuntimeInteractionSection(
                 runtimeSecurity.dpcRuntimeStatus.protectionTier == DpcProtectionTier.NormalApk -> tr(
                     "Normal APK overlay shield is available on this Android version.",
                     "Overlay shield mode APK biasa tersedia pada versi Android ini."
+                )
+                !runtimeSecurity.overlayGuardPermissionGranted -> tr(
+                    "This Android version cannot hide floating windows in normal APK mode.",
+                    "Versi Android ini tidak bisa menyembunyikan floating window pada mode APK biasa."
                 )
                 runtimeSecurity.dpcRuntimeStatus.protectionTier == DpcProtectionTier.None &&
                     !runtimeSecurity.overlayRiskResult.shieldStatus.supported -> tr(

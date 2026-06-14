@@ -187,6 +187,28 @@ internal fun WebView.loadExamUrlSafely(url: String): Boolean {
     }.getOrDefault(false)
 }
 
+private val BrowserLikeRefreshHeaders = mapOf(
+    "Cache-Control" to "no-cache",
+    "Pragma" to "no-cache"
+)
+
+internal fun WebView.reloadExamUrlLikeBrowserSafely(fallbackUrl: String): Boolean {
+    val currentUrl = url?.takeIf { it.isNotBlank() && it != "about:blank" }
+    val requestedUrl = (this as? SecureExamWebView)?.requestedExamUrl
+        ?.takeIf { it.isNotBlank() && it != "about:blank" }
+    val targetUrl = currentUrl ?: requestedUrl ?: fallbackUrl
+    return runCatching {
+        stopLoading()
+        clearCache(false)
+        settings.cacheMode = WebSettings.LOAD_DEFAULT
+        loadUrl(targetUrl, BrowserLikeRefreshHeaders)
+        if (this is SecureExamWebView) {
+            requestedExamUrl = targetUrl
+        }
+        true
+    }.getOrDefault(false)
+}
+
 internal fun WebView.updateExamUserAgentSafely(userAgent: String): Boolean {
     return runCatching {
         settings.userAgentString = if (userAgent == DefaultExamUserAgent) {

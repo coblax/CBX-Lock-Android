@@ -98,7 +98,8 @@ internal fun buildPreparationStateForSession(
             examName = payload.examName,
             sendingSection = sendingSection,
             isStartingExam = flowUiState.lockTaskRequestPending.value ||
-                flowUiState.geofenceStartValidationInFlight.value,
+                flowUiState.geofenceStartValidationInFlight.value ||
+                flowUiState.startExamPreflight.visible.value,
             pinningActivationState = flowUiState.pinningActivationState.value,
             screenPinningMessage = flowUiState.screenPinningMessage.value,
             webViewSessionResetInFlight = flowUiState.webViewSessionResetInFlight.value,
@@ -167,7 +168,8 @@ internal fun buildPreparationStateForSession(
             integritySummary = securityUiState.integritySummary.value,
             integrityBypassActive = bypassApkIntegrity,
             dpcRuntimeStatus = dpcRuntimeStatus,
-            overlayAppsDetected = securityUiState.overlayAppsDetected.value
+            overlayAppsDetected = securityUiState.overlayAppsDetected.value,
+            overlayGuardPermissionGranted = securityUiState.overlayGuardPermissionGranted.value
         ),
         bypass = PreparationBypassState(
             bypassScreenPinning = bypassScreenPinning,
