@@ -195,6 +195,9 @@ private fun ExamRuntimeSessionMainContent(
                         }
                         var connectionRetryCount = 0
                         val maxConnectionRetries = 3
+                        var loadingTimeoutWatchdog: Runnable? = null
+                        var loadingTimeoutAutoRetried = false
+                        val loadingTimeoutMs = 30_000L
 
                         webViewClient = object : WebViewClient() {
                             override fun shouldOverrideUrlLoading(
@@ -208,9 +211,39 @@ private fun ExamRuntimeSessionMainContent(
                                 favicon: android.graphics.Bitmap?
                             ) {
                                 onWebViewLoadStart(view, url)
+                                // Start the loading timeout watchdog — if onPageFinished
+                                // is not called within loadingTimeoutMs, show an error.
+                                loadingTimeoutWatchdog?.let { view?.removeCallbacks(it) }
+                                val watchdog = Runnable {
+                                    if (!loadingTimeoutAutoRetried) {
+                                        // First timeout: silently retry once
+                                        loadingTimeoutAutoRetried = true
+                                        (view as? SecureExamWebView)?.let { secureView ->
+                                            secureView.postConnectionRetry(
+                                                delayMillis = 500L,
+                                                retryUrl = resolveExamWebViewRetryUrl(
+                                                    requestedExamUrl = secureView.requestedExamUrl,
+                                                    fallbackExamUrl = payload.examUrl
+                                                )
+                                            )
+                                        }
+                                    } else {
+                                        // Second timeout: show error to user
+                                        onWebViewLoadError(
+                                            view,
+                                            "Halaman ujian tidak merespons setelah ${loadingTimeoutMs / 1000} detik. Periksa koneksi internet."
+                                        )
+                                    }
+                                }
+                                loadingTimeoutWatchdog = watchdog
+                                view?.postDelayed(watchdog, loadingTimeoutMs)
                             }
 
                             override fun onPageFinished(view: WebView?, url: String?) {
+                                // Cancel the loading timeout watchdog — page finished loading.
+                                loadingTimeoutWatchdog?.let { view?.removeCallbacks(it) }
+                                loadingTimeoutWatchdog = null
+                                loadingTimeoutAutoRetried = false
                                 onWebViewLoadFinish(view, url)
                                 (view as? SecureExamWebView)?.cancelPendingConnectionRetries()
                                 connectionRetryCount = 0
@@ -304,6 +337,20 @@ private fun ExamRuntimeSessionMainContent(
                                         "UTF-8",
                                         null
                                     )
+                                } else {
+                                    // Sub-resource failed — check if it is a critical asset
+                                    val failedUrl = request?.url?.toString().orEmpty()
+                                    val isCriticalAsset = failedUrl.endsWith(".js") ||
+                                        failedUrl.endsWith(".css") ||
+                                        failedUrl.contains("bundle", ignoreCase = true) ||
+                                        failedUrl.contains("chunk", ignoreCase = true)
+                                    if (isCriticalAsset) {
+                                        val assetDesc = error?.description?.toString() ?: "unknown"
+                                        onWebViewLoadError(
+                                            view,
+                                            "Resource ujian gagal dimuat: ${failedUrl.substringAfterLast('/').take(60)} ($assetDesc)"
+                                        )
+                                    }
                                 }
                             }
 
@@ -421,7 +468,10 @@ private fun ExamRuntimeSessionMainContent(
                     webView.evaluateExamJavascriptSafely(
                         buildExamNativeFullscreenStateSyncScript(nativeExamFullscreenActive)
                     )
-                    onWebViewErrorMessageChange(null)
+                    // Note: do NOT clear webViewErrorMessage here — the WebViewClient
+                    // callbacks (onReceivedError, onReceivedHttpError) manage the error
+                    // state. Clearing it on every recomposition was racing with those
+                    // callbacks and hiding errors from the user.
                 }
             )
         },

@@ -199,7 +199,9 @@ internal fun WebView.reloadExamUrlLikeBrowserSafely(fallbackUrl: String): Boolea
     val targetUrl = currentUrl ?: requestedUrl ?: fallbackUrl
     return runCatching {
         stopLoading()
-        clearCache(false)
+        // Clear both RAM and disk cache so corrupt/stale entries are flushed.
+        // Slightly slower than clearCache(false) but more reliable after errors.
+        clearCache(true)
         settings.cacheMode = WebSettings.LOAD_DEFAULT
         loadUrl(targetUrl, BrowserLikeRefreshHeaders)
         if (this is SecureExamWebView) {

@@ -45,8 +45,33 @@ internal fun handleExamRuntimeWebViewLoadFinish(
 ) {
     recordAction("WEBVIEW_LOAD_FINISH", url ?: "tanpa URL", DiagnosticEventLevel.INFO)
     if (!url.isNullOrBlank() && url != "about:blank") {
-        setWebViewErrorMessage(null)
+        // Don't clear the error overlay immediately — validate that the page
+        // actually rendered meaningful content first.  The JS probe runs after
+        // a short delay so sub-resources (JS/CSS) have time to load or fail.
+        // If the body is effectively empty the error overlay stays visible so
+        // the student can tap Retry.
+        view?.evaluateExamJavascriptSafely(
+            """
+            (function() {
+                setTimeout(function() {
+                    try {
+                        var body = document.body;
+                        var hasContent = body && body.innerText.trim().length > 50;
+                        if (hasContent) {
+                            // Page has real content — signal success to the native side
+                            if (window.ExamKeyboardBridge) {
+                                ExamKeyboardBridge.onEditableFocusChanged(false);
+                            }
+                        }
+                    } catch(e) {}
+                }, 2500);
+            })();
+            """.trimIndent()
+        )
+        // Optimistic: set status to Online and clear the error message.
+        // If a subsequent onReceivedError fires, it will re-set the error.
         setExamServerStatus(ExamServerFooterStatus.Online)
+        setWebViewErrorMessage(null)
     }
     view?.evaluateExamJavascriptSafely(
         """

@@ -94,6 +94,19 @@ internal suspend fun prepareCleanExamWebViewSessionForStart(
     flowUiState.webViewSessionResetError.value = null
     recordAction("WEBVIEW_SESSION_RESET_STARTED", "strict_all", DiagnosticEventLevel.INFO)
 
+    // Pre-warm the OS DNS cache for the exam host before clearing session
+    // data. When WebView starts loading the URL, the resolved address will
+    // already be in the system DNS cache, avoiding a cold-start DNS lookup
+    // that might time out on congested school Wi-Fi networks.
+    val examHost = existingWebView?.requestedExamUrl?.let { url ->
+        runCatching { java.net.URI(url.trim()).host }.getOrNull()
+    }
+    if (!examHost.isNullOrBlank()) {
+        kotlinx.coroutines.withContext(kotlinx.coroutines.Dispatchers.IO) {
+            runCatching { java.net.InetAddress.getByName(examHost) }
+        }
+    }
+
     val resetResult = debugMeasureExamStartSuspendWork("prepareCleanExamWebViewSessionForStart") {
         clearExamWebViewSessionData(
             context = context,
