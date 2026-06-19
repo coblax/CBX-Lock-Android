@@ -4,8 +4,10 @@ import android.content.Context
 import android.graphics.Bitmap
 import android.net.http.SslError
 import android.os.Build
+import android.os.SystemClock
 import android.view.View
 import android.view.ViewGroup
+import android.webkit.ConsoleMessage
 import android.webkit.RenderProcessGoneDetail
 import android.webkit.SslErrorHandler
 import android.webkit.WebChromeClient
@@ -192,12 +194,26 @@ private fun ExamRuntimeSessionMainContent(
                             override fun onHideCustomView() {
                                 onHideCustomView()
                             }
+
+                            // Capture JavaScript errors from the exam page.
+                            // This helps diagnose blank/frozen pages caused by
+                            // JS runtime errors on the server side.
+                            override fun onConsoleMessage(consoleMessage: ConsoleMessage?): Boolean {
+                                if (consoleMessage?.messageLevel() == ConsoleMessage.MessageLevel.ERROR) {
+                                    onWebViewLoadError(
+                                        null,
+                                        "JS: ${consoleMessage.message()?.take(120)} (line ${consoleMessage.lineNumber()})"
+                                    )
+                                }
+                                return super.onConsoleMessage(consoleMessage)
+                            }
                         }
                         var connectionRetryCount = 0
                         val maxConnectionRetries = 3
                         var loadingTimeoutWatchdog: Runnable? = null
                         var loadingTimeoutAutoRetried = false
                         val loadingTimeoutMs = 30_000L
+                        var pageLoadStartedAtElapsedMs = 0L
 
                         webViewClient = object : WebViewClient() {
                             override fun shouldOverrideUrlLoading(
@@ -210,6 +226,7 @@ private fun ExamRuntimeSessionMainContent(
                                 url: String?,
                                 favicon: android.graphics.Bitmap?
                             ) {
+                                pageLoadStartedAtElapsedMs = SystemClock.elapsedRealtime()
                                 onWebViewLoadStart(view, url)
                                 // Start the loading timeout watchdog — if onPageFinished
                                 // is not called within loadingTimeoutMs, show an error.
@@ -244,6 +261,14 @@ private fun ExamRuntimeSessionMainContent(
                                 loadingTimeoutWatchdog?.let { view?.removeCallbacks(it) }
                                 loadingTimeoutWatchdog = null
                                 loadingTimeoutAutoRetried = false
+                                // Track page load duration for performance diagnostics
+                                val loadDurationMs = SystemClock.elapsedRealtime() - pageLoadStartedAtElapsedMs
+                                if (loadDurationMs > 15_000L) {
+                                    onWebViewLoadError(
+                                        view,
+                                        "Halaman dimuat lambat (${loadDurationMs / 1000}s). Koneksi mungkin tidak stabil."
+                                    )
+                                }
                                 onWebViewLoadFinish(view, url)
                                 (view as? SecureExamWebView)?.cancelPendingConnectionRetries()
                                 connectionRetryCount = 0
@@ -266,10 +291,24 @@ private fun ExamRuntimeSessionMainContent(
                                     SslError.SSL_INVALID -> "SSL_INVALID"
                                     else -> "SSL_UNKNOWN"
                                 }
+                                val userFriendlyMessage = when (error?.primaryError) {
+                                    SslError.SSL_EXPIRED ->
+                                        "Sertifikat keamanan server ujian sudah expired. Hubungi admin sekolah."
+                                    SslError.SSL_IDMISMATCH ->
+                                        "Nama domain tidak cocok dengan sertifikat keamanan. Pastikan URL ujian benar."
+                                    SslError.SSL_NOTYETVALID ->
+                                        "Sertifikat keamanan belum berlaku. Periksa tanggal/waktu perangkat."
+                                    SslError.SSL_UNTRUSTED ->
+                                        "Sertifikat keamanan tidak dipercaya. Jaringan mungkin memblokir koneksi aman."
+                                    SslError.SSL_DATE_INVALID ->
+                                        "Tanggal sertifikat tidak valid. Pastikan waktu perangkat sudah benar."
+                                    else ->
+                                        "Masalah keamanan koneksi ($errorType). Coba gunakan jaringan lain."
+                                }
                                 val sslUrl = error?.url ?: "unknown"
                                 onWebViewLoadError(
                                     view,
-                                    "SSL error ($errorType) on $sslUrl — connection rejected for security."
+                                    "$userFriendlyMessage (SSL: $errorType | ${sslUrl.take(60)})"
                                 )
                                 handler?.cancel()
                             }

@@ -201,6 +201,7 @@ import com.example.coblaxexamlock.ScreenPinningPlatformBridge
 import com.example.coblaxexamlock.ScreenPinningSignals
 import com.example.coblaxexamlock.SecureStrings
 import com.example.coblaxexamlock.shouldSuppressPinningTransitionViolation
+import com.example.coblaxexamlock.updateCacheModeForNetworkStability
 import com.example.coblaxexamlock.showKeyboardPicker
 import com.example.coblaxexamlock.SignatureIntegrityResult
 import com.example.coblaxexamlock.SplitLocationSecurityStatus
@@ -215,9 +216,13 @@ import com.example.coblaxexamlock.ui.theme.LockBackground
 import com.example.coblaxexamlock.WebViewCompatibilityStatus
 import java.util.Locale
 import kotlinx.coroutines.CompletableDeferred
+import kotlinx.coroutines.CancellationException
+import kotlinx.coroutines.CoroutineExceptionHandler
 import kotlinx.coroutines.CoroutineScope
+import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.launch
+import kotlinx.coroutines.withContext
 
 @Composable
 @SuppressLint("SetJavaScriptEnabled")
@@ -763,6 +768,18 @@ internal fun ExamRuntimeSessionScreenImpl(
         ExamAlarmController(context.applicationContext)
     }
     val coroutineScope = rememberCoroutineScope()
+    // Global exception handler for all fire-and-forget coroutineScope.launch calls.
+    // This prevents silent crashes where a background coroutine fails without anyone
+    // noticing, leaving the exam session in a stuck/broken state.
+    val examExceptionHandler = remember {
+        CoroutineExceptionHandler { _, throwable ->
+            android.util.Log.e(
+                ExamRuntimeHardeningLogTag,
+                "Uncaught coroutine exception: ${throwable.javaClass.simpleName}",
+                throwable
+            )
+        }
+    }
     var reverseEngineeringRefreshCache by runtimeCacheState.reverseEngineeringRefreshCache
     var integrityRefreshCache by runtimeCacheState.integrityRefreshCache
     var lastAlarmAcknowledgeDedupKey by adminUiState.lastAlarmAcknowledgeDedupKey
@@ -827,7 +844,8 @@ internal fun ExamRuntimeSessionScreenImpl(
         accessibilityGuardLastEventTypeState = accessibilityGuardLastEventTypeState,
         accessibilityGuardLastDetectedAtState = accessibilityGuardLastDetectedAtState,
         accessibilityGuardAlarmSeverityState = accessibilityGuardAlarmSeverityState,
-        examAlarmController = examAlarmController
+        examAlarmController = examAlarmController,
+        batteryStatusState = batteryStatusState
     )
     val currentOfflineDurationMs = runtimeDiagnosticsOps.currentOfflineDurationMs
     val offlineRuntimeStatus = runtimeDiagnosticsOps.offlineRuntimeStatus
@@ -1000,7 +1018,11 @@ internal fun ExamRuntimeSessionScreenImpl(
             )
         )
         val result = probeExamServerFooterStatus(payload.examUrl)
-        examServerStatus = result.status
+        examServerStatus = if (networkUnstableEpisodeStartedElapsedMs != null) {
+            ExamServerFooterStatus.Unstable
+        } else {
+            result.status
+        }
         recordAction(
             code = result.eventCode,
             details = buildExamServerProbeDetails(
@@ -1018,8 +1040,15 @@ internal fun ExamRuntimeSessionScreenImpl(
         trigger: String,
         markChecking: Boolean = true
     ) {
-        coroutineScope.launch {
+        coroutineScope.launch(examExceptionHandler) {
             runExamServerProbe(trigger = trigger, markChecking = markChecking)
+        }
+    }
+    LaunchedEffect(networkUnstableEpisodeStartedElapsedMs) {
+        if (networkUnstableEpisodeStartedElapsedMs != null) {
+            examServerStatus = ExamServerFooterStatus.Unstable
+        } else if (examServerStatus == ExamServerFooterStatus.Unstable) {
+            launchExamServerProbe("network_stabilized", markChecking = true)
         }
     }
     fun handleAccessibilityGuardViolation(violation: AccessibilityGuardRuntimeViolation) {
@@ -1121,17 +1150,46 @@ internal fun ExamRuntimeSessionScreenImpl(
     // Auto-reload WebView when network recovers from offline while an error page is displayed.
     // This eliminates the need for students to manually press "Muat Ulang" after a brief
     // network hiccup — the exam page recovers automatically once connectivity is restored.
+    // Enhanced: also detects about:blank and data:text/html error pages where
+    // webViewErrorMessage may have been cleared, and pre-verifies DNS before reload.
     LaunchedEffect(examSessionStarted, networkStatus.isConnected, webViewErrorMessage) {
-        if (!examSessionStarted || !networkStatus.isConnected || webViewErrorMessage == null) {
+        if (!examSessionStarted || !networkStatus.isConnected) {
             return@LaunchedEffect
         }
-        // Wait a short stabilization period to ensure the connection is truly back
-        delay(1_500L)
-        // Double-check: still connected and still in error state
-        if (networkStatus.isConnected && webViewErrorMessage != null) {
+        // Check both explicit error state AND implicit error pages
+        val currentUrl = webViewInstance?.url.orEmpty()
+        val isOnErrorPage = webViewErrorMessage != null ||
+            currentUrl == "about:blank" ||
+            currentUrl.startsWith("data:text/html")
+        if (!isOnErrorPage) {
+            return@LaunchedEffect
+        }
+        // Wait a stabilization period to ensure the connection is truly back
+        delay(2_000L)
+        // Double-check: still connected and still in error-like state
+        val stillOnErrorPage = webViewErrorMessage != null ||
+            (webViewInstance?.url.orEmpty().let { it == "about:blank" || it.startsWith("data:text/html") })
+        if (networkStatus.isConnected && stillOnErrorPage) {
+            // Pre-verify that the exam host is actually reachable before reload
+            val examHost = runCatching { java.net.URI(payload.examUrl.trim()).host }.getOrNull()
+            val dnsReachable = if (!examHost.isNullOrBlank()) {
+                withContext(Dispatchers.IO) {
+                    runCatching { java.net.InetAddress.getByName(examHost) }.isSuccess
+                }
+            } else {
+                true // Skip check if we can't parse the host
+            }
+            if (!dnsReachable) {
+                recordAction(
+                    "WEBVIEW_AUTO_RELOAD_DNS_FAILED",
+                    "host=$examHost | transport=${networkReadinessStatus.transportLabel}",
+                    DiagnosticEventLevel.WARNING
+                )
+                return@LaunchedEffect
+            }
             recordAction(
                 "WEBVIEW_AUTO_RELOAD_ON_RECOVERY",
-                "error=${webViewErrorMessage?.take(80)} | transport=${networkReadinessStatus.transportLabel}",
+                "error=${webViewErrorMessage?.take(80)} | url=${currentUrl.take(60)} | transport=${networkReadinessStatus.transportLabel}",
                 DiagnosticEventLevel.INFO
             )
             webViewErrorMessage = null
@@ -1140,6 +1198,53 @@ internal fun ExamRuntimeSessionScreenImpl(
             webViewInstance?.let { webView ->
                 webView.loadExamUrlSafely(payload.examUrl)
                 webView.requestedExamUrl = payload.examUrl
+            }
+        }
+    }
+
+    // Proactive memory monitoring: periodically check JVM heap usage and
+    // preemptively clear non-critical WebView cache when memory is high.
+    // This helps prevent the WebView renderer from being killed by Android
+    // on low-RAM devices during long exam sessions.
+    LaunchedEffect(examSessionStarted) {
+        if (!examSessionStarted) return@LaunchedEffect
+        while (true) {
+            delay(60_000L) // Check every 1 minute
+            val runtime = Runtime.getRuntime()
+            val usedMemoryMb = (runtime.totalMemory() - runtime.freeMemory()) / (1024 * 1024)
+            val maxMemoryMb = runtime.maxMemory() / (1024 * 1024)
+            val memoryUsagePercent = if (maxMemoryMb > 0) (usedMemoryMb * 100) / maxMemoryMb else 0
+            if (memoryUsagePercent > 85) {
+                recordAction(
+                    "MEMORY_PRESSURE_HIGH",
+                    "used=${usedMemoryMb}MB | max=${maxMemoryMb}MB | pct=$memoryUsagePercent%",
+                    DiagnosticEventLevel.WARNING
+                )
+                // Preemptive: clear in-memory cache to reduce pressure
+                webViewInstance?.clearCache(false)
+            }
+        }
+    }
+
+    // Dynamic cache mode switching: adapt WebView caching strategy to real-time
+    // network conditions. Stable network → LOAD_DEFAULT (fresh content from server),
+    // unstable/offline → LOAD_CACHE_ELSE_NETWORK (serve from cache, fall back to net).
+    LaunchedEffect(
+        examSessionStarted,
+        networkStatus.isConnected,
+        networkUnstableEpisodeStartedElapsedMs
+    ) {
+        if (!examSessionStarted) return@LaunchedEffect
+        val networkStable = networkStatus.isConnected &&
+            networkUnstableEpisodeStartedElapsedMs == null
+        webViewInstance?.let { webView ->
+            val changed = webView.updateCacheModeForNetworkStability(networkStable)
+            if (changed) {
+                recordAction(
+                    "WEBVIEW_CACHE_MODE_SWITCHED",
+                    "stable=$networkStable | mode=${if (networkStable) "LOAD_DEFAULT" else "LOAD_CACHE_ELSE_NETWORK"}",
+                    DiagnosticEventLevel.INFO
+                )
             }
         }
     }
@@ -1606,139 +1711,155 @@ internal fun ExamRuntimeSessionScreenImpl(
             }
             showStartExamPreflight()
             examRuntimeRecoveryState = ExamRuntimeRecoveryState.Idle
-            runExamRuntimeStartPrechecks(
-                context = context,
-                uiLanguage = uiLanguage,
-                payload = payload,
-                lockTaskBridge = lockTaskBridge,
-                screenPinningMode = screenPinningMode,
-                screenPinningAvailable = screenPinningAvailable,
-                deviceCompatibilityProfile = deviceCompatibilityProfile,
-                overlayRiskResult = overlayRiskResult,
-                webViewCompatibilityStatus = webViewCompatibilityStatus,
-                webViewRecoveryStateName = examRuntimeRecoveryState.name,
-                batteryStatus = batteryStatus,
-                geofenceConfigParseResult = geofenceConfigParseResult,
-                effectiveLocationPolicySource = effectiveLocationPolicySource,
-                geofenceBypassState = geofenceBypassState,
-                fakeLocationBypassState = fakeLocationBypassState,
-                flowUiState = flowUiState,
-                securityUiState = securityUiState,
-                adminUiState = adminUiState,
-                accessibilityGuardEnabledState = accessibilityGuardEnabledState,
-                bypassScreenPinning = bypassScreenPinning,
-                bypassOverlay = bypassOverlay,
-                bypassVpn = bypassVpn,
-                bypassDeviceTime = bypassDeviceTime,
-                bypassKeyboardPolicy = bypassKeyboardPolicy,
-                bypassBluetooth = bypassBluetooth,
-                bypassAccessibility = bypassAccessibility,
-                bypassAdb = bypassAdb,
-                bypassVirtualEnvironment = bypassVirtualEnvironment,
-                bypassRoot = bypassRoot,
-                bypassReverseEngineering = bypassReverseEngineering,
-                bypassApkIntegrity = bypassApkIntegrity,
-                bypassScreenRecorder = bypassScreenRecorder,
-                bypassDisplayMirror = bypassDisplayMirror,
-                bypassMultiWindow = bypassMultiWindow,
-                bypassGeofence = bypassGeofence,
-                bypassFakeLocation = bypassFakeLocation,
-                callbacks = ExamRuntimeStartPrecheckCallbacks(
-                    recordAction = { code, details, level ->
-                        recordAction(code = code, details = details, level = level)
-                    },
-                    applyVirtualEnvironmentDiagnostics = { diagnostics, triggerViolation ->
-                        runtimeSecurityOps.applyVirtualEnvironmentDiagnostics(
-                            diagnostics = diagnostics,
-                            triggerViolation = triggerViolation
-                        )
-                    },
-                    refreshReverseEngineeringStatus = ::refreshReverseEngineeringStatusOnDetector,
-                    refreshIntegrityGuard = ::refreshIntegrityGuardOnDetector,
-                    refreshScreenPinningDiagnostics = ::refreshScreenPinningDiagnostics,
-                    refreshKeyboardSecurity = ::refreshKeyboardSecurity,
-                    refreshBluetoothSecurity = ::refreshBluetoothSecurity,
-                    refreshDeviceIntegritySecurity = ::refreshDeviceIntegritySecurity,
-                    updateStartExamPreflight = this::updateStartExamPreflight,
-                    hideStartExamPreflight = this::hideStartExamPreflight,
-                    applyStartExamBlockMessage = this::applyStartExamBlockMessage,
-                    refreshDeviceTimeSecurity = { trigger, emitDiagnosticEvent ->
-                        refreshDeviceTimeSecurity(
-                            trigger = trigger,
-                            emitDiagnosticEvent = emitDiagnosticEvent
-                        )
-                    },
-                    applyNetworkReadinessStatus = ::applyNetworkReadinessStatus,
-                    checkSignatureIntegrity = ::checkSignatureIntegrity,
-                    currentGeofenceEventDetails = { trigger, geofenceStatus ->
-                        currentGeofenceEventDetails(
-                            trigger = trigger,
-                            geofenceStatus = geofenceStatus
-                        )
-                    },
-                    currentFakeLocationEventDetails = { trigger, fakeLocationStatus ->
-                        currentFakeLocationEventDetails(
-                            trigger = trigger,
-                            fakeLocationStatus = fakeLocationStatus
-                        )
-                    },
-                    ensureDeviceOwnerLockTaskActive = {
-                        applyDpcExamPoliciesForStart(startLockTask = true)
-                    },
-                    refreshDpcRuntimeStatus = ::refreshDpcRuntimeStatus,
-                    requestBluetoothPermission = {
-                        bluetoothPermissionLauncher.launch(getBluetoothConnectPermission())
-                    },
-                    requestLocationPermission = {
-                        locationPermissionLauncher.launch(
-                            arrayOf(
-                                Manifest.permission.ACCESS_FINE_LOCATION,
-                                Manifest.permission.ACCESS_COARSE_LOCATION
+            try {
+                runExamRuntimeStartPrechecks(
+                    context = context,
+                    uiLanguage = uiLanguage,
+                    payload = payload,
+                    lockTaskBridge = lockTaskBridge,
+                    screenPinningMode = screenPinningMode,
+                    screenPinningAvailable = screenPinningAvailable,
+                    deviceCompatibilityProfile = deviceCompatibilityProfile,
+                    overlayRiskResult = overlayRiskResult,
+                    webViewCompatibilityStatus = webViewCompatibilityStatus,
+                    webViewRecoveryStateName = examRuntimeRecoveryState.name,
+                    batteryStatus = batteryStatus,
+                    geofenceConfigParseResult = geofenceConfigParseResult,
+                    effectiveLocationPolicySource = effectiveLocationPolicySource,
+                    geofenceBypassState = geofenceBypassState,
+                    fakeLocationBypassState = fakeLocationBypassState,
+                    flowUiState = flowUiState,
+                    securityUiState = securityUiState,
+                    adminUiState = adminUiState,
+                    accessibilityGuardEnabledState = accessibilityGuardEnabledState,
+                    bypassScreenPinning = bypassScreenPinning,
+                    bypassOverlay = bypassOverlay,
+                    bypassVpn = bypassVpn,
+                    bypassDeviceTime = bypassDeviceTime,
+                    bypassKeyboardPolicy = bypassKeyboardPolicy,
+                    bypassBluetooth = bypassBluetooth,
+                    bypassAccessibility = bypassAccessibility,
+                    bypassAdb = bypassAdb,
+                    bypassVirtualEnvironment = bypassVirtualEnvironment,
+                    bypassRoot = bypassRoot,
+                    bypassReverseEngineering = bypassReverseEngineering,
+                    bypassApkIntegrity = bypassApkIntegrity,
+                    bypassScreenRecorder = bypassScreenRecorder,
+                    bypassDisplayMirror = bypassDisplayMirror,
+                    bypassMultiWindow = bypassMultiWindow,
+                    bypassGeofence = bypassGeofence,
+                    bypassFakeLocation = bypassFakeLocation,
+                    callbacks = ExamRuntimeStartPrecheckCallbacks(
+                        recordAction = { code, details, level ->
+                            recordAction(code = code, details = details, level = level)
+                        },
+                        applyVirtualEnvironmentDiagnostics = { diagnostics, triggerViolation ->
+                            runtimeSecurityOps.applyVirtualEnvironmentDiagnostics(
+                                diagnostics = diagnostics,
+                                triggerViolation = triggerViolation
                             )
-                        )
-                    },
-                    launchFinalLocationValidation = { startExamPressedAt ->
-                        launchExamRuntimeStartLocationValidation(
-                            context = context,
-                            coroutineScope = coroutineScope,
-                            uiLanguage = uiLanguage,
-                            payload = payload,
-                            bypassGeofence = bypassGeofence,
-                            bypassFakeLocation = bypassFakeLocation,
-                            startExamPressedAt = startExamPressedAt,
-                            callbacks = ExamRuntimeStartLocationValidationCallbacks(
-                                isGeofenceStartValidationInFlight = { geofenceStartValidationInFlight },
-                                setGeofenceStartValidationInFlight = { geofenceStartValidationInFlight = it },
-                                resolveStartExamLocationValidation = { resolveStartExamLocationValidation() },
-                                currentGeofenceEventDetails = { trigger, geofenceStatus ->
-                                    currentGeofenceEventDetails(
-                                        trigger = trigger,
-                                        geofenceStatus = geofenceStatus
-                                    )
-                                },
-                                currentFakeLocationEventDetails = { trigger, fakeLocationStatus ->
-                                    currentFakeLocationEventDetails(
-                                        trigger = trigger,
-                                        fakeLocationStatus = fakeLocationStatus
-                                    )
-                                },
-                                updateStartExamPreflight = this::updateStartExamPreflight,
-                                hideStartExamPreflight = this::hideStartExamPreflight,
-                                applyStartExamBlockMessage = this::applyStartExamBlockMessage,
-                                refreshDeviceTimeSecurity = { trigger, emitDiagnosticEvent ->
-                                    refreshDeviceTimeSecurity(
-                                        trigger = trigger,
-                                        emitDiagnosticEvent = emitDiagnosticEvent
-                                    )
-                                },
-                                completeStartExamSessionAfterPrechecks = this::completeStartExamSessionAfterPrechecks,
-                                debugLogExamStart = ::debugLogExamStart
+                        },
+                        refreshReverseEngineeringStatus = ::refreshReverseEngineeringStatusOnDetector,
+                        refreshIntegrityGuard = ::refreshIntegrityGuardOnDetector,
+                        refreshScreenPinningDiagnostics = ::refreshScreenPinningDiagnostics,
+                        refreshKeyboardSecurity = ::refreshKeyboardSecurity,
+                        refreshBluetoothSecurity = ::refreshBluetoothSecurity,
+                        refreshDeviceIntegritySecurity = ::refreshDeviceIntegritySecurity,
+                        updateStartExamPreflight = this::updateStartExamPreflight,
+                        hideStartExamPreflight = this::hideStartExamPreflight,
+                        applyStartExamBlockMessage = this::applyStartExamBlockMessage,
+                        refreshDeviceTimeSecurity = { trigger, emitDiagnosticEvent ->
+                            refreshDeviceTimeSecurity(
+                                trigger = trigger,
+                                emitDiagnosticEvent = emitDiagnosticEvent
                             )
-                        )
-                    },
-                    debugLogExamStart = ::debugLogExamStart
+                        },
+                        applyNetworkReadinessStatus = ::applyNetworkReadinessStatus,
+                        checkSignatureIntegrity = ::checkSignatureIntegrity,
+                        currentGeofenceEventDetails = { trigger, geofenceStatus ->
+                            currentGeofenceEventDetails(
+                                trigger = trigger,
+                                geofenceStatus = geofenceStatus
+                            )
+                        },
+                        currentFakeLocationEventDetails = { trigger, fakeLocationStatus ->
+                            currentFakeLocationEventDetails(
+                                trigger = trigger,
+                                fakeLocationStatus = fakeLocationStatus
+                            )
+                        },
+                        ensureDeviceOwnerLockTaskActive = {
+                            applyDpcExamPoliciesForStart(startLockTask = true)
+                        },
+                        refreshDpcRuntimeStatus = ::refreshDpcRuntimeStatus,
+                        requestBluetoothPermission = {
+                            bluetoothPermissionLauncher.launch(getBluetoothConnectPermission())
+                        },
+                        requestLocationPermission = {
+                            locationPermissionLauncher.launch(
+                                arrayOf(
+                                    Manifest.permission.ACCESS_FINE_LOCATION,
+                                    Manifest.permission.ACCESS_COARSE_LOCATION
+                                )
+                            )
+                        },
+                        launchFinalLocationValidation = { startExamPressedAt ->
+                            launchExamRuntimeStartLocationValidation(
+                                context = context,
+                                coroutineScope = coroutineScope,
+                                uiLanguage = uiLanguage,
+                                payload = payload,
+                                bypassGeofence = bypassGeofence,
+                                bypassFakeLocation = bypassFakeLocation,
+                                startExamPressedAt = startExamPressedAt,
+                                callbacks = ExamRuntimeStartLocationValidationCallbacks(
+                                    isGeofenceStartValidationInFlight = { geofenceStartValidationInFlight },
+                                    setGeofenceStartValidationInFlight = { geofenceStartValidationInFlight = it },
+                                    resolveStartExamLocationValidation = { resolveStartExamLocationValidation() },
+                                    currentGeofenceEventDetails = { trigger, geofenceStatus ->
+                                        currentGeofenceEventDetails(
+                                            trigger = trigger,
+                                            geofenceStatus = geofenceStatus
+                                        )
+                                    },
+                                    currentFakeLocationEventDetails = { trigger, fakeLocationStatus ->
+                                        currentFakeLocationEventDetails(
+                                            trigger = trigger,
+                                            fakeLocationStatus = fakeLocationStatus
+                                        )
+                                    },
+                                    updateStartExamPreflight = this::updateStartExamPreflight,
+                                    hideStartExamPreflight = this::hideStartExamPreflight,
+                                    applyStartExamBlockMessage = this::applyStartExamBlockMessage,
+                                    refreshDeviceTimeSecurity = { trigger, emitDiagnosticEvent ->
+                                        refreshDeviceTimeSecurity(
+                                            trigger = trigger,
+                                            emitDiagnosticEvent = emitDiagnosticEvent
+                                        )
+                                    },
+                                    completeStartExamSessionAfterPrechecks = this::completeStartExamSessionAfterPrechecks,
+                                    debugLogExamStart = ::debugLogExamStart
+                                )
+                            )
+                        },
+                        debugLogExamStart = ::debugLogExamStart
+                    )
                 )
-            )
+            } catch (throwable: Throwable) {
+                if (throwable is CancellationException) {
+                    throw throwable
+                }
+                geofenceStartValidationInFlight = false
+                webViewSessionResetInFlight = false
+                applyStartExamBlockMessage(
+                    resolveStartExamUnexpectedFailureBlockMessage(
+                        uiLanguage = uiLanguage,
+                        phase = "start_prechecks",
+                        throwable = throwable
+                    ),
+                    level = DiagnosticEventLevel.ERROR
+                )
+            }
         }
 
     }
@@ -2249,7 +2370,7 @@ internal fun ExamRuntimeSessionScreenImpl(
             code = PreviousExamSessionBreadcrumbCodes.StartPressed,
             details = "score=${deviceSurvivalPolicy.score.name} | health_blocking=${deviceSurvivalPolicy.healthBlockingCount}"
         )
-        coroutineScope.launch {
+        coroutineScope.launch(examExceptionHandler) {
             startExamController.startExamSession()
         }
     }

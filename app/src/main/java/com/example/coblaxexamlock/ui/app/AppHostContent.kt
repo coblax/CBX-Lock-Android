@@ -468,9 +468,7 @@ internal fun AppHostRuntimeContent(
     var homeAdminSettings by remember(initialHomeAdminSettings) {
         mutableStateOf(initialHomeAdminSettings ?: HomeAdminSettings())
     }
-    var adminSettings by remember {
-        mutableStateOf(if (lowRamProfile.deferHeavyUi) null else context.readAdminSettings())
-    }
+    var adminSettings by remember { mutableStateOf<AdminSettings?>(null) }
     var showDeferredHomeChrome by rememberSaveable { mutableStateOf(!lowRamProfile.severe) }
     var showPerformanceProfileDialog by rememberSaveable { mutableStateOf(false) }
     val adminSettingsSaveRequests = remember { Channel<AdminSettings>(capacity = Channel.CONFLATED) }

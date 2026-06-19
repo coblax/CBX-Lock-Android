@@ -37,6 +37,8 @@ import com.example.coblaxexamlock.isExamGuardAccessibilityEnabled
 import com.example.coblaxexamlock.launchPlatformIntentSafely
 import com.example.coblaxexamlock.model.DiagnosticEventLevel
 import com.example.coblaxexamlock.parseExamAlarmSeverity
+import kotlinx.coroutines.CancellationException
+import kotlinx.coroutines.CoroutineExceptionHandler
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.launch
@@ -165,6 +167,9 @@ internal fun AccessibilityExamGuardLivenessEffect(
             return@LaunchedEffect
         }
         val appContext = context.applicationContext
+        // Stagger: offset this loop by 1200ms relative to other polling loops
+        // to distribute CPU load evenly during exam sessions.
+        delay(1_200L)
         while (true) {
             delay(accessibilityGuardLivenessPollMillis(lowRamProfile))
             reportDisabled(appContext, "liveness_poll")
@@ -251,7 +256,9 @@ internal fun launchAccessibilityGuardFallbackExamStart(
     prepareCleanExamWebViewSessionForStart: suspend () -> Boolean,
     armExamRuntimeMonitoring: (String) -> Unit,
     finalizeExamSessionStart: (Boolean) -> Unit,
-    onCleanSessionFailed: () -> Unit
+    onCleanSessionFailed: () -> Unit,
+    onStartFailed: (Throwable) -> Unit = {},
+    exceptionHandler: CoroutineExceptionHandler? = null
 ) {
     val beforeState = lockTaskBridge.stateLabel()
     AccessibilityExamGuardStore.resetViolations(context)
@@ -264,15 +271,30 @@ internal fun launchAccessibilityGuardFallbackExamStart(
         DiagnosticEventLevel.INFO
     )
     resetPreparationSecurityEpisodes()
-    coroutineScope.launch {
-        if (!prepareCleanExamWebViewSessionForStart()) {
+    val launchContext = exceptionHandler ?: CoroutineExceptionHandler { _, throwable ->
+        android.util.Log.e(
+            ExamRuntimeHardeningLogTag,
+            "AccessibilityGuardFallback uncaught coroutine exception: ${throwable.javaClass.simpleName}",
+            throwable
+        )
+    }
+    coroutineScope.launch(launchContext) {
+        try {
+            if (!prepareCleanExamWebViewSessionForStart()) {
+                AccessibilityExamGuardStore.disarm(context)
+                onCleanSessionFailed()
+                return@launch
+            }
+            if (!examGuardArmed) {
+                armExamRuntimeMonitoring("start_exam_accessibility_guard_fallback")
+            }
+            finalizeExamSessionStart(false)
+        } catch (throwable: Throwable) {
+            if (throwable is CancellationException) {
+                throw throwable
+            }
             AccessibilityExamGuardStore.disarm(context)
-            onCleanSessionFailed()
-            return@launch
+            onStartFailed(throwable)
         }
-        if (!examGuardArmed) {
-            armExamRuntimeMonitoring("start_exam_accessibility_guard_fallback")
-        }
-        finalizeExamSessionStart(false)
     }
 }

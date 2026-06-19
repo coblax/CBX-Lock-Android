@@ -38,6 +38,7 @@ import com.example.coblaxexamlock.model.UiLanguage
 import com.example.coblaxexamlock.model.usesDefaultExamUserAgent
 import com.example.coblaxexamlock.runtime.SecurityDetectorCache
 import com.example.coblaxexamlock.runtime.sendTelegramSectionReport
+import kotlinx.coroutines.CoroutineExceptionHandler
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.launch
 
@@ -206,7 +207,14 @@ internal fun launchExamRuntimeTelegramSectionReport(
     val latestDeviceTimeStatus = callbacks.refreshDeviceTimeSecurity()
     callbacks.setSendingSection(section)
 
-    scope.launch {
+    val launchExceptionHandler = CoroutineExceptionHandler { _, throwable ->
+        android.util.Log.e(
+            ExamRuntimeHardeningLogTag,
+            "TelegramReportCoordinator uncaught coroutine exception: ${throwable.javaClass.simpleName}",
+            throwable
+        )
+    }
+    scope.launch(launchExceptionHandler) {
         try {
             val latestLocationStatus = callbacks.refreshGeofenceStatus()
             val latestGeofenceRuntimeStatus = GeofenceRuntimeStatus(

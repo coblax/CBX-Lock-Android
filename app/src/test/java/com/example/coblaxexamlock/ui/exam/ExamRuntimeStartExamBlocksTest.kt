@@ -59,6 +59,21 @@ class ExamRuntimeStartExamBlocksTest {
     }
 
     @Test
+    fun unexpectedStartFailureGivesRetryableUserMessage() {
+        val block = resolveStartExamUnexpectedFailureBlockMessage(
+            uiLanguage = UiLanguage.Indonesian,
+            phase = "location_validation",
+            throwable = IllegalStateException("provider timeout")
+        )
+
+        assertEquals("START_EXAM_FAILED_UNEXPECTED", block.code)
+        assertTrue(block.details.contains("phase=location_validation"))
+        assertTrue(block.details.contains("error=IllegalStateException"))
+        assertTrue(block.message.contains("Ujian belum dimulai"))
+        assertTrue(block.message.contains("Tekan Mulai Ujian lagi"))
+    }
+
+    @Test
     fun reverseEngineeringDetectedBlocksWhenBypassOff() {
         val block = resolveStartExamTamperBlockMessage(
             uiLanguage = UiLanguage.English,

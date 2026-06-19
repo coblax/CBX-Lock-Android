@@ -88,6 +88,7 @@ internal fun ExamWebViewBottomBar(
         ExamServerFooterStatus.Warning -> tr("Exam server warning", "Peringatan server ujian")
         ExamServerFooterStatus.Offline -> tr("Exam server unreachable", "Server ujian tidak bisa diakses")
         ExamServerFooterStatus.Checking -> tr("Checking exam server", "Mengecek server ujian")
+        ExamServerFooterStatus.Unstable -> tr("Exam server unstable", "Server ujian tidak stabil")
     }
     val shieldIndicatorColor = when (shieldStatus) {
         ExamFooterShieldStatus.Safe -> Color(0xFF2E9E52)

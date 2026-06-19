@@ -43,6 +43,7 @@ import com.example.coblaxexamlock.runtime.hasBluetoothExamPermission
 import com.example.coblaxexamlock.runtime.isAllowedExamKeyboard
 import com.example.coblaxexamlock.runtime.isBluetoothEnabledForExam
 import com.example.coblaxexamlock.runtime.resolveKeyboardAppLabel
+import kotlinx.coroutines.CoroutineExceptionHandler
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.launch
 
@@ -399,6 +400,14 @@ internal class ExamRuntimeSecurityOps(
     private val examAlarmController: ExamAlarmController,
     private val refreshIntegrityGuard: () -> Unit
 ) {
+    // Guard for all fire-and-forget launches to prevent silent failures.
+    private val launchExceptionHandler = CoroutineExceptionHandler { _, throwable ->
+        android.util.Log.e(
+            ExamRuntimeHardeningLogTag,
+            "SecurityOps uncaught coroutine exception: ${throwable.javaClass.simpleName}",
+            throwable
+        )
+    }
     private val bypassAccessibility: Boolean
         get() = accessibilityBypassState == AccessibilityBypassState.Active
     private val bypassAdb: Boolean
@@ -540,7 +549,7 @@ internal class ExamRuntimeSecurityOps(
                 checkSignatureIntegrity = { checkSignatureIntegrity(triggerViolation) },
                 applyVirtualEnvironmentDiagnostics = ::applyVirtualEnvironmentDiagnostics,
                 launchVirtualEnvironmentDiagnostics = {
-                    coroutineScope.launch {
+                    coroutineScope.launch(launchExceptionHandler) {
                         val diagnostics = getVirtualEnvironmentDiagnosticsOnIo(
                             context = context,
                             forceRefresh = triggerViolation

@@ -312,6 +312,15 @@ internal fun WebView.applyExamWebViewSettings(examUserAgent: String, lowRamProfi
             offscreenPreRaster = false
         }
     }
+    // Enable Service Worker support if running on Nougat or above to support modern exam web applications/PWAs.
+    if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.N) {
+        val swController = android.webkit.ServiceWorkerController.getInstance()
+        swController.setServiceWorkerClient(object : android.webkit.ServiceWorkerClient() {
+            override fun shouldInterceptRequest(request: android.webkit.WebResourceRequest?): android.webkit.WebResourceResponse? {
+                return null // Let Service Worker handle its resources
+            }
+        })
+    }
 }
 
 internal fun resolveExamWebViewUserAgent(context: Context, examUserAgent: String): String {
@@ -320,6 +329,30 @@ internal fun resolveExamWebViewUserAgent(context: Context, examUserAgent: String
         WebSettings.getDefaultUserAgent(context)
     } else {
         normalized
+    }
+}
+
+/**
+ * Dynamically adjusts the WebView cache mode based on current network stability.
+ *
+ * - Stable network → [WebSettings.LOAD_DEFAULT]: WebView performs normal HTTP cache
+ *   revalidation, ensuring students always see up-to-date exam content.
+ * - Unstable/offline → [WebSettings.LOAD_CACHE_ELSE_NETWORK]: WebView serves cached
+ *   content first and falls back to network, making it resilient to brief hiccups.
+ *
+ * Returns true if the cache mode was actually changed.
+ */
+internal fun WebView.updateCacheModeForNetworkStability(networkStable: Boolean): Boolean {
+    val targetMode = if (networkStable) {
+        WebSettings.LOAD_DEFAULT
+    } else {
+        WebSettings.LOAD_CACHE_ELSE_NETWORK
+    }
+    return if (settings.cacheMode != targetMode) {
+        settings.cacheMode = targetMode
+        true
+    } else {
+        false
     }
 }
 

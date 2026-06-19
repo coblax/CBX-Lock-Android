@@ -10,5 +10,6 @@ internal enum class ExamServerFooterStatus {
     Checking,
     Online,
     Warning,
-    Offline
+    Offline,
+    Unstable
 }

@@ -12,6 +12,7 @@ import com.example.coblaxexamlock.PreviousExamSessionBreadcrumbCodes
 import com.example.coblaxexamlock.WebViewCompatibilityStatus
 import com.example.coblaxexamlock.model.DiagnosticEventLevel
 import com.example.coblaxexamlock.model.DiagnosticSection
+import kotlinx.coroutines.CoroutineExceptionHandler
 import kotlinx.coroutines.launch
 
 internal class ExamRuntimeRenderedUiCallbacks(
@@ -204,7 +205,14 @@ internal class ExamRuntimeRenderedUiCallbacks(
         adminUiState.exitOnSecurityIssueDialogDismiss.value = false
         examAlarmController.stop()
         if (shouldExit) {
-            componentActivity.lifecycleScope.launch {
+            val launchExceptionHandler = CoroutineExceptionHandler { _, throwable ->
+                android.util.Log.e(
+                    ExamRuntimeHardeningLogTag,
+                    "RenderedUiCallbacks exit on fatal dialog dismiss uncaught coroutine exception: ${throwable.javaClass.simpleName}",
+                    throwable
+                )
+            }
+            componentActivity.lifecycleScope.launch(launchExceptionHandler) {
                 runtimeMonitoringOps.clearExamSessionOnExit(
                     reason = "fatal_security_dialog_dismiss",
                     waitForResult = true

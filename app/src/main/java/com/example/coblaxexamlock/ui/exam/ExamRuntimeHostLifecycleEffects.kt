@@ -24,6 +24,7 @@ import com.example.coblaxexamlock.diagnosticLabel
 import com.example.coblaxexamlock.format.diagnosticTimestamp
 import com.example.coblaxexamlock.model.DiagnosticEventLevel
 import com.example.coblaxexamlock.readClipboardSnapshotLite
+import kotlinx.coroutines.CoroutineExceptionHandler
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.launch
 
@@ -116,7 +117,14 @@ internal fun RuntimeHostActivityLifecycleEffect(
                 refreshBluetoothSecurity(true)
                 refreshDeviceIntegritySecurity(true)
                 refreshDeviceTimeSecurity("activity_resumed")
-                coroutineScope.launch {
+                val lifecycleExceptionHandler = CoroutineExceptionHandler { _, throwable ->
+                    android.util.Log.e(
+                        ExamRuntimeHardeningLogTag,
+                        "HostLifecycle uncaught coroutine exception: ${throwable.javaClass.simpleName}",
+                        throwable
+                    )
+                }
+                coroutineScope.launch(lifecycleExceptionHandler) {
                     refreshGeofenceStatus(false, "activity_resumed", true)
                 }
 

@@ -54,6 +54,8 @@ import com.example.coblaxexamlock.runtime.requiresBluetoothExamPermission
 import com.example.coblaxexamlock.ui.preparation.PreExamHealthCheckInput
 import com.example.coblaxexamlock.ui.preparation.buildPreExamHealthSnapshot
 import com.example.coblaxexamlock.ui.preparation.preExamHealthStartBlocker
+import kotlinx.coroutines.CancellationException
+import kotlinx.coroutines.CoroutineExceptionHandler
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.launch
@@ -639,6 +641,13 @@ internal fun completeExamRuntimeStartAfterPrechecks(
     deviceCompatibilityProfile: com.example.coblaxexamlock.DeviceCompatibilityProfile,
     callbacks: ExamRuntimeCompleteStartCallbacks
 ) {
+    val launchExceptionHandler = CoroutineExceptionHandler { _, throwable ->
+        android.util.Log.e(
+            ExamRuntimeHardeningLogTag,
+            "StartSessionCoordinator uncaught coroutine exception: ${throwable.javaClass.simpleName}",
+            throwable
+        )
+    }
     if (lockTaskRequestPending || geofenceStartValidationInFlight || webViewSessionResetInFlight) {
         return
     }
@@ -687,7 +696,19 @@ internal fun completeExamRuntimeStartAfterPrechecks(
             onCleanSessionFailed = {
                 callbacks.setAccessibilityGuardFallbackActive(false)
                 callbacks.hideStartExamPreflight()
-            }
+            },
+            onStartFailed = { throwable ->
+                callbacks.setAccessibilityGuardFallbackActive(false)
+                callbacks.hideStartExamPreflight()
+                callbacks.applyStartExamBlockMessage(
+                    resolveStartExamUnexpectedFailureBlockMessage(
+                        uiLanguage = uiLanguage,
+                        phase = "accessibility_guard_fallback",
+                        throwable = throwable
+                    )
+                )
+            },
+            exceptionHandler = launchExceptionHandler
         )
         return
     }
@@ -714,14 +735,28 @@ internal fun completeExamRuntimeStartAfterPrechecks(
         callbacks.setWebViewErrorMessage(null)
         callbacks.setExitOnSecurityIssueDialogDismiss(false)
         callbacks.resetPreparationSecurityEpisodes()
-        coroutineScope.launch {
-            if (!callbacks.prepareCleanExamWebViewSessionForStart()) {
-                return@launch
+        coroutineScope.launch(launchExceptionHandler) {
+            try {
+                if (!callbacks.prepareCleanExamWebViewSessionForStart()) {
+                    return@launch
+                }
+                if (!examGuardArmed) {
+                    callbacks.armExamRuntimeMonitoring("start_exam_pressed")
+                }
+                callbacks.finalizeExamSessionStart(false)
+            } catch (throwable: Throwable) {
+                if (throwable is CancellationException) {
+                    throw throwable
+                }
+                callbacks.hideStartExamPreflight()
+                callbacks.applyStartExamBlockMessage(
+                    resolveStartExamUnexpectedFailureBlockMessage(
+                        uiLanguage = uiLanguage,
+                        phase = "screen_pinning_bypassed_start",
+                        throwable = throwable
+                    )
+                )
             }
-            if (!examGuardArmed) {
-                callbacks.armExamRuntimeMonitoring("start_exam_pressed")
-            }
-            callbacks.finalizeExamSessionStart(false)
         }
         return
     }
@@ -772,11 +807,25 @@ internal fun completeExamRuntimeStartAfterPrechecks(
             callbacks.armExamRuntimeMonitoring("start_exam_pressed_pinning_already_active")
         }
         lockTaskBridge.engage(allowLockTask = false)
-        coroutineScope.launch {
-            if (!callbacks.prepareCleanExamWebViewSessionForStart()) {
-                return@launch
+        coroutineScope.launch(launchExceptionHandler) {
+            try {
+                if (!callbacks.prepareCleanExamWebViewSessionForStart()) {
+                    return@launch
+                }
+                callbacks.finalizeExamSessionStart(true)
+            } catch (throwable: Throwable) {
+                if (throwable is CancellationException) {
+                    throw throwable
+                }
+                callbacks.hideStartExamPreflight()
+                callbacks.applyStartExamBlockMessage(
+                    resolveStartExamUnexpectedFailureBlockMessage(
+                        uiLanguage = uiLanguage,
+                        phase = "screen_pinning_active_start",
+                        throwable = throwable
+                    )
+                )
             }
-            callbacks.finalizeExamSessionStart(true)
         }
         return
     }
@@ -873,6 +922,14 @@ internal fun launchExamRuntimeStartLocationValidation(
         return
     }
 
+    val launchExceptionHandler = CoroutineExceptionHandler { _, throwable ->
+        android.util.Log.e(
+            ExamRuntimeHardeningLogTag,
+            "StartSessionCoordinator location validation uncaught coroutine exception: ${throwable.javaClass.simpleName}",
+            throwable
+        )
+    }
+
     fun updatePreflight(step: StartExamPreflightStep, detail: String? = null) {
         callbacks.updateStartExamPreflight(step, detail)
     }
@@ -884,63 +941,77 @@ internal fun launchExamRuntimeStartLocationValidation(
 
     updatePreflight(StartExamPreflightStep.LocationValidation)
     callbacks.setGeofenceStartValidationInFlight(true)
-    coroutineScope.launch {
-        val latestLocationStatus = debugMeasureExamStartSuspendWork("startExamSession:location_validation") {
-            callbacks.resolveStartExamLocationValidation()
-        }
-        callbacks.setGeofenceStartValidationInFlight(false)
-        val locationBlockMessage = resolveStartExamLocationBlockMessage(
-            uiLanguage = uiLanguage,
-            latestLocationStatus = latestLocationStatus,
-            bypassGeofence = bypassGeofence,
-            bypassFakeLocation = bypassFakeLocation,
-            geofenceDetails = { geofenceStatus ->
-                callbacks.currentGeofenceEventDetails("start_exam", geofenceStatus)
-            },
-            fakeLocationDetails = { fakeLocationStatus ->
-                callbacks.currentFakeLocationEventDetails("start_exam", fakeLocationStatus)
+    coroutineScope.launch(launchExceptionHandler) {
+        try {
+            val latestLocationStatus = debugMeasureExamStartSuspendWork("startExamSession:location_validation") {
+                callbacks.resolveStartExamLocationValidation()
             }
-        )
-        if (locationBlockMessage != null) {
-            applyBlock(locationBlockMessage)
-            return@launch
-        }
+            callbacks.setGeofenceStartValidationInFlight(false)
+            val locationBlockMessage = resolveStartExamLocationBlockMessage(
+                uiLanguage = uiLanguage,
+                latestLocationStatus = latestLocationStatus,
+                bypassGeofence = bypassGeofence,
+                bypassFakeLocation = bypassFakeLocation,
+                geofenceDetails = { geofenceStatus ->
+                    callbacks.currentGeofenceEventDetails("start_exam", geofenceStatus)
+                },
+                fakeLocationDetails = { fakeLocationStatus ->
+                    callbacks.currentFakeLocationEventDetails("start_exam", fakeLocationStatus)
+                }
+            )
+            if (locationBlockMessage != null) {
+                applyBlock(locationBlockMessage)
+                return@launch
+            }
 
-        updatePreflight(StartExamPreflightStep.DeviceTime)
-        val finalDeviceTimeStatus = callbacks.refreshDeviceTimeSecurity(
-            "start_exam_final",
-            false
-        )
-        val finalDeviceTimeBlock = resolveStartExamDeviceTimeBlockMessage(
-            uiLanguage = uiLanguage,
-            trigger = "start_exam_final",
-            status = finalDeviceTimeStatus
-        )
-        if (finalDeviceTimeBlock != null) {
-            applyBlock(finalDeviceTimeBlock)
-            return@launch
+            updatePreflight(StartExamPreflightStep.DeviceTime)
+            val finalDeviceTimeStatus = callbacks.refreshDeviceTimeSecurity(
+                "start_exam_final",
+                false
+            )
+            val finalDeviceTimeBlock = resolveStartExamDeviceTimeBlockMessage(
+                uiLanguage = uiLanguage,
+                trigger = "start_exam_final",
+                status = finalDeviceTimeStatus
+            )
+            if (finalDeviceTimeBlock != null) {
+                applyBlock(finalDeviceTimeBlock)
+                return@launch
+            }
+            val networkNowMillis = TrustedNetworkTimeCoordinator.currentNetworkNowMillis(context)
+            val scheduleValidationResult = ExamScheduleValidator.validateAfterDeviceTimeCheck(
+                payload = payload,
+                deviceTimeStatus = finalDeviceTimeStatus,
+                networkNowMillis = networkNowMillis
+            )
+            val scheduleBlock = resolveStartExamScheduleBlockMessage(
+                uiLanguage = uiLanguage,
+                payload = payload,
+                validationResult = scheduleValidationResult,
+                networkNowMillis = networkNowMillis,
+                deviceTimeStatus = finalDeviceTimeStatus
+            )
+            if (scheduleBlock != null) {
+                applyBlock(scheduleBlock)
+                return@launch
+            }
+            callbacks.debugLogExamStart(
+                "startExamSession passed all prechecks in ${SystemClock.elapsedRealtime() - startExamPressedAt} ms"
+            )
+            updatePreflight(StartExamPreflightStep.PreparingWebView)
+            callbacks.completeStartExamSessionAfterPrechecks()
+        } catch (throwable: Throwable) {
+            if (throwable is CancellationException) {
+                throw throwable
+            }
+            callbacks.setGeofenceStartValidationInFlight(false)
+            applyBlock(
+                resolveStartExamUnexpectedFailureBlockMessage(
+                    uiLanguage = uiLanguage,
+                    phase = "location_validation",
+                    throwable = throwable
+                )
+            )
         }
-        val networkNowMillis = TrustedNetworkTimeCoordinator.currentNetworkNowMillis(context)
-        val scheduleValidationResult = ExamScheduleValidator.validateAfterDeviceTimeCheck(
-            payload = payload,
-            deviceTimeStatus = finalDeviceTimeStatus,
-            networkNowMillis = networkNowMillis
-        )
-        val scheduleBlock = resolveStartExamScheduleBlockMessage(
-            uiLanguage = uiLanguage,
-            payload = payload,
-            validationResult = scheduleValidationResult,
-            networkNowMillis = networkNowMillis,
-            deviceTimeStatus = finalDeviceTimeStatus
-        )
-        if (scheduleBlock != null) {
-            applyBlock(scheduleBlock)
-            return@launch
-        }
-        callbacks.debugLogExamStart(
-            "startExamSession passed all prechecks in ${SystemClock.elapsedRealtime() - startExamPressedAt} ms"
-        )
-        updatePreflight(StartExamPreflightStep.PreparingWebView)
-        callbacks.completeStartExamSessionAfterPrechecks()
     }
 }

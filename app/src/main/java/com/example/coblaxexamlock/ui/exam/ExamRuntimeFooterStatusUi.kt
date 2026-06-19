@@ -173,6 +173,7 @@ private fun ConnectivityInfoPill(
             ExamServerFooterStatus.Checking -> LockGoldDark
             ExamServerFooterStatus.Warning  -> LockGoldDark
             ExamServerFooterStatus.Offline  -> LockStatusDanger
+            ExamServerFooterStatus.Unstable -> LockGoldDark
         }
         // Hide dot when everything is stable & server is online to reduce clutter
         val showServerDot = serverStatus != ExamServerFooterStatus.Online ||

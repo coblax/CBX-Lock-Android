@@ -39,13 +39,15 @@ internal data class ExamServerProbeResult(
             ExamServerFooterStatus.Warning -> "EXAM_SERVER_PROBE_WARNING"
             ExamServerFooterStatus.Offline -> "EXAM_SERVER_PROBE_OFFLINE"
             ExamServerFooterStatus.Checking -> "EXAM_SERVER_PROBE_STARTED"
+            ExamServerFooterStatus.Unstable -> "EXAM_SERVER_PROBE_UNSTABLE"
         }
 
     val eventLevel: DiagnosticEventLevel
         get() = when (status) {
             ExamServerFooterStatus.Online,
             ExamServerFooterStatus.Checking -> DiagnosticEventLevel.INFO
-            ExamServerFooterStatus.Warning -> DiagnosticEventLevel.WARNING
+            ExamServerFooterStatus.Warning,
+            ExamServerFooterStatus.Unstable -> DiagnosticEventLevel.WARNING
             ExamServerFooterStatus.Offline -> DiagnosticEventLevel.ERROR
         }
 }

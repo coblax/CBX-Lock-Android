@@ -16,6 +16,9 @@ import com.example.coblaxexamlock.ScreenPinningEnforcer
 import com.example.coblaxexamlock.ScreenPinningMode
 import com.example.coblaxexamlock.ScreenPinningMonitor
 import com.example.coblaxexamlock.ScreenPinningSignals
+import com.example.coblaxexamlock.model.UiLanguage
+import kotlinx.coroutines.CancellationException
+import kotlinx.coroutines.CoroutineExceptionHandler
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.launch
@@ -262,8 +265,47 @@ internal fun RuntimeScreenPinningActivationEffect(
                     return@LaunchedEffect
                 }
                 resetPreparationSecurityEpisodes()
-                coroutineScope.launch {
-                    if (!prepareCleanExamWebViewSessionForStart()) {
+                val launchExceptionHandler = CoroutineExceptionHandler { _, throwable ->
+                    android.util.Log.e(
+                        ExamRuntimeHardeningLogTag,
+                        "PinningMonitor activation uncaught coroutine exception: ${throwable.javaClass.simpleName}",
+                        throwable
+                    )
+                }
+                coroutineScope.launch(launchExceptionHandler) {
+                    try {
+                        if (!prepareCleanExamWebViewSessionForStart()) {
+                            adminUiState.examSessionCancelledByPinningFailure.value = true
+                            lockTaskBridge.disengage()
+                            disarmExamRuntimeMonitoring()
+                            flowUiState.examSessionStarted.value = false
+                            adminUiState.examSessionStartedAtElapsedMs.value = null
+                            flowUiState.showBuiltInExamKeyboard.value = false
+                            flowUiState.hasEditableFocus.value = false
+                            clearAppSwitchSuppression()
+                            return@launch
+                        }
+                        finalizeExamSessionStart(true)
+                        delay(500)
+                        clearAppSwitchSuppression()
+                    } catch (throwable: Throwable) {
+                        if (throwable is CancellationException) {
+                            throw throwable
+                        }
+                        val blockMessage = resolveStartExamUnexpectedFailureBlockMessage(
+                            uiLanguage = if (isIndonesian) {
+                                UiLanguage.Indonesian
+                            } else {
+                                UiLanguage.English
+                            },
+                            phase = "screen_pinning_confirmed_start",
+                            throwable = throwable
+                        )
+                        recordAction(
+                            blockMessage.code,
+                            blockMessage.details,
+                            DiagnosticEventLevel.ERROR
+                        )
                         adminUiState.examSessionCancelledByPinningFailure.value = true
                         lockTaskBridge.disengage()
                         disarmExamRuntimeMonitoring()
@@ -271,12 +313,17 @@ internal fun RuntimeScreenPinningActivationEffect(
                         adminUiState.examSessionStartedAtElapsedMs.value = null
                         flowUiState.showBuiltInExamKeyboard.value = false
                         flowUiState.hasEditableFocus.value = false
+                        flowUiState.webViewSessionResetInFlight.value = false
+                        flowUiState.lockTaskRequestPending.value = false
+                        flowUiState.pinningActivationState.value = PinningActivationState.TimeoutRetryReady
+                        flowUiState.pinningActivationStartedAtElapsedMs.value = null
+                        flowUiState.pinningActivationPurpose.value = PinningActivationPurpose.ExamStart
+                        flowUiState.screenPinningMessage.value = null
+                        adminUiState.securityIssueDialogTitle.value = blockMessage.title
+                        adminUiState.securityIssueDialogMessage.value = blockMessage.message
+                        adminUiState.securityIssueDialogCode.value = blockMessage.code
                         clearAppSwitchSuppression()
-                        return@launch
                     }
-                    finalizeExamSessionStart(true)
-                    delay(500)
-                    clearAppSwitchSuppression()
                 }
             } else {
                 flowUiState.pinningActivationState.value = PinningActivationState.TimeoutRetryReady

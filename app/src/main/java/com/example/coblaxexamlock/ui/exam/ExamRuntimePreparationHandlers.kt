@@ -51,6 +51,7 @@ import com.example.coblaxexamlock.platform.openExternalUrl
 import com.example.coblaxexamlock.runtime.getBluetoothConnectPermission
 import com.example.coblaxexamlock.showKeyboardPicker
 import com.example.coblaxexamlock.ui.preparation.PreExamHealthSnapshot
+import kotlinx.coroutines.CoroutineExceptionHandler
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.launch
 
@@ -658,7 +659,14 @@ internal class ExamRuntimePreparationActionOps(
                     runtimeDiagnosticsOps.refreshDeviceTimeSecurity(trigger = trigger)
                 },
                 refreshRuntimeStaticSecurity = {
-                    coroutineScope.launch {
+                    val launchExceptionHandler = CoroutineExceptionHandler { _, throwable ->
+                        android.util.Log.e(
+                            ExamRuntimeHardeningLogTag,
+                            "PreparationHandlers checklist refresh uncaught coroutine exception: ${throwable.javaClass.simpleName}",
+                            throwable
+                        )
+                    }
+                    coroutineScope.launch(launchExceptionHandler) {
                         refreshRuntimeStaticSecurityForSessionOnIo(
                             context = context,
                             examSessionStarted = flowUiState.examSessionStarted.value,

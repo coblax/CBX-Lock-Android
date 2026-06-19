@@ -25,6 +25,30 @@ internal data class StartExamBlockMessage(
     val message: String
 )
 
+internal fun resolveStartExamUnexpectedFailureBlockMessage(
+    uiLanguage: UiLanguage,
+    phase: String,
+    throwable: Throwable
+): StartExamBlockMessage {
+    val errorClass = throwable.javaClass.simpleName.ifBlank { "Throwable" }
+    val safeMessage = throwable.message
+        ?.lineSequence()
+        ?.joinToString(" ")
+        ?.take(160)
+        ?.ifBlank { null }
+        ?: "-"
+    return StartExamBlockMessage(
+        code = "START_EXAM_FAILED_UNEXPECTED",
+        details = "phase=$phase | error=$errorClass | message=$safeMessage",
+        title = localized(uiLanguage, "Start Exam Failed", "Mulai Ujian Gagal"),
+        message = localized(
+            uiLanguage,
+            "The app hit an internal error while preparing the exam. The exam has not started yet. Press Start Exam again. If it repeats, export diagnostics and contact the admin.\n\nTechnical detail: $errorClass",
+            "Aplikasi mengalami kendala internal saat menyiapkan ujian. Ujian belum dimulai. Tekan Mulai Ujian lagi. Jika berulang, export diagnostik dan hubungi admin.\n\nDetail teknis: $errorClass"
+        )
+    )
+}
+
 internal fun resolveStartExamTamperBlockMessage(
     uiLanguage: UiLanguage,
     reverseEngineeringDetected: Boolean,

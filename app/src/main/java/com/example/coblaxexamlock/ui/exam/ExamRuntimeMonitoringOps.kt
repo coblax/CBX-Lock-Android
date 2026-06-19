@@ -37,6 +37,7 @@ import com.example.coblaxexamlock.readClipboardSnapshotFull
 import com.example.coblaxexamlock.readClipboardSnapshotLite
 import com.example.coblaxexamlock.runtime.sendTelegramAlarmAcknowledge
 import kotlinx.coroutines.CompletableDeferred
+import kotlinx.coroutines.CoroutineExceptionHandler
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.withContext
@@ -80,6 +81,15 @@ internal class ExamRuntimeMonitoringOps(
     private val exitCleanupState: ExamRuntimeExitCleanupStateAccess,
     private val callbacks: ExamRuntimeMonitoringCallbacks
 ) {
+    // Guard for all fire-and-forget launches to prevent silent failures.
+    private val launchExceptionHandler = CoroutineExceptionHandler { _, throwable ->
+        android.util.Log.e(
+            ExamRuntimeHardeningLogTag,
+            "MonitoringOps uncaught coroutine exception: ${throwable.javaClass.simpleName}",
+            throwable
+        )
+    }
+
     fun armExamRuntimeMonitoring(reason: String) {
         adminUiState.examRuntimeMonitoringArmed.value = true
         callbacks.recordAction(
@@ -169,7 +179,7 @@ internal class ExamRuntimeMonitoringOps(
             DiagnosticEventLevel.INFO
         )
 
-        coroutineScope.launch {
+        coroutineScope.launch(launchExceptionHandler) {
             sendTelegramAlarmAcknowledge(alarmPayload)
                 .onSuccess {
                     callbacks.recordAction(
@@ -288,7 +298,7 @@ internal class ExamRuntimeMonitoringOps(
     }
 
     fun refreshReverseEngineeringStatus() {
-        coroutineScope.launch {
+        coroutineScope.launch(launchExceptionHandler) {
             refreshReverseEngineeringStatusOnDetector()
         }
     }
@@ -361,7 +371,7 @@ internal class ExamRuntimeMonitoringOps(
     }
 
     fun refreshIntegrityGuard() {
-        coroutineScope.launch {
+        coroutineScope.launch(launchExceptionHandler) {
             refreshIntegrityGuardOnDetector()
         }
     }
@@ -457,7 +467,14 @@ internal class ExamRuntimeMonitoringOps(
         }
 
     fun launchExitSessionClearBestEffort(reason: String) {
-        componentActivity.lifecycleScope.launch {
+        val launchExceptionHandler = CoroutineExceptionHandler { _, throwable ->
+            android.util.Log.e(
+                ExamRuntimeHardeningLogTag,
+                "MonitoringOps launchExitSessionClearBestEffort uncaught coroutine exception: ${throwable.javaClass.simpleName}",
+                throwable
+            )
+        }
+        componentActivity.lifecycleScope.launch(launchExceptionHandler) {
             clearExamSessionOnExit(
                 reason = reason,
                 waitForResult = false

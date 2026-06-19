@@ -21,6 +21,7 @@ import com.example.coblaxexamlock.runtime.LowRamDispatchers
 import com.example.coblaxexamlock.runtime.MultiWindowModeInfo
 import com.example.coblaxexamlock.runtime.SecurityDetectorCache
 import com.example.coblaxexamlock.runtime.readMultiWindowModeInfo
+import kotlinx.coroutines.CoroutineExceptionHandler
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.launch
@@ -294,6 +295,9 @@ internal fun RuntimeStaticSecurityEffects(
         if (!examSessionStarted) {
             return@LaunchedEffect
         }
+        // Stagger: offset this loop by 300ms to prevent CPU burst
+        // when multiple polling loops wake up simultaneously.
+        delay(300L)
         while (true) {
             delay(runtimeFastStaticSecurityPollIntervalMillis(lowRamProfile))
             refreshRuntimeFastStaticSecurity("runtime_static_security_fast_poll")
@@ -313,6 +317,8 @@ internal fun RuntimeStaticSecurityEffects(
         if (!examSessionStarted) {
             return@LaunchedEffect
         }
+        // Stagger: offset this loop by 600ms relative to other polling loops.
+        delay(600L)
         while (true) {
             delay(runtimeScreenRecorderPollIntervalMillis(lowRamProfile))
             refreshRuntimeScreenRecorder("runtime_screen_recorder_poll")
@@ -343,7 +349,14 @@ internal fun RuntimeStaticSecurityEffects(
         } else {
             hostActivity.setOnExamMultiWindowModeChangedHandler {
                 if (securityUiState.staticSecurityInitialScanComplete.value) {
-                    runtimeSecurityScope.launch {
+                    val launchExceptionHandler = CoroutineExceptionHandler { _, throwable ->
+                        android.util.Log.e(
+                            ExamRuntimeHardeningLogTag,
+                            "StaticSecurityEffects multi_window_mode_changed uncaught coroutine exception: ${throwable.javaClass.simpleName}",
+                            throwable
+                        )
+                    }
+                    runtimeSecurityScope.launch(launchExceptionHandler) {
                         refreshRuntimeFastStaticSecurity("multi_window_mode_changed")
                     }
                 }

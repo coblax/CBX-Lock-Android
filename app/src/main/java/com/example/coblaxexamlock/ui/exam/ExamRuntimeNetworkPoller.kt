@@ -31,6 +31,30 @@ internal const val NetworkReadinessPollingStableIntervalMillis = 30_000L
 internal const val NetworkReadinessPollingUnstableIntervalMillis = 5_000L
 internal const val NetworkReadinessPollingCallbackDebounceMillis = 800L
 
+/**
+ * Returns a polling interval multiplier based on battery state.
+ * - Charging: no slowdown (1x)
+ * - Battery < 15%: triple the interval (3x) to conserve power
+ * - Battery < 30%: double the interval (2x) to reduce load
+ * - Ultra low-RAM profile: double the interval (2x) regardless of battery
+ * - Otherwise: no slowdown (1x)
+ *
+ * This prevents excessive CPU wake-ups on low-battery devices during long exams.
+ */
+internal fun adaptiveBatteryPollingMultiplier(
+    batteryPercent: Int,
+    isCharging: Boolean,
+    lowRamUltra: Boolean
+): Long {
+    return when {
+        isCharging -> 1L
+        batteryPercent < 15 -> 3L
+        batteryPercent < 30 -> 2L
+        lowRamUltra -> 2L
+        else -> 1L
+    }
+}
+
 internal class ExamRuntimeNetworkUiState(
     val networkUnstableEpisodeStartedAt: MutableState<String?>,
     val networkUnstableEpisodeStartedElapsedMs: MutableState<Long?>,
@@ -196,6 +220,9 @@ internal fun RuntimeConnectivityEffects(
         if (!examSessionStarted) {
             return@LaunchedEffect
         }
+        // Stagger: offset this loop by 900ms relative to other polling loops
+        // to prevent all loops from waking up and consuming CPU simultaneously.
+        delay(900L)
         while (true) {
             delay(currentNetworkPollingIntervalMillis())
             updateNetworkReadiness("poll")

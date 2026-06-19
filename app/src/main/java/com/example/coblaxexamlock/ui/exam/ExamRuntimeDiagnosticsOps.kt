@@ -61,6 +61,7 @@ import com.example.coblaxexamlock.runtime.hasLocationPermissionForWifi
 import com.example.coblaxexamlock.runtime.isLocationServicesEnabled
 import com.example.coblaxexamlock.runtime.readNetworkReadinessStatus
 import com.example.coblaxexamlock.runtime.readNetworkReadinessStatusWithExamHostProbe
+import kotlinx.coroutines.CoroutineExceptionHandler
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.launch
@@ -70,14 +71,21 @@ import java.util.Locale
 internal fun examRuntimeNetworkPollingIntervalMillis(
     networkConnected: Boolean,
     networkUnstableEpisodeStartedElapsedMs: Long?,
-    lowRamProfile: LowRamProfile
+    lowRamProfile: LowRamProfile,
+    batteryPercent: Int = 100,
+    batteryCharging: Boolean = true
 ): Long {
     val baseInterval = if (!networkConnected || networkUnstableEpisodeStartedElapsedMs != null) {
         NetworkReadinessPollingUnstableIntervalMillis
     } else {
         NetworkReadinessPollingStableIntervalMillis
     }
-    return baseInterval * lowRamProfile.slowPollingMultiplier
+    val batteryMultiplier = adaptiveBatteryPollingMultiplier(
+        batteryPercent = batteryPercent,
+        isCharging = batteryCharging,
+        lowRamUltra = lowRamProfile.ultra
+    )
+    return baseInterval * lowRamProfile.slowPollingMultiplier * batteryMultiplier
 }
 
 internal fun examRuntimeScreenPinningMonitorIntervalMillis(
@@ -253,7 +261,8 @@ internal class ExamRuntimeDiagnosticsOps(
     private val accessibilityGuardLastEventTypeState: MutableState<String?>,
     private val accessibilityGuardLastDetectedAtState: MutableState<String?>,
     private val accessibilityGuardAlarmSeverityState: MutableState<String>,
-    private val examAlarmController: ExamAlarmController
+    private val examAlarmController: ExamAlarmController,
+    private val batteryStatusState: MutableState<com.example.coblaxexamlock.model.ExamBatteryStatus>? = null
 ) {
     private val networkStatus = networkReadinessStatus.examStatus
     private val examGuardArmed: Boolean
@@ -261,13 +270,26 @@ internal class ExamRuntimeDiagnosticsOps(
             flowUiState.lockTaskRequestPending.value ||
             flowUiState.examSessionStarted.value
 
-    fun currentNetworkPollingIntervalMillis(): Long =
-        examRuntimeNetworkPollingIntervalMillis(
+    // Guard for all fire-and-forget launches to prevent silent failures.
+    private val launchExceptionHandler = CoroutineExceptionHandler { _, throwable ->
+        Log.e(
+            ExamRuntimeHardeningLogTag,
+            "DiagnosticsOps uncaught coroutine exception: ${throwable.javaClass.simpleName}",
+            throwable
+        )
+    }
+
+    fun currentNetworkPollingIntervalMillis(): Long {
+        val battery = batteryStatusState?.value
+        return examRuntimeNetworkPollingIntervalMillis(
             networkConnected = networkStatus.isConnected,
             networkUnstableEpisodeStartedElapsedMs =
                 networkUiState.networkUnstableEpisodeStartedElapsedMs.value,
-            lowRamProfile = lowRamProfile
+            lowRamProfile = lowRamProfile,
+            batteryPercent = battery?.levelPercent ?: 100,
+            batteryCharging = battery?.isCharging ?: true
         )
+    }
 
     fun currentScreenPinningMonitorIntervalMillis(nowElapsedMs: Long = SystemClock.elapsedRealtime()): Long =
         examRuntimeScreenPinningMonitorIntervalMillis(
@@ -783,7 +805,7 @@ internal class ExamRuntimeDiagnosticsOps(
             )
             return
         }
-        coroutineScope.launch {
+        coroutineScope.launch(launchExceptionHandler) {
             networkUiState.networkManualRefreshInFlight.value = true
             applyNetworkReadinessStatus(
                 trigger,
@@ -1057,7 +1079,7 @@ internal class ExamRuntimeDiagnosticsOps(
         }
         invalidateWarmLocationValidationCache()
         flowUiState.geofenceManualRefreshInFlight.value = true
-        coroutineScope.launch {
+        coroutineScope.launch(launchExceptionHandler) {
             try {
                 val refreshedStatus = debugMeasureExamStartSuspendWork("locationRefresh:$trigger") {
                     refreshGeofenceStatus(
