@@ -195,14 +195,18 @@ private fun ExamRuntimeSessionMainContent(
                                 onHideCustomView()
                             }
 
-                            // Capture JavaScript errors from the exam page.
-                            // This helps diagnose blank/frozen pages caused by
-                            // JS runtime errors on the server side.
+                            // Capture JavaScript errors from the exam page for diagnostics.
+                            // Important: Do NOT call onWebViewLoadError here — many websites
+                            // produce non-fatal console.error() calls (React dev warnings,
+                            // analytics failures, CORS errors for tracking pixels, etc.) that
+                            // would incorrectly trigger the error overlay and mark the server
+                            // as Offline, confusing students during active exams.
                             override fun onConsoleMessage(consoleMessage: ConsoleMessage?): Boolean {
                                 if (consoleMessage?.messageLevel() == ConsoleMessage.MessageLevel.ERROR) {
-                                    onWebViewLoadError(
-                                        null,
-                                        "JS: ${consoleMessage.message()?.take(120)} (line ${consoleMessage.lineNumber()})"
+                                    onWebViewErrorMessageChange(null) // log-only, no UI overlay
+                                    android.util.Log.w(
+                                        "ExamWebView",
+                                        "JS console error: ${consoleMessage.message()?.take(200)} (line ${consoleMessage.lineNumber()})"
                                     )
                                 }
                                 return super.onConsoleMessage(consoleMessage)

@@ -1147,11 +1147,16 @@ internal fun ExamRuntimeSessionScreenImpl(
         }
     }
 
+    // Tracks elapsed timestamps of recent auto-reload attempts for cooldown enforcement.
+    val autoReloadTimestamps = remember { mutableListOf<Long>() }
+
     // Auto-reload WebView when network recovers from offline while an error page is displayed.
     // This eliminates the need for students to manually press "Muat Ulang" after a brief
     // network hiccup — the exam page recovers automatically once connectivity is restored.
     // Enhanced: also detects about:blank and data:text/html error pages where
     // webViewErrorMessage may have been cleared, and pre-verifies DNS before reload.
+    // Cooldown: max 3 auto-reloads within a 2-minute window to prevent reload loops
+    // when the network keeps flapping (on-off-on repeatedly).
     LaunchedEffect(examSessionStarted, networkStatus.isConnected, webViewErrorMessage) {
         if (!examSessionStarted || !networkStatus.isConnected) {
             return@LaunchedEffect
@@ -1170,6 +1175,20 @@ internal fun ExamRuntimeSessionScreenImpl(
         val stillOnErrorPage = webViewErrorMessage != null ||
             (webViewInstance?.url.orEmpty().let { it == "about:blank" || it.startsWith("data:text/html") })
         if (networkStatus.isConnected && stillOnErrorPage) {
+            // --- Cooldown check ---
+            val now = SystemClock.elapsedRealtime()
+            val cooldownWindowMs = 120_000L // 2 minutes
+            val maxAutoReloadsInWindow = 3
+            // Evict entries older than the cooldown window
+            autoReloadTimestamps.removeAll { now - it > cooldownWindowMs }
+            if (autoReloadTimestamps.size >= maxAutoReloadsInWindow) {
+                recordAction(
+                    "WEBVIEW_AUTO_RELOAD_COOLDOWN",
+                    "count=${autoReloadTimestamps.size} in ${cooldownWindowMs / 1000}s window | transport=${networkReadinessStatus.transportLabel}",
+                    DiagnosticEventLevel.WARNING
+                )
+                return@LaunchedEffect
+            }
             // Pre-verify that the exam host is actually reachable before reload
             val examHost = runCatching { java.net.URI(payload.examUrl.trim()).host }.getOrNull()
             val dnsReachable = if (!examHost.isNullOrBlank()) {
@@ -1187,9 +1206,10 @@ internal fun ExamRuntimeSessionScreenImpl(
                 )
                 return@LaunchedEffect
             }
+            autoReloadTimestamps.add(now)
             recordAction(
                 "WEBVIEW_AUTO_RELOAD_ON_RECOVERY",
-                "error=${webViewErrorMessage?.take(80)} | url=${currentUrl.take(60)} | transport=${networkReadinessStatus.transportLabel}",
+                "error=${webViewErrorMessage?.take(80)} | url=${currentUrl.take(60)} | transport=${networkReadinessStatus.transportLabel} | reload_count=${autoReloadTimestamps.size}",
                 DiagnosticEventLevel.INFO
             )
             webViewErrorMessage = null
@@ -1220,8 +1240,11 @@ internal fun ExamRuntimeSessionScreenImpl(
                     "used=${usedMemoryMb}MB | max=${maxMemoryMb}MB | pct=$memoryUsagePercent%",
                     DiagnosticEventLevel.WARNING
                 )
-                // Preemptive: clear in-memory cache to reduce pressure
-                webViewInstance?.clearCache(false)
+                // Preemptive: clear in-memory cache to reduce pressure.
+                // Wrapped in runCatching because the WebView may have been destroyed
+                // (renderer gone) but the reference not yet nulled — clearCache() would
+                // throw IllegalStateException and kill this monitoring loop.
+                runCatching { webViewInstance?.clearCache(false) }
             }
         }
     }

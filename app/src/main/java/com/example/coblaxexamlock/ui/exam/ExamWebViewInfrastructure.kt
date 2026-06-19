@@ -146,6 +146,13 @@ internal class ExamNativeFullscreenBridge(
     @Suppress("unused")
     @JavascriptInterface
     fun requestNativeFullscreen(): Boolean {
+        // If already on the main thread (rare but possible during WebView reinit
+        // or on certain low-RAM devices), run synchronously to avoid a 1.5s
+        // deadlock where latch.await() blocks the same thread that mainHandler
+        // needs to count down.
+        if (Looper.myLooper() == Looper.getMainLooper()) {
+            return runCatching { onRequestNativeFullscreen() }.getOrDefault(false)
+        }
         var accepted = false
         val latch = CountDownLatch(1)
         mainHandler.post {

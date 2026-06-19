@@ -156,21 +156,29 @@ internal fun RuntimeConnectivityEffects(
     DisposableEffect(context, examSessionStarted) {
         val connectivityManager = context.getSystemService(ConnectivityManager::class.java)
         var lastCallbackPostElapsedMs = 0L
+        // Track the pending debounced runnable so we can cancel it properly.
+        // The previous approach used removeCallbacksAndMessages("network_debounce")
+        // which never matched because callbacks were posted without a token object.
+        var pendingDebouncedRunnable: Runnable? = null
         val pushNetworkStatusUpdate = { source: String ->
             val now = SystemClock.elapsedRealtime()
             if (now - lastCallbackPostElapsedMs >= NetworkReadinessPollingCallbackDebounceMillis) {
                 lastCallbackPostElapsedMs = now
-                networkMainHandler.removeCallbacksAndMessages("network_debounce")
+                pendingDebouncedRunnable?.let(networkMainHandler::removeCallbacks)
+                pendingDebouncedRunnable = null
                 networkMainHandler.post {
                     updateNetworkReadiness(source)
                 }
             } else {
-                networkMainHandler.removeCallbacksAndMessages("network_debounce")
+                pendingDebouncedRunnable?.let(networkMainHandler::removeCallbacks)
+                val runnable = Runnable {
+                    lastCallbackPostElapsedMs = SystemClock.elapsedRealtime()
+                    pendingDebouncedRunnable = null
+                    updateNetworkReadiness(source)
+                }
+                pendingDebouncedRunnable = runnable
                 networkMainHandler.postDelayed(
-                    {
-                        lastCallbackPostElapsedMs = SystemClock.elapsedRealtime()
-                        updateNetworkReadiness(source)
-                    },
+                    runnable,
                     NetworkReadinessPollingCallbackDebounceMillis
                 )
             }
