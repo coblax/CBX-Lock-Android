@@ -216,7 +216,7 @@ private fun ExamRuntimeSessionMainContent(
                         val maxConnectionRetries = 3
                         var loadingTimeoutWatchdog: Runnable? = null
                         var loadingTimeoutAutoRetried = false
-                        val loadingTimeoutMs = 30_000L
+                        val loadingTimeoutMs = 60_000L
                         var pageLoadStartedAtElapsedMs = 0L
 
                         webViewClient = object : WebViewClient() {
@@ -230,6 +230,18 @@ private fun ExamRuntimeSessionMainContent(
                                 url: String?,
                                 favicon: android.graphics.Bitmap?
                             ) {
+                                // Skip synthetic pages: loadDataWithBaseURL (error HTML)
+                                // and about:blank trigger onPageStarted, which would flash
+                                // the status to "Checking" and restart the timeout watchdog
+                                // even though we know these are not real navigations.
+                                if (url == null || url == "about:blank" || url.startsWith("data:")) {
+                                    return
+                                }
+                                // Reset per-navigation state so each new URL gets:
+                                // - full 3 connection retries (not leftover from previous URL)
+                                // - a fresh silent timeout retry opportunity
+                                connectionRetryCount = 0
+                                loadingTimeoutAutoRetried = false
                                 pageLoadStartedAtElapsedMs = SystemClock.elapsedRealtime()
                                 onWebViewLoadStart(view, url)
                                 // Start the loading timeout watchdog — if onPageFinished
@@ -265,17 +277,23 @@ private fun ExamRuntimeSessionMainContent(
                                 loadingTimeoutWatchdog?.let { view?.removeCallbacks(it) }
                                 loadingTimeoutWatchdog = null
                                 loadingTimeoutAutoRetried = false
-                                // Track page load duration for performance diagnostics
-                                val loadDurationMs = SystemClock.elapsedRealtime() - pageLoadStartedAtElapsedMs
-                                if (loadDurationMs > 15_000L) {
-                                    onWebViewLoadError(
-                                        view,
-                                        "Halaman dimuat lambat (${loadDurationMs / 1000}s). Koneksi mungkin tidak stabil."
-                                    )
-                                }
+                                // IMPORTANT: call onWebViewLoadFinish FIRST so error state is
+                                // cleared before any slow-load diagnostics. The previous order
+                                // (error → finish) caused a race where the error overlay
+                                // flashed briefly then disappeared on pages >15s.
                                 onWebViewLoadFinish(view, url)
                                 (view as? SecureExamWebView)?.cancelPendingConnectionRetries()
                                 connectionRetryCount = 0
+                                // Slow-load is informational only — log for admin diagnostics
+                                // but do NOT trigger error overlay to students. Loading >15s
+                                // is common on congested school Wi-Fi (30+ students).
+                                val loadDurationMs = SystemClock.elapsedRealtime() - pageLoadStartedAtElapsedMs
+                                if (loadDurationMs > 15_000L) {
+                                    android.util.Log.w(
+                                        "ExamWebView",
+                                        "Slow page load: ${loadDurationMs / 1000}s for ${view?.url?.take(80)}"
+                                    )
+                                }
                             }
 
                             override fun onReceivedSslError(
@@ -325,11 +343,18 @@ private fun ExamRuntimeSessionMainContent(
                                 if (request?.isForMainFrame == true) {
                                     val errorDesc = error?.description?.toString()
                                         ?: "Halaman ujian gagal dimuat."
-                                    val isConnectionError = errorDesc.contains("CONNECTION", ignoreCase = true) ||
-                                        errorDesc.contains("TIMED_OUT", ignoreCase = true) ||
-                                        errorDesc.contains("NAME_NOT_RESOLVED", ignoreCase = true) ||
-                                        errorDesc.contains("INTERNET_DISCONNECTED", ignoreCase = true) ||
-                                        errorDesc.contains("FAILED", ignoreCase = true)
+                                    // Match specific Chromium network error codes.
+                                    // Previously included "FAILED" which was too broad and
+                                    // matched non-network errors like ERR_BLOCKED_BY_RESPONSE,
+                                    // ERR_BLOCKED_BY_CLIENT, ERR_ABORTED, ERR_CACHE_MISS, etc.
+                                    // causing false "Koneksi Terputus" when internet was fine.
+                                    val isConnectionError = errorDesc.contains("ERR_CONNECTION_", ignoreCase = true) ||
+                                        errorDesc.contains("ERR_TIMED_OUT", ignoreCase = true) ||
+                                        errorDesc.contains("ERR_NAME_NOT_RESOLVED", ignoreCase = true) ||
+                                        errorDesc.contains("ERR_INTERNET_DISCONNECTED", ignoreCase = true) ||
+                                        errorDesc.contains("ERR_ADDRESS_UNREACHABLE", ignoreCase = true) ||
+                                        errorDesc.contains("ERR_NETWORK_CHANGED", ignoreCase = true) ||
+                                        errorDesc.contains("ERR_NETWORK_IO_SUSPENDED", ignoreCase = true)
 
                                     if (isConnectionError && connectionRetryCount < maxConnectionRetries) {
                                         connectionRetryCount++
@@ -381,7 +406,15 @@ private fun ExamRuntimeSessionMainContent(
                                         null
                                     )
                                 } else {
-                                    // Sub-resource failed — check if it is a critical asset
+                                    // Sub-resource failed — log for diagnostics only.
+                                    // Do NOT trigger error overlay because many "critical-looking"
+                                    // sub-resources fail without affecting the exam page:
+                                    // - Analytics scripts (Google Analytics, Hotjar)
+                                    // - Third-party fonts (Google Fonts CDN)
+                                    // - Lazy-loaded chunks not yet needed
+                                    // - Resources blocked by school network firewall/proxy
+                                    // Showing error overlay for these confuses students into
+                                    // thinking the exam is broken when it's working fine.
                                     val failedUrl = request?.url?.toString().orEmpty()
                                     val isCriticalAsset = failedUrl.endsWith(".js") ||
                                         failedUrl.endsWith(".css") ||
@@ -389,9 +422,9 @@ private fun ExamRuntimeSessionMainContent(
                                         failedUrl.contains("chunk", ignoreCase = true)
                                     if (isCriticalAsset) {
                                         val assetDesc = error?.description?.toString() ?: "unknown"
-                                        onWebViewLoadError(
-                                            view,
-                                            "Resource ujian gagal dimuat: ${failedUrl.substringAfterLast('/').take(60)} ($assetDesc)"
+                                        android.util.Log.w(
+                                            "ExamWebView",
+                                            "Sub-resource failed: ${failedUrl.substringAfterLast('/').take(80)} ($assetDesc)"
                                         )
                                     }
                                 }

@@ -282,8 +282,13 @@ internal fun WebView.applyExamWebViewSettings(examUserAgent: String, lowRamProfi
         @Suppress("DEPRECATION")
         databaseEnabled = true
 
-        // Explicitly enforce HTTPS-only sub-resources (defensive — matches network_security_config)
-        mixedContentMode = WebSettings.MIXED_CONTENT_NEVER_ALLOW
+        // Allow HTTPS pages to load HTTP sub-resources when needed.
+        // MIXED_CONTENT_NEVER_ALLOW silently blocks HTTP assets on HTTPS pages,
+        // causing broken layouts (missing images, broken scripts) and false
+        // "network error" overlays when the exam server loads resources from
+        // HTTP CDNs. COMPATIBILITY_MODE matches default Chrome browser behavior:
+        // allows mixed content while logging a console warning.
+        mixedContentMode = WebSettings.MIXED_CONTENT_COMPATIBILITY_MODE
 
         // Force media user gesture to prevent background auto-play resources
         mediaPlaybackRequiresUserGesture = true

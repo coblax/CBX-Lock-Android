@@ -126,11 +126,29 @@ internal fun handleExamRuntimeWebViewHttpError(
     setExamServerStatus: (ExamServerFooterStatus) -> Unit
 ) {
     recordAction("WEBVIEW_HTTP_ERROR", "HTTP ${statusCode ?: "-"}", DiagnosticEventLevel.ERROR)
-    setWebViewErrorMessage("Server ujian mengembalikan error ${statusCode ?: "-"}.")
+    // Distinguish between 4xx (access/URL issue — server IS responding) and
+    // 5xx (server failure). The old generic message "Server ujian mengembalikan
+    // error 403" misled students into thinking they had a network problem.
+    val errorMessage = when {
+        statusCode == null -> "Tidak bisa terhubung ke server ujian."
+        statusCode == 401 || statusCode == 403 ->
+            "Akses ke halaman ujian ditolak (HTTP $statusCode). Hubungi admin/pengawas."
+        statusCode == 404 ->
+            "Halaman ujian tidak ditemukan (HTTP 404). Pastikan URL ujian benar."
+        statusCode in 400..499 ->
+            "Server ujian menolak permintaan (HTTP $statusCode). Coba muat ulang."
+        statusCode >= 500 ->
+            "Server ujian mengalami gangguan (HTTP $statusCode). Tunggu lalu coba muat ulang."
+        else ->
+            "Server ujian mengembalikan status $statusCode."
+    }
+    setWebViewErrorMessage(errorMessage)
     setExamServerStatus(
         when {
             statusCode == null -> ExamServerFooterStatus.Offline
             statusCode >= 500 -> ExamServerFooterStatus.Offline
+            // 4xx is NOT offline — the server IS responding, it's an access issue.
+            // Setting Warning instead of Offline avoids triggering auto-reload loops.
             else -> ExamServerFooterStatus.Warning
         }
     )

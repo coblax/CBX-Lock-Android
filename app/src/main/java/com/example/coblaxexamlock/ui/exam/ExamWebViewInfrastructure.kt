@@ -35,6 +35,10 @@ internal class SecureExamWebView @JvmOverloads constructor(
 ) : WebView(context, attrs, defStyleAttr) {
     var requestedExamUrl: String? = null
     private val pendingConnectionRetryCallbacks = mutableSetOf<Runnable>()
+    // Tracked callback for cache-mode restore after manual reload.
+    // Cancelled on detach/destroy to prevent the callback from firing
+    // on a destroyed WebView (10s memory leak window).
+    private var pendingCacheRestoreCallback: Runnable? = null
 
     init {
         filterTouchesWhenObscured = true
@@ -94,12 +98,26 @@ internal class SecureExamWebView @JvmOverloads constructor(
 
     override fun onDetachedFromWindow() {
         cancelPendingConnectionRetries()
+        pendingCacheRestoreCallback?.let(::removeCallbacks)
+        pendingCacheRestoreCallback = null
         super.onDetachedFromWindow()
     }
 
     override fun destroy() {
         cancelPendingConnectionRetries()
+        pendingCacheRestoreCallback?.let(::removeCallbacks)
+        pendingCacheRestoreCallback = null
         super.destroy()
+    }
+
+    fun scheduleCacheRestore(delayMillis: Long) {
+        pendingCacheRestoreCallback?.let(::removeCallbacks)
+        val restoreRunnable = Runnable {
+            pendingCacheRestoreCallback = null
+            runCatching { settings.cacheMode = WebSettings.LOAD_CACHE_ELSE_NETWORK }
+        }
+        pendingCacheRestoreCallback = restoreRunnable
+        postDelayed(restoreRunnable, delayMillis)
     }
 }
 
@@ -213,6 +231,11 @@ internal fun WebView.reloadExamUrlLikeBrowserSafely(fallbackUrl: String): Boolea
         loadUrl(targetUrl, BrowserLikeRefreshHeaders)
         if (this is SecureExamWebView) {
             requestedExamUrl = targetUrl
+            // Restore the resilient cache mode after the fresh reload has had time
+            // to complete. Keeping LOAD_DEFAULT permanently makes the WebView
+            // vulnerable to cache-revalidation timeouts on congested school WiFi.
+            // Uses tracked callback that is cancelled on detach/destroy.
+            scheduleCacheRestore(10_000L)
         }
         true
     }.getOrDefault(false)
