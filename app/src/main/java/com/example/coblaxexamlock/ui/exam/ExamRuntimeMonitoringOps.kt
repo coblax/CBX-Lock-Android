@@ -507,6 +507,8 @@ internal class ExamRuntimeMonitoringOps(
                 setWebViewErrorMessage = { flowUiState.webViewErrorMessage.value = it },
                 setWebViewSessionResetInFlight = { flowUiState.webViewSessionResetInFlight.value = it },
                 setWebViewSessionResetError = { flowUiState.webViewSessionResetError.value = it },
+                setSecurityIssueDialogTitle = { adminUiState.securityIssueDialogTitle.value = it },
+                setSecurityIssueDialogMessage = { adminUiState.securityIssueDialogMessage.value = it },
                 recordAction = callbacks.recordAction
             ),
             view = view,

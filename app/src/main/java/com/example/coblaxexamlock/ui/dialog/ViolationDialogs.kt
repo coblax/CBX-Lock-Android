@@ -342,8 +342,17 @@ internal fun KeyboardViolationDialog(
 internal fun ExitExamDialog(
     onDismiss: () -> Unit,
     onConfirm: () -> Unit,
-    isClearingSession: Boolean
+    isClearingSession: Boolean,
+    onForceExit: () -> Unit = onConfirm
 ) {
+    var forceExitEnabled by remember { mutableStateOf(false) }
+    LaunchedEffect(isClearingSession) {
+        forceExitEnabled = false
+        if (isClearingSession) {
+            delay(15_000L)
+            forceExitEnabled = true
+        }
+    }
     AlertDialog(
         onDismissRequest = {
             if (!isClearingSession) {
@@ -378,7 +387,12 @@ internal fun ExitExamDialog(
         },
         text = {
             Text(
-                text = if (isClearingSession) {
+                text = if (isClearingSession && forceExitEnabled) {
+                    tr(
+                        "Session cleanup is taking longer than expected. You can force exit now.",
+                        "Pembersihan sesi lebih lama dari biasanya. Anda bisa keluar paksa sekarang."
+                    )
+                } else if (isClearingSession) {
                     tr(
                         "Clearing exam session data before returning to Home.",
                         "Membersihkan data sesi ujian sebelum kembali ke Home."
@@ -393,7 +407,18 @@ internal fun ExitExamDialog(
             )
         },
         confirmButton = {
-            if (isClearingSession) {
+            if (isClearingSession && forceExitEnabled) {
+                Button(
+                    onClick = onForceExit,
+                    shape = RoundedCornerShape(12.dp),
+                    colors = ButtonDefaults.buttonColors(
+                        containerColor = Color(0xFFB42318),
+                        contentColor = Color.White
+                    )
+                ) {
+                    Text(tr("Force Exit", "Keluar Paksa"), fontWeight = FontWeight.Bold)
+                }
+            } else if (isClearingSession) {
                 TextButton(onClick = {}, enabled = false) {
                     Row(
                         horizontalArrangement = Arrangement.spacedBy(8.dp),
@@ -423,7 +448,7 @@ internal fun ExitExamDialog(
         dismissButton = {
             TextButton(
                 onClick = onDismiss,
-                enabled = !isClearingSession
+                enabled = !isClearingSession || forceExitEnabled
             ) {
                 Text(tr("Cancel", "Batal"), color = LockBlueDeep)
             }
@@ -722,7 +747,7 @@ internal fun VpnDetectedDialog(
             }
         },
         dismissButton = {
-            Row(horizontalArrangement = Arrangement.spacedBy(4.dp)) {
+            Column {
                 TextButton(onClick = onRefreshStatus) {
                     Text(tr("Refresh Status", "Refresh Status"), color = LockBlueDeep)
                 }

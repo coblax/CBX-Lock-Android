@@ -30,7 +30,12 @@ import com.example.coblaxexamlock.ui.admin.InfoDialog
 import com.example.coblaxexamlock.ui.dialog.ExamRuntimeDialogsActions
 import com.example.coblaxexamlock.ui.dialog.ExamRuntimeDialogsHost
 import com.example.coblaxexamlock.ui.dialog.ExamRuntimeDialogsState
+import com.example.coblaxexamlock.ui.theme.LockBackground
+import com.example.coblaxexamlock.ui.theme.LockBlueDeep
+import com.example.coblaxexamlock.ui.theme.LockTextPrimary
 import com.example.coblaxexamlock.ui.theme.LockTextSecondary
+import androidx.compose.ui.text.font.FontWeight
+import androidx.compose.ui.window.DialogProperties
 import kotlinx.coroutines.delay
 
 private const val StartExamBlockedNetworkReachabilityCode = "START_EXAM_BLOCKED_NETWORK_REACHABILITY"
@@ -55,7 +60,9 @@ internal fun ExamRuntimeDialogsCoordinator(
     onDismissScreenPinningMessage: () -> Unit,
     onDismissSecurityIssueDialog: () -> Unit,
     onRefreshNetworkStatus: () -> Unit,
-    onDismissBugReportFeedback: () -> Unit
+    onDismissBugReportFeedback: () -> Unit,
+    onCancelPreflight: () -> Unit,
+    lockTaskRequestPending: Boolean
 ) {
     pendingSection?.let { section ->
         val sectionLabel = diagnosticSectionLabel(section, uiLanguage)
@@ -95,15 +102,53 @@ internal fun ExamRuntimeDialogsCoordinator(
 
     StartExamPreflightDialog(
         uiLanguage = uiLanguage,
-        state = startExamPreflightState
+        state = startExamPreflightState,
+        onCancel = onCancelPreflight
     )
 
     screenPinningMessage?.let { message ->
-        InfoDialog(
-            title = "Screen Pinning Diperlukan",
-            message = message,
-            onDismiss = onDismissScreenPinningMessage
-        )
+        if (lockTaskRequestPending) {
+            AlertDialog(
+                onDismissRequest = {},
+                properties = DialogProperties(
+                    dismissOnBackPress = false,
+                    dismissOnClickOutside = false
+                ),
+                containerColor = LockBackground,
+                title = {
+                    Text(
+                        text = localized(uiLanguage, "Screen Pinning Required", "Screen Pinning Diperlukan"),
+                        color = LockTextPrimary,
+                        fontWeight = FontWeight.Bold
+                    )
+                },
+                text = {
+                    Text(
+                        text = message,
+                        color = LockTextSecondary
+                    )
+                },
+                confirmButton = {
+                    Row(
+                        horizontalArrangement = Arrangement.spacedBy(8.dp),
+                        verticalAlignment = Alignment.CenterVertically
+                    ) {
+                        CircularProgressIndicator(
+                            modifier = Modifier.size(16.dp),
+                            strokeWidth = 2.dp,
+                            color = LockBlueDeep
+                        )
+                        Text(localized(uiLanguage, "Waiting", "Menunggu"), color = LockTextSecondary)
+                    }
+                }
+            )
+        } else {
+            InfoDialog(
+                title = localized(uiLanguage, "Screen Pinning Required", "Screen Pinning Diperlukan"),
+                message = message,
+                onDismiss = onDismissScreenPinningMessage
+            )
+        }
     }
 
     securityIssueDialogMessage?.let { message ->
@@ -171,7 +216,8 @@ internal fun ExamRuntimeDialogsCoordinator(
 @Composable
 private fun StartExamPreflightDialog(
     uiLanguage: UiLanguage,
-    state: StartExamPreflightUiState
+    state: StartExamPreflightUiState,
+    onCancel: () -> Unit
 ) {
     val visible = state.visible.value
     val step = state.step.value
@@ -240,7 +286,16 @@ private fun StartExamPreflightDialog(
                 }
             }
         },
-        confirmButton = {},
+        confirmButton = {
+            if (state.slowHintVisible.value) {
+                TextButton(onClick = onCancel) {
+                    Text(
+                        localized(uiLanguage, "Cancel", "Batal"),
+                        color = LockTextSecondary
+                    )
+                }
+            }
+        },
         containerColor = Color.White
     )
 }

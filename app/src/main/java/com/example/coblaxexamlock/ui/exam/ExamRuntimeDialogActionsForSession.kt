@@ -18,6 +18,7 @@ import com.example.coblaxexamlock.model.NetworkUnstableRuntimeStatus
 import com.example.coblaxexamlock.openBluetoothSettings
 import com.example.coblaxexamlock.OverlayRiskResult
 import com.example.coblaxexamlock.ui.dialog.ExamRuntimeDialogsActions
+import kotlinx.coroutines.CoroutineExceptionHandler
 import kotlinx.coroutines.launch
 
 internal fun buildRuntimeDialogsActionsForSession(
@@ -132,14 +133,27 @@ internal fun buildRuntimeDialogsActionsForSession(
         },
         confirmExitExam = {
             if (!flowUiState.exitSessionClearInFlight.value) {
-                componentActivity.lifecycleScope.launch {
-                    clearExamSessionOnExit("footer_home_confirm", true)
-                    writePreviousSessionBreadcrumb(
-                        PreviousExamSessionBreadcrumbCodes.ExitCompleted,
-                        "reason=footer_home_confirm"
+                val exitExceptionHandler = CoroutineExceptionHandler { _, throwable ->
+                    android.util.Log.e(
+                        "ExamRuntime",
+                        "confirmExitExam uncaught coroutine exception: ${throwable.javaClass.simpleName}",
+                        throwable
                     )
-                    flowUiState.showExitExamDialog.value = false
-                    onExit()
+                }
+                componentActivity.lifecycleScope.launch(exitExceptionHandler) {
+                    try {
+                        clearExamSessionOnExit("footer_home_confirm", true)
+                        writePreviousSessionBreadcrumb(
+                            PreviousExamSessionBreadcrumbCodes.ExitCompleted,
+                            "reason=footer_home_confirm"
+                        )
+                    } finally {
+                        // Guarantee dialog dismisses and exit completes even if
+                        // clearExamSessionOnExit throws (e.g. WebView already destroyed).
+                        // Without this, the student gets stuck in the exit dialog.
+                        flowUiState.showExitExamDialog.value = false
+                        onExit()
+                    }
                 }
             }
         }

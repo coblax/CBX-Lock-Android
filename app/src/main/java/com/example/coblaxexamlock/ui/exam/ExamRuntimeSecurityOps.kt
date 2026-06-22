@@ -222,6 +222,7 @@ internal fun applyExamRuntimeVirtualEnvironmentDiagnostics(
     triggerViolation: Boolean,
     examSessionStarted: Boolean,
     bypassVirtualEnvironment: Boolean,
+    uiLanguage: UiLanguage,
     examAlarmController: ExamAlarmController,
     callbacks: ExamRuntimeVirtualEnvironmentCallbacks
 ) {
@@ -238,9 +239,9 @@ internal fun applyExamRuntimeVirtualEnvironmentDiagnostics(
             diagnostics.indicators.joinToString().ifBlank { "-" },
             DiagnosticEventLevel.SECURITY
         )
-        callbacks.setSecurityIssueDialogTitle("Virtual Environment Terdeteksi")
+        callbacks.setSecurityIssueDialogTitle(localized(uiLanguage, "Virtual Environment Detected", "Virtual Environment Terdeteksi"))
         callbacks.setSecurityIssueDialogMessage(
-            "Perangkat ini terdeteksi berjalan di emulator/VM. Gunakan perangkat fisik untuk melanjutkan ujian."
+            localized(uiLanguage, "This device is detected running in an emulator/VM. Use a physical device to continue the exam.", "Perangkat ini terdeteksi berjalan di emulator/VM. Gunakan perangkat fisik untuk melanjutkan ujian.")
         )
         examAlarmController.start()
     }
@@ -271,6 +272,7 @@ internal class ExamRuntimeDeviceIntegrityCallbacks(
 
 internal fun refreshExamRuntimeDeviceIntegritySecurity(
     context: Context,
+    uiLanguage: UiLanguage,
     examSessionStarted: Boolean,
     triggerViolation: Boolean,
     bypassAccessibility: Boolean,
@@ -301,9 +303,9 @@ internal fun refreshExamRuntimeDeviceIntegritySecurity(
                 "-",
                 DiagnosticEventLevel.SECURITY
             )
-            callbacks.setSecurityIssueDialogTitle("Accessibility Service Terdeteksi")
+            callbacks.setSecurityIssueDialogTitle(localized(uiLanguage, "Accessibility Service Detected", "Accessibility Service Terdeteksi"))
             callbacks.setSecurityIssueDialogMessage(
-                "Aksesibilitas aktif saat ujian berjalan. Nonaktifkan accessibility service agar ujian tetap aman."
+                localized(uiLanguage, "Accessibility is active during the exam. Disable the accessibility service to keep the exam secure.", "Aksesibilitas aktif saat ujian berjalan. Nonaktifkan accessibility service agar ujian tetap aman.")
             )
             examAlarmController.start()
         }
@@ -314,9 +316,9 @@ internal fun refreshExamRuntimeDeviceIntegritySecurity(
                 "-",
                 DiagnosticEventLevel.SECURITY
             )
-            callbacks.setSecurityIssueDialogTitle("Developer Mode Aktif")
+            callbacks.setSecurityIssueDialogTitle(localized(uiLanguage, "Developer Mode Active", "Developer Mode Aktif"))
             callbacks.setSecurityIssueDialogMessage(
-                "Developer Mode terdeteksi aktif saat ujian berjalan. Nonaktifkan sebelum melanjutkan."
+                localized(uiLanguage, "Developer Mode was detected while the exam is running. Disable it before continuing.", "Developer Mode terdeteksi aktif saat ujian berjalan. Nonaktifkan sebelum melanjutkan.")
             )
             examAlarmController.start()
         }
@@ -327,9 +329,9 @@ internal fun refreshExamRuntimeDeviceIntegritySecurity(
                 "-",
                 DiagnosticEventLevel.SECURITY
             )
-            callbacks.setSecurityIssueDialogTitle("USB Debugging (ADB) Aktif")
+            callbacks.setSecurityIssueDialogTitle(localized(uiLanguage, "USB Debugging (ADB) Active", "USB Debugging (ADB) Aktif"))
             callbacks.setSecurityIssueDialogMessage(
-                "USB debugging terdeteksi aktif saat ujian berjalan. Nonaktifkan ADB sebelum melanjutkan."
+                localized(uiLanguage, "USB debugging was detected while the exam is running. Disable ADB before continuing.", "USB debugging terdeteksi aktif saat ujian berjalan. Nonaktifkan ADB sebelum melanjutkan.")
             )
             examAlarmController.start()
         }
@@ -340,7 +342,7 @@ internal fun refreshExamRuntimeDeviceIntegritySecurity(
                 "-",
                 DiagnosticEventLevel.SECURITY
             )
-            callbacks.setSecurityIssueDialogTitle("Root Device Terdeteksi")
+            callbacks.setSecurityIssueDialogTitle(localized(uiLanguage, "Rooted Device Detected", "Root Device Terdeteksi"))
             callbacks.setSecurityIssueDialogMessage(
                 com.example.coblaxexamlock.runtime.buildRootIssueMessage(latestRootSecurityStatus.details)
             )
@@ -510,6 +512,7 @@ internal class ExamRuntimeSecurityOps(
             triggerViolation = triggerViolation,
             examSessionStarted = examSessionStarted,
             bypassVirtualEnvironment = adminSettings.bypassVirtualEnvironment,
+            uiLanguage = uiLanguage,
             examAlarmController = examAlarmController,
             callbacks = ExamRuntimeVirtualEnvironmentCallbacks(
                 getVirtualEnvironmentDetected = { securityUiState.virtualEnvironmentDetected.value },
@@ -524,6 +527,7 @@ internal class ExamRuntimeSecurityOps(
     fun refreshDeviceIntegritySecurity(triggerViolation: Boolean) {
         refreshExamRuntimeDeviceIntegritySecurity(
             context = context,
+            uiLanguage = uiLanguage,
             examSessionStarted = examSessionStarted,
             triggerViolation = triggerViolation,
             bypassAccessibility = bypassAccessibility,

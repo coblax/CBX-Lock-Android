@@ -124,10 +124,20 @@ internal suspend fun prepareCleanExamWebViewSessionForStart(
     }
 
     val failureDetails = resetResult.exceptionOrNull()?.message ?: "unknown"
+    val failureCause = when {
+        failureDetails.contains("timeout", ignoreCase = true) ->
+            localized(uiLanguage, "Cause: session cleanup timed out.", "Penyebab: pembersihan sesi timeout.")
+        failureDetails.contains("memory", ignoreCase = true) || failureDetails.contains("oom", ignoreCase = true) ->
+            localized(uiLanguage, "Cause: device is low on memory.", "Penyebab: memori perangkat rendah.")
+        failureDetails.contains("webview", ignoreCase = true) ->
+            localized(uiLanguage, "Cause: the browser engine is busy or unresponsive.", "Penyebab: mesin browser sedang sibuk atau tidak merespons.")
+        else ->
+            localized(uiLanguage, "Cause: $failureDetails", "Penyebab: $failureDetails")
+    }
     val userMessage = localized(
         uiLanguage,
-        "The app could not clear the previous WebView session data yet. Retry Start Exam Mode. If this keeps happening, close and reopen the app.",
-        "Aplikasi belum bisa membersihkan data sesi WebView sebelumnya. Coba lagi Mulai Ujian. Jika tetap gagal, tutup lalu buka ulang aplikasi."
+        "The app could not clear the previous WebView session data yet. $failureCause Retry Start Exam Mode. If this keeps happening, close and reopen the app.",
+        "Aplikasi belum bisa membersihkan data sesi WebView sebelumnya. $failureCause Coba lagi Mulai Ujian. Jika tetap gagal, tutup lalu buka ulang aplikasi."
     )
     recordAction("WEBVIEW_SESSION_RESET_FAILED", failureDetails, DiagnosticEventLevel.ERROR)
     flowUiState.webViewSessionResetError.value = userMessage

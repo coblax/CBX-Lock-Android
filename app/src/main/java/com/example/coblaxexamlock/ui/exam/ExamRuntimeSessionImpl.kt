@@ -767,6 +767,12 @@ internal fun ExamRuntimeSessionScreenImpl(
     val examAlarmController = remember(context) {
         ExamAlarmController(context.applicationContext)
     }
+    // Ensure alarm stops and volume is restored when the composable exits.
+    // Without this, a playing alarm ringtone could leak into the background
+    // with boosted volume if the user navigates away from the exam screen.
+    DisposableEffect(examAlarmController) {
+        onDispose { examAlarmController.stop() }
+    }
     val coroutineScope = rememberCoroutineScope()
     // Global exception handler for all fire-and-forget coroutineScope.launch calls.
     // This prevents silent crashes where a background coroutine fails without anyone
@@ -2757,6 +2763,7 @@ internal fun ExamRuntimeSessionScreenImpl(
         securityIssueDialogMessage = securityIssueDialogMessage,
         securityIssueDialogCode = securityIssueDialogCode,
         startExamPreflightState = flowUiState.startExamPreflight,
+        lockTaskRequestPending = lockTaskRequestPending,
         bugReportFeedbackTitle = bugReportFeedbackTitle,
         bugReportFeedbackMessage = bugReportFeedbackMessage,
         securityUiState = securityUiState,
@@ -2803,6 +2810,7 @@ private fun ExamRuntimeSessionRenderedUiSection(
     securityIssueDialogMessage: String?,
     securityIssueDialogCode: String?,
     startExamPreflightState: StartExamPreflightUiState,
+    lockTaskRequestPending: Boolean,
     bugReportFeedbackTitle: String?,
     bugReportFeedbackMessage: String?,
     securityUiState: ExamRuntimeSecurityUiState,
@@ -2845,6 +2853,7 @@ private fun ExamRuntimeSessionRenderedUiSection(
         securityIssueDialogMessage = securityIssueDialogMessage,
         securityIssueDialogCode = securityIssueDialogCode,
         startExamPreflightState = startExamPreflightState,
+        lockTaskRequestPending = lockTaskRequestPending,
         bugReportFeedbackTitle = bugReportFeedbackTitle,
         bugReportFeedbackMessage = bugReportFeedbackMessage,
         securityUiState = securityUiState,

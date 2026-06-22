@@ -11,6 +11,12 @@ import kotlin.math.roundToInt
 internal class ExamAlarmController(private val appContext: Context) {
     private var ringtone: Ringtone? = null
     private var previousAlarmVolume: Int? = null
+    private val autoStopHandler = android.os.Handler(android.os.Looper.getMainLooper())
+    private val autoStopRunnable = Runnable { stop() }
+
+    companion object {
+        private const val AUTO_STOP_DURATION_MS = 30_000L
+    }
 
     private val audioManager: AudioManager?
         get() = appContext.getSystemService(AudioManager::class.java)
@@ -18,6 +24,7 @@ internal class ExamAlarmController(private val appContext: Context) {
     fun start(severity: ExamAlarmSeverity = ExamAlarmSeverity.Escalated) {
         if (ringtone?.isPlaying == true) {
             boostAlarmVolume(severity)
+            rescheduleAutoStop()
             return
         }
 
@@ -36,12 +43,19 @@ internal class ExamAlarmController(private val appContext: Context) {
                 play()
             }
         }
+        rescheduleAutoStop()
     }
 
     fun stop() {
+        autoStopHandler.removeCallbacks(autoStopRunnable)
         ringtone?.stop()
         ringtone = null
         restoreAlarmVolume()
+    }
+
+    private fun rescheduleAutoStop() {
+        autoStopHandler.removeCallbacks(autoStopRunnable)
+        autoStopHandler.postDelayed(autoStopRunnable, AUTO_STOP_DURATION_MS)
     }
 
     private fun boostAlarmVolume(severity: ExamAlarmSeverity) {

@@ -191,8 +191,108 @@ internal suspend fun runExamRuntimeStartPrechecks(
 
     val startExamPressedAt = SystemClock.elapsedRealtime()
     flowUiState.webViewSessionResetError.value = null
+    try {
+        runExamRuntimeStartPrechecksBody(
+            context = context,
+            uiLanguage = uiLanguage,
+            payload = payload,
+            lockTaskBridge = lockTaskBridge,
+            screenPinningMode = screenPinningMode,
+            screenPinningAvailable = screenPinningAvailable,
+            deviceCompatibilityProfile = deviceCompatibilityProfile,
+            overlayRiskResult = overlayRiskResult,
+            webViewCompatibilityStatus = webViewCompatibilityStatus,
+            webViewRecoveryStateName = webViewRecoveryStateName,
+            batteryStatus = batteryStatus,
+            geofenceConfigParseResult = geofenceConfigParseResult,
+            effectiveLocationPolicySource = effectiveLocationPolicySource,
+            geofenceBypassState = geofenceBypassState,
+            fakeLocationBypassState = fakeLocationBypassState,
+            flowUiState = flowUiState,
+            securityUiState = securityUiState,
+            adminUiState = adminUiState,
+            accessibilityGuardEnabledState = accessibilityGuardEnabledState,
+            bypassScreenPinning = bypassScreenPinning,
+            bypassOverlay = bypassOverlay,
+            bypassVpn = bypassVpn,
+            bypassDeviceTime = bypassDeviceTime,
+            bypassKeyboardPolicy = bypassKeyboardPolicy,
+            bypassBluetooth = bypassBluetooth,
+            bypassAccessibility = bypassAccessibility,
+            bypassAdb = bypassAdb,
+            bypassVirtualEnvironment = bypassVirtualEnvironment,
+            bypassRoot = bypassRoot,
+            bypassReverseEngineering = bypassReverseEngineering,
+            bypassApkIntegrity = bypassApkIntegrity,
+            bypassScreenRecorder = bypassScreenRecorder,
+            bypassDisplayMirror = bypassDisplayMirror,
+            bypassMultiWindow = bypassMultiWindow,
+            bypassGeofence = bypassGeofence,
+            bypassFakeLocation = bypassFakeLocation,
+            startExamPressedAt = startExamPressedAt,
+            ::updatePreflight,
+            ::applyBlock,
+            callbacks = callbacks
+        )
+    } catch (throwable: Throwable) {
+        if (throwable is CancellationException) {
+            throw throwable
+        }
+        callbacks.hideStartExamPreflight()
+        callbacks.applyStartExamBlockMessage(
+            resolveStartExamUnexpectedFailureBlockMessage(
+                uiLanguage = uiLanguage,
+                phase = "start_prechecks",
+                throwable = throwable
+            )
+        )
+    }
+}
+
+private suspend fun runExamRuntimeStartPrechecksBody(
+    context: Context,
+    uiLanguage: com.example.coblaxexamlock.model.UiLanguage,
+    payload: ExamQrPayload,
+    lockTaskBridge: ActivityLockTaskBridge,
+    screenPinningMode: ScreenPinningMode,
+    screenPinningAvailable: Boolean,
+    deviceCompatibilityProfile: DeviceCompatibilityProfile,
+    overlayRiskResult: OverlayRiskResult,
+    webViewCompatibilityStatus: WebViewCompatibilityStatus,
+    webViewRecoveryStateName: String,
+    batteryStatus: ExamBatteryStatus,
+    geofenceConfigParseResult: GeofenceConfigParseResult,
+    effectiveLocationPolicySource: LocationPolicySource,
+    geofenceBypassState: GeofenceBypassState,
+    fakeLocationBypassState: FakeLocationBypassState,
+    flowUiState: ExamRuntimeFlowUiState,
+    securityUiState: ExamRuntimeSecurityUiState,
+    adminUiState: ExamRuntimeAdminUiState,
+    accessibilityGuardEnabledState: MutableState<Boolean>,
+    bypassScreenPinning: Boolean,
+    bypassOverlay: Boolean,
+    bypassVpn: Boolean,
+    bypassDeviceTime: Boolean,
+    bypassKeyboardPolicy: Boolean,
+    bypassBluetooth: Boolean,
+    bypassAccessibility: Boolean,
+    bypassAdb: Boolean,
+    bypassVirtualEnvironment: Boolean,
+    bypassRoot: Boolean,
+    bypassReverseEngineering: Boolean,
+    bypassApkIntegrity: Boolean,
+    bypassScreenRecorder: Boolean,
+    bypassDisplayMirror: Boolean,
+    bypassMultiWindow: Boolean,
+    bypassGeofence: Boolean,
+    bypassFakeLocation: Boolean,
+    startExamPressedAt: Long,
+    updatePreflight: (StartExamPreflightStep, String?) -> Unit,
+    applyBlock: (StartExamBlockMessage) -> Unit,
+    callbacks: ExamRuntimeStartPrecheckCallbacks
+) {
     callbacks.recordAction("START_EXAM_PRESSED", "-", DiagnosticEventLevel.INFO)
-    updatePreflight(StartExamPreflightStep.TamperAndIntegrity)
+    updatePreflight(StartExamPreflightStep.TamperAndIntegrity, null)
     val startVirtualEnvironmentDiagnostics = getVirtualEnvironmentDiagnosticsOnIo(
         context = context,
         forceRefresh = true
@@ -242,7 +342,7 @@ internal suspend fun runExamRuntimeStartPrechecks(
         )
     }
 
-    updatePreflight(StartExamPreflightStep.DeviceSecurity)
+    updatePreflight(StartExamPreflightStep.DeviceSecurity, null)
     callbacks.refreshScreenPinningDiagnostics()
     if (screenPinningMode == ScreenPinningMode.Enforced && !lockTaskBridge.active()) {
         callbacks.ensureDeviceOwnerLockTaskActive()
@@ -297,7 +397,7 @@ internal suspend fun runExamRuntimeStartPrechecks(
         return
     }
 
-    updatePreflight(StartExamPreflightStep.DeviceTime)
+    updatePreflight(StartExamPreflightStep.DeviceTime, null)
     val startDeviceTimeStatus = callbacks.refreshDeviceTimeSecurity("start_exam_precheck", true)
     val startDeviceTimeBlock = resolveStartExamDeviceTimeBlockMessage(
         uiLanguage = uiLanguage,
@@ -334,7 +434,7 @@ internal suspend fun runExamRuntimeStartPrechecks(
         applyBlock(networkBlock)
         return
     }
-    updatePreflight(StartExamPreflightStep.ServerProbe)
+    updatePreflight(StartExamPreflightStep.ServerProbe, null)
     val startServerProbe = probeExamServerFooterStatus(payload.examUrl)
     callbacks.recordAction(
         startServerProbe.eventCode,
@@ -357,7 +457,7 @@ internal suspend fun runExamRuntimeStartPrechecks(
     }
     val startDpcRuntimeStatus = callbacks.refreshDpcRuntimeStatus()
 
-    updatePreflight(StartExamPreflightStep.HealthSnapshot)
+    updatePreflight(StartExamPreflightStep.HealthSnapshot, null)
     val startHealthSnapshot = buildPreExamHealthSnapshot(
         PreExamHealthCheckInput(
             compatibilityProfile = deviceCompatibilityProfile,
@@ -423,7 +523,7 @@ internal suspend fun runExamRuntimeStartPrechecks(
         return
     }
 
-    updatePreflight(StartExamPreflightStep.StaticSecurity)
+    updatePreflight(StartExamPreflightStep.StaticSecurity, null)
     val signatureResult = debugMeasureExamStartWork("startExamSession:signature_check") {
         callbacks.checkSignatureIntegrity(!bypassApkIntegrity)
     }
@@ -453,7 +553,7 @@ internal suspend fun runExamRuntimeStartPrechecks(
 
     if (!bypassBluetooth) {
         if (!bluetoothPermissionReady) {
-            updatePreflight(StartExamPreflightStep.DeviceSecurity)
+            updatePreflight(StartExamPreflightStep.DeviceSecurity, null)
             callbacks.hideStartExamPreflight()
             callbacks.requestBluetoothPermission()
             return
@@ -524,7 +624,7 @@ internal suspend fun runExamRuntimeStartPrechecks(
         (preciseLocationRequiredForStart && !preciseLocationGranted) ||
         (!preciseLocationRequiredForStart && !bypassFakeLocation && !coarseOrFineGranted)
     ) {
-        updatePreflight(StartExamPreflightStep.LocationPermission)
+        updatePreflight(StartExamPreflightStep.LocationPermission, null)
         flowUiState.pendingStartExamAfterLocationPermission.value = true
         flowUiState.geofencePermissionRequestInFlight.value = true
         callbacks.recordAction(
@@ -585,7 +685,7 @@ internal suspend fun runExamRuntimeStartPrechecks(
         return
     }
 
-    updatePreflight(StartExamPreflightStep.LocationValidation)
+    updatePreflight(StartExamPreflightStep.LocationValidation, null)
     callbacks.launchFinalLocationValidation(startExamPressedAt)
 }
 

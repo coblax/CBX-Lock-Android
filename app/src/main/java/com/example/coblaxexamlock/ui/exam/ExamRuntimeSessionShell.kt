@@ -196,14 +196,13 @@ private fun ExamRuntimeSessionMainContent(
                             }
 
                             // Capture JavaScript errors from the exam page for diagnostics.
-                            // Important: Do NOT call onWebViewLoadError here — many websites
-                            // produce non-fatal console.error() calls (React dev warnings,
-                            // analytics failures, CORS errors for tracking pixels, etc.) that
-                            // would incorrectly trigger the error overlay and mark the server
-                            // as Offline, confusing students during active exams.
+                            // Important: Do NOT call onWebViewLoadError or modify webViewErrorMessage
+                            // here — many websites produce non-fatal console.error() calls (React dev
+                            // warnings, analytics failures, CORS errors for tracking pixels, etc.)
+                            // that would incorrectly trigger/clear the error overlay and confuse
+                            // students during active exams. This is truly log-only.
                             override fun onConsoleMessage(consoleMessage: ConsoleMessage?): Boolean {
                                 if (consoleMessage?.messageLevel() == ConsoleMessage.MessageLevel.ERROR) {
-                                    onWebViewErrorMessageChange(null) // log-only, no UI overlay
                                     android.util.Log.w(
                                         "ExamWebView",
                                         "JS console error: ${consoleMessage.message()?.take(200)} (line ${consoleMessage.lineNumber()})"
@@ -604,6 +603,7 @@ internal fun ExamRuntimeSessionRenderedUi(
     securityIssueDialogMessage: String?,
     securityIssueDialogCode: String?,
     startExamPreflightState: StartExamPreflightUiState,
+    lockTaskRequestPending: Boolean,
     bugReportFeedbackTitle: String?,
     bugReportFeedbackMessage: String?,
     securityUiState: ExamRuntimeSecurityUiState,
@@ -697,7 +697,11 @@ internal fun ExamRuntimeSessionRenderedUi(
                 onDismissScreenPinningMessage = onDismissScreenPinningMessage,
                 onDismissSecurityIssueDialog = onDismissSecurityIssueDialog,
                 onRefreshNetworkStatus = onRefreshNetworkStatus,
-                onDismissBugReportFeedback = onDismissBugReportFeedback
+                onDismissBugReportFeedback = onDismissBugReportFeedback,
+                onCancelPreflight = {
+                    hideStartExamPreflight(startExamPreflightState)
+                },
+                lockTaskRequestPending = lockTaskRequestPending
             )
             RuntimeStaticSecurityDialogsHost(
                 securityUiState = securityUiState,

@@ -263,6 +263,8 @@ internal class ExamRuntimeRendererGoneCallbacks(
     val setWebViewErrorMessage: (String?) -> Unit,
     val setWebViewSessionResetInFlight: (Boolean) -> Unit,
     val setWebViewSessionResetError: (String?) -> Unit,
+    val setSecurityIssueDialogTitle: (String?) -> Unit,
+    val setSecurityIssueDialogMessage: (String?) -> Unit,
     val recordAction: (String, String, DiagnosticEventLevel) -> Unit
 )
 
@@ -329,6 +331,20 @@ internal fun handleExamRuntimeWebViewRendererGone(
             uiLanguage,
             "The exam page stopped and was closed safely. Press Start Exam Mode again to reopen a clean session.",
             "Halaman ujian berhenti dan sudah ditutup dengan aman. Tekan Mulai Ujian lagi untuk membuka sesi bersih."
+        )
+    )
+    callbacks.setSecurityIssueDialogTitle(
+        localized(
+            uiLanguage,
+            "Exam Page Stopped",
+            "Halaman Ujian Berhenti"
+        )
+    )
+    callbacks.setSecurityIssueDialogMessage(
+        localized(
+            uiLanguage,
+            "The exam browser encountered a problem and had to close. Your session has been safely cleaned up. Press Start Exam Mode again to reopen.",
+            "Browser ujian mengalami masalah dan harus ditutup. Sesi Anda telah dibersihkan dengan aman. Tekan Mulai Ujian lagi untuk membuka kembali."
         )
     )
     webViewUiState.recoveryState.value = ExamRuntimeRecoveryState.ReadyToRetry
