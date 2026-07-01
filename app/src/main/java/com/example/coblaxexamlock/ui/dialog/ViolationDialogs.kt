@@ -98,6 +98,7 @@ import androidx.compose.material.icons.automirrored.rounded.KeyboardReturn
 import androidx.compose.material.icons.automirrored.rounded.Send
 import androidx.compose.material.icons.rounded.AdminPanelSettings
 import androidx.compose.material.icons.rounded.ArrowUpward
+import androidx.compose.material.icons.rounded.BluetoothDisabled
 import androidx.compose.material.icons.rounded.Home
 import androidx.compose.material.icons.rounded.Language
 import androidx.compose.material.icons.rounded.QrCodeScanner
@@ -206,6 +207,8 @@ import com.example.coblaxexamlock.ui.theme.LockSurface
 import com.example.coblaxexamlock.ui.theme.LockSurfaceSoft
 import com.example.coblaxexamlock.ui.theme.LockTextMuted
 import com.example.coblaxexamlock.ui.theme.LockTextPrimary
+import com.example.coblaxexamlock.ui.theme.LockDialogDangerBg
+import com.example.coblaxexamlock.ui.theme.LockDialogDangerIcon
 import com.example.coblaxexamlock.ui.theme.LockTextSecondary
 import com.google.android.gms.common.api.ApiException
 import com.google.android.gms.maps.CameraUpdateFactory
@@ -271,7 +274,7 @@ internal fun KeyboardViolationDialog(
             dismissOnBackPress = false,
             dismissOnClickOutside = false
         ),
-        containerColor = Color(0xFFFDF1F1),
+        containerColor = LockDialogDangerBg,
         title = {
             Row(
                 horizontalArrangement = Arrangement.spacedBy(10.dp),
@@ -279,12 +282,12 @@ internal fun KeyboardViolationDialog(
             ) {
                 Surface(
                     shape = CircleShape,
-                    color = Color(0xFFB42318).copy(alpha = 0.12f)
+                    color = LockDialogDangerIcon.copy(alpha = 0.12f)
                 ) {
                     Icon(
                         imageVector = Icons.Rounded.QrCodeScanner,
                         contentDescription = null,
-                        tint = Color(0xFFB42318),
+                        tint = LockDialogDangerIcon,
                         modifier = Modifier
                             .padding(6.dp)
                             .size(20.dp)
@@ -292,7 +295,7 @@ internal fun KeyboardViolationDialog(
                 }
                 Text(
                     text = tr("Keyboard Not Allowed", "Keyboard Tidak Diizinkan"),
-                    color = Color(0xFFB42318),
+                    color = LockDialogDangerIcon,
                     fontWeight = FontWeight.Bold
                 )
             }
@@ -317,7 +320,7 @@ internal fun KeyboardViolationDialog(
                 Spacer(modifier = Modifier.height(10.dp))
                 Text(
                     text = tr("Keyboard violations: $violationCount", "Jumlah pelanggaran keyboard: $violationCount"),
-                    color = Color(0xFFB42318),
+                    color = LockDialogDangerIcon,
                     fontWeight = FontWeight.Bold
                 )
                 Spacer(modifier = Modifier.height(10.dp))
@@ -412,7 +415,7 @@ internal fun ExitExamDialog(
                     onClick = onForceExit,
                     shape = RoundedCornerShape(12.dp),
                     colors = ButtonDefaults.buttonColors(
-                        containerColor = Color(0xFFB42318),
+                        containerColor = LockDialogDangerIcon,
                         contentColor = Color.White
                     )
                 ) {
@@ -437,7 +440,7 @@ internal fun ExitExamDialog(
                     onClick = onConfirm,
                     shape = RoundedCornerShape(12.dp),
                     colors = ButtonDefaults.buttonColors(
-                        containerColor = Color(0xFFB42318),
+                        containerColor = LockDialogDangerIcon,
                         contentColor = Color.White
                     )
                 ) {
@@ -478,7 +481,7 @@ internal fun OverlayViolationDialog(
             dismissOnBackPress = false,
             dismissOnClickOutside = false
         ),
-        containerColor = Color(0xFFFDF1F1),
+        containerColor = LockDialogDangerBg,
         title = {
             Row(
                 horizontalArrangement = Arrangement.spacedBy(10.dp),
@@ -486,12 +489,12 @@ internal fun OverlayViolationDialog(
             ) {
                 Surface(
                     shape = CircleShape,
-                    color = Color(0xFFB42318).copy(alpha = 0.12f)
+                    color = LockDialogDangerIcon.copy(alpha = 0.12f)
                 ) {
                     Icon(
                         imageVector = Icons.Rounded.AdminPanelSettings,
                         contentDescription = null,
-                        tint = Color(0xFFB42318),
+                        tint = LockDialogDangerIcon,
                         modifier = Modifier
                             .padding(6.dp)
                             .size(20.dp)
@@ -499,7 +502,7 @@ internal fun OverlayViolationDialog(
                 }
                 Text(
                     text = tr("Floating App Detected", "Floating App Terdeteksi"),
-                    color = Color(0xFFB42318),
+                    color = LockDialogDangerIcon,
                     fontWeight = FontWeight.Bold
                 )
             }
@@ -518,7 +521,7 @@ internal fun OverlayViolationDialog(
                 Spacer(modifier = Modifier.height(10.dp))
                 Text(
                     text = tr("Overlay violations: $violationCount", "Jumlah pelanggaran overlay: $violationCount"),
-                    color = Color(0xFFB42318),
+                    color = LockDialogDangerIcon,
                     fontWeight = FontWeight.Bold
                 )
                 Spacer(modifier = Modifier.height(10.dp))
@@ -693,21 +696,21 @@ internal fun VpnDetectedDialog(
             dismissOnBackPress = false,
             dismissOnClickOutside = false
         ),
-        containerColor = Color(0xFFFDF1F1),
+        containerColor = LockDialogDangerBg,
         title = {
             Row(
                 horizontalArrangement = Arrangement.spacedBy(10.dp),
                 verticalAlignment = Alignment.CenterVertically
             ) {
-                Surface(shape = CircleShape, color = Color(0xFFB42318).copy(alpha = 0.12f)) {
+                Surface(shape = CircleShape, color = LockDialogDangerIcon.copy(alpha = 0.12f)) {
                     Icon(
                         imageVector = Icons.Rounded.Language,
                         contentDescription = null,
-                        tint = Color(0xFFB42318),
+                        tint = LockDialogDangerIcon,
                         modifier = Modifier.padding(6.dp).size(20.dp)
                     )
                 }
-                Text(text = tr("VPN Active", "VPN Aktif"), color = Color(0xFFB42318), fontWeight = FontWeight.Bold)
+                Text(text = tr("VPN Active", "VPN Aktif"), color = LockDialogDangerIcon, fontWeight = FontWeight.Bold)
             }
         },
         text = {
@@ -728,7 +731,7 @@ internal fun VpnDetectedDialog(
                         bypassActive = bypassActive,
                         bypassTampered = bypassTampered
                     ),
-                    bodyColor = Color(0xFFB42318),
+                    bodyColor = LockDialogDangerIcon,
                     bodyWeight = FontWeight.SemiBold
                 )
                 Spacer(modifier = Modifier.height(8.dp))
@@ -832,16 +835,16 @@ internal fun GeofenceViolationDialog(
             dismissOnBackPress = false,
             dismissOnClickOutside = false
         ),
-        containerColor = Color(0xFFFDF1F1),
+        containerColor = LockDialogDangerBg,
         title = {
             Text(
                 text = titleText,
-                color = Color(0xFFB42318),
+                color = LockDialogDangerIcon,
                 fontWeight = FontWeight.Bold
             )
         },
         text = {
-            Column {
+            Column(modifier = Modifier.verticalScroll(rememberScrollState())) {
                 Text(
                     text = primaryMessage,
                     color = LockTextPrimary
@@ -852,7 +855,7 @@ internal fun GeofenceViolationDialog(
                         "Location security violations: $violationCount",
                         "Jumlah pelanggaran keamanan lokasi: $violationCount"
                     ),
-                    color = Color(0xFFB42318),
+                    color = LockDialogDangerIcon,
                     fontWeight = FontWeight.Bold
                 )
                 Spacer(modifier = Modifier.height(8.dp))
@@ -963,16 +966,16 @@ internal fun FakeLocationViolationDialog(
             dismissOnBackPress = false,
             dismissOnClickOutside = false
         ),
-        containerColor = Color(0xFFFDF1F1),
+        containerColor = LockDialogDangerBg,
         title = {
             Text(
                 text = titleText,
-                color = Color(0xFFB42318),
+                color = LockDialogDangerIcon,
                 fontWeight = FontWeight.Bold
             )
         },
         text = {
-            Column {
+            Column(modifier = Modifier.verticalScroll(rememberScrollState())) {
                 Text(
                     text = primaryMessage,
                     color = LockTextPrimary
@@ -983,7 +986,7 @@ internal fun FakeLocationViolationDialog(
                         "Fake-location violations: $violationCount",
                         "Jumlah pelanggaran fake-location: $violationCount"
                     ),
-                    color = Color(0xFFB42318),
+                    color = LockDialogDangerIcon,
                     fontWeight = FontWeight.Bold
                 )
                 Spacer(modifier = Modifier.height(8.dp))
@@ -1080,21 +1083,21 @@ internal fun BluetoothViolationDialog(
             dismissOnBackPress = false,
             dismissOnClickOutside = false
         ),
-        containerColor = Color(0xFFFDF1F1),
+        containerColor = LockDialogDangerBg,
         title = {
             Row(
                 horizontalArrangement = Arrangement.spacedBy(10.dp),
                 verticalAlignment = Alignment.CenterVertically
             ) {
-                Surface(shape = CircleShape, color = Color(0xFFB42318).copy(alpha = 0.12f)) {
+                Surface(shape = CircleShape, color = LockDialogDangerIcon.copy(alpha = 0.12f)) {
                     Icon(
-                        imageVector = Icons.Rounded.QrCodeScanner,
+                        imageVector = Icons.Rounded.BluetoothDisabled,
                         contentDescription = null,
-                        tint = Color(0xFFB42318),
+                        tint = LockDialogDangerIcon,
                         modifier = Modifier.padding(6.dp).size(20.dp)
                     )
                 }
-                Text(text = tr("Bluetooth Is Not Safe", "Bluetooth Tidak Aman"), color = Color(0xFFB42318), fontWeight = FontWeight.Bold)
+                Text(text = tr("Bluetooth Is Not Safe", "Bluetooth Tidak Aman"), color = LockDialogDangerIcon, fontWeight = FontWeight.Bold)
             }
         },
         text = {
@@ -1110,7 +1113,7 @@ internal fun BluetoothViolationDialog(
                 Spacer(modifier = Modifier.height(10.dp))
                 Text(
                     text = tr("Bluetooth violations: $violationCount", "Jumlah pelanggaran Bluetooth: $violationCount"),
-                    color = Color(0xFFB42318),
+                    color = LockDialogDangerIcon,
                     fontWeight = FontWeight.Bold
                 )
             }
@@ -1141,21 +1144,21 @@ internal fun ClipboardViolationDialog(
             dismissOnBackPress = false,
             dismissOnClickOutside = false
         ),
-        containerColor = Color(0xFFFDF1F1),
+        containerColor = LockDialogDangerBg,
         title = {
             Row(
                 horizontalArrangement = Arrangement.spacedBy(10.dp),
                 verticalAlignment = Alignment.CenterVertically
             ) {
-                Surface(shape = CircleShape, color = Color(0xFFB42318).copy(alpha = 0.12f)) {
+                Surface(shape = CircleShape, color = LockDialogDangerIcon.copy(alpha = 0.12f)) {
                     Icon(
                         imageVector = Icons.AutoMirrored.Rounded.Backspace,
                         contentDescription = null,
-                        tint = Color(0xFFB42318),
+                        tint = LockDialogDangerIcon,
                         modifier = Modifier.padding(6.dp).size(20.dp)
                     )
                 }
-                Text(text = tr("Clipboard Changed", "Clipboard Berubah"), color = Color(0xFFB42318), fontWeight = FontWeight.Bold)
+                Text(text = tr("Clipboard Changed", "Clipboard Berubah"), color = LockDialogDangerIcon, fontWeight = FontWeight.Bold)
             }
         },
         text = {
@@ -1170,7 +1173,7 @@ internal fun ClipboardViolationDialog(
                 Spacer(modifier = Modifier.height(10.dp))
                 Text(
                     text = tr("Clipboard violations: $violationCount", "Jumlah pelanggaran clipboard: $violationCount"),
-                    color = Color(0xFFB42318),
+                    color = LockDialogDangerIcon,
                     fontWeight = FontWeight.Bold
                 )
                 Spacer(modifier = Modifier.height(8.dp))
@@ -1237,21 +1240,21 @@ private fun RuntimeStaticSecurityDialog(
             dismissOnBackPress = false,
             dismissOnClickOutside = false
         ),
-        containerColor = Color(0xFFFDF1F1),
+        containerColor = LockDialogDangerBg,
         title = {
             Row(
                 horizontalArrangement = Arrangement.spacedBy(10.dp),
                 verticalAlignment = Alignment.CenterVertically
             ) {
-                Surface(shape = CircleShape, color = Color(0xFFB42318).copy(alpha = 0.12f)) {
+                Surface(shape = CircleShape, color = LockDialogDangerIcon.copy(alpha = 0.12f)) {
                     Icon(
                         imageVector = Icons.Rounded.QrCodeScanner,
                         contentDescription = null,
-                        tint = Color(0xFFB42318),
+                        tint = LockDialogDangerIcon,
                         modifier = Modifier.padding(6.dp).size(20.dp)
                     )
                 }
-                Text(text = title, color = Color(0xFFB42318), fontWeight = FontWeight.Bold)
+                Text(text = title, color = LockDialogDangerIcon, fontWeight = FontWeight.Bold)
             }
         },
         text = {
@@ -1556,25 +1559,25 @@ internal fun SecurityViolationDialog(
             dismissOnBackPress = false,
             dismissOnClickOutside = false
         ),
-        containerColor = Color(0xFFFAEBEB),
+        containerColor = LockDialogDangerBg,
         title = {
             Row(
                 horizontalArrangement = Arrangement.spacedBy(10.dp),
                 verticalAlignment = Alignment.CenterVertically
             ) {
-                Surface(shape = CircleShape, color = Color(0xFFB42318).copy(alpha = 0.16f)) {
+                Surface(shape = CircleShape, color = LockDialogDangerIcon.copy(alpha = 0.16f)) {
                     Icon(
                         imageVector = Icons.Rounded.AdminPanelSettings,
                         contentDescription = null,
-                        tint = Color(0xFFB42318),
+                        tint = LockDialogDangerIcon,
                         modifier = Modifier.padding(8.dp).size(24.dp)
                     )
                 }
-                Text(text = tr("Violation Detected", "Pelanggaran Terdeteksi"), color = Color(0xFFB42318), fontWeight = FontWeight.Bold)
+                Text(text = tr("Violation Detected", "Pelanggaran Terdeteksi"), color = LockDialogDangerIcon, fontWeight = FontWeight.Bold)
             }
         },
         text = {
-            Column {
+            Column(modifier = Modifier.verticalScroll(rememberScrollState())) {
                 Text(
                     text = tr(
                         "The app detected that you left the exam screen or forced the app to lose focus.",
@@ -1585,7 +1588,7 @@ internal fun SecurityViolationDialog(
                 Spacer(modifier = Modifier.height(10.dp))
                 Text(
                     text = tr("Violations: $violationCount", "Jumlah pelanggaran: $violationCount"),
-                    color = Color(0xFFB42318),
+                    color = LockDialogDangerIcon,
                     fontWeight = FontWeight.Bold
                 )
                 Spacer(modifier = Modifier.height(8.dp))
@@ -1624,7 +1627,7 @@ internal fun SecurityViolationDialog(
                 onClick = onAcknowledge,
                 shape = RoundedCornerShape(12.dp),
                 colors = ButtonDefaults.buttonColors(
-                    containerColor = Color(0xFFB42318),
+                    containerColor = LockDialogDangerIcon,
                     contentColor = Color.White
                 )
             ) {

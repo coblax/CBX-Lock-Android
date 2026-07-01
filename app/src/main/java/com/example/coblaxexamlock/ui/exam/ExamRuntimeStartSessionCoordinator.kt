@@ -566,6 +566,7 @@ private suspend fun runExamRuntimeStartPrechecksBody(
     }
 
     val staticSecurityBlock = resolveStartExamStaticSecurityBlockMessage(
+        uiLanguage = uiLanguage,
         bypassAccessibility = bypassAccessibility,
         accessibilityServiceEnabled = securityUiState.accessibilityServiceEnabled.value,
         bypassAdb = bypassAdb,

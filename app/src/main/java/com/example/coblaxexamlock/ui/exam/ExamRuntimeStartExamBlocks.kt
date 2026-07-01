@@ -344,6 +344,7 @@ internal fun resolveStartExamScheduleBlockMessage(
 }
 
 internal fun resolveStartExamStaticSecurityBlockMessage(
+    uiLanguage: UiLanguage,
     bypassAccessibility: Boolean,
     accessibilityServiceEnabled: Boolean,
     bypassAdb: Boolean,
@@ -365,42 +366,57 @@ internal fun resolveStartExamStaticSecurityBlockMessage(
         !bypassAccessibility && accessibilityServiceEnabled ->
             StartExamBlockMessage(
                 code = "START_EXAM_BLOCKED_ACCESSIBILITY",
-                title = "Accessibility Service Masih Aktif",
-                message = "Nonaktifkan accessibility service sebelum memulai ujian."
+                title = localized(uiLanguage, "Accessibility Service Still Active", "Accessibility Service Masih Aktif"),
+                message = localized(uiLanguage,
+                    "Disable the accessibility service before starting the exam.",
+                    "Nonaktifkan accessibility service sebelum memulai ujian."
+                )
             )
 
         !bypassAdb && developerOptionsEnabled ->
             StartExamBlockMessage(
                 code = "START_EXAM_BLOCKED_DEVELOPER_OPTIONS",
-                title = "Developer Mode Masih Aktif",
-                message = "Nonaktifkan Developer Mode sebelum memulai ujian."
+                title = localized(uiLanguage, "Developer Mode Still Active", "Developer Mode Masih Aktif"),
+                message = localized(uiLanguage,
+                    "Disable Developer Mode before starting the exam.",
+                    "Nonaktifkan Developer Mode sebelum memulai ujian."
+                )
             )
 
         !bypassVirtualEnvironment && virtualEnvironmentDetected ->
             StartExamBlockMessage(
                 code = "START_EXAM_BLOCKED_VIRTUAL_ENV",
-                title = "Virtual Environment Terdeteksi",
-                message = "Perangkat ini terdeteksi berjalan di emulator/VM. Gunakan perangkat fisik untuk melanjutkan ujian."
+                title = localized(uiLanguage, "Virtual Environment Detected", "Virtual Environment Terdeteksi"),
+                message = localized(uiLanguage,
+                    "This device is detected as running in an emulator/VM. Use a physical device to continue the exam.",
+                    "Perangkat ini terdeteksi berjalan di emulator/VM. Gunakan perangkat fisik untuk melanjutkan ujian."
+                )
             )
 
         !bypassAdb && adbEnabled ->
             StartExamBlockMessage(
                 code = "START_EXAM_BLOCKED_ADB",
-                title = "USB Debugging (ADB) Masih Aktif",
-                message = "USB debugging terdeteksi aktif. Nonaktifkan ADB sebelum memulai ujian."
+                title = localized(uiLanguage, "USB Debugging (ADB) Still Active", "USB Debugging (ADB) Masih Aktif"),
+                message = localized(uiLanguage,
+                    "USB debugging is detected as active. Disable ADB before starting the exam.",
+                    "USB debugging terdeteksi aktif. Nonaktifkan ADB sebelum memulai ujian."
+                )
             )
 
         !bypassAdb && adbInsecureSystemProperty ->
             StartExamBlockMessage(
                 code = "START_EXAM_BLOCKED_ADB_INSECURE_PROPERTY",
-                title = "ADB Security Property Tidak Aman",
-                message = "Properti keamanan ADB sistem terdeteksi dalam kondisi tidak aman. Restart perangkat dan pastikan USB debugging dinonaktifkan."
+                title = localized(uiLanguage, "ADB Security Property Unsafe", "ADB Security Property Tidak Aman"),
+                message = localized(uiLanguage,
+                    "The ADB system security property is detected in an unsafe state. Restart the device and make sure USB debugging is disabled.",
+                    "Properti keamanan ADB sistem terdeteksi dalam kondisi tidak aman. Restart perangkat dan pastikan USB debugging dinonaktifkan."
+                )
             )
 
         !bypassRoot && rootSecurityStatus.detected ->
             StartExamBlockMessage(
                 code = "START_EXAM_BLOCKED_ROOT",
-                title = "Root Device Terdeteksi",
+                title = localized(uiLanguage, "Rooted Device Detected", "Root Device Terdeteksi"),
                 message = buildRootIssueMessage(rootSecurityStatus.details)
             )
 
@@ -408,22 +424,31 @@ internal fun resolveStartExamStaticSecurityBlockMessage(
             StartExamBlockMessage(
                 code = "START_EXAM_BLOCKED_SCREEN_RECORDER",
                 details = "packages=${screenRecorderPackages.joinToString()}",
-                title = "Screen Recorder Terdeteksi",
-                message = "Hapus aplikasi screen recorder (${screenRecorderPackages.size} app) sebelum memulai ujian."
+                title = localized(uiLanguage, "Screen Recorder Detected", "Screen Recorder Terdeteksi"),
+                message = localized(uiLanguage,
+                    "Remove the screen recorder app (${screenRecorderPackages.size} app) before starting the exam.",
+                    "Hapus aplikasi screen recorder (${screenRecorderPackages.size} app) sebelum memulai ujian."
+                )
             )
 
         !bypassDisplayMirror && externalDisplayDetected ->
             StartExamBlockMessage(
                 code = "START_EXAM_BLOCKED_DISPLAY_MIRROR",
-                title = "Display Eksternal Terdeteksi",
-                message = "Putuskan koneksi display eksternal / screen casting sebelum memulai ujian."
+                title = localized(uiLanguage, "External Display Detected", "Display Eksternal Terdeteksi"),
+                message = localized(uiLanguage,
+                    "Disconnect the external display / screen casting before starting the exam.",
+                    "Putuskan koneksi display eksternal / screen casting sebelum memulai ujian."
+                )
             )
 
         !bypassMultiWindow && multiWindowDetected ->
             StartExamBlockMessage(
                 code = "START_EXAM_BLOCKED_MULTI_WINDOW",
-                title = "Mode Split-Screen Aktif",
-                message = "Keluar dari mode split-screen atau picture-in-picture sebelum memulai ujian."
+                title = localized(uiLanguage, "Split-Screen Mode Active", "Mode Split-Screen Aktif"),
+                message = localized(uiLanguage,
+                    "Exit split-screen or picture-in-picture mode before starting the exam.",
+                    "Keluar dari mode split-screen atau picture-in-picture sebelum memulai ujian."
+                )
             )
 
         else -> null

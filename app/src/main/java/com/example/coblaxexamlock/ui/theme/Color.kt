@@ -40,3 +40,12 @@ val LockStatusDanger     = Color(0xFFD42D26)
 
 // ── Footer & chrome ────────────────────────────────────────────────
 val LockFooterBg = Color(0xFFF4F7FB)
+
+// ── Dialog semantic ────────────────────────────────────────────────
+val LockDialogDangerBg   = Color(0xFFFDF1F1)
+val LockDialogDangerIcon = Color(0xFFB42318)
+val LockDialogSuccessBg  = Color(0xFFE6F6EB)
+
+// ── Telegram ───────────────────────────────────────────────────────
+val LockTelegramBlue     = Color(0xFF2AABEE)
+val LockTelegramDisabled = Color(0xFFB5DDF3)

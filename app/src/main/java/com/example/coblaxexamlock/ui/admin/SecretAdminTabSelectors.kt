@@ -1,4 +1,4 @@
-﻿package com.example.coblaxexamlock.ui.admin
+package com.example.coblaxexamlock.ui.admin
 
 import android.Manifest
 import android.annotation.SuppressLint
@@ -380,7 +380,7 @@ internal fun CustomQrAdminTabSelector(
                         fontSize = 14.sp,
                         fontWeight = FontWeight.Bold,
                         textAlign = TextAlign.Center,
-                        modifier = Modifier.padding(horizontal = 12.dp, vertical = 11.dp)
+                        modifier = Modifier.padding(horizontal = 14.dp, vertical = 13.dp)
                     )
                 }
             }
@@ -421,7 +421,7 @@ internal fun SecretAdminTabSelector(
                         role = Role.Button,
                         onClick = { onTabSelected(tab) }
                     )
-                    .padding(horizontal = 12.dp, vertical = 10.dp),
+                    .padding(horizontal = 14.dp, vertical = 12.dp),
                 contentAlignment = Alignment.Center
             ) {
                 Text(

@@ -544,8 +544,8 @@ internal fun HomeHeroCard(
                 else Modifier.flatCardElevated(radius = 26.dp)
             )
             .padding(
-                horizontal = if (compactHome) 16.dp else 20.dp,
-                vertical = if (compactHome) 14.dp else 18.dp
+                horizontal = if (compactHome) 14.dp else 18.dp,
+                vertical = if (compactHome) 12.dp else 16.dp
             ),
         horizontalAlignment = Alignment.CenterHorizontally
     ) {
@@ -719,8 +719,8 @@ internal fun LanguageOptionChip(
 internal fun CoblaxFrontBrand(uiLanguage: UiLanguage) {
     val lowRamProfile = LocalLowRamProfile.current
     val compactHome = lowRamProfile.deferHeavyUi
-    val logoSize = if (compactHome) 112.dp else 188.dp
-    val titleSize = if (compactHome) 28.sp else 34.sp
+    val logoSize = if (compactHome) 96.dp else 140.dp
+    val titleSize = if (compactHome) 26.sp else 30.sp
     val subtitleSize = if (compactHome) 12.sp else 14.sp
     val bodySize = if (compactHome) 12.sp else 13.sp
     val bodyLineHeight = if (compactHome) 16.sp else 18.sp
@@ -807,7 +807,7 @@ internal fun DeveloperInfo() {
             .background(LockCardBg)
             .border(1.dp, LockOutline.copy(alpha = 0.60f), RoundedCornerShape(20.dp))
             .clickable { openExternalUrl(context, DeveloperGithubUrl) }
-            .padding(horizontal = 18.dp, vertical = 14.dp),
+            .padding(horizontal = 16.dp, vertical = 12.dp),
         horizontalArrangement = Arrangement.spacedBy(12.dp),
         verticalAlignment = Alignment.CenterVertically
     ) {

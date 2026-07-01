@@ -45,6 +45,27 @@ internal object UiTokens {
     const val BorderAlphaSubtle: Float = 0.40f
     const val BorderAlphaDefault: Float = 0.60f
     const val BorderAlphaStrong: Float = 0.85f
+
+    // Minimum tap target — Material 3 guideline: 48dp
+    val TapTargetMin: Dp = 48.dp
+    val TapTargetCompact: Dp = 40.dp
+
+    // Elevation substitute — flat card border intensity
+    const val ElevationSubtleBorderAlpha: Float = 0.45f
+
+    // Content padding — standardized across screens
+    val ContentPaddingHorizontal: Dp = 16.dp
+    val ContentPaddingVertical: Dp = 12.dp
+    val ScreenPaddingHorizontal: Dp = 20.dp
+    val ScreenPaddingCompact: Dp = 16.dp
+
+    // Dialog padding
+    val DialogContentPadding: Dp = 20.dp
+
+    // Icon sizes — standardized scale
+    val IconSm: Dp = 16.dp
+    val IconMd: Dp = 20.dp
+    val IconLg: Dp = 24.dp
 }
 
 /**

@@ -51,6 +51,8 @@ import com.example.coblaxexamlock.ui.theme.LockOutline
 import com.example.coblaxexamlock.ui.theme.LockTextMuted
 import com.example.coblaxexamlock.ui.theme.LockTextPrimary
 import com.example.coblaxexamlock.ui.theme.LockTextSecondary
+import com.example.coblaxexamlock.ui.theme.LockTelegramBlue
+import com.example.coblaxexamlock.ui.theme.LockTelegramDisabled
 import java.util.Locale
 
 private val stablePreparationStatuses = setOf(
@@ -180,7 +182,7 @@ internal fun SecurityChecklistItem(
     ) {
         if (showSendButton) {
             val sendButtonColor =
-                if (sendEnabled || isSending) Color(0xFF2AABEE) else Color(0xFFB5DDF3)
+                if (sendEnabled || isSending) LockTelegramBlue else LockTelegramDisabled
             Box(
                 modifier = Modifier
                     .size(26.dp)
@@ -218,8 +220,8 @@ internal fun SecurityChecklistItem(
         // Accent bar
         Box(
             modifier = Modifier
-                .width(4.dp)
-                .height(38.dp)
+                .width(3.dp)
+                .height(40.dp)
                 .clip(RoundedCornerShape(999.dp))
                 .background(accentColor.copy(alpha = 0.85f))
         )
@@ -230,15 +232,15 @@ internal fun SecurityChecklistItem(
             Text(
                 text = title,
                 color = LockTextPrimary,
-                fontSize = 12.sp,
+                fontSize = 13.sp,
                 fontWeight = FontWeight.Bold
             )
             Spacer(modifier = Modifier.height(2.dp))
             Text(
                 text = value,
                 color = LockTextSecondary,
-                fontSize = 10.sp,
-                lineHeight = 14.sp,
+                fontSize = 11.sp,
+                lineHeight = 15.sp,
                 maxLines = 3
             )
             if (!meta.isNullOrBlank()) {
@@ -246,8 +248,8 @@ internal fun SecurityChecklistItem(
                 Text(
                     text = meta,
                     color = metaColor ?: accentColor,
-                    fontSize = 9.sp,
-                    lineHeight = 12.sp,
+                    fontSize = 10.sp,
+                    lineHeight = 14.sp,
                     maxLines = 4
                 )
             }
@@ -256,8 +258,8 @@ internal fun SecurityChecklistItem(
                 Text(
                     text = detail,
                     color = LockTextMuted,
-                    fontSize = 9.sp,
-                    lineHeight = 13.sp
+                    fontSize = 10.sp,
+                    lineHeight = 14.sp
                 )
             }
         }
@@ -271,7 +273,7 @@ internal fun SecurityChecklistItem(
             Text(
                 text = status,
                 color = accentColor,
-                fontSize = 9.sp,
+                fontSize = 10.sp,
                 fontWeight = FontWeight.ExtraBold
             )
         }
@@ -306,7 +308,7 @@ internal fun PreparationSummaryChip(
             Text(
                 text = label.uppercase(Locale.US),
                 color = LockTextMuted,
-                fontSize = 8.sp,
+                fontSize = 9.sp,
                 fontWeight = FontWeight.Bold,
                 letterSpacing = 0.6.sp
             )
@@ -440,11 +442,11 @@ internal fun PreparationFloatingActionBar(
         if (!canStartExam && !blockingReason.isNullOrBlank()) {
             Text(
                 text = "⚠ $blockingReason",
-                color = Color.White.copy(alpha = 0.75f),
-                fontSize = 10.sp,
+                color = Color.White.copy(alpha = 0.85f),
+                fontSize = 11.sp,
                 fontWeight = FontWeight.SemiBold,
                 textAlign = TextAlign.Center,
-                maxLines = 1,
+                maxLines = 2,
                 modifier = Modifier
                     .fillMaxWidth()
                     .padding(bottom = 6.dp)

@@ -320,7 +320,8 @@ internal fun BackPillButton(onClick: () -> Unit) {
             .background(LockSurfaceSoft)
             .border(1.dp, LockOutline.copy(alpha = 0.7f), RoundedCornerShape(14.dp))
             .clickable(onClick = onClick)
-            .padding(horizontal = 10.dp, vertical = 8.dp),
+            .heightIn(min = 48.dp)
+            .padding(horizontal = 12.dp, vertical = 10.dp),
         verticalAlignment = Alignment.CenterVertically,
         horizontalArrangement = Arrangement.spacedBy(8.dp)
     ) {
@@ -361,7 +362,9 @@ internal fun AdminInputField(
     OutlinedTextField(
         value = value,
         onValueChange = onValueChange,
-        modifier = Modifier.fillMaxWidth(),
+        modifier = Modifier
+            .fillMaxWidth()
+            .heightIn(min = 56.dp),
         textStyle = androidx.compose.ui.text.TextStyle(
             color = LockTextPrimary,
             fontSize = 16.sp
@@ -448,7 +451,7 @@ internal fun AdminToggleRow(
             .clip(RoundedCornerShape(14.dp))
             .background(Color.White)
             .border(1.dp, LockOutline.copy(alpha = 0.6f), RoundedCornerShape(14.dp))
-            .padding(horizontal = 14.dp, vertical = 11.dp),
+            .padding(horizontal = 16.dp, vertical = 14.dp),
         horizontalArrangement = Arrangement.spacedBy(12.dp),
         verticalAlignment = Alignment.CenterVertically
     ) {
@@ -503,8 +506,8 @@ internal fun StatusBanner(
         Text(
             text = message,
             color = textColor,
-            fontSize = 12.sp,
-            lineHeight = 16.sp
+            fontSize = 13.sp,
+            lineHeight = 18.sp
         )
     }
 }

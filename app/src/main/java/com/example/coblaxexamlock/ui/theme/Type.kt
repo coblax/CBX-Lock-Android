@@ -93,3 +93,15 @@ val Typography = Typography(
         letterSpacing = 0.5.sp
     )
 )
+
+/**
+ * Diagnostic text style — reusable across all checklist / dialog detail text.
+ * 11sp is the minimum readable size on a 5-inch screen while staying compact.
+ */
+val DiagnosticBody = TextStyle(
+    fontFamily = FontFamily.Default,
+    fontWeight = FontWeight.Normal,
+    fontSize = 11.sp,
+    lineHeight = 15.sp,
+    letterSpacing = 0.2.sp
+)
