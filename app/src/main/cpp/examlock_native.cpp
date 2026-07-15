@@ -9,9 +9,9 @@
 
 namespace examlock_native {
 namespace {
-constexpr const char* kBindingsClassName = "com/example/coblaxexamlock/nativebridge/NativeBridgeBindings";
-constexpr const char* kClipboardInputClassName = "com/example/coblaxexamlock/ClipboardNormalizedItemInput";
-constexpr const char* kClipboardResultClassName = "com/example/coblaxexamlock/NativeClipboardSnapshotCore";
+constexpr const char* kBindingsClassName = "com/coblax/examlock/nativebridge/NativeBridgeBindings";
+constexpr const char* kClipboardInputClassName = "com/coblax/examlock/ClipboardNormalizedItemInput";
+constexpr const char* kClipboardResultClassName = "com/coblax/examlock/NativeClipboardSnapshotCore";
 constexpr const char* kLogTag = "examlock_native";
 
 struct ClipboardInputFieldIds {
@@ -152,7 +152,7 @@ const JNINativeMethod kMethods[] = {
     {"nativeDecodeBase64Xor", "(Ljava/lang/String;)Ljava/lang/String;", reinterpret_cast<void*>(NativeDecodeBase64Xor)},
     {"nativeEncryptQrPayload", "([B)[B", reinterpret_cast<void*>(NativeEncryptQrPayload)},
     {"nativeDecryptQrPayload", "([B)[B", reinterpret_cast<void*>(NativeDecryptQrPayload)},
-    {"nativeBuildClipboardSnapshotCore", "(I[Lcom/example/coblaxexamlock/ClipboardNormalizedItemInput;)Lcom/example/coblaxexamlock/NativeClipboardSnapshotCore;", reinterpret_cast<void*>(NativeBuildClipboardSnapshotCore)},
+    {"nativeBuildClipboardSnapshotCore", "(I[Lcom/coblax/examlock/ClipboardNormalizedItemInput;)Lcom/coblax/examlock/NativeClipboardSnapshotCore;", reinterpret_cast<void*>(NativeBuildClipboardSnapshotCore)},
     {"nativeVerifyAdminSecret", "(Ljava/lang/String;Ljava/lang/String;Ljava/lang/String;Ljava/lang/String;Ljava/lang/String;)Z", reinterpret_cast<void*>(NativeVerifyAdminSecret)},
     {"nativeBuildBypassDeviceBinding", "(Ljava/lang/String;Ljava/lang/String;Ljava/lang/String;Ljava/lang/String;I)Ljava/lang/String;", reinterpret_cast<void*>(NativeBuildBypassDeviceBinding)},
     {"nativeComputeBypassMac", "(Ljava/lang/String;Ljava/lang/String;)Ljava/lang/String;", reinterpret_cast<void*>(NativeComputeBypassMac)},

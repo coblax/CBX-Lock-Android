@@ -4,7 +4,7 @@ plugins {
 }
 
 android {
-    namespace = "com.example.coblaxexamlock.baselineprofile"
+    namespace = "com.coblax.examlock.baselineprofile"
     compileSdk {
         version = release(36) {
             minorApiLevel = 1

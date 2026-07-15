@@ -1,0 +1,614 @@
+package com.coblax.examlock.runtime
+
+import android.annotation.SuppressLint
+import android.app.ActivityManager
+import android.content.Context
+import android.content.Intent
+import android.content.IntentFilter
+import android.content.pm.ApplicationInfo
+import android.os.BatteryManager
+import android.os.Build
+import android.os.StatFs
+import android.provider.Settings
+import android.view.accessibility.AccessibilityManager
+import androidx.webkit.WebViewCompat
+import com.coblax.examlock.config.EmulatorPackagePrefixes
+import com.coblax.examlock.config.MagiskIndicatorPaths
+import com.coblax.examlock.config.RootBinaryIndicatorPaths
+import com.coblax.examlock.config.RootPackageNames
+import com.coblax.examlock.config.VirtualFingerprintTokens
+import com.coblax.examlock.config.VirtualHardwareTokens
+import com.coblax.examlock.config.VirtualManufacturerTokens
+import com.coblax.examlock.config.VirtualModelTokens
+import com.coblax.examlock.config.VirtualProductTokens
+import com.coblax.examlock.config.VirtualQemuFiles
+import com.coblax.examlock.inspectAccessibility
+import com.coblax.examlock.model.ClipboardDiagnostics
+import com.coblax.examlock.model.RootDetectionDetails
+import com.coblax.examlock.model.RootIndicatorType
+import com.coblax.examlock.model.VirtualEnvironmentDiagnostics
+import com.coblax.examlock.readClipboardSnapshot
+import java.util.Locale
+import java.util.TimeZone
+import java.util.concurrent.atomic.AtomicReference
+import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.withContext
+
+private val virtualEnvDiagnosticsCache = AtomicReference<VirtualEnvironmentDiagnostics?>()
+
+internal fun isAccessibilityServiceEnabled(context: Context): Boolean {
+    return inspectAccessibility(context).blockingServiceActive
+}
+
+internal fun isAccessibilityManagerEnabled(context: Context): Boolean {
+    val accessibilityManager = context.getSystemService(AccessibilityManager::class.java)
+    return accessibilityManager?.isEnabled == true
+}
+
+internal fun isTouchExplorationEnabled(context: Context): Boolean {
+    return inspectAccessibility(context).touchExplorationEnabled
+}
+
+internal fun getEnabledAccessibilityServicesRawValue(context: Context): String {
+    return runCatching {
+        Settings.Secure.getString(
+            context.contentResolver,
+            Settings.Secure.ENABLED_ACCESSIBILITY_SERVICES
+        ).orEmpty()
+    }.getOrDefault("").ifBlank { "-" }
+}
+
+internal fun isDeveloperOptionsEnabled(context: Context): Boolean {
+    return runCatching {
+        Settings.Global.getInt(
+            context.contentResolver,
+            Settings.Global.DEVELOPMENT_SETTINGS_ENABLED,
+            0
+        ) == 1
+    }.getOrDefault(false)
+}
+
+internal fun getDeveloperOptionsRawValue(context: Context): String {
+    return runCatching {
+        Settings.Global.getInt(
+            context.contentResolver,
+            Settings.Global.DEVELOPMENT_SETTINGS_ENABLED,
+            -1
+        ).toString()
+    }.getOrDefault("-")
+}
+
+internal fun isAdbEnabled(context: Context): Boolean {
+    return runCatching {
+        Settings.Global.getInt(
+            context.contentResolver,
+            Settings.Global.ADB_ENABLED,
+            0
+        ) == 1
+    }.getOrDefault(false)
+}
+
+internal fun getAdbRawValue(context: Context): String {
+    return runCatching {
+        Settings.Global.getInt(
+            context.contentResolver,
+            Settings.Global.ADB_ENABLED,
+            -1
+        ).toString()
+    }.getOrDefault("-")
+}
+
+internal fun getRootDetectionDetails(context: Context): RootDetectionDetails {
+    val appContext = context.applicationContext
+    return getRootDetectionDetails(
+        context = appContext,
+        packageInventory = SecurityDetectorCache.readPackageInventory(appContext)
+    )
+}
+
+internal fun getRootDetectionDetails(
+    context: Context,
+    packageInventory: InstalledPackageInventory
+): RootDetectionDetails {
+    val hasTestKeys = Build.TAGS?.contains("test-keys") == true
+    val rootBinaryPaths = RootBinaryIndicatorPaths.distinct().filter(::safeFileExists)
+    val hasSuBinary = rootBinaryPaths.any { path -> path.endsWith("/su") }
+    val foundRootPackages = findRootPackagesFromInventory(packageInventory) { packageName ->
+        runCatching {
+            @Suppress("DEPRECATION")
+            context.packageManager.getApplicationInfo(packageName, 0)
+        }.isSuccess
+    }
+    val magiskPaths = MagiskIndicatorPaths.distinct().filter(::safeFileExists)
+    val zygiskDetected = safeFileExists("/data/adb/zygisk") || scanProcSelfMapsForZygisk()
+    val verifiedBootStateRaw = getSystemProperty("ro.boot.verifiedbootstate").trim()
+    val vbmetaDeviceStateRaw = getSystemProperty("ro.boot.vbmeta.device_state").trim()
+    val flashLockedRaw = getSystemProperty("ro.boot.flash.locked").trim()
+    val bootloaderUnlocked = isBootloaderUnlocked(
+        verifiedBootState = verifiedBootStateRaw,
+        vbmetaDeviceState = vbmetaDeviceStateRaw,
+        flashLocked = flashLockedRaw
+    )
+    val roDebuggableRaw = getSystemProperty("ro.debuggable").trim()
+    val roSecureRaw = getSystemProperty("ro.secure").trim()
+    val roAdbSecureRaw = getSystemProperty("ro.adb.secure").trim()
+    val roBuildTypeRaw = getSystemProperty("ro.build.type").trim()
+    val dangerousSystemProperties = buildList {
+        if (roDebuggableRaw == "1") add("ro.debuggable=1")
+        if (roSecureRaw == "0") add("ro.secure=0")
+        // ro.adb.secure=0 is already monitored via AdbInspection.insecureSystemProperty;
+        // some Samsung/Oppo OEM devices ship with this value on stock ROM — excluded to avoid
+        // false-positive root detection.
+        // ro.build.type is kept in evidenceSummary for diagnostics but excluded here because
+        // Xiaomi MIUI Developer ROM legitimately ships as "userdebug" without root.
+    }
+    val selinuxEnabled = readSelinuxEnabled()
+    val selinuxEnforced = readSelinuxEnforced()
+    val xposedBridgeDetected = isXposedBridgeActive()
+
+    return RootDetectionDetails(
+        hasTestKeys = hasTestKeys,
+        hasSuBinary = hasSuBinary,
+        foundRootPackages = foundRootPackages,
+        rootBinaryPaths = rootBinaryPaths,
+        magiskPaths = magiskPaths,
+        zygiskDetected = zygiskDetected,
+        xposedBridgeDetected = xposedBridgeDetected,
+        verifiedBootState = verifiedBootStateRaw.ifBlank { "-" },
+        vbmetaDeviceState = vbmetaDeviceStateRaw.ifBlank { "-" },
+        flashLocked = flashLockedRaw.ifBlank { "-" },
+        bootloaderUnlocked = bootloaderUnlocked,
+        selinuxEnabled = selinuxEnabled,
+        selinuxEnforced = selinuxEnforced,
+        dangerousSystemProperties = dangerousSystemProperties,
+        roDebuggable = roDebuggableRaw.ifBlank { "-" },
+        roSecure = roSecureRaw.ifBlank { "-" },
+        roAdbSecure = roAdbSecureRaw.ifBlank { "-" },
+        roBuildType = roBuildTypeRaw.ifBlank { "-" }
+    )
+}
+
+internal fun isDeviceRooted(details: RootDetectionDetails): Boolean {
+    return details.hasTestKeys ||
+        details.hasSuBinary ||
+        details.rootBinaryPaths.isNotEmpty() ||
+        details.foundRootPackages.isNotEmpty() ||
+        details.magiskPaths.isNotEmpty() ||
+        details.zygiskDetected ||
+        details.xposedBridgeDetected ||
+        details.bootloaderUnlocked ||
+        details.dangerousSystemProperties.isNotEmpty() ||
+        details.selinuxEnabled == false
+}
+
+@Suppress("TooGenericExceptionCaught")
+internal fun isXposedBridgeActive(): Boolean {
+    // Check 1: XposedBridge class injected into this process (Xposed / LSPosed active)
+    if (runCatching { Class.forName("de.robv.android.xposed.XposedBridge") }.isSuccess) return true
+    // Check 2: XposedBridge JAR on disk (classic Xposed installed at system level)
+    if (safeFileExists("/system/framework/XposedBridge.jar")) return true
+    if (safeFileExists("/system/lib/XposedBridge.jar")) return true
+    return false
+}
+
+internal fun isBootloaderUnlocked(
+    verifiedBootState: String,
+    vbmetaDeviceState: String,
+    flashLocked: String
+): Boolean {
+    val verified = verifiedBootState.trim()
+    val vbmeta = vbmetaDeviceState.trim()
+    val flash = flashLocked.trim()
+    // "green"  = verified boot with OEM production key (safe)
+    // "yellow" = verified boot with custom device-specific key (safe on stock OEM ROMs;
+    //             some Oppo/Realme/MediaTek devices return this without user unlocking the bootloader)
+    // "orange" = user-unlocked bootloader (unsafe)
+    // "red"    = boot verification failed (unsafe)
+    val verifiedIndicator = verified.isNotBlank() &&
+        !verified.equals("green", ignoreCase = true) &&
+        !verified.equals("yellow", ignoreCase = true)
+    val vbmetaIndicator = vbmeta.equals("unlocked", ignoreCase = true)
+    val flashIndicator = flash == "0"
+    return verifiedIndicator || vbmetaIndicator || flashIndicator
+}
+
+internal fun resolvePrimaryRootIndicator(details: RootDetectionDetails): RootIndicatorType? {
+    return when {
+        details.zygiskDetected -> RootIndicatorType.Zygisk
+        details.xposedBridgeDetected -> RootIndicatorType.XposedBridge
+        details.magiskPaths.isNotEmpty() -> RootIndicatorType.Magisk
+        details.rootBinaryPaths.isNotEmpty() || details.hasSuBinary -> RootIndicatorType.RootBinary
+        details.selinuxEnabled == false -> RootIndicatorType.SelinuxDisabled
+        details.bootloaderUnlocked -> RootIndicatorType.Bootloader
+        details.dangerousSystemProperties.isNotEmpty() -> RootIndicatorType.DangerousProps
+        details.hasTestKeys -> RootIndicatorType.TestKeys
+        details.selinuxEnforced == false -> RootIndicatorType.SelinuxPermissive
+        else -> null
+    }
+}
+
+internal fun isSelinuxPermissive(details: RootDetectionDetails): Boolean {
+    return details.selinuxEnabled == true && details.selinuxEnforced == false
+}
+
+internal fun buildRootIndicatorLabel(
+    details: RootDetectionDetails,
+    indicator: RootIndicatorType
+): String {
+    return when (indicator) {
+        RootIndicatorType.Zygisk -> "Zygisk terdeteksi"
+        RootIndicatorType.Magisk -> {
+            val path = details.magiskPaths.firstOrNull()
+            if (path == null) {
+                "Folder Magisk terdeteksi"
+            } else {
+                "Folder Magisk terdeteksi: $path"
+            }
+        }
+        RootIndicatorType.RootBinary -> {
+            val path = details.rootBinaryPaths.firstOrNull()
+            if (path == null) {
+                "Binary root ditemukan"
+            } else {
+                "Binary root ditemukan: $path"
+            }
+        }
+        RootIndicatorType.SelinuxDisabled -> "SELinux nonaktif"
+        RootIndicatorType.SelinuxPermissive -> "SELinux permissive"
+        RootIndicatorType.XposedBridge -> "Xposed/LSPosed framework aktif"
+        RootIndicatorType.Bootloader -> {
+            val info = listOfNotNull(
+                details.verifiedBootState.takeIf { it != "-" }?.let { "verifiedbootstate=$it" },
+                details.vbmetaDeviceState.takeIf { it != "-" }?.let { "vbmeta=$it" },
+                details.flashLocked.takeIf { it != "-" }?.let { "flash.locked=$it" }
+            ).joinToString()
+            if (info.isBlank()) {
+                "Verified boot/bootloader tidak terkunci"
+            } else {
+                "Verified boot/bootloader: $info"
+            }
+        }
+        RootIndicatorType.DangerousProps -> {
+            val prop = details.dangerousSystemProperties.firstOrNull()
+            if (prop == null) {
+                "Properti sistem berbahaya terdeteksi"
+            } else {
+                "Properti sistem berbahaya: $prop"
+            }
+        }
+        RootIndicatorType.TestKeys -> "Build menggunakan test-keys"
+    }
+}
+
+internal fun buildRootIssueMessage(details: RootDetectionDetails): String {
+    val indicator = resolvePrimaryRootIndicator(details)
+    val indicatorLabel = indicator?.let { buildRootIndicatorLabel(details, it) }
+    return if (indicatorLabel.isNullOrBlank()) {
+        "Perangkat ini terdeteksi memiliki indikator root. " +
+            "Demi keamanan ujian, gunakan perangkat non-root untuk melanjutkan ujian."
+    } else {
+        "Perangkat ini terdeteksi memiliki indikator root ($indicatorLabel). " +
+            "Demi keamanan ujian, gunakan perangkat non-root untuk melanjutkan ujian."
+    }
+}
+
+internal fun formatYesNo(value: Boolean?): String {
+    return when (value) {
+        null -> "Tidak diketahui"
+        true -> "Ya"
+        false -> "Tidak"
+    }
+}
+
+internal fun safeFileExists(path: String): Boolean {
+    return runCatching { java.io.File(path).exists() }.getOrDefault(false)
+}
+
+internal fun scanProcSelfMapsForZygisk(): Boolean {
+    return runCatching {
+        val mapsFile = java.io.File("/proc/self/maps")
+        if (!mapsFile.canRead()) {
+            return@runCatching false
+        }
+        mapsFile.useLines { lines ->
+            lines.any { line ->
+                line.contains("zygisk", ignoreCase = true) ||
+                    line.contains("libzygisk", ignoreCase = true) ||
+                    // Extended injection scan: Riru, LSPosed, EdXposed, Substrate
+                    line.contains("libriru", ignoreCase = true) ||
+                    line.contains("lsposed", ignoreCase = true) ||
+                    line.contains("edxposed", ignoreCase = true) ||
+                    line.contains("libsubstrate", ignoreCase = true)
+            }
+        }
+    }.getOrDefault(false)
+}
+
+@SuppressLint("PrivateApi")
+internal fun readSelinuxEnabled(): Boolean? {
+    return runCatching {
+        val selinuxClass = Class.forName("android.os.SELinux")
+        val method = selinuxClass.getMethod("isSELinuxEnabled")
+        method.invoke(null) as? Boolean
+    }.getOrNull()
+}
+
+@SuppressLint("PrivateApi")
+internal fun readSelinuxEnforced(): Boolean? {
+    return runCatching {
+        val selinuxClass = Class.forName("android.os.SELinux")
+        val method = selinuxClass.getMethod("isSELinuxEnforced")
+        method.invoke(null) as? Boolean
+    }.getOrNull()
+}
+
+@SuppressLint("PrivateApi")
+internal fun getSystemProperty(key: String): String {
+    return runCatching {
+        val systemProperties = Class.forName("android.os.SystemProperties")
+        val getMethod = systemProperties.getMethod("get", String::class.java, String::class.java)
+        (getMethod.invoke(null, key, "") as? String).orEmpty()
+    }.getOrDefault("")
+}
+
+internal fun getVirtualEnvironmentDiagnostics(
+    context: Context,
+    forceRefresh: Boolean = false
+): VirtualEnvironmentDiagnostics {
+    if (!forceRefresh) {
+        getCachedVirtualEnvironmentDiagnostics()?.let { return it }
+    }
+
+    val appContext = context.applicationContext
+    val result = computeVirtualEnvironmentDiagnostics(
+        packageInventory = SecurityDetectorCache.readPackageInventory(
+            context = appContext,
+            forceRefresh = forceRefresh
+        )
+    )
+    if (forceRefresh) {
+        virtualEnvDiagnosticsCache.set(result)
+        return result
+    }
+    return if (virtualEnvDiagnosticsCache.compareAndSet(null, result)) result else {
+        virtualEnvDiagnosticsCache.get() ?: result
+    }
+}
+
+internal fun getCachedVirtualEnvironmentDiagnostics(): VirtualEnvironmentDiagnostics? {
+    return virtualEnvDiagnosticsCache.get()
+}
+
+internal fun invalidateVirtualEnvironmentDiagnosticsCache() {
+    virtualEnvDiagnosticsCache.set(null)
+}
+
+internal suspend fun getVirtualEnvironmentDiagnosticsOnIo(
+    context: Context,
+    forceRefresh: Boolean = false
+): VirtualEnvironmentDiagnostics = withContext(LowRamDispatchers.detectorIo) {
+    getVirtualEnvironmentDiagnostics(
+        context = context.applicationContext,
+        forceRefresh = forceRefresh
+    )
+}
+
+internal fun findRootPackagesFromInventory(
+    packageInventory: InstalledPackageInventory,
+    fallbackPackageExists: (String) -> Boolean = { false }
+): List<String> {
+    return RootPackageNames.filter { packageName ->
+        packageInventory.hasPackage(packageName) || fallbackPackageExists(packageName)
+    }
+}
+
+internal fun findEmulatorPackagesFromInventory(
+    inventory: InstalledPackageInventory
+): List<String> {
+    return inventory.records
+        .asSequence()
+        .map { record -> record.packageName }
+        .filter { packageName ->
+            EmulatorPackagePrefixes.any { prefix ->
+                packageName.startsWith(prefix, ignoreCase = true)
+            }
+        }
+        .toList()
+}
+
+private fun computeVirtualEnvironmentDiagnostics(
+    packageInventory: InstalledPackageInventory
+): VirtualEnvironmentDiagnostics {
+    val indicators = mutableListOf<String>()
+    val fingerprint = Build.FINGERPRINT.orEmpty()
+    if (VirtualFingerprintTokens.any { token ->
+            fingerprint.contains(token, ignoreCase = true)
+        }
+    ) {
+        indicators.add("fingerprint:$fingerprint")
+    }
+
+    val model = Build.MODEL.orEmpty()
+    if (VirtualModelTokens.any { token ->
+            model.contains(token, ignoreCase = true)
+        }
+    ) {
+        indicators.add("model:$model")
+    }
+
+    val manufacturer = Build.MANUFACTURER.orEmpty()
+    if (VirtualManufacturerTokens.any { token ->
+            manufacturer.contains(token, ignoreCase = true)
+        }
+    ) {
+        indicators.add("manufacturer:$manufacturer")
+    }
+
+    val brand = Build.BRAND.orEmpty()
+    val device = Build.DEVICE.orEmpty()
+    if (brand.startsWith("generic", ignoreCase = true) ||
+        device.startsWith("generic", ignoreCase = true)
+    ) {
+        indicators.add("generic_brand_device:${brand}/${device}")
+    }
+
+    val product = Build.PRODUCT.orEmpty()
+    if (VirtualProductTokens.any { token ->
+            product.contains(token, ignoreCase = true)
+        }
+    ) {
+        indicators.add("product:$product")
+    }
+
+    val hardware = Build.HARDWARE.orEmpty()
+    if (VirtualHardwareTokens.any { token ->
+            hardware.contains(token, ignoreCase = true)
+        }
+    ) {
+        indicators.add("hardware:$hardware")
+    }
+
+    val abis = Build.SUPPORTED_ABIS?.toList() ?: emptyList()
+    if (abis.any { it.contains("x86", ignoreCase = true) }) {
+        indicators.add("abis:${abis.joinToString()}")
+    }
+
+    val qemuProperty = getSystemProperty("ro.kernel.qemu").trim()
+    if (qemuProperty == "1") {
+        indicators.add("ro.kernel.qemu=1")
+    }
+
+    val qemuFiles = VirtualQemuFiles.filter { path ->
+        runCatching { java.io.File(path).exists() }.getOrDefault(false)
+    }
+    if (qemuFiles.isNotEmpty()) {
+        indicators.add("qemu_files:${qemuFiles.joinToString()}")
+    }
+
+    val emulatorPackages = findEmulatorPackagesFromInventory(packageInventory)
+    if (emulatorPackages.isNotEmpty()) {
+        indicators.add("packages:${emulatorPackages.joinToString()}")
+    }
+
+    return VirtualEnvironmentDiagnostics(
+        detected = indicators.isNotEmpty(),
+        indicators = indicators,
+        qemuProperty = qemuProperty,
+        emulatorPackages = emulatorPackages,
+        qemuFiles = qemuFiles,
+        abis = abis
+    )
+}
+
+internal fun getEnabledAccessibilityServicePackages(context: Context): List<String> {
+    return inspectAccessibility(context).activePackages
+}
+
+internal fun getRiskyAccessibilityPackages(context: Context): List<String> {
+    return inspectAccessibility(context).riskyPackages
+}
+
+internal fun isUsbConnected(context: Context): Boolean {
+    val batteryIntent = context.registerReceiver(null, IntentFilter(Intent.ACTION_BATTERY_CHANGED))
+    val plugged = batteryIntent?.getIntExtra(BatteryManager.EXTRA_PLUGGED, 0) ?: 0
+    return plugged and BatteryManager.BATTERY_PLUGGED_USB != 0
+}
+
+@Suppress("DEPRECATION")
+internal fun getInstallSourceSummary(context: Context): String {
+    return runCatching {
+        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.R) {
+            val info = context.packageManager.getInstallSourceInfo(context.packageName)
+            listOfNotNull(
+                info.initiatingPackageName,
+                info.installingPackageName,
+                info.originatingPackageName
+            ).distinct().joinToString().ifBlank { "-" }
+        } else {
+            context.packageManager.getInstallerPackageName(context.packageName).orEmpty().ifBlank { "-" }
+        }
+    }.getOrDefault("-")
+}
+
+internal fun isAppDebuggable(context: Context): Boolean {
+    val appInfo = context.applicationInfo
+    return appInfo.flags and ApplicationInfo.FLAG_DEBUGGABLE != 0
+}
+
+internal fun getSecurityPatchLevel(): String {
+    return Build.VERSION.SECURITY_PATCH.takeIf(String::isNotBlank) ?: "-"
+}
+
+internal fun getCurrentWebViewPackageSummary(context: Context): String {
+    val packageInfo = WebViewCompat.getCurrentWebViewPackage(context)
+
+    if (packageInfo != null) {
+        return "${packageInfo.packageName} ${packageInfo.versionName ?: ""}".trim()
+    }
+
+    val knownPackages = listOf(
+        "com.google.android.webview",
+        "com.android.webview",
+        "com.sec.android.app.sbrowser"
+    )
+
+    knownPackages.forEach { packageName ->
+        val found = runCatching { context.packageManager.getPackageInfo(packageName, 0) }.getOrNull()
+        if (found != null) {
+            return "${found.packageName} ${found.versionName ?: ""}".trim()
+        }
+    }
+
+    return "-"
+}
+
+internal fun formatBytesToReadable(byteCount: Long): String {
+    val gigaByte = 1024L * 1024L * 1024L
+    val megaByte = 1024L * 1024L
+    return when {
+        byteCount >= gigaByte -> String.format(Locale.US, "%.2f GB", byteCount.toDouble() / gigaByte)
+        byteCount >= megaByte -> String.format(Locale.US, "%.0f MB", byteCount.toDouble() / megaByte)
+        else -> "$byteCount B"
+    }
+}
+
+internal fun getMemorySummary(context: Context): String {
+    val activityManager = context.getSystemService(ActivityManager::class.java) ?: return "-"
+    val memoryInfo = ActivityManager.MemoryInfo()
+    activityManager.getMemoryInfo(memoryInfo)
+    return "avail ${formatBytesToReadable(memoryInfo.availMem)} / total ${formatBytesToReadable(memoryInfo.totalMem)}"
+}
+
+internal fun getStorageSummary(context: Context): String {
+    return runCatching {
+        val statFs = StatFs(context.filesDir.absolutePath)
+        val availableBytes = statFs.availableBytes
+        val totalBytes = statFs.totalBytes
+        "avail ${formatBytesToReadable(availableBytes)} / total ${formatBytesToReadable(totalBytes)}"
+    }.getOrDefault("-")
+}
+
+internal fun getLocaleSummary(context: Context): String {
+    val configuration = context.resources.configuration
+    val locale =
+        if (!configuration.locales.isEmpty) {
+            configuration.locales.get(0)
+        } else {
+            Locale.getDefault()
+        }
+    return locale.toLanguageTag()
+}
+
+internal fun getTimezoneSummary(): String {
+    val timeZone = TimeZone.getDefault()
+    return "${timeZone.id} (${timeZone.displayName})"
+}
+
+internal fun getClipboardDiagnostics(context: Context): ClipboardDiagnostics {
+    val snapshot = readClipboardSnapshot(context)
+    return ClipboardDiagnostics(
+        hasData = !snapshot.isEmpty,
+        itemCount = snapshot.itemCount,
+        currentSemanticSignature = snapshot.semanticSignature
+    )
+}

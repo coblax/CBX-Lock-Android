@@ -31,9 +31,9 @@
 # Keep native registration and JNI data carriers stable. The native library uses
 # RegisterNatives plus fixed JVM names/field names for these internal bridge
 # classes; obfuscating them can silently disable native paths in release.
--keep class com.example.coblaxexamlock.nativebridge.NativeBridgeBindings { *; }
--keep class com.example.coblaxexamlock.ClipboardNormalizedItemInput { *; }
--keep class com.example.coblaxexamlock.NativeClipboardSnapshotCore { *; }
+-keep class com.coblax.examlock.nativebridge.NativeBridgeBindings { *; }
+-keep class com.coblax.examlock.ClipboardNormalizedItemInput { *; }
+-keep class com.coblax.examlock.NativeClipboardSnapshotCore { *; }
 
 # Manifest entry points are rewritten by R8; avoid keeping activity internals readable.
 

@@ -4,5 +4,6 @@
         <item name="android:statusBarColor">@color/lock_background</item>
         <item name="android:navigationBarColor">@color/lock_background</item>
         <item name="android:windowBackground">@color/lock_background</item>
+        <item name="android:forceDarkAllowed">false</item>
     </style>
 </resources>

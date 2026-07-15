@@ -26,6 +26,9 @@ val localProperties = Properties().apply {
 fun String.asBuildConfigString(): String =
     "\"" + replace("\\", "\\\\").replace("\"", "\\\"") + "\""
 
+fun optionalBuildConfigString(value: String, enabled: Boolean): String =
+    (if (enabled) value else "").asBuildConfigString()
+
 fun String.xorBase64Obfuscate(key: Int): String {
     if (isEmpty()) return ""
     val bytes = toByteArray()
@@ -90,6 +93,10 @@ val signingSha256Debug = (localProperties.getProperty("signing.sha256.debug") ?:
 val mapsApiKey = (localProperties.getProperty("maps.api.key") ?: "").trim()
 val stringObfuscationKey = 115
 val releaseKeystorePath = releaseSigningValue("release.keystore.path", "CBX_RELEASE_KEYSTORE")
+val releaseRemoteDiagnosticsEnabled = releaseSigningValue(
+    "telegram.release.diagnostics.enabled",
+    "CBX_RELEASE_REMOTE_DIAGNOSTICS_ENABLED"
+).equals("true", ignoreCase = true)
 val releaseKeystorePassword = releaseSigningValue(
     "release.keystore.password",
     "CBX_RELEASE_KEYSTORE_PASSWORD"
@@ -109,15 +116,15 @@ val signingSha256DebugObf = signingSha256Debug.xorBase64Obfuscate(stringObfuscat
 val mapsApiKeyObf = mapsApiKey.xorBase64Obfuscate(stringObfuscationKey)
 
 android {
-    namespace = "com.example.coblaxexamlock"
+    namespace = "com.coblax.examlock"
     compileSdk = 36
 
     defaultConfig {
-        applicationId = "com.example.coblaxexamlock"
+        applicationId = "com.coblax.examlock"
         minSdk = 24
         targetSdk = 36
-        versionCode = 360
-        versionName = "3.2.40"
+        versionCode = 362
+        versionName = "3.2.42"
         ndk {
             abiFilters += listOf("arm64-v8a", "armeabi-v7a", "x86_64")
         }
@@ -126,8 +133,9 @@ android {
                 cppFlags += listOf("-std=c++17", "-fexceptions", "-frtti")
             }
         }
-        buildConfigField("String", "TELEGRAM_BOT_TOKEN_OBF", telegramBotTokenObf.asBuildConfigString())
-        buildConfigField("String", "TELEGRAM_BUG_CHAT_ID_OBF", telegramBugChatIdObf.asBuildConfigString())
+        buildConfigField("boolean", "REMOTE_DIAGNOSTICS_ENABLED", "false")
+        buildConfigField("String", "TELEGRAM_BOT_TOKEN_OBF", "".asBuildConfigString())
+        buildConfigField("String", "TELEGRAM_BUG_CHAT_ID_OBF", "".asBuildConfigString())
         buildConfigField("String", "MAPS_API_KEY_OBF", mapsApiKeyObf.asBuildConfigString())
         buildConfigField(
             "String",
@@ -160,6 +168,9 @@ android {
 
     buildTypes {
         debug {
+            buildConfigField("boolean", "REMOTE_DIAGNOSTICS_ENABLED", "true")
+            buildConfigField("String", "TELEGRAM_BOT_TOKEN_OBF", telegramBotTokenObf.asBuildConfigString())
+            buildConfigField("String", "TELEGRAM_BUG_CHAT_ID_OBF", telegramBugChatIdObf.asBuildConfigString())
             externalNativeBuild {
                 cmake {
                     cppFlags += listOf("-g")
@@ -170,6 +181,21 @@ android {
             isMinifyEnabled = true
             isShrinkResources = true
             isDebuggable = false
+            buildConfigField(
+                "boolean",
+                "REMOTE_DIAGNOSTICS_ENABLED",
+                releaseRemoteDiagnosticsEnabled.toString()
+            )
+            buildConfigField(
+                "String",
+                "TELEGRAM_BOT_TOKEN_OBF",
+                optionalBuildConfigString(telegramBotTokenObf, releaseRemoteDiagnosticsEnabled)
+            )
+            buildConfigField(
+                "String",
+                "TELEGRAM_BUG_CHAT_ID_OBF",
+                optionalBuildConfigString(telegramBugChatIdObf, releaseRemoteDiagnosticsEnabled)
+            )
             if (releaseSigningConfigured) {
                 signingConfig = signingConfigs.getByName("release")
             }
@@ -189,6 +215,9 @@ android {
             isShrinkResources = true
             isDebuggable = false
             isProfileable = true
+            buildConfigField("boolean", "REMOTE_DIAGNOSTICS_ENABLED", "true")
+            buildConfigField("String", "TELEGRAM_BOT_TOKEN_OBF", telegramBotTokenObf.asBuildConfigString())
+            buildConfigField("String", "TELEGRAM_BUG_CHAT_ID_OBF", telegramBugChatIdObf.asBuildConfigString())
             signingConfig = signingConfigs.getByName("debug")
             matchingFallbacks += listOf("release")
             externalNativeBuild {
@@ -229,6 +258,7 @@ dependencies {
     implementation(libs.androidx.compose.ui.graphics)
     implementation(libs.androidx.compose.ui.tooling.preview)
     implementation(libs.androidx.compose.material3)
+    implementation(libs.androidx.compose.material3.windowsize)
     implementation(libs.androidx.webkit)
     implementation(libs.androidx.compose.material.icons.extended)
     implementation(libs.androidx.security.crypto)
