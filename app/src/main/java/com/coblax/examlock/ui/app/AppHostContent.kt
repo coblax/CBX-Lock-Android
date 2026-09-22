@@ -1190,9 +1190,9 @@ internal fun AppHostRuntimeContent(
                                 adminFlowViewModel.dispatch(AdminFlowUiAction.OpenCustomQrAdmin)
                             }
                         },
-                        onOpenFastExam = ::launchDirectLink,
+                        onOpenFastExam = { launchDirectLink() },
                         directLinkLabel = directLinkLabel,
-                        onSecretTap = ::registerSecretTap,
+                        onSecretTap = { registerSecretTap() },
                         onOpenPerformanceProfile = { showPerformanceProfileDialog = true },
                         showDeferredChrome = showDeferredHomeChrome
                     )
@@ -1209,9 +1209,9 @@ internal fun AppHostRuntimeContent(
                                 adminFlowViewModel.dispatch(AdminFlowUiAction.OpenCustomQrAdmin)
                             }
                         },
-                        onOpenFastExam = ::launchDirectLink,
+                        onOpenFastExam = { launchDirectLink() },
                         directLinkLabel = directLinkLabel,
-                        onSecretTap = ::registerSecretTap,
+                        onSecretTap = { registerSecretTap() },
                         onOpenPerformanceProfile = { showPerformanceProfileDialog = true },
                         showDeferredChrome = showDeferredHomeChrome
                     )
@@ -1221,9 +1221,9 @@ internal fun AppHostRuntimeContent(
                     screen = currentScreen,
                     uiState = adminFlowUiState,
                     activeExamPayload = activeExamPayload,
-                    adminSettingsSnapshot = ::activeAdminSettingsSnapshot,
-                    applyAdminSettings = ::applyAdminSettings,
-                    dispatch = adminFlowViewModel::dispatch,
+                    adminSettingsSnapshot = { activeAdminSettingsSnapshot() },
+                    applyAdminSettings = { updated -> applyAdminSettings(updated) },
+                    dispatch = { action -> adminFlowViewModel.dispatch(action) },
                     pendingDirectLinkSaveLog = pendingDirectLinkSaveLog,
                     pendingRecoveryEventDetails = pendingRecoveryEventDetails,
                     onDirectLinkSaveLogConsumed = { pendingDirectLinkSaveLog = null },
@@ -1255,7 +1255,7 @@ internal fun AppHostRuntimeContent(
                 selectedOverride = lowRamProfile.lowRamOverride,
                 detectedProfile = detectedLowRamProfile,
                 effectiveProfile = lowRamProfile,
-                onOverrideChange = ::updateLowRamProfileOverride,
+                onOverrideChange = { override -> updateLowRamProfileOverride(override) },
                 onDismiss = { showPerformanceProfileDialog = false }
             )
         }
@@ -1592,7 +1592,7 @@ internal fun AppHostRuntimeContent(
         if (adminFlowUiState.showScanSourceDialog) {
             ExamScanSourceDialogHost(
                 uiLanguage = uiLanguage,
-                onRawPayload = ::handleExamQrRawPayload,
+                onRawPayload = { rawPayload -> handleExamQrRawPayload(rawPayload) },
                 onScanError = { message ->
                     adminFlowViewModel.dispatch(AdminFlowUiAction.SetScanErrorMessage(message))
                 },

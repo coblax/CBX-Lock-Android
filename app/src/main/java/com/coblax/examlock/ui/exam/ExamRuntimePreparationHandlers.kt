@@ -260,7 +260,7 @@ internal class ExamRuntimeDiagnosticExportOps(
             uiLanguage = uiLanguage,
             source = source,
             snapshot = buildSnapshot(source),
-            recordAction = runtimeDiagnosticsOps::recordAction,
+            recordAction = { code, details, level -> runtimeDiagnosticsOps.recordAction(code, details, level) },
             showExportFailure = { title, message ->
                 adminUiState.bugReportFeedbackTitle.value = title
                 adminUiState.bugReportFeedbackMessage.value = message
@@ -644,18 +644,18 @@ internal class ExamRuntimePreparationActionOps(
             geofenceManualRefreshInFlight = flowUiState.geofenceManualRefreshInFlight.value,
             isExamGuardAccessibilityEnabled = ::isExamGuardAccessibilityEnabled,
             callbacks = ExamRuntimePreparationRefreshCallbacks(
-                launchNetworkManualRefresh = runtimeDiagnosticsOps::launchNetworkManualRefresh,
-                updateNetworkReadiness = runtimeDiagnosticsOps::updateNetworkReadiness,
+                launchNetworkManualRefresh = { trigger -> runtimeDiagnosticsOps.launchNetworkManualRefresh(trigger) },
+                updateNetworkReadiness = { source -> runtimeDiagnosticsOps.updateNetworkReadiness(source) },
                 launchLocationSecurityManualRefresh =
-                    runtimeDiagnosticsOps::launchLocationSecurityManualRefresh,
-                refreshReverseEngineeringStatus = runtimeMonitoringOps::refreshReverseEngineeringStatus,
-                refreshIntegrityGuard = runtimeMonitoringOps::refreshIntegrityGuard,
-                refreshScreenPinningDiagnostics = runtimeSecurityOps::refreshScreenPinningDiagnostics,
+                    { trigger -> runtimeDiagnosticsOps.launchLocationSecurityManualRefresh(trigger) },
+                refreshReverseEngineeringStatus = { runtimeMonitoringOps.refreshReverseEngineeringStatus() },
+                refreshIntegrityGuard = { runtimeMonitoringOps.refreshIntegrityGuard() },
+                refreshScreenPinningDiagnostics = { runtimeSecurityOps.refreshScreenPinningDiagnostics() },
                 incrementWebViewCompatibilityRefreshKey = incrementWebViewCompatibilityRefreshKey,
                 updateAccessibilityGuardEnabled = { accessibilityGuardEnabledState.value = it },
-                refreshKeyboardSecurity = runtimeSecurityOps::refreshKeyboardSecurity,
-                refreshBluetoothSecurity = runtimeSecurityOps::refreshBluetoothSecurity,
-                refreshDeviceIntegritySecurity = runtimeSecurityOps::refreshDeviceIntegritySecurity,
+                refreshKeyboardSecurity = { triggerViolation -> runtimeSecurityOps.refreshKeyboardSecurity(triggerViolation) },
+                refreshBluetoothSecurity = { triggerViolation -> runtimeSecurityOps.refreshBluetoothSecurity(triggerViolation) },
+                refreshDeviceIntegritySecurity = { triggerViolation -> runtimeSecurityOps.refreshDeviceIntegritySecurity(triggerViolation) },
                 refreshDeviceTimeSecurity = { trigger ->
                     runtimeDiagnosticsOps.refreshDeviceTimeSecurity(trigger = trigger)
                 },
@@ -676,8 +676,8 @@ internal class ExamRuntimePreparationActionOps(
                             bypassMultiWindow = adminSettings.bypassMultiWindow,
                             securityUiState = securityUiState,
                             trigger = "checklist_refresh",
-                            recordAction = runtimeDiagnosticsOps::recordAction,
-                            startAlarm = examAlarmController::start,
+                            recordAction = { code, details, level -> runtimeDiagnosticsOps.recordAction(code, details, level) },
+                            startAlarm = { examAlarmController.start() },
                             forceRefresh = true
                         )
                     }
@@ -704,7 +704,7 @@ internal class ExamRuntimePreparationActionOps(
     fun handleRefreshPreExamHealthCheck(deviceCompatibilityProfile: DeviceCompatibilityProfile) {
         handleExamRuntimePreExamHealthRefresh(
             deviceCompatibilityProfile = deviceCompatibilityProfile,
-            recordAction = runtimeDiagnosticsOps::recordAction,
+            recordAction = { code, details, level -> runtimeDiagnosticsOps.recordAction(code, details, level) },
             refreshPreparationStatusChecks = ::refreshPreparationStatusChecks
         )
     }

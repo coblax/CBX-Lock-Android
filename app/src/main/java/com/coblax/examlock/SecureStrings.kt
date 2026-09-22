@@ -2,7 +2,7 @@ package com.coblax.examlock
 
 object SecureStrings {
     internal const val OBF_FAST_EXAM_URL =
-        "GwcHAwBJXFwEBARdAB4YHUIHEh0ZBh0UAxIdFxIdXQAQG10aF1w="
+        "GwcHAwBJXFwAGBIdABIHA10EFhFdGhdcTBYLEh4YFgpOQUFARUJC"
 
     val fastExamUrl: String by lazy {
         RuntimeStringDecoder.decodeBase64Xor(OBF_FAST_EXAM_URL)

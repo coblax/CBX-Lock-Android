@@ -488,13 +488,24 @@ internal suspend fun probeNetworkDnsStatus(
             )
         },
         onFailure = { throwable ->
-            NetworkDnsProbeStatus(
-                verdict = NetworkDnsProbeVerdict.Failed,
-                host = host,
-                latencyMillis = elapsedMs,
-                latencyBucket = resolveNetworkLatencyBucket(elapsedMs, slowThresholdMillis),
-                error = throwable.javaClass.simpleName.take(80)
-            )
+            // A busy resolver means the host was never looked up. Reporting that as a
+            // DNS failure told students their network was broken when nothing had been
+            // asked of it, so it stays inconclusive and the global probe decides.
+            if (throwable is DnsResolverBusyException) {
+                NetworkDnsProbeStatus(
+                    verdict = NetworkDnsProbeVerdict.Skipped,
+                    host = host,
+                    error = "resolver_busy"
+                )
+            } else {
+                NetworkDnsProbeStatus(
+                    verdict = NetworkDnsProbeVerdict.Failed,
+                    host = host,
+                    latencyMillis = elapsedMs,
+                    latencyBucket = resolveNetworkLatencyBucket(elapsedMs, slowThresholdMillis),
+                    error = throwable.javaClass.simpleName.take(80)
+                )
+            }
         }
     )
 }

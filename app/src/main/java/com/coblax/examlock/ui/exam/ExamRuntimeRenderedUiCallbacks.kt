@@ -65,9 +65,9 @@ internal class ExamRuntimeRenderedUiCallbacks(
             deviceQuirkProfile = deviceQuirkProfile,
             lastTrustedRuntimeChromeActionElapsedMs = lastTrustedRuntimeChromeActionElapsedMsState.value,
             lastTrustedRuntimeChromeActionReason = lastTrustedRuntimeChromeActionReasonState.value,
-            currentOverlayEventDetails = runtimeDiagnosticsOps::currentOverlayEventDetails,
-            recordAction = runtimeDiagnosticsOps::recordAction,
-            recordOverlayEvent = runtimeDiagnosticsOps::recordOverlayEvent,
+            currentOverlayEventDetails = { signal, extraContext -> runtimeDiagnosticsOps.currentOverlayEventDetails(signal, extraContext) },
+            recordAction = { code, details, level -> runtimeDiagnosticsOps.recordAction(code, details, level) },
+            recordOverlayEvent = { code, signal, level, extraContext -> runtimeDiagnosticsOps.recordOverlayEvent(code, signal, level, extraContext) },
             onBlockedOverlayTouch = {
                 securityUiState.overlayViolationCount.intValue += 1
                 securityUiState.showOverlayViolationDialog.value = true
@@ -104,7 +104,7 @@ internal class ExamRuntimeRenderedUiCallbacks(
         handleExamRuntimeWebViewLoadStart(
             url = url,
             useBuiltInExamKeyboard = flowUiState.useBuiltInExamKeyboard.value,
-            recordAction = runtimeDiagnosticsOps::recordAction,
+            recordAction = { code, details, level -> runtimeDiagnosticsOps.recordAction(code, details, level) },
             setHasEditableFocus = { flowUiState.hasEditableFocus.value = it },
             setWebViewErrorMessage = { flowUiState.webViewErrorMessage.value = it },
             setLoadingProgress = { webViewUiState.loadingProgress.floatValue = it },
@@ -123,7 +123,7 @@ internal class ExamRuntimeRenderedUiCallbacks(
             sideArrowControlsVisible = flowUiState.sideArrowControlsVisible.value,
             useBuiltInExamKeyboard = flowUiState.useBuiltInExamKeyboard.value,
             nativeExamFullscreenActive = examGuardArmed || webViewUiState.fullScreenCustomView.value != null,
-            recordAction = runtimeDiagnosticsOps::recordAction,
+            recordAction = { code, details, level -> runtimeDiagnosticsOps.recordAction(code, details, level) },
             setWebViewErrorMessage = { flowUiState.webViewErrorMessage.value = it },
             setExamServerStatus = { examServerStatusState.value = it },
             hideSystemKeyboard = hideSystemKeyboard
@@ -136,7 +136,7 @@ internal class ExamRuntimeRenderedUiCallbacks(
         }
         handleExamRuntimeWebViewLoadError(
             description = description,
-            recordAction = runtimeDiagnosticsOps::recordAction,
+            recordAction = { code, details, level -> runtimeDiagnosticsOps.recordAction(code, details, level) },
             setWebViewErrorMessage = { flowUiState.webViewErrorMessage.value = it },
             setExamServerStatus = { examServerStatusState.value = it }
         )
@@ -148,7 +148,7 @@ internal class ExamRuntimeRenderedUiCallbacks(
         }
         handleExamRuntimeWebViewHttpError(
             statusCode = statusCode,
-            recordAction = runtimeDiagnosticsOps::recordAction,
+            recordAction = { code, details, level -> runtimeDiagnosticsOps.recordAction(code, details, level) },
             setWebViewErrorMessage = { flowUiState.webViewErrorMessage.value = it },
             setExamServerStatus = { examServerStatusState.value = it }
         )

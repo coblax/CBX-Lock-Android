@@ -1303,8 +1303,8 @@ internal fun ExamRuntimeSessionScreenImpl(
         ),
         callbacks = ExamRuntimeMonitoringCallbacks(
             currentAppSwitchEventDetails = { signal -> currentAppSwitchEventDetails(signal) },
-            clearAppSwitchSuppression = ::clearAppSwitchSuppression,
-            clearDpcExamPoliciesForSession = ::clearDpcExamPoliciesForSession,
+            clearAppSwitchSuppression = { clearAppSwitchSuppression() },
+            clearDpcExamPoliciesForSession = { reason -> clearDpcExamPoliciesForSession(reason) },
             recordAction = { code, details, level ->
                 recordAction(code = code, details = details, level = level)
             }
@@ -1362,8 +1362,8 @@ internal fun ExamRuntimeSessionScreenImpl(
         recordInfoAction = { code, details -> recordAction(code = code, details = details) },
         onDirectLinkSaveLogConsumed = onDirectLinkSaveLogConsumed,
         onRecoveryEventConsumed = onRecoveryEventConsumed,
-        refreshReverseEngineeringStatus = ::refreshReverseEngineeringStatus,
-        refreshIntegrityGuard = ::refreshIntegrityGuard,
+        refreshReverseEngineeringStatus = { refreshReverseEngineeringStatus() },
+        refreshIntegrityGuard = { refreshIntegrityGuard() },
         onSimulateRendererGone = {
             handleWebViewRendererGone(
                 view = webViewInstance,
@@ -1371,7 +1371,7 @@ internal fun ExamRuntimeSessionScreenImpl(
                 rendererPriorityAtExit = null
             )
         },
-        onTrimMemory = ::handleRuntimeTrimMemory
+        onTrimMemory = { level -> handleRuntimeTrimMemory(level) }
     )
 
     val keyboardBridge: ExamKeyboardBridge = remember {
@@ -1474,7 +1474,7 @@ internal fun ExamRuntimeSessionScreenImpl(
         accessibilityGuardLastDetectedAtState = accessibilityGuardLastDetectedAtState,
         accessibilityGuardAlarmSeverityState = accessibilityGuardAlarmSeverityState,
         examAlarmController = examAlarmController,
-        refreshIntegrityGuard = ::refreshIntegrityGuard
+        refreshIntegrityGuard = { refreshIntegrityGuard() }
     )
     fun refreshKeyboardSecurity(triggerViolation: Boolean) = runtimeSecurityOps.refreshKeyboardSecurity(triggerViolation)
     fun refreshBluetoothSecurity(triggerViolation: Boolean) = runtimeSecurityOps.refreshBluetoothSecurity(triggerViolation)
@@ -1546,7 +1546,7 @@ internal fun ExamRuntimeSessionScreenImpl(
                 clipboardUiState = clipboardUiState,
                 securityUiState = securityUiState,
                 lockTaskAlreadyActive = lockTaskAlreadyActive,
-                hideSystemKeyboard = ::hideSystemKeyboard,
+                hideSystemKeyboard = { hideSystemKeyboard() },
                 recordAction = { code, details, level ->
                     recordAction(code = code, details = details, level = level)
                 }
@@ -1645,18 +1645,18 @@ internal fun ExamRuntimeSessionScreenImpl(
                     setScreenPinningMessage = { screenPinningMessage = it },
                     setWebViewErrorMessage = { webViewErrorMessage = it },
                     setExitOnSecurityIssueDialogDismiss = { exitOnSecurityIssueDialogDismiss = it },
-                    resetPreparationSecurityEpisodes = this::resetPreparationSecurityEpisodes,
-                    prepareCleanExamWebViewSessionForStart = this::prepareCleanExamWebViewSessionForStart,
-                    armExamRuntimeMonitoring = ::armExamRuntimeMonitoring,
-                    finalizeExamSessionStart = this::finalizeExamSessionStart,
+                    resetPreparationSecurityEpisodes = { this.resetPreparationSecurityEpisodes() },
+                    prepareCleanExamWebViewSessionForStart = { this.prepareCleanExamWebViewSessionForStart() },
+                    armExamRuntimeMonitoring = { reason -> armExamRuntimeMonitoring(reason) },
+                    finalizeExamSessionStart = { lockTaskAlreadyActive -> this.finalizeExamSessionStart(lockTaskAlreadyActive) },
                     ensureDeviceOwnerLockTaskActive = {
                         applyDpcExamPoliciesForStart(startLockTask = true)
                     },
-                    refreshDpcRuntimeStatus = ::refreshDpcRuntimeStatus,
-                    clearAppSwitchSuppression = ::clearAppSwitchSuppression,
+                    refreshDpcRuntimeStatus = { refreshDpcRuntimeStatus() },
+                    clearAppSwitchSuppression = { clearAppSwitchSuppression() },
                     setAppSwitchSuppression = { reason -> setAppSwitchSuppression(reason) },
-                    hideStartExamPreflight = this::hideStartExamPreflight,
-                    applyStartExamBlockMessage = this::applyStartExamBlockMessage,
+                    hideStartExamPreflight = { this.hideStartExamPreflight() },
+                    applyStartExamBlockMessage = { message -> this.applyStartExamBlockMessage(message) },
                     recordAction = { code, details, level ->
                         recordAction(code = code, details = details, level = level)
                     }
@@ -1718,23 +1718,23 @@ internal fun ExamRuntimeSessionScreenImpl(
                                 triggerViolation = triggerViolation
                             )
                         },
-                        refreshReverseEngineeringStatus = ::refreshReverseEngineeringStatusOnDetector,
-                        refreshIntegrityGuard = ::refreshIntegrityGuardOnDetector,
-                        refreshScreenPinningDiagnostics = ::refreshScreenPinningDiagnostics,
-                        refreshKeyboardSecurity = ::refreshKeyboardSecurity,
-                        refreshBluetoothSecurity = ::refreshBluetoothSecurity,
-                        refreshDeviceIntegritySecurity = ::refreshDeviceIntegritySecurity,
-                        updateStartExamPreflight = this::updateStartExamPreflight,
-                        hideStartExamPreflight = this::hideStartExamPreflight,
-                        applyStartExamBlockMessage = this::applyStartExamBlockMessage,
+                        refreshReverseEngineeringStatus = { refreshReverseEngineeringStatusOnDetector() },
+                        refreshIntegrityGuard = { refreshIntegrityGuardOnDetector() },
+                        refreshScreenPinningDiagnostics = { refreshScreenPinningDiagnostics() },
+                        refreshKeyboardSecurity = { triggerViolation -> refreshKeyboardSecurity(triggerViolation) },
+                        refreshBluetoothSecurity = { triggerViolation -> refreshBluetoothSecurity(triggerViolation) },
+                        refreshDeviceIntegritySecurity = { triggerViolation -> refreshDeviceIntegritySecurity(triggerViolation) },
+                        updateStartExamPreflight = { step, detail -> this.updateStartExamPreflight(step, detail) },
+                        hideStartExamPreflight = { this.hideStartExamPreflight() },
+                        applyStartExamBlockMessage = { message -> this.applyStartExamBlockMessage(message) },
                         refreshDeviceTimeSecurity = { trigger, emitDiagnosticEvent ->
                             refreshDeviceTimeSecurity(
                                 trigger = trigger,
                                 emitDiagnosticEvent = emitDiagnosticEvent
                             )
                         },
-                        applyNetworkReadinessStatus = ::applyNetworkReadinessStatus,
-                        checkSignatureIntegrity = ::checkSignatureIntegrity,
+                        applyNetworkReadinessStatus = { source, refreshedStatus -> applyNetworkReadinessStatus(source, refreshedStatus) },
+                        checkSignatureIntegrity = { triggerViolation -> checkSignatureIntegrity(triggerViolation) },
                         currentGeofenceEventDetails = { trigger, geofenceStatus ->
                             currentGeofenceEventDetails(
                                 trigger = trigger,
@@ -1750,7 +1750,7 @@ internal fun ExamRuntimeSessionScreenImpl(
                         ensureDeviceOwnerLockTaskActive = {
                             applyDpcExamPoliciesForStart(startLockTask = true)
                         },
-                        refreshDpcRuntimeStatus = ::refreshDpcRuntimeStatus,
+                        refreshDpcRuntimeStatus = { refreshDpcRuntimeStatus() },
                         requestBluetoothPermission = {
                             bluetoothPermissionLauncher.launch(getBluetoothConnectPermission())
                         },
@@ -1787,21 +1787,21 @@ internal fun ExamRuntimeSessionScreenImpl(
                                             fakeLocationStatus = fakeLocationStatus
                                         )
                                     },
-                                    updateStartExamPreflight = this::updateStartExamPreflight,
-                                    hideStartExamPreflight = this::hideStartExamPreflight,
-                                    applyStartExamBlockMessage = this::applyStartExamBlockMessage,
+                                    updateStartExamPreflight = { step, detail -> this.updateStartExamPreflight(step, detail) },
+                                    hideStartExamPreflight = { this.hideStartExamPreflight() },
+                                    applyStartExamBlockMessage = { message -> this.applyStartExamBlockMessage(message) },
                                     refreshDeviceTimeSecurity = { trigger, emitDiagnosticEvent ->
                                         refreshDeviceTimeSecurity(
                                             trigger = trigger,
                                             emitDiagnosticEvent = emitDiagnosticEvent
                                         )
                                     },
-                                    completeStartExamSessionAfterPrechecks = this::completeStartExamSessionAfterPrechecks,
-                                    debugLogExamStart = ::debugLogExamStart
+                                    completeStartExamSessionAfterPrechecks = { this.completeStartExamSessionAfterPrechecks() },
+                                    debugLogExamStart = { message -> debugLogExamStart(message) }
                                 )
                             )
                         },
-                        debugLogExamStart = ::debugLogExamStart
+                        debugLogExamStart = { message -> debugLogExamStart(message) }
                     )
                 )
             } catch (throwable: Throwable) {
@@ -1838,12 +1838,12 @@ internal fun ExamRuntimeSessionScreenImpl(
             rawText = rawText,
             shiftEnabled = builtInKeyboardShiftEnabled,
             updateShiftEnabled = { builtInKeyboardShiftEnabled = it },
-            hideSystemKeyboard = ::hideSystemKeyboard
+            hideSystemKeyboard = { hideSystemKeyboard() }
         )
     }
 
     fun sendBuiltInKeyboardBackspace() {
-        sendBuiltInExamKeyboardBackspace(webViewInstance, ::hideSystemKeyboard)
+        sendBuiltInExamKeyboardBackspace(webViewInstance, { hideSystemKeyboard() })
     }
 
     fun sendKeyboardArrowLeft() {
@@ -1855,7 +1855,7 @@ internal fun ExamRuntimeSessionScreenImpl(
     }
 
     fun sendBuiltInKeyboardEnter() {
-        sendBuiltInExamKeyboardEnter(webViewInstance, ::hideSystemKeyboard)
+        sendBuiltInExamKeyboardEnter(webViewInstance, { hideSystemKeyboard() })
     }
 
     fun handleScreenPinningTransitionInterrupted() {
@@ -1886,14 +1886,14 @@ internal fun ExamRuntimeSessionScreenImpl(
         nativeExamFullscreenActive = nativeExamFullscreenActive,
         webViewInstance = webViewInstance,
         nativeFullscreenBridge = nativeFullscreenBridge,
-        refreshScreenPinningDiagnostics = ::refreshScreenPinningDiagnostics,
-        refreshKeyboardSecurity = ::refreshKeyboardSecurity,
-        refreshBluetoothSecurity = ::refreshBluetoothSecurity,
-        refreshDeviceIntegritySecurity = ::refreshDeviceIntegritySecurity,
+        refreshScreenPinningDiagnostics = { refreshScreenPinningDiagnostics() },
+        refreshKeyboardSecurity = { triggerViolation -> refreshKeyboardSecurity(triggerViolation) },
+        refreshBluetoothSecurity = { triggerViolation -> refreshBluetoothSecurity(triggerViolation) },
+        refreshDeviceIntegritySecurity = { triggerViolation -> refreshDeviceIntegritySecurity(triggerViolation) },
         updateBluetoothPermissionGranted = { bluetoothPermissionGranted = it },
         updateUseBuiltInExamKeyboard = { useBuiltInExamKeyboard = it },
         updateShowBuiltInExamKeyboard = { showBuiltInExamKeyboard = it },
-        cleanupActiveExamWebViewInstance = ::cleanupActiveExamWebViewInstance
+        cleanupActiveExamWebViewInstance = { cleanupActiveExamWebViewInstance() }
     )
 
     PreparationLocationWarmupEffect(
@@ -1913,7 +1913,7 @@ internal fun ExamRuntimeSessionScreenImpl(
         updateLocationWarmupInFlight = { locationWarmupInFlight = it },
         updateReusableWarmLocationValidation = { reusableWarmLocationValidation = it },
         updateLastGeofenceRefreshAt = { lastGeofenceRefreshAt = it },
-        refreshGeofenceStatus = ::refreshGeofenceStatus
+        refreshGeofenceStatus = { preferFresh, trigger, allowRuntimeViolation -> refreshGeofenceStatus(preferFresh, trigger, allowRuntimeViolation) }
     )
 
     BypassTamperLoggingEffects(
@@ -1940,7 +1940,7 @@ internal fun ExamRuntimeSessionScreenImpl(
         updateAppSwitchBypassTamperLogged = { appSwitchBypassTamperLogged = it },
         rootBypassTamperLogged = rootBypassTamperLogged,
         updateRootBypassTamperLogged = { rootBypassTamperLogged = it },
-        recordAction = ::recordAction
+        recordAction = { code, details, level -> recordAction(code, details, level) }
     )
 
     DisposableEffect(mainActivity) {
@@ -1956,34 +1956,34 @@ internal fun ExamRuntimeSessionScreenImpl(
         screenPinningMode = screenPinningMode,
         appSwitchFallbackArmedLogged = appSwitchFallbackArmedLogged,
         updateAppSwitchFallbackArmedLogged = { appSwitchFallbackArmedLogged = it },
-        recordAction = ::recordAction
+        recordAction = { code, details, level -> recordAction(code, details, level) }
     )
 
     AccessibilityExamGuardViolationEffect(
         context = context,
         examSessionStarted = examSessionStarted,
         accessibilityGuardFallbackActive = accessibilityGuardFallbackActive,
-        onViolation = ::handleAccessibilityGuardViolation
+        onViolation = { violation -> handleAccessibilityGuardViolation(violation) }
     )
 
     AccessibilityExamGuardLivenessEffect(
         context = context,
         examSessionStarted = examSessionStarted,
         accessibilityGuardFallbackActive = accessibilityGuardFallbackActive,
-        recordAction = ::recordAction
+        recordAction = { code, details, level -> recordAction(code, details, level) }
     )
 
     RuntimeDisposeCleanupEffect(
         examSessionStarted = examSessionStarted,
         lockTaskRequestPending = lockTaskRequestPending,
         lockTaskBridge = lockTaskBridge,
-        cleanupActiveExamWebViewInstance = ::cleanupActiveExamWebViewInstance,
+        cleanupActiveExamWebViewInstance = { cleanupActiveExamWebViewInstance() },
         launchExitSessionClearBestEffort = {
             launchExitSessionClearBestEffort("runtime_dispose")
         },
-        clearDpcExamPoliciesForSession = ::clearDpcExamPoliciesForSession,
+        clearDpcExamPoliciesForSession = { reason -> clearDpcExamPoliciesForSession(reason) },
         disarmAccessibilityGuard = { AccessibilityExamGuardStore.disarm(context) },
-        stopAlarm = examAlarmController::stop
+        stopAlarm = { examAlarmController.stop() }
     )
 
     val runtimeLockTaskRequirement = resolveLockTaskSecurityRequirement(
@@ -1998,12 +1998,12 @@ internal fun ExamRuntimeSessionScreenImpl(
         flowUiState = flowUiState,
         adminUiState = adminUiState,
         coroutineScope = coroutineScope,
-        recordAction = ::recordAction,
-        clearAppSwitchSuppression = ::clearAppSwitchSuppression,
-        disarmExamRuntimeMonitoring = ::disarmExamRuntimeMonitoring,
-        resetPreparationSecurityEpisodes = startExamController::resetPreparationSecurityEpisodes,
-        prepareCleanExamWebViewSessionForStart = startExamController::prepareCleanExamWebViewSessionForStart,
-        finalizeExamSessionStart = startExamController::finalizeExamSessionStart
+        recordAction = { code, details, level -> recordAction(code, details, level) },
+        clearAppSwitchSuppression = { clearAppSwitchSuppression() },
+        disarmExamRuntimeMonitoring = { disarmExamRuntimeMonitoring() },
+        resetPreparationSecurityEpisodes = { startExamController.resetPreparationSecurityEpisodes() },
+        prepareCleanExamWebViewSessionForStart = { startExamController.prepareCleanExamWebViewSessionForStart() },
+        finalizeExamSessionStart = { lockTaskAlreadyActive -> startExamController.finalizeExamSessionStart(lockTaskAlreadyActive) }
     )
 
     RuntimeScreenPinningMonitorEffect(
@@ -2018,9 +2018,9 @@ internal fun ExamRuntimeSessionScreenImpl(
         lockTaskRequirement = runtimeLockTaskRequirement,
         isIndonesian = isIndonesian,
         deviceQuirkProfile = deviceQuirkProfile,
-        currentScreenPinningMonitorIntervalMillis = ::currentScreenPinningMonitorIntervalMillis,
-        recordAction = ::recordAction,
-        applyFatalSecuritySignal = ::applyFatalSecuritySignal
+        currentScreenPinningMonitorIntervalMillis = { currentScreenPinningMonitorIntervalMillis() },
+        recordAction = { code, details, level -> recordAction(code, details, level) },
+        applyFatalSecuritySignal = { signal -> applyFatalSecuritySignal(signal) }
     )
 
     RuntimePrimaryGuardEffects(
@@ -2050,7 +2050,7 @@ internal fun ExamRuntimeSessionScreenImpl(
         currentLastTrustedRuntimeChromeActionReason = {
             lastTrustedRuntimeChromeActionReasonState.value
         },
-        currentAppSwitchSuppressionReason = ::currentAppSwitchSuppressionReason,
+        currentAppSwitchSuppressionReason = { currentAppSwitchSuppressionReason() },
         currentAppSwitchEventDetails = { signal, suppressionReason ->
             currentAppSwitchEventDetails(
                 signal = signal,
@@ -2063,12 +2063,12 @@ internal fun ExamRuntimeSessionScreenImpl(
                 extraContext = extraContext
             )
         },
-        currentInternalDialogReason = ::currentInternalDialogReason,
-        recordAction = ::recordAction,
-        recordAppSwitchEvent = ::recordAppSwitchEvent,
-        onScreenPinningTransitionInterrupted = ::handleScreenPinningTransitionInterrupted,
-        armClipboardResumeCheck = ::armClipboardResumeCheck,
-        startAlarm = examAlarmController::start
+        currentInternalDialogReason = { currentInternalDialogReason() },
+        recordAction = { code, details, level -> recordAction(code, details, level) },
+        recordAppSwitchEvent = { code, signal, level -> recordAppSwitchEvent(code, signal, level) },
+        onScreenPinningTransitionInterrupted = { handleScreenPinningTransitionInterrupted() },
+        armClipboardResumeCheck = { reason -> armClipboardResumeCheck(reason) },
+        startAlarm = { examAlarmController.start() }
     )
 
     RuntimeStaticSecurityEffects(
@@ -2081,8 +2081,8 @@ internal fun ExamRuntimeSessionScreenImpl(
         bypassOverlay = bypassOverlay,
         packageInventoryChangeNonce = packageInventoryChangeNonce,
         securityUiState = securityUiState,
-        recordAction = ::recordAction,
-        startAlarm = examAlarmController::start
+        recordAction = { code, details, level -> recordAction(code, details, level) },
+        startAlarm = { examAlarmController.start() }
     )
 
     RuntimeHostActivityLifecycleEffect(
@@ -2107,15 +2107,15 @@ internal fun ExamRuntimeSessionScreenImpl(
         securityUiState = securityUiState,
         clipboardUiState = clipboardUiState,
         adminUiState = adminUiState,
-        currentAppSwitchSuppressionReason = ::currentAppSwitchSuppressionReason,
-        currentAppSwitchEventDetails = ::currentAppSwitchEventDetails,
-        recordAction = ::recordAction,
-        recordAppSwitchEvent = ::recordAppSwitchEvent,
-        armClipboardResumeCheck = ::armClipboardResumeCheck,
-        refreshReverseEngineeringStatus = ::refreshReverseEngineeringStatus,
-        refreshKeyboardSecurity = ::refreshKeyboardSecurity,
-        refreshBluetoothSecurity = ::refreshBluetoothSecurity,
-        refreshDeviceIntegritySecurity = ::refreshDeviceIntegritySecurity,
+        currentAppSwitchSuppressionReason = { currentAppSwitchSuppressionReason() },
+        currentAppSwitchEventDetails = { signal -> currentAppSwitchEventDetails(signal) },
+        recordAction = { code, details, level -> recordAction(code, details, level) },
+        recordAppSwitchEvent = { code, signal, level -> recordAppSwitchEvent(code, signal, level) },
+        armClipboardResumeCheck = { reason -> armClipboardResumeCheck(reason) },
+        refreshReverseEngineeringStatus = { refreshReverseEngineeringStatus() },
+        refreshKeyboardSecurity = { triggerViolation -> refreshKeyboardSecurity(triggerViolation) },
+        refreshBluetoothSecurity = { triggerViolation -> refreshBluetoothSecurity(triggerViolation) },
+        refreshDeviceIntegritySecurity = { triggerViolation -> refreshDeviceIntegritySecurity(triggerViolation) },
         refreshDeviceTimeSecurity = { trigger ->
             refreshDeviceTimeSecurity(trigger = trigger)
         },
@@ -2136,7 +2136,7 @@ internal fun ExamRuntimeSessionScreenImpl(
                 baselineSemanticSignatureOverride = baselineSemanticSignatureOverride
             )
         },
-        diagnosticTimestamp = ::diagnosticTimestamp
+        diagnosticTimestamp = { diagnosticTimestamp() }
     )
 
     RuntimeLocationAndClipboardEffects(
@@ -2155,7 +2155,7 @@ internal fun ExamRuntimeSessionScreenImpl(
         securityUiState = securityUiState,
         clipboardUiState = clipboardUiState,
         clipboardMainHandler = clipboardMainHandler,
-        refreshDeviceTimeSecurity = ::refreshDeviceTimeSecurity,
+        refreshDeviceTimeSecurity = { trigger, emitDiagnosticEvent -> refreshDeviceTimeSecurity(trigger, emitDiagnosticEvent) },
         refreshGeofenceStatus = { preferFresh, trigger, allowRuntimeViolation ->
             refreshGeofenceStatus(
                 preferFresh = preferFresh,
@@ -2174,7 +2174,7 @@ internal fun ExamRuntimeSessionScreenImpl(
             )
         },
         examAlarmController = examAlarmController,
-        diagnosticTimestamp = ::diagnosticTimestamp
+        diagnosticTimestamp = { diagnosticTimestamp() }
     )
 
     RuntimeConnectivityEffects(
@@ -2185,12 +2185,12 @@ internal fun ExamRuntimeSessionScreenImpl(
         networkUiState = networkUiState,
         batteryStatusState = batteryStatusState,
         networkMainHandler = networkMainHandler,
-        updateNetworkReadiness = ::updateNetworkReadiness,
-        currentNetworkPollingIntervalMillis = ::currentNetworkPollingIntervalMillis,
-        recordAction = ::recordAction,
-        currentNetworkEventDetails = ::currentNetworkEventDetails,
+        updateNetworkReadiness = { source -> updateNetworkReadiness(source) },
+        currentNetworkPollingIntervalMillis = { currentNetworkPollingIntervalMillis() },
+        recordAction = { code, details, level -> recordAction(code, details, level) },
+        currentNetworkEventDetails = { trigger, status, extraContext -> currentNetworkEventDetails(trigger, status, extraContext) },
         clearNetworkFlapHistory = { networkFlapElapsedMs.clear() },
-        diagnosticTimestamp = ::diagnosticTimestamp
+        diagnosticTimestamp = { diagnosticTimestamp() }
     )
 
     BackHandler {
@@ -2235,7 +2235,7 @@ internal fun ExamRuntimeSessionScreenImpl(
             locationPermissionLauncher.launch(permissions)
         },
         incrementWebViewCompatibilityRefreshKey = { webViewCompatibilityRefreshKey += 1 },
-        debugLogExamStart = ::debugLogExamStart
+        debugLogExamStart = { message -> debugLogExamStart(message) }
     )
 
     fun handleChooseKeyboard() = preparationActionOps.handleChooseKeyboard()
@@ -2316,7 +2316,7 @@ internal fun ExamRuntimeSessionScreenImpl(
         adminUiState = adminUiState,
         securityUiState = securityUiState,
         runtimeCacheState = runtimeCacheState,
-        preExamHealthSnapshotProvider = ::buildCurrentPreExamHealthSnapshot
+        preExamHealthSnapshotProvider = { buildCurrentPreExamHealthSnapshot() }
     )
 
     fun handleExportExamDiagnostics(source: String) = diagnosticExportOps.export(source)
@@ -2412,7 +2412,7 @@ internal fun ExamRuntimeSessionScreenImpl(
         isIndonesian = isIndonesian,
         isCurrentlyLoading = { loadingProgress in 0f..0.98f },
         lockTaskAlreadyActive = { lockTaskBridge.active() },
-        markTrustedRuntimeChromeAction = ::markTrustedRuntimeChromeAction,
+        markTrustedRuntimeChromeAction = { reason -> markTrustedRuntimeChromeAction(reason) },
         clearWebViewError = { webViewErrorMessage = null },
         loadExamUrl = {
             webViewInstance?.let { webView ->
@@ -2440,15 +2440,15 @@ internal fun ExamRuntimeSessionScreenImpl(
             launchExamServerProbe(trigger = trigger, markChecking = markChecking)
         },
         recordAction = { code, details, level -> recordAction(code, details, level) },
-        sendBuiltInKeyboardText = ::sendBuiltInKeyboardText,
-        sendBuiltInKeyboardBackspace = ::sendBuiltInKeyboardBackspace,
-        sendKeyboardArrowLeft = ::sendKeyboardArrowLeft,
-        sendKeyboardArrowRight = ::sendKeyboardArrowRight,
+        sendBuiltInKeyboardText = { rawText -> sendBuiltInKeyboardText(rawText) },
+        sendBuiltInKeyboardBackspace = { sendBuiltInKeyboardBackspace() },
+        sendKeyboardArrowLeft = { sendKeyboardArrowLeft() },
+        sendKeyboardArrowRight = { sendKeyboardArrowRight() },
         toggleSideArrowControls = {
             sideArrowControlsVisible = !sideArrowControlsVisible
             sideArrowControlsVisible
         },
-        sendBuiltInKeyboardEnter = ::sendBuiltInKeyboardEnter,
+        sendBuiltInKeyboardEnter = { sendBuiltInKeyboardEnter() },
         toggleBuiltInKeyboardShift = {
             builtInKeyboardShiftEnabled = !builtInKeyboardShiftEnabled
         }
@@ -2507,13 +2507,15 @@ internal fun ExamRuntimeSessionScreenImpl(
         adminOverridesSummary = adminOverridesSummary,
         examSessionStarted = examSessionStarted,
         examGuardArmed = examGuardArmed,
-        acknowledgeRuntimeAlarm = ::acknowledgeRuntimeAlarm,
+        acknowledgeRuntimeAlarm = { type, violationCount, buildPayload, onUiAcknowledge ->
+            acknowledgeRuntimeAlarm(type, violationCount, buildPayload, onUiAcknowledge)
+        },
         recordAction = { code, details, level -> recordAction(code, details, level) },
-        currentNetworkEventDetails = ::currentNetworkEventDetails,
-        openVpnSettings = ::handleOpenVpnSettings,
+        currentNetworkEventDetails = { trigger, status, extraContext -> currentNetworkEventDetails(trigger, status, extraContext) },
+        openVpnSettings = { handleOpenVpnSettings() },
         refreshVpnStatus = { trigger -> launchNetworkManualRefresh(trigger) },
-        requestSectionReport = ::handleRequestSectionReport,
-        refreshBluetoothSecurity = ::refreshBluetoothSecurity,
+        requestSectionReport = { section -> handleRequestSectionReport(section) },
+        refreshBluetoothSecurity = { triggerViolation -> refreshBluetoothSecurity(triggerViolation) },
         clearExamSessionOnExit = { reason, waitForResult ->
             clearExamSessionOnExit(reason = reason, waitForResult = waitForResult)
         },
@@ -2598,36 +2600,36 @@ internal fun ExamRuntimeSessionScreenImpl(
         dpcRuntimeStatus = dpcRuntimeStatus
     )
     val preparationActions = buildPreparationScreenActions(
-        onChooseKeyboard = ::handleChooseKeyboard,
-        onOpenKeyboardSettings = ::handleOpenKeyboardSettings,
-        onGrantBluetoothPermission = ::handleGrantBluetoothPermission,
-        onOpenBluetoothSettings = ::handleOpenBluetoothSettings,
-        onOpenAccessibilitySettings = ::handleOpenAccessibilitySettings,
-        onOpenOverlayAccessibilitySettings = ::handleOpenOverlayAccessibilitySettings,
-        onOpenDeveloperOptionsSettings = ::handleOpenDeveloperOptionsSettings,
-        onRequestLocationPermission = ::handleRequestLocationPermission,
-        onOpenLocationServicesSettings = ::handleOpenLocationServicesSettings,
-        onRefreshGeofenceLocation = ::handleRefreshLocationSecurity,
-        onOpenGeofenceMapViewer = ::handleOpenGeofenceMapViewer,
-        onOpenInternetSettings = ::handleOpenInternetSettings,
-        onOpenVpnSettings = ::handleOpenVpnSettings,
-        onOpenWifiSettings = ::handleOpenWifiSettings,
-        onOpenCellularSettings = ::handleOpenCellularSettings,
-        onOpenAirplaneModeSettings = ::handleOpenAirplaneModeSettings,
-        onRefreshNetworkStatus = ::handleRefreshNetworkStatus,
-        onOpenDateTimeSettings = ::handleOpenDateTimeSettings,
-        onOpenFakeLocationDeveloperOptionsSettings = ::handleOpenFakeLocationDeveloperOptionsSettings,
-        onOpenScreenPinningSettings = ::handleOpenScreenPinningSettings,
-        onStartScreenPinning = ::handleStartScreenPinning,
-        onOpenOverlaySettings = ::handleOpenOverlaySettings,
-        onOpenAppSettings = ::handleOpenAppSettings,
-        onOpenCastSettings = ::handleOpenCastSettings,
-        onOpenWebViewProviderSettings = ::handleOpenWebViewProviderSettings,
-        onReinstallOfficialApk = ::handleReinstallOfficialApk,
-        onRefreshStatus = ::handleRefreshPreparationStatus,
-        onRefreshAllSecurityChecks = ::handleRefreshAllSecurityChecks,
-        onRefreshHealthCheck = ::handleRefreshPreExamHealthCheck,
-        onRequestSectionReport = ::handleRequestSectionReport,
+        onChooseKeyboard = { handleChooseKeyboard() },
+        onOpenKeyboardSettings = { handleOpenKeyboardSettings() },
+        onGrantBluetoothPermission = { handleGrantBluetoothPermission() },
+        onOpenBluetoothSettings = { handleOpenBluetoothSettings() },
+        onOpenAccessibilitySettings = { handleOpenAccessibilitySettings() },
+        onOpenOverlayAccessibilitySettings = { handleOpenOverlayAccessibilitySettings() },
+        onOpenDeveloperOptionsSettings = { handleOpenDeveloperOptionsSettings() },
+        onRequestLocationPermission = { handleRequestLocationPermission() },
+        onOpenLocationServicesSettings = { handleOpenLocationServicesSettings() },
+        onRefreshGeofenceLocation = { handleRefreshLocationSecurity() },
+        onOpenGeofenceMapViewer = { handleOpenGeofenceMapViewer() },
+        onOpenInternetSettings = { handleOpenInternetSettings() },
+        onOpenVpnSettings = { handleOpenVpnSettings() },
+        onOpenWifiSettings = { handleOpenWifiSettings() },
+        onOpenCellularSettings = { handleOpenCellularSettings() },
+        onOpenAirplaneModeSettings = { handleOpenAirplaneModeSettings() },
+        onRefreshNetworkStatus = { handleRefreshNetworkStatus() },
+        onOpenDateTimeSettings = { handleOpenDateTimeSettings() },
+        onOpenFakeLocationDeveloperOptionsSettings = { handleOpenFakeLocationDeveloperOptionsSettings() },
+        onOpenScreenPinningSettings = { handleOpenScreenPinningSettings() },
+        onStartScreenPinning = { handleStartScreenPinning() },
+        onOpenOverlaySettings = { handleOpenOverlaySettings() },
+        onOpenAppSettings = { handleOpenAppSettings() },
+        onOpenCastSettings = { handleOpenCastSettings() },
+        onOpenWebViewProviderSettings = { handleOpenWebViewProviderSettings() },
+        onReinstallOfficialApk = { handleReinstallOfficialApk() },
+        onRefreshStatus = { handleRefreshPreparationStatus() },
+        onRefreshAllSecurityChecks = { handleRefreshAllSecurityChecks() },
+        onRefreshHealthCheck = { handleRefreshPreExamHealthCheck() },
+        onRequestSectionReport = { section -> handleRequestSectionReport(section) },
         onExportDiagnostics = { handleExportExamDiagnostics("preparation_recovery") },
         onAutoFixShown = { details ->
             recordAction(
@@ -2653,7 +2655,7 @@ internal fun ExamRuntimeSessionScreenImpl(
                 details = details
             )
         },
-        onStartExam = ::handleStartExam,
+        onStartExam = { handleStartExam() },
         onBackHome = onExit
     )
     val renderedUiCallbacks = ExamRuntimeRenderedUiCallbacks(
@@ -2672,8 +2674,8 @@ internal fun ExamRuntimeSessionScreenImpl(
         lastTrustedRuntimeChromeActionElapsedMsState = lastTrustedRuntimeChromeActionElapsedMsState,
         lastTrustedRuntimeChromeActionReasonState = lastTrustedRuntimeChromeActionReasonState,
         examAlarmController = examAlarmController,
-        hideSystemKeyboard = ::hideSystemKeyboard,
-        launchTelegramSectionReport = ::launchTelegramSectionReport,
+        hideSystemKeyboard = { hideSystemKeyboard() },
+        launchTelegramSectionReport = { section -> launchTelegramSectionReport(section) },
         onExit = onExit
     )
 
@@ -2711,12 +2713,12 @@ internal fun ExamRuntimeSessionScreenImpl(
         bugReportFeedbackMessage = bugReportFeedbackMessage,
         securityUiState = securityUiState,
         renderedUiCallbacks = renderedUiCallbacks,
-        onHideSystemKeyboard = ::hideSystemKeyboard,
-        onHideCustomView = ::hideCustomView,
-        onOpenStaticSecurityAppSettings = ::handleOpenAppSettings,
-        onOpenStaticSecurityCastSettings = ::handleOpenCastSettings,
-        onRefreshStaticSecurityStatus = ::handleRefreshPreparationStatus,
-        onSendStaticSecurityReport = ::launchTelegramSectionReport,
+        onHideSystemKeyboard = { hideSystemKeyboard() },
+        onHideCustomView = { hideCustomView() },
+        onOpenStaticSecurityAppSettings = { handleOpenAppSettings() },
+        onOpenStaticSecurityCastSettings = { handleOpenCastSettings() },
+        onRefreshStaticSecurityStatus = { handleRefreshPreparationStatus() },
+        onSendStaticSecurityReport = { section -> launchTelegramSectionReport(section) },
         onRefreshNetworkStatus = preparationActions.onRefreshNetworkStatus,
         modifier = modifier
     )
@@ -2800,32 +2802,32 @@ private fun ExamRuntimeSessionRenderedUiSection(
         bugReportFeedbackTitle = bugReportFeedbackTitle,
         bugReportFeedbackMessage = bugReportFeedbackMessage,
         securityUiState = securityUiState,
-        onDismissGeofenceMapViewer = renderedUiCallbacks::onDismissGeofenceMapViewer,
-        onRefreshGeofenceMapViewer = renderedUiCallbacks::onRefreshGeofenceMapViewer,
-        onRefreshMapViewerActionLogged = renderedUiCallbacks::onRefreshMapViewerActionLogged,
-        onOverlayObscuredTouch = renderedUiCallbacks::onOverlayObscuredTouch,
-        onShowBuiltInExamKeyboardChange = renderedUiCallbacks::onShowBuiltInExamKeyboardChange,
-        onWebViewInstanceChange = renderedUiCallbacks::onWebViewInstanceChange,
+        onDismissGeofenceMapViewer = { renderedUiCallbacks.onDismissGeofenceMapViewer() },
+        onRefreshGeofenceMapViewer = { renderedUiCallbacks.onRefreshGeofenceMapViewer() },
+        onRefreshMapViewerActionLogged = { renderedUiCallbacks.onRefreshMapViewerActionLogged() },
+        onOverlayObscuredTouch = { touchSignal -> renderedUiCallbacks.onOverlayObscuredTouch(touchSignal) },
+        onShowBuiltInExamKeyboardChange = { show -> renderedUiCallbacks.onShowBuiltInExamKeyboardChange(show) },
+        onWebViewInstanceChange = { nextWebView -> renderedUiCallbacks.onWebViewInstanceChange(nextWebView) },
         onHideSystemKeyboard = onHideSystemKeyboard,
-        onWebViewLoadStart = renderedUiCallbacks::onWebViewLoadStart,
-        onWebViewLoadFinish = renderedUiCallbacks::onWebViewLoadFinish,
-        onWebViewLoadError = renderedUiCallbacks::onWebViewLoadError,
-        onWebViewHttpError = renderedUiCallbacks::onWebViewHttpError,
-        onWebViewRenderProcessGone = renderedUiCallbacks::onWebViewRenderProcessGone,
-        onLoadingProgressChange = renderedUiCallbacks::onLoadingProgressChange,
-        onWebViewErrorMessageChange = renderedUiCallbacks::onWebViewErrorMessageChange,
-        onShowCustomView = renderedUiCallbacks::onShowCustomView,
+        onWebViewLoadStart = { view, url -> renderedUiCallbacks.onWebViewLoadStart(view, url) },
+        onWebViewLoadFinish = { view, url -> renderedUiCallbacks.onWebViewLoadFinish(view, url) },
+        onWebViewLoadError = { view, description -> renderedUiCallbacks.onWebViewLoadError(view, description) },
+        onWebViewHttpError = { view, statusCode -> renderedUiCallbacks.onWebViewHttpError(view, statusCode) },
+        onWebViewRenderProcessGone = { view, didCrash, rendererPriorityAtExit -> renderedUiCallbacks.onWebViewRenderProcessGone(view, didCrash, rendererPriorityAtExit) },
+        onLoadingProgressChange = { view, progress -> renderedUiCallbacks.onLoadingProgressChange(view, progress) },
+        onWebViewErrorMessageChange = { message -> renderedUiCallbacks.onWebViewErrorMessageChange(message) },
+        onShowCustomView = { view, callback -> renderedUiCallbacks.onShowCustomView(view, callback) },
         onHideCustomView = onHideCustomView,
-        onDismissPendingSection = renderedUiCallbacks::onDismissPendingSection,
-        onConfirmPendingSection = renderedUiCallbacks::onConfirmPendingSection,
+        onDismissPendingSection = { renderedUiCallbacks.onDismissPendingSection() },
+        onConfirmPendingSection = { section -> renderedUiCallbacks.onConfirmPendingSection(section) },
         onOpenStaticSecurityAppSettings = onOpenStaticSecurityAppSettings,
         onOpenStaticSecurityCastSettings = onOpenStaticSecurityCastSettings,
         onRefreshStaticSecurityStatus = onRefreshStaticSecurityStatus,
         onSendStaticSecurityReport = onSendStaticSecurityReport,
-        onDismissScreenPinningMessage = renderedUiCallbacks::onDismissScreenPinningMessage,
-        onDismissSecurityIssueDialog = renderedUiCallbacks::onDismissSecurityIssueDialog,
+        onDismissScreenPinningMessage = { renderedUiCallbacks.onDismissScreenPinningMessage() },
+        onDismissSecurityIssueDialog = { renderedUiCallbacks.onDismissSecurityIssueDialog() },
         onRefreshNetworkStatus = onRefreshNetworkStatus,
-        onDismissBugReportFeedback = renderedUiCallbacks::onDismissBugReportFeedback,
+        onDismissBugReportFeedback = { renderedUiCallbacks.onDismissBugReportFeedback() },
         modifier = modifier
     )
 }

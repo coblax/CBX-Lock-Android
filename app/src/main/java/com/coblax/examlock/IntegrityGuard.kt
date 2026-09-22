@@ -22,17 +22,21 @@ data class IntegrityCheckResult(
 )
 
 object IntegrityGuard {
-    private val extraHookClasses = listOf(
-        "de.robv.android.xposed.XposedBridge",
-        "de.robv.android.xposed.XC_MethodHook",
-        "com.saurik.substrate.SubstrateHooker",
-        "org.lsposed.lspd.core.Main",
-        "org.lsposed.lspd.nativebridge.LspNative",
-        "org.lsposed.lspd.service.LSPSystemServer",
-        "io.github.lsposed.lspd.nativebridge.LspNativeBridge",
-        "io.github.libxposed.api.XposedInterface",
-        "io.github.libxposed.api.XposedModule"
+    private val extraHookClassesObfuscated = listOf(
+        "FxZdARwRBV0SHRcBHBoXXQsDHAAWF10rAxwAFhcxARoXFBY=",  // de.robv.android.xposed.XposedBridge
+        "FxZdARwRBV0SHRcBHBoXXQsDHAAWF10rMCw+FgcbHBc7HBwY",  // de.robv.android.xposed.XC_MethodHook
+        "EBweXQASBgEaGF0ABhEABwESBxZdIAYRAAcBEgcWOxwcGBYB",  // com.saurik.substrate.SubstrateHooker
+        "HAEUXR8AAxwAFhddHwADF10QHAEWXT4SGh0=",  // org.lsposed.lspd.core.Main
+        "HAEUXR8AAxwAFhddHwADF10dEgcaBRYRARoXFBZdPwADPRIHGgUW",  // org.lsposed.lspd.nativebridge.LspNative
+        "HAEUXR8AAxwAFhddHwADF10AFgEFGhAWXT8gIyAKAAcWHiAWAQUWAQ==",  // org.lsposed.lspd.service.LSPSystemServer
+        "GhxdFBoHGwYRXR8AAxwAFhddHwADF10dEgcaBRYRARoXFBZdPwADPRIHGgUWMQEaFxQW",  // io.github.lsposed.lspd.nativebridge.LspNativeBridge
+        "GhxdFBoHGwYRXR8aEQsDHAAWF10SAxpdKwMcABYXOh0HFgEVEhAW",  // io.github.libxposed.api.XposedInterface
+        "GhxdFBoHGwYRXR8aEQsDHAAWF10SAxpdKwMcABYXPhwXBh8W"  // io.github.libxposed.api.XposedModule
     )
+
+    private val extraHookClasses: List<String> by lazy {
+        extraHookClassesObfuscated.map { RuntimeStringDecoder.decodeBase64Xor(it) }
+    }
 
     fun expectedDexHash(context: Context): String {
         val assetHash = runCatching {
@@ -48,8 +52,17 @@ object IntegrityGuard {
             .replace(" ", "")
             .uppercase(Locale.US)
 
-        if (expectedHash.isNotBlank() && actualHash.isNotBlank() && expectedHash != actualHash) {
-            issues.add("dex_hash_mismatch")
+        // Both blanks used to skip the comparison silently, so the cheapest way past
+        // this guard was to delete assets/dex.sha256 rather than recompute it. A
+        // release build always ships the asset (the Gradle task generates it), so a
+        // blank value there means it was stripped. Debug builds never get the asset,
+        // which is why the strict path is release-only.
+        when {
+            expectedHash.isBlank() ->
+                if (!BuildConfig.DEBUG) issues.add("dex_hash_reference_missing")
+            actualHash.isBlank() ->
+                if (!BuildConfig.DEBUG) issues.add("dex_hash_unreadable")
+            expectedHash != actualHash -> issues.add("dex_hash_mismatch")
         }
 
         val currentFingerprint = readSigningFingerprint(context)
@@ -86,7 +99,7 @@ object IntegrityGuard {
                 return@buildString
             }
             append("issues=").append(issues.joinToString())
-            if (issues.contains("dex_hash_mismatch")) {
+            if (issues.any { it.startsWith("dex_hash_") }) {
                 append(" | dex=").append(shorten(actualHash))
                 append("/exp=").append(shorten(expectedHash))
             }

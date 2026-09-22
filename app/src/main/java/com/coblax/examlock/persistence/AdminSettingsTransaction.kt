@@ -239,7 +239,7 @@ internal class AdminSettingsTransactionCoordinator(
 
         val bypassChanged = currentSnapshot.bypass != proposedSnapshot.bypass
         val ordinaryChanged = currentSnapshot.ordinary != proposedSnapshot.ordinary
-        if (bypassChanged && !runCatching(store::hasActiveAdminCapability).getOrDefault(false)) {
+        if (bypassChanged && !runCatching { store.hasActiveAdminCapability() }.getOrDefault(false)) {
             return AdminSettingsApplyResult.ReauthenticationRequired
         }
 

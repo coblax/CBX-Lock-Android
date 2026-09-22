@@ -231,8 +231,8 @@ internal suspend fun runExamRuntimeStartPrechecks(
             bypassGeofence = bypassGeofence,
             bypassFakeLocation = bypassFakeLocation,
             startExamPressedAt = startExamPressedAt,
-            ::updatePreflight,
-            ::applyBlock,
+            { step, detail -> updatePreflight(step, detail) },
+            { message -> applyBlock(message) },
             callbacks = callbacks
         )
     } catch (throwable: Throwable) {

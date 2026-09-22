@@ -65,7 +65,9 @@ internal fun buildIntegrityPublicSummary(issues: List<String>): String {
     var hasOther = false
     issues.forEach { issue ->
         when {
-            issue == "dex_hash_mismatch" -> categories.add("dex_hash")
+            issue == "dex_hash_mismatch" ||
+                issue == "dex_hash_reference_missing" ||
+                issue == "dex_hash_unreadable" -> categories.add("dex_hash")
             issue == "signature_changed" -> categories.add("signature_changed")
             issue.startsWith("sysprop_") || issue == "test_keys" -> categories.add("system_props")
             issue == "hook_class" -> categories.add("hook_class")

@@ -1,4 +1,5 @@
 package com.coblax.examlock.config
+import com.coblax.examlock.RuntimeStringDecoder
 import com.coblax.examlock.model.ExamKeyboardPolicy
 import com.coblax.examlock.model.ExamKeyboardRule
 // Central registry for keyboards that need explicit allow/block handling.
@@ -103,74 +104,86 @@ internal val SuspiciousKeyboardPackageTokens = listOf(
     "claude"
 )
 
-internal val RootBinaryIndicatorPaths = listOf(
-    "/system/bin/su",
-    "/system/xbin/su",
-    "/sbin/su",
-    "/vendor/bin/su",
-    "/su/bin/su",
-    "/system/bin/.ext/su",
-    "/system/bin/.ext/.su",
-    "/system/bin/failsafe/su",
-    "/system/xbin/daemonsu",
-    "/system/bin/daemonsu",
-    "/data/local/su",
-    "/data/local/bin/su",
-    "/data/local/xbin/su",
-    "/system/bin/busybox",
-    "/system/xbin/busybox",
-    "/vendor/bin/busybox",
-    "/system/sbin/busybox",
-    "/sbin/busybox",
+private val RootBinaryIndicatorPathsObfuscated = listOf(
+    "XAAKAAcWHlwRGh1cAAY=",  // /system/bin/su
+    "XAAKAAcWHlwLERodXAAG",  // /system/xbin/su
+    "XAARGh1cAAY=",  // /sbin/su
+    "XAUWHRccAVwRGh1cAAY=",  // /vendor/bin/su
+    "XAAGXBEaHVwABg==",  // /su/bin/su
+    "XAAKAAcWHlwRGh1cXRYLB1wABg==",  // /system/bin/.ext/su
+    "XAAKAAcWHlwRGh1cXRYLB1xdAAY=",  // /system/bin/.ext/.su
+    "XAAKAAcWHlwRGh1cFRIaHwASFRZcAAY=",  // /system/bin/failsafe/su
+    "XAAKAAcWHlwLERodXBcSFh4cHQAG",  // /system/xbin/daemonsu
+    "XAAKAAcWHlwRGh1cFxIWHhwdAAY=",  // /system/bin/daemonsu
+    "XBcSBxJcHxwQEh9cAAY=",  // /data/local/su
+    "XBcSBxJcHxwQEh9cERodXAAG",  // /data/local/bin/su
+    "XBcSBxJcHxwQEh9cCxEaHVwABg==",  // /data/local/xbin/su
+    "XAAKAAcWHlwRGh1cEQYAChEcCw==",  // /system/bin/busybox
+    "XAAKAAcWHlwLERodXBEGAAoRHAs=",  // /system/xbin/busybox
+    "XAUWHRccAVwRGh1cEQYAChEcCw==",  // /vendor/bin/busybox
+    "XAAKAAcWHlwAERodXBEGAAoRHAs=",  // /system/sbin/busybox
+    "XAARGh1cEQYAChEcCw==",  // /sbin/busybox
     // Frida instrumentation server — only present if user deliberately deployed it (requires root)
-    "/data/local/tmp/frida-server",
-    "/data/local/tmp/re.frida.server",
+    "XBcSBxJcHxwQEh9cBx4DXBUBGhcSXgAWAQUWAQ==",  // /data/local/tmp/frida-server
+    "XBcSBxJcHxwQEh9cBx4DXAEWXRUBGhcSXQAWAQUWAQ==",  // /data/local/tmp/re.frida.server
     // Non-standard busybox paths (used by root tools)
-    "/data/adb/busybox",
-    "/data/local/tmp/busybox",
+    "XBcSBxJcEhcRXBEGAAoRHAs=",  // /data/adb/busybox
+    "XBcSBxJcHxwQEh9cBx4DXBEGAAoRHAs=",  // /data/local/tmp/busybox
     // Superuser app artifacts
-    "/system/app/Superuser.apk",
-    "/system/app/Superuser/Superuser.apk",
-    "/system/app/SuperSU/SuperSU.apk"
+    "XAAKAAcWHlwSAwNcIAYDFgEGABYBXRIDGA==",  // /system/app/Superuser.apk
+    "XAAKAAcWHlwSAwNcIAYDFgEGABYBXCAGAxYBBgAWAV0SAxg=",  // /system/app/Superuser/Superuser.apk
+    "XAAKAAcWHlwSAwNcIAYDFgEgJlwgBgMWASAmXRIDGA=="  // /system/app/SuperSU/SuperSU.apk
 )
 
-internal val RootPackageNames = listOf(
+internal val RootBinaryIndicatorPaths: List<String> by lazy {
+    RootBinaryIndicatorPathsObfuscated.map { RuntimeStringDecoder.decodeBase64Xor(it) }
+}
+
+private val RootPackageNamesObfuscated = listOf(
     // Classic root managers
-    "com.topjohnwu.magisk",
-    "eu.chainfire.supersu",
-    "com.koushikdutta.superuser",
-    "com.thirdparty.superuser",
-    "com.noshufou.android.su",
+    "EBweXQccAxkcGx0EBl0eEhQaABg=",  // com.topjohnwu.magisk
+    "FgZdEBsSGh0VGgEWXQAGAxYBAAY=",  // eu.chainfire.supersu
+    "EBweXRgcBgAbGhgXBgcHEl0ABgMWAQYAFgE=",  // com.koushikdutta.superuser
+    "EBweXQcbGgEXAxIBBwpdAAYDFgEGABYB",  // com.thirdparty.superuser
+    "EBweXR0cABsGFRwGXRIdFwEcGhddAAY=",  // com.noshufou.android.su
     // Modern kernel-level root frameworks (2022+)
-    "me.weishu.kernelsu",          // KernelSU Manager
-    "me.bmax.apatch",              // APatch Manager
-    "io.github.huskydg.magisk",   // Magisk Delta (fork)
+    "HhZdBBYaABsGXRgWAR0WHwAG",          // KernelSU Manager
+    "HhZdER4SC10SAxIHEBs=",              // APatch Manager
+    "GhxdFBoHGwYRXRsGABgKFxRdHhIUGgAY",   // Magisk Delta (fork)
     // Hook / injection frameworks
-    "org.lsposed.manager",                // LSPosed Manager (runs on Zygisk)
-    "de.robv.android.xposed.installer",   // Classic Xposed Installer
-    "com.elderdrivers.riru.edxp",         // EdXposed Manager
+    "HAEUXR8AAxwAFhddHhIdEhQWAQ==",                // LSPosed Manager (runs on Zygisk)
+    "FxZdARwRBV0SHRcBHBoXXQsDHAAWF10aHQAHEh8fFgE=",   // Classic Xposed Installer
+    "EBweXRYfFxYBFwEaBRYBAF0BGgEGXRYXCwM=",         // EdXposed Manager
     // Root cloaking apps — only installed to hide root from detection
-    "com.devadvance.rootcloak",           // RootCloak
-    "com.devadvance.rootcloakplus",       // RootCloak Plus
-    "com.formyhm.hideroot",              // Hide My Root
-    "com.amphoras.hidemyroot",           // Hide My Root (alt)
-    "com.saurik.substrate"               // Cydia Substrate
+    "EBweXRcWBRIXBRIdEBZdARwcBxAfHBIY",           // RootCloak
+    "EBweXRcWBRIXBRIdEBZdARwcBxAfHBIYAx8GAA==",       // RootCloak Plus
+    "EBweXRUcAR4KGx5dGxoXFgEcHAc=",              // Hide My Root
+    "EBweXRIeAxscARIAXRsaFxYeCgEcHAc=",           // Hide My Root (alt)
+    "EBweXQASBgEaGF0ABhEABwESBxY="               // Cydia Substrate
 )
 
-internal val MagiskIndicatorPaths = listOf(
+internal val RootPackageNames: List<String> by lazy {
+    RootPackageNamesObfuscated.map { RuntimeStringDecoder.decodeBase64Xor(it) }
+}
+
+private val MagiskIndicatorPathsObfuscated = listOf(
     // Magisk
-    "/sbin/.magisk",
-    "/data/adb/magisk",
-    "/data/adb/modules",
-    "/data/adb/zygisk",
-    "/cache/.magisk",
-    "/metadata/magisk",
+    "XAARGh1cXR4SFBoAGA==",  // /sbin/.magisk
+    "XBcSBxJcEhcRXB4SFBoAGA==",  // /data/adb/magisk
+    "XBcSBxJcEhcRXB4cFwYfFgA=",  // /data/adb/modules
+    "XBcSBxJcEhcRXAkKFBoAGA==",  // /data/adb/zygisk
+    "XBASEBsWXF0eEhQaABg=",  // /cache/.magisk
+    "XB4WBxIXEgcSXB4SFBoAGA==",  // /metadata/magisk
     // KernelSU
-    "/data/adb/ksu",
-    "/data/adb/ksud",
+    "XBcSBxJcEhcRXBgABg==",  // /data/adb/ksu
+    "XBcSBxJcEhcRXBgABhc=",  // /data/adb/ksud
     // APatch
-    "/data/adb/ap"
+    "XBcSBxJcEhcRXBID"  // /data/adb/ap
 )
+
+internal val MagiskIndicatorPaths: List<String> by lazy {
+    MagiskIndicatorPathsObfuscated.map { RuntimeStringDecoder.decodeBase64Xor(it) }
+}
 
 internal val RiskyAccessibilityKeywords = listOf(
     "teamviewer",

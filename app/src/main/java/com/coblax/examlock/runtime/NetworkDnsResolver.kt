@@ -1,16 +1,23 @@
 package com.coblax.examlock.runtime
 
 import java.net.InetAddress
-import java.util.concurrent.ArrayBlockingQueue
+import java.util.concurrent.RejectedExecutionException
 import java.util.concurrent.FutureTask
+import java.util.concurrent.SynchronousQueue
 import java.util.concurrent.ThreadPoolExecutor
 import java.util.concurrent.TimeUnit
 import kotlinx.coroutines.suspendCancellableCoroutine
 
-// InetAddress DNS may ignore interruption. Bound both workers and queued requests,
-// and detach a cancelled caller so a resolver stall cannot freeze preparation.
+/** No worker was free, so the host was never looked up. This is not a DNS verdict. */
+internal class DnsResolverBusyException(cause: Throwable? = null) :
+    IllegalStateException("DNS resolver workers are busy", cause)
+
+// InetAddress DNS may ignore interruption, so a stalled lookup keeps its worker long
+// after the caller's timeout. Bound the workers and hand off directly instead of
+// queueing: a queued probe can only report back after the caller has already given
+// up, which used to surface as a DNS timeout for a lookup that never ran.
 private val dnsExecutor = ThreadPoolExecutor(
-    2, 2, 30L, TimeUnit.SECONDS, ArrayBlockingQueue(2),
+    2, 2, 30L, TimeUnit.SECONDS, SynchronousQueue(),
     { runnable -> Thread(runnable, "exam-dns").apply { isDaemon = true } }
 ).apply { allowCoreThreadTimeOut(true) }
 
@@ -29,7 +36,7 @@ internal suspend fun resolveNetworkDnsHost(
     try {
         dnsExecutor.execute(task)
         if (task.isCancelled) dnsExecutor.remove(task)
-    } catch (error: java.util.concurrent.RejectedExecutionException) {
-        continuation.resumeWith(Result.failure(error))
+    } catch (error: RejectedExecutionException) {
+        continuation.resumeWith(Result.failure(DnsResolverBusyException(error)))
     }
 }

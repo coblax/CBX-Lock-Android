@@ -1,6 +1,7 @@
 package com.coblax.examlock.ui.exam
 
 import android.webkit.WebViewClient
+import java.util.Locale
 
 /** Main-frame navigation state; an error-page finish is never a successful load. */
 internal class ExamWebViewNavigationState {
@@ -41,9 +42,14 @@ internal class ExamWebViewNavigationState {
     }
 
     fun finish(url: String?): Boolean {
-        if (failed || !isCurrentNavigation(url) || !isExamWebUrl(url)) return false
-        revision++
+        if (!isCurrentNavigation(url)) return false
+        // The navigation is over even when it does not count as an exam page load —
+        // a blob:/file: attachment preview is a real main-frame load. Leaving it
+        // marked as loading froze the footer on "Checking" and permanently blocked
+        // the reachability probe from publishing another result.
+        if (loading) revision++
         loading = false
+        if (failed || !isExamWebUrl(url)) return false
         retryCount = 0
         canRecoverOnConnection = false
         failedUrl = null
@@ -68,6 +74,17 @@ internal class ExamWebViewNavigationState {
 internal fun isExamWebUrl(url: String?): Boolean =
     url?.startsWith("https://", ignoreCase = true) == true ||
         url?.startsWith("http://", ignoreCase = true) == true
+
+/**
+ * Schemes a main-frame navigation may use inside the exam browser. Everything else —
+ * `intent:`, `android-app:`, `market:`, `tel:`, `sms:`, `mailto:`, `whatsapp:`, `tg:` —
+ * exists to hand control to another app, which is the one thing a locked exam session
+ * must never do. Every scheme listed here stays inside the WebView.
+ */
+private val NavigableExamSchemes = setOf("http", "https", "blob", "about", "data")
+
+internal fun isNavigableExamScheme(scheme: String?): Boolean =
+    scheme?.lowercase(Locale.US) in NavigableExamSchemes
 
 internal fun isRecoverableExamConnectionError(description: String, errorCode: Int? = null): Boolean =
     // Descriptions can be localized by the WebView provider; use the stable API code too.

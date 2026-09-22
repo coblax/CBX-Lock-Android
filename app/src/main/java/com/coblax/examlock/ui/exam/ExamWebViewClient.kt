@@ -26,7 +26,26 @@ internal fun SecureExamWebView.createExamWebViewClient(
         override fun shouldOverrideUrlLoading(
             view: WebView?,
             request: WebResourceRequest?
-        ): Boolean = false
+        ): Boolean {
+            // Sub-resources and frames keep the previous pass-through behaviour; only a
+            // main-frame navigation can take the student out of the exam.
+            if (request?.isForMainFrame != true) {
+                return false
+            }
+            val scheme = request.url?.scheme
+            if (isNavigableExamScheme(scheme)) {
+                return false
+            }
+            // A deep-link scheme is a request to leave the exam for another app. Letting
+            // it through produced ERR_UNKNOWN_URL_SCHEME at best, and on WebView builds
+            // that resolve these it would hand the session to Play Store, the dialer or
+            // a chat app while the exam is supposed to be locked down.
+            android.util.Log.w(
+                "ExamWebView",
+                "Blocked non-web main-frame navigation: ${scheme.orEmpty().take(24)}"
+            )
+            return true
+        }
 
         override fun onPageStarted(
             view: WebView?,

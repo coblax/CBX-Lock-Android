@@ -259,6 +259,11 @@ import kotlinx.coroutines.yield
 @Suppress("AssignedValueIsNeverRead")
 @SuppressLint("SetJavaScriptEnabled")
 internal fun WebView.applyExamWebViewSettings(examUserAgent: String, lowRamProfile: LowRamProfile) {
+    // Process-wide, and deliberately re-asserted before every exam WebView is used.
+    // With remote debugging on, anyone who reaches the device over ADB can attach
+    // chrome://inspect and read or rewrite the exam DOM — answers included — which
+    // would walk straight past the ADB hardening the rest of the app performs.
+    runCatching { WebView.setWebContentsDebuggingEnabled(BuildConfig.DEBUG) }
     settings.apply {
         // The exam site requires JavaScript and DOM storage; surrounding
         // hardening stays in place, so this lint warning is intentionally suppressed.

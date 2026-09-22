@@ -466,7 +466,7 @@ internal class ExamRuntimeSecurityOps(
                 setHasEditableFocus = { flowUiState.hasEditableFocus.value = it },
                 incrementKeyboardViolationCount = { securityUiState.keyboardViolationCount.intValue += 1 },
                 setShowKeyboardViolationDialog = { securityUiState.showKeyboardViolationDialog.value = it },
-                recordAction = runtimeDiagnosticsOps::recordAction
+                recordAction = { code, details, level -> runtimeDiagnosticsOps.recordAction(code, details, level) }
             )
         )
     }
@@ -483,7 +483,7 @@ internal class ExamRuntimeSecurityOps(
                 setBluetoothEnabled = { securityUiState.bluetoothEnabled.value = it },
                 incrementBluetoothViolationCount = { securityUiState.bluetoothViolationCount.intValue += 1 },
                 setShowBluetoothViolationDialog = { securityUiState.showBluetoothViolationDialog.value = it },
-                recordAction = runtimeDiagnosticsOps::recordAction
+                recordAction = { code, details, level -> runtimeDiagnosticsOps.recordAction(code, details, level) }
             )
         )
     }
@@ -515,7 +515,7 @@ internal class ExamRuntimeSecurityOps(
                 setSignatureMismatchDetected = { securityUiState.signatureMismatchDetected.value = it },
                 setSecurityIssueDialogTitle = { adminUiState.securityIssueDialogTitle.value = it },
                 setSecurityIssueDialogMessage = { adminUiState.securityIssueDialogMessage.value = it },
-                recordAction = runtimeDiagnosticsOps::recordAction
+                recordAction = { code, details, level -> runtimeDiagnosticsOps.recordAction(code, details, level) }
             )
         )
 
@@ -535,7 +535,7 @@ internal class ExamRuntimeSecurityOps(
                 setVirtualEnvironmentDetected = { securityUiState.virtualEnvironmentDetected.value = it },
                 setSecurityIssueDialogTitle = { adminUiState.securityIssueDialogTitle.value = it },
                 setSecurityIssueDialogMessage = { adminUiState.securityIssueDialogMessage.value = it },
-                recordAction = runtimeDiagnosticsOps::recordAction
+                recordAction = { code, details, level -> runtimeDiagnosticsOps.recordAction(code, details, level) }
             )
         )
     }
@@ -569,7 +569,9 @@ internal class ExamRuntimeSecurityOps(
                 setSecurityIssueDialogTitle = { adminUiState.securityIssueDialogTitle.value = it },
                 setSecurityIssueDialogMessage = { adminUiState.securityIssueDialogMessage.value = it },
                 checkSignatureIntegrity = { checkSignatureIntegrity(triggerViolation) },
-                applyVirtualEnvironmentDiagnostics = ::applyVirtualEnvironmentDiagnostics,
+                applyVirtualEnvironmentDiagnostics = { diagnostics, triggerViolation ->
+                    applyVirtualEnvironmentDiagnostics(diagnostics, triggerViolation)
+                },
                 launchVirtualEnvironmentDiagnostics = {
                     coroutineScope.launch(launchExceptionHandler) {
                         val diagnostics = getVirtualEnvironmentDiagnosticsOnIo(
@@ -579,7 +581,7 @@ internal class ExamRuntimeSecurityOps(
                         applyVirtualEnvironmentDiagnostics(diagnostics, triggerViolation)
                     }
                 },
-                recordAction = runtimeDiagnosticsOps::recordAction
+                recordAction = { code, details, level -> runtimeDiagnosticsOps.recordAction(code, details, level) }
             )
         )
     }
@@ -692,8 +694,8 @@ internal class ExamRuntimeSecurityOps(
                         bypassMultiWindow = adminSettings.bypassMultiWindow,
                         securityUiState = securityUiState,
                         trigger = "diagnostic_request",
-                        recordAction = runtimeDiagnosticsOps::recordAction,
-                        startAlarm = examAlarmController::start,
+                        recordAction = { code, details, level -> runtimeDiagnosticsOps.recordAction(code, details, level) },
+                        startAlarm = { examAlarmController.start() },
                         forceRefresh = true
                     )
                 },
@@ -710,7 +712,7 @@ internal class ExamRuntimeSecurityOps(
                         allowRuntimeViolation = false
                     )
                 },
-                recordAction = runtimeDiagnosticsOps::recordAction,
+                recordAction = { code, details, level -> runtimeDiagnosticsOps.recordAction(code, details, level) },
                 showFeedback = { title, message ->
                     adminUiState.bugReportFeedbackTitle.value = title
                     adminUiState.bugReportFeedbackMessage.value = message

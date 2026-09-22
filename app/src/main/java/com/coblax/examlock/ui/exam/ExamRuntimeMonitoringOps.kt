@@ -335,7 +335,7 @@ internal class ExamRuntimeMonitoringOps(
         val issueSignature = securityUiState.integritySummary.value.ifBlank { "-" }
         if (!result.ok && issueSignature != securityUiState.integrityLastLoggedSummary.value) {
             val issueSet = result.issues.toSet()
-            if ("dex_hash_mismatch" in issueSet) {
+            if (issueSet.any { it.startsWith("dex_hash_") }) {
                 callbacks.recordAction(
                     "TAMPER_APK_HASH",
                     securityUiState.integritySummary.value,
@@ -496,7 +496,7 @@ internal class ExamRuntimeMonitoringOps(
             examAlarmController = examAlarmController,
             callbacks = ExamRuntimeRendererGoneCallbacks(
                 cleanupActiveWebViewInstance = ::cleanupActiveExamWebViewInstance,
-                disarmExamRuntimeMonitoring = ::disarmExamRuntimeMonitoring,
+                disarmExamRuntimeMonitoring = { disarmExamRuntimeMonitoring() },
                 clearAppSwitchSuppression = callbacks.clearAppSwitchSuppression,
                 clearDpcExamPoliciesForSession = callbacks.clearDpcExamPoliciesForSession,
                 setLockTaskRequestPending = { flowUiState.lockTaskRequestPending.value = it },

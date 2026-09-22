@@ -826,7 +826,9 @@ internal fun ExamSecurityPreparationScreenContent(
                 PreparationNoticeStack(
                     state = state,
                     actions = throttledActions,
-                    runQuickFix = ::runQuickFix
+                    runQuickFix = { target, actionCode, opensExternalSettings, action ->
+                        runQuickFix(target, actionCode, opensExternalSettings, action)
+                    }
                 )
             }
 
@@ -840,7 +842,9 @@ internal fun ExamSecurityPreparationScreenContent(
                     fakeLocationReady = fakeLocationReady,
                     needsBluetoothPermission = needsBluetoothPermission,
                     accessibilityInspection = accessibilityInspection,
-                    runQuickFix = ::runQuickFix
+                    runQuickFix = { target, actionCode, opensExternalSettings, action ->
+                        runQuickFix(target, actionCode, opensExternalSettings, action)
+                    }
                 )
             }
 

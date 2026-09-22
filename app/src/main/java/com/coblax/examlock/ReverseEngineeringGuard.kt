@@ -23,57 +23,69 @@ data class ReverseEngineeringResult(
 }
 
 object ReverseEngineeringGuard {
-    private val mapMarkers = listOf(
-        "frida",
-        "gum-js-loop",
-        "gadget",
-        "xposed",
-        "substrate",
-        "lsposed",
-        "lspatch",
-        "libxposed",
-        "lsplant",
-        "zygisk",
-        "shamiko",
-        "rezygisk",
+    private val mapMarkersObfuscated = listOf(
+        "FQEaFxI=",  // frida
+        "FAYeXhkAXh8cHAM=",  // gum-js-loop
+        "FBIXFBYH",  // gadget
+        "CwMcABYX",  // xposed
+        "AAYRAAcBEgcW",  // substrate
+        "HwADHAAWFw==",  // lsposed
+        "HwADEgcQGw==",  // lspatch
+        "HxoRCwMcABYX",  // libxposed
+        "HwADHxIdBw==",  // lsplant
+        "CQoUGgAY",  // zygisk
+        "ABsSHhoYHA==",  // shamiko
+        "ARYJChQaABg=",  // rezygisk
         // Modern root/hooking frameworks
-        "magisk",
-        "kernelsu",
-        "/data/adb/ksu",
-        "/data/adb/ksud",
-        "apatch",
-        "objection",
-        "libriru",
-        "/data/adb/riru"
+        "HhIUGgAY",  // magisk
+        "GBYBHRYfAAY=",  // kernelsu
+        "XBcSBxJcEhcRXBgABg==",  // /data/adb/ksu
+        "XBcSBxJcEhcRXBgABhc=",  // /data/adb/ksud
+        "EgMSBxAb",  // apatch
+        "HBEZFhAHGhwd",  // objection
+        "HxoRARoBBg==",  // libriru
+        "XBcSBxJcEhcRXAEaAQY="  // /data/adb/riru
     )
 
-    private val suspiciousClassNames = listOf(
-        "de.robv.android.xposed.XposedBridge",
-        "de.robv.android.xposed.XC_MethodHook",
-        "com.saurik.substrate.MS${'$'}2",
-        "com.saurik.substrate.SubstrateHooker",
-        "org.lsposed.lspd.core.Main",
-        "org.lsposed.lspd.service.LSPSystemServer",
-        "com.github.kyuubiran.ezxhelper.EzXHelper",
-        "io.github.libxposed.api.XposedInterface",
-        "io.github.libxposed.api.XposedModule"
+    private val mapMarkers: List<String> by lazy {
+        mapMarkersObfuscated.map { RuntimeStringDecoder.decodeBase64Xor(it) }
+    }
+
+    private val suspiciousClassNamesObfuscated = listOf(
+        "FxZdARwRBV0SHRcBHBoXXQsDHAAWF10rAxwAFhcxARoXFBY=",  // de.robv.android.xposed.XposedBridge
+        "FxZdARwRBV0SHRcBHBoXXQsDHAAWF10rMCw+FgcbHBc7HBwY",  // de.robv.android.xposed.XC_MethodHook
+        "EBweXQASBgEaGF0ABhEABwESBxZdPiBXQQ==",  // com.saurik.substrate.MS$2
+        "EBweXQASBgEaGF0ABhEABwESBxZdIAYRAAcBEgcWOxwcGBYB",  // com.saurik.substrate.SubstrateHooker
+        "HAEUXR8AAxwAFhddHwADF10QHAEWXT4SGh0=",  // org.lsposed.lspd.core.Main
+        "HAEUXR8AAxwAFhddHwADF10AFgEFGhAWXT8gIyAKAAcWHiAWAQUWAQ==",  // org.lsposed.lspd.service.LSPSystemServer
+        "EBweXRQaBxsGEV0YCgYGERoBEh1dFgkLGxYfAxYBXTYJKzsWHwMWAQ==",  // com.github.kyuubiran.ezxhelper.EzXHelper
+        "GhxdFBoHGwYRXR8aEQsDHAAWF10SAxpdKwMcABYXOh0HFgEVEhAW",  // io.github.libxposed.api.XposedInterface
+        "GhxdFBoHGwYRXR8aEQsDHAAWF10SAxpdKwMcABYXPhwXBh8W"  // io.github.libxposed.api.XposedModule
     )
 
-    private val suspiciousPackageNames = listOf(
-        "de.robv.android.xposed.installer",
-        "org.lsposed.manager",
-        "org.lsposed.lspatch",
-        "org.meowcat.edxposed.manager",
-        "com.saurik.substrate",
+    private val suspiciousClassNames: List<String> by lazy {
+        suspiciousClassNamesObfuscated.map { RuntimeStringDecoder.decodeBase64Xor(it) }
+    }
+
+    private val suspiciousPackageNamesObfuscated = listOf(
+        "FxZdARwRBV0SHRcBHBoXXQsDHAAWF10aHQAHEh8fFgE=",  // de.robv.android.xposed.installer
+        "HAEUXR8AAxwAFhddHhIdEhQWAQ==",  // org.lsposed.manager
+        "HAEUXR8AAxwAFhddHwADEgcQGw==",  // org.lsposed.lspatch
+        "HAEUXR4WHAQQEgddFhcLAxwAFhddHhIdEhQWAQ==",  // org.meowcat.edxposed.manager
+        "EBweXQASBgEaGF0ABhEABwESBxY=",  // com.saurik.substrate
         // Magisk manager variants
-        "com.topjohnwu.magisk",
+        "EBweXQccAxkcGx0EBl0eEhQaABg=",  // com.topjohnwu.magisk
         // KernelSU manager
-        "me.weishu.kernelsu",
+        "HhZdBBYaABsGXRgWAR0WHwAG",  // me.weishu.kernelsu
         // APatch manager
-        "me.bmax.apatch",
+        "HhZdER4SC10SAxIHEBs=",  // me.bmax.apatch
         // Frida server package
-        "re.frida.server"
+        "ARZdFQEaFxJdABYBBRYB"  // re.frida.server
     )
+
+    private val suspiciousPackageNames: List<String> by lazy {
+        suspiciousPackageNamesObfuscated.map { RuntimeStringDecoder.decodeBase64Xor(it) }
+    }
 
     fun inspect(context: Context): ReverseEngineeringResult {
         val strongSignals = mutableListOf<String>()

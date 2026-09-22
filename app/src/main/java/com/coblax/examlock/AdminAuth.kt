@@ -9,6 +9,9 @@ import kotlin.math.min
 private const val AdminAuthPrefsName = "cbx_admin_auth_rate_limit"
 private const val KeyFailedAttempts = "failed_attempts"
 private const val KeyBlockedUntilWallClock = "blocked_until_wall_clock"
+private const val KeyBlockedUntilElapsed = "blocked_until_elapsed"
+
+internal const val AdminAuthMaxBackoffMillis = 8_000L
 
 object AdminAuth {
     private val lock = Any()
@@ -21,9 +24,21 @@ object AdminAuth {
         synchronized(lock) {
             val prefs = context.getSharedPreferences(AdminAuthPrefsName, Context.MODE_PRIVATE)
             val failedAttempts = prefs.getInt(KeyFailedAttempts, 0)
-            val blockedUntilWallClock = prefs.getLong(KeyBlockedUntilWallClock, 0L)
             val nowWallClock = System.currentTimeMillis()
-            if (nowWallClock < blockedUntilWallClock) {
+            val nowElapsed = SystemClock.elapsedRealtime()
+            // The wall clock alone let anyone clear the lockout by moving the device
+            // date forward, which the app already treats as a live threat elsewhere.
+            // The monotonic deadline survives that; the wall-clock one survives a
+            // reboot. Staying blocked while either is running closes both holes.
+            val wallClockBlockMs = remainingBlockMillis(
+                prefs.getLong(KeyBlockedUntilWallClock, 0L),
+                nowWallClock
+            )
+            val elapsedBlockMs = remainingBlockMillis(
+                prefs.getLong(KeyBlockedUntilElapsed, 0L),
+                nowElapsed
+            )
+            if (wallClockBlockMs > 0L || elapsedBlockMs > 0L) {
                 return false
             }
             val verified = AdminSecretBridge.verify(context, trimmed)
@@ -31,6 +46,7 @@ object AdminAuth {
                 prefs.edit {
                     putInt(KeyFailedAttempts, 0)
                     putLong(KeyBlockedUntilWallClock, 0L)
+                    putLong(KeyBlockedUntilElapsed, 0L)
                 }
                 AdminAuthSession.issue()
                 true
@@ -40,9 +56,28 @@ object AdminAuth {
                 prefs.edit {
                     putInt(KeyFailedAttempts, nextFailedAttempts)
                     putLong(KeyBlockedUntilWallClock, nowWallClock + backoffMs)
+                    putLong(KeyBlockedUntilElapsed, nowElapsed + backoffMs)
                 }
                 false
             }
+        }
+    }
+
+    /**
+     * Remaining lockout for one clock, clamped to the longest backoff we ever write.
+     * A deadline further out than that means the clock jumped backwards or the device
+     * rebooted (which restarts [SystemClock.elapsedRealtime]), not that a real lockout
+     * is still running — so neither event can lock a legitimate admin out for hours.
+     */
+    internal fun remainingBlockMillis(deadline: Long, now: Long): Long {
+        if (deadline <= 0L) {
+            return 0L
+        }
+        val remaining = deadline - now
+        return when {
+            remaining <= 0L -> 0L
+            remaining > AdminAuthMaxBackoffMillis -> AdminAuthMaxBackoffMillis
+            else -> remaining
         }
     }
 
@@ -51,6 +86,7 @@ object AdminAuth {
             context.getSharedPreferences(AdminAuthPrefsName, Context.MODE_PRIVATE).edit {
                 putInt(KeyFailedAttempts, 0)
                 putLong(KeyBlockedUntilWallClock, 0L)
+                putLong(KeyBlockedUntilElapsed, 0L)
             }
         }
     }

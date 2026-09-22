@@ -382,7 +382,7 @@ internal fun CustomQrAdminScreen(
 
         CustomQrAdminTabSelector(
             selectedTab = selectedCustomQrAdminTab,
-            onTabSelected = ::navigateToStep
+            onTabSelected = { target -> navigateToStep(target) }
         )
 
         stepNavigationError?.let { message ->

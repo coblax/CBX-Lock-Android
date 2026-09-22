@@ -883,7 +883,7 @@ internal fun SecretAdminScreen(
             horizontalArrangement = Arrangement.SpaceBetween,
             verticalAlignment = Alignment.CenterVertically
         ) {
-            BackPillButton(onClick = ::requestBack)
+            BackPillButton(onClick = { requestBack() })
 
             Surface(
                 shape = RoundedCornerShape(UiTokens.RadiusPill),
@@ -1200,8 +1200,8 @@ internal fun SecretAdminScreen(
             summary = adminReadinessSummary,
             fieldReadinessRunning = fieldReadinessRunning,
             webViewStatus = adminWebViewCompatibilityStatus,
-            onRunCheck = ::runFieldReadinessTest,
-            onOpenWebViewSettings = ::openAdminWebViewProviderSettings,
+            onRunCheck = { runFieldReadinessTest() },
+            onOpenWebViewSettings = { openAdminWebViewProviderSettings() },
             onOpenAdvanced = { advancedDiagnosticsExpanded = true }
         )
 
@@ -1224,7 +1224,7 @@ internal fun SecretAdminScreen(
             vendorChecklist = vendorChecklist,
             deviceCompatibilityProfile = deviceCompatibilityProfile,
             onRefreshWebView = { adminWebViewRefreshKey += 1 },
-            onOpenWebViewSettings = ::openAdminWebViewProviderSettings,
+            onOpenWebViewSettings = { openAdminWebViewProviderSettings() },
             onOpenBatterySettings = { openSettingsIntent(Settings.ACTION_BATTERY_SAVER_SETTINGS) },
             onOpenLocationSettings = { openSettingsIntent(Settings.ACTION_LOCATION_SOURCE_SETTINGS) },
             onOpenOverlaySettings = { openOverlaySettings(context) },
@@ -1249,7 +1249,7 @@ internal fun SecretAdminScreen(
                 SecretAdminSecurityOverridesCard(
                     settings = draftAdminSettings,
                     overridesActive = overridesActive,
-                    onSettingsChange = ::updateDraftSettings
+                    onSettingsChange = { updated -> updateDraftSettings(updated) }
                 )
 
                 Spacer(modifier = Modifier.height(18.dp))
@@ -1567,7 +1567,7 @@ internal fun SecretAdminScreen(
                         verticalAlignment = Alignment.CenterVertically
                     ) {
                         TextButton(
-                            onClick = ::revertDraftSettings,
+                            onClick = { revertDraftSettings() },
                             enabled = adminSettingsDirty && !isApplyInProgress,
                             modifier = Modifier.weight(1f)
                         ) {

@@ -129,4 +129,44 @@ class ExamWebViewNavigationStateTest {
             assertFalse(isRecoverableExamConnectionError("Halaman gagal", code))
         }
     }
+
+    /**
+     * An attachment preview (blob:/file:) is a real main-frame navigation that is not an
+     * exam page. It must not mark the exam online, but leaving it flagged as loading
+     * froze the footer on "Checking" and blocked every later reachability probe.
+     */
+    @Test
+    fun attachmentPreviewReleasesTheLoadingLatchWithoutMarkingExamOnline() {
+        val state = ExamWebViewNavigationState()
+        state.start(url)
+        assertTrue(state.finish(url))
+        val attachment = "blob:https://exam.example/7f3c-attachment"
+        state.start(attachment)
+        assertFalse(state.finish(attachment))
+        assertTrue(state.canApplyServerProbe(state.revision))
+        state.start(url)
+        state.fail(url, recoverOnConnection = true)
+        assertFalse(state.finish(url))
+        assertFalse(state.canApplyServerProbe(state.revision))
+        assertEquals(2_000L, state.nextRetryDelayMillis())
+    }
+
+    /**
+     * The exam browser used to pass every main-frame navigation straight through, so a
+     * deep-link scheme on the exam page was an invitation to hand the locked session to
+     * the Play Store, the dialer or a chat app.
+     */
+    @Test
+    fun onlyInWebViewSchemesMayDriveAMainFrameNavigation() {
+        for (scheme in listOf("http", "https", "blob", "about", "data", "HTTPS", "Blob")) {
+            assertTrue(scheme, isNavigableExamScheme(scheme))
+        }
+        for (scheme in listOf(
+            "intent", "android-app", "market", "tel", "sms", "smsto", "mailto",
+            "whatsapp", "tg", "fb-messenger", "file", "content", "javascript", ""
+        )) {
+            assertFalse(scheme, isNavigableExamScheme(scheme))
+        }
+        assertFalse(isNavigableExamScheme(null))
+    }
 }

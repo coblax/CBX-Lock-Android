@@ -12,6 +12,7 @@ import android.os.StatFs
 import android.provider.Settings
 import android.view.accessibility.AccessibilityManager
 import androidx.webkit.WebViewCompat
+import com.coblax.examlock.RuntimeStringDecoder
 import com.coblax.examlock.config.EmulatorPackagePrefixes
 import com.coblax.examlock.config.MagiskIndicatorPaths
 import com.coblax.examlock.config.RootBinaryIndicatorPaths
@@ -122,8 +123,8 @@ internal fun getRootDetectionDetails(
             context.packageManager.getApplicationInfo(packageName, 0)
         }.isSuccess
     }
-    val magiskPaths = MagiskIndicatorPaths.distinct().filter(::safeFileExists)
-    val zygiskDetected = safeFileExists("/data/adb/zygisk") || scanProcSelfMapsForZygisk()
+    val magiskPaths = MagiskIndicatorPaths.distinct().filter { safeFileExists(it) }
+    val zygiskDetected = safeFileExists(HookProbeStrings.zygiskAdbPath) || scanProcSelfMapsForZygisk()
     val verifiedBootStateRaw = getSystemProperty("ro.boot.verifiedbootstate").trim()
     val vbmetaDeviceStateRaw = getSystemProperty("ro.boot.vbmeta.device_state").trim()
     val flashLockedRaw = getSystemProperty("ro.boot.flash.locked").trim()
@@ -187,10 +188,10 @@ internal fun isDeviceRooted(details: RootDetectionDetails): Boolean {
 @Suppress("TooGenericExceptionCaught")
 internal fun isXposedBridgeActive(): Boolean {
     // Check 1: XposedBridge class injected into this process (Xposed / LSPosed active)
-    if (runCatching { Class.forName("de.robv.android.xposed.XposedBridge") }.isSuccess) return true
+    if (runCatching { Class.forName(HookProbeStrings.xposedBridgeClass) }.isSuccess) return true
     // Check 2: XposedBridge JAR on disk (classic Xposed installed at system level)
-    if (safeFileExists("/system/framework/XposedBridge.jar")) return true
-    if (safeFileExists("/system/lib/XposedBridge.jar")) return true
+    if (safeFileExists(HookProbeStrings.xposedBridgeFrameworkJar)) return true
+    if (safeFileExists(HookProbeStrings.xposedBridgeLibJar)) return true
     return false
 }
 
@@ -307,6 +308,34 @@ internal fun safeFileExists(path: String): Boolean {
     return runCatching { java.io.File(path).exists() }.getOrDefault(false)
 }
 
+// Hook/root probe inputs are stored obfuscated. In plaintext a release DEX answered
+// `strings classes.dex | grep xposed` with this detector's exact shopping list, which
+// is all an attacker needs to find the check and patch it out.
+private object HookProbeStrings {
+    private fun decode(value: String) = RuntimeStringDecoder.decodeBase64Xor(value)
+
+    private const val XPOSED_BRIDGE_CLASS = "FxZdARwRBV0SHRcBHBoXXQsDHAAWF10rAxwAFhcxARoXFBY="  // de.robv.android.xposed.XposedBridge
+    private const val XPOSED_BRIDGE_FRAMEWORK_JAR = "XAAKAAcWHlwVARIeFgQcARhcKwMcABYXMQEaFxQWXRkSAQ=="  // /system/framework/XposedBridge.jar
+    private const val XPOSED_BRIDGE_LIB_JAR = "XAAKAAcWHlwfGhFcKwMcABYXMQEaFxQWXRkSAQ=="  // /system/lib/XposedBridge.jar
+    private const val ZYGISK_ADB_PATH = "XBcSBxJcEhcRXAkKFBoAGA=="  // /data/adb/zygisk
+
+    val xposedBridgeClass: String by lazy { decode(XPOSED_BRIDGE_CLASS) }
+    val xposedBridgeFrameworkJar: String by lazy { decode(XPOSED_BRIDGE_FRAMEWORK_JAR) }
+    val xposedBridgeLibJar: String by lazy { decode(XPOSED_BRIDGE_LIB_JAR) }
+    val zygiskAdbPath: String by lazy { decode(ZYGISK_ADB_PATH) }
+
+    val injectionMapMarkers: List<String> by lazy {
+        listOf(
+            "CQoUGgAY",  // zygisk
+            "HxoRCQoUGgAY",  // libzygisk
+            "HxoRARoBBg==",  // libriru
+            "HwADHAAWFw==",  // lsposed
+            "FhcLAxwAFhc=",  // edxposed
+            "HxoRAAYRAAcBEgcW"  // libsubstrate
+        ).map { decode(it) }
+    }
+}
+
 internal fun scanProcSelfMapsForZygisk(): Boolean {
     return runCatching {
         val mapsFile = java.io.File("/proc/self/maps")
@@ -315,13 +344,9 @@ internal fun scanProcSelfMapsForZygisk(): Boolean {
         }
         mapsFile.useLines { lines ->
             lines.any { line ->
-                line.contains("zygisk", ignoreCase = true) ||
-                    line.contains("libzygisk", ignoreCase = true) ||
-                    // Extended injection scan: Riru, LSPosed, EdXposed, Substrate
-                    line.contains("libriru", ignoreCase = true) ||
-                    line.contains("lsposed", ignoreCase = true) ||
-                    line.contains("edxposed", ignoreCase = true) ||
-                    line.contains("libsubstrate", ignoreCase = true)
+                HookProbeStrings.injectionMapMarkers.any { marker ->
+                    line.contains(marker, ignoreCase = true)
+                }
             }
         }
     }.getOrDefault(false)

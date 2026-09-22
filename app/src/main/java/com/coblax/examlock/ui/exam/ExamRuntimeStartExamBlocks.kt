@@ -117,7 +117,11 @@ internal fun formatApkIntegrityBlockReason(summary: String): String {
     if ("signature_changed" in lower || "signature" in lower) {
         reasons.add("Signature APK berubah")
     }
-    if ("dex_hash_mismatch" in lower || "hash" in lower) {
+    if ("dex_hash_reference_missing" in lower) {
+        reasons.add("Referensi hash APK hilang")
+    } else if ("dex_hash_unreadable" in lower) {
+        reasons.add("Hash APK tidak terbaca")
+    } else if ("dex_hash_mismatch" in lower || "hash" in lower) {
         reasons.add("Hash APK berubah")
     }
     if ("sysprop_" in lower || "test_keys" in lower || "system property" in lower) {

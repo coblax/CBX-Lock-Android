@@ -306,7 +306,9 @@ internal fun PreparationWizardScreen(
                     fakeLocationReady = readiness.fakeLocationReady,
                     needsBluetoothPermission = needsBluetoothPermission,
                     accessibilityInspection = accessibilityInspection,
-                    runQuickFix = ::runQuickFix
+                    runQuickFix = { target, actionCode, opensExternalSettings, action ->
+                        runQuickFix(target, actionCode, opensExternalSettings, action)
+                    }
                 )
             }
             val stepQuickFixActions = remember(currentStep, currentStepState, allQuickFixActions) {

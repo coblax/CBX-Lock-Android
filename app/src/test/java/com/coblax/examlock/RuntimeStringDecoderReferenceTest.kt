@@ -7,7 +7,7 @@ class RuntimeStringDecoderReferenceTest {
     @Test
     fun referenceDecoderMatchesExpectedFastExamUrl() {
         assertEquals(
-            "https://www.smkn1tanjungpandan.sch.id/",
+            "https://skansatp.web.id/?examkey=223611",
             RuntimeStringDecoderParityAccess.decodeReference(SecureStrings.OBF_FAST_EXAM_URL)
         )
     }

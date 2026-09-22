@@ -126,7 +126,7 @@ internal fun ExamScanSourceDialogHost(
                 showSourceDialog = false
                 fileScanLauncher.launch("image/*")
             },
-            onDismiss = ::dismissHost
+            onDismiss = { dismissHost() }
         )
     }
 }
