@@ -61,6 +61,7 @@ internal class ExamRuntimeSecurityUiState(
     val adbInspection: MutableState<AdbInspection>,
     val developerOptionsEnabled: MutableState<Boolean>,
     val adbEnabled: MutableState<Boolean>,
+    val wirelessAdbEnabled: MutableState<Boolean>,
     val rootSecurityStatus: MutableState<RootSecurityStatus>,
     val rootDetected: MutableState<Boolean>,
     val selinuxPermissiveWarning: MutableState<Boolean>,
@@ -141,6 +142,9 @@ internal fun rememberExamRuntimeSecurityUiState(
     }
     val adbEnabled = rememberSaveable {
         mutableStateOf(initialAdbInspection.adbEnabled)
+    }
+    val wirelessAdbEnabled = rememberSaveable {
+        mutableStateOf(initialAdbInspection.wirelessAdbEnabled)
     }
     val initialRootStatus = remember { buildRootSecurityStatus(emptyRootDetectionDetails()) }
     val rootSecurityStatus = remember { mutableStateOf(initialRootStatus) }
@@ -273,6 +277,7 @@ internal fun rememberExamRuntimeSecurityUiState(
         adbInspection = adbInspection,
         developerOptionsEnabled = developerOptionsEnabled,
         adbEnabled = adbEnabled,
+        wirelessAdbEnabled = wirelessAdbEnabled,
         rootSecurityStatus = rootSecurityStatus,
         rootDetected = rootDetected,
         selinuxPermissiveWarning = selinuxPermissiveWarning,

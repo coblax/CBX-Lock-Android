@@ -160,28 +160,34 @@ internal fun RuntimeConnectivityEffects(
         // The previous approach used removeCallbacksAndMessages("network_debounce")
         // which never matched because callbacks were posted without a token object.
         var pendingDebouncedRunnable: Runnable? = null
+        // ConnectivityManager delivers its callbacks on a binder thread while the
+        // debounced runnables below run on the main thread. Hop to the main handler
+        // first so lastCallbackPostElapsedMs / pendingDebouncedRunnable are only ever
+        // touched from one thread; otherwise a concurrent callback can drop or double
+        // up a refresh.
         val pushNetworkStatusUpdate = { source: String ->
-            val now = SystemClock.elapsedRealtime()
-            if (now - lastCallbackPostElapsedMs >= NetworkReadinessPollingCallbackDebounceMillis) {
-                lastCallbackPostElapsedMs = now
-                pendingDebouncedRunnable?.let(networkMainHandler::removeCallbacks)
-                pendingDebouncedRunnable = null
-                networkMainHandler.post {
-                    updateNetworkReadiness(source)
-                }
-            } else {
-                pendingDebouncedRunnable?.let(networkMainHandler::removeCallbacks)
-                val runnable = Runnable {
-                    lastCallbackPostElapsedMs = SystemClock.elapsedRealtime()
+            networkMainHandler.post {
+                val now = SystemClock.elapsedRealtime()
+                if (now - lastCallbackPostElapsedMs >= NetworkReadinessPollingCallbackDebounceMillis) {
+                    lastCallbackPostElapsedMs = now
+                    pendingDebouncedRunnable?.let(networkMainHandler::removeCallbacks)
                     pendingDebouncedRunnable = null
                     updateNetworkReadiness(source)
+                } else {
+                    pendingDebouncedRunnable?.let(networkMainHandler::removeCallbacks)
+                    val runnable = Runnable {
+                        lastCallbackPostElapsedMs = SystemClock.elapsedRealtime()
+                        pendingDebouncedRunnable = null
+                        updateNetworkReadiness(source)
+                    }
+                    pendingDebouncedRunnable = runnable
+                    networkMainHandler.postDelayed(
+                        runnable,
+                        NetworkReadinessPollingCallbackDebounceMillis
+                    )
                 }
-                pendingDebouncedRunnable = runnable
-                networkMainHandler.postDelayed(
-                    runnable,
-                    NetworkReadinessPollingCallbackDebounceMillis
-                )
             }
+            Unit
         }
         val callback = object : ConnectivityManager.NetworkCallback() {
             override fun onAvailable(network: Network) {

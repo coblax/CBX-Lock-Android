@@ -1,4 +1,4 @@
-﻿package com.coblax.examlock.ui.exam
+package com.coblax.examlock.ui.exam
 
 import androidx.compose.foundation.background
 import androidx.compose.foundation.border
@@ -40,16 +40,7 @@ import androidx.compose.ui.unit.sp
 import com.coblax.examlock.i18n.tr
 import com.coblax.examlock.model.ExamBatteryStatus
 import com.coblax.examlock.model.NetworkReadinessStatus
-import com.coblax.examlock.ui.theme.LockBlue
-import com.coblax.examlock.ui.theme.LockBlueDeep
-import com.coblax.examlock.ui.theme.LockGoldDark
-import com.coblax.examlock.ui.theme.LockOnDark
-import com.coblax.examlock.ui.theme.LockOutline
-import com.coblax.examlock.ui.theme.LockStatusDanger
-import com.coblax.examlock.ui.theme.LockStatusDangerFill
-import com.coblax.examlock.ui.theme.LockSurfaceSoft
-import com.coblax.examlock.ui.theme.LockTextPrimary
-import com.coblax.examlock.ui.theme.LockTextSecondary
+import com.coblax.examlock.ui.theme.AppColors
 import com.coblax.examlock.ui.theme.UiTokens
 
 internal data class ExamRuntimeChromeState(
@@ -96,7 +87,7 @@ internal fun ExamWebErrorOverlay(
             .padding(24.dp)
             .clip(RoundedCornerShape(18.dp))
             .background(MaterialTheme.colorScheme.surface)
-            .border(1.dp, LockStatusDanger.copy(alpha = 0.25f), RoundedCornerShape(18.dp))
+            .border(1.dp, AppColors.current.statusDanger.copy(alpha = 0.25f), RoundedCornerShape(18.dp))
     ) {
         // Subtle gradient background tint
         Box(
@@ -104,7 +95,7 @@ internal fun ExamWebErrorOverlay(
                 .fillMaxWidth()
                 .background(
                     brush = Brush.verticalGradient(
-                        colors = listOf(LockStatusDangerFill.copy(alpha = 0.55f), Color.White)
+                        colors = listOf(AppColors.current.statusDangerFill.copy(alpha = 0.55f), AppColors.current.cardBg)
                     )
                 )
         ) {
@@ -114,7 +105,7 @@ internal fun ExamWebErrorOverlay(
                     .width(4.dp)
                     .fillMaxHeight()
                     .clip(RoundedCornerShape(topStart = 18.dp, bottomStart = 18.dp))
-                    .background(LockStatusDanger)
+                    .background(AppColors.current.statusDanger)
             )
 
             Column(
@@ -125,26 +116,26 @@ internal fun ExamWebErrorOverlay(
                 Icon(
                     imageVector = Icons.Rounded.CloudOff,
                     contentDescription = null,
-                    tint = LockStatusDanger.copy(alpha = 0.80f),
+                    tint = AppColors.current.statusDanger.copy(alpha = 0.80f),
                     modifier = Modifier.size(40.dp)
                 )
                 Text(
                     text = tr("Exam page is not available yet", "Halaman ujian belum berhasil dimuat"),
-                    color = LockTextPrimary,
+                    color = AppColors.current.textPrimary,
                     fontWeight = FontWeight.Bold,
                     fontSize = 18.sp,
                     lineHeight = 24.sp
                 )
                 Text(
                     text = examDisplayName,
-                    color = LockBlueDeep,
+                    color = AppColors.current.brandText,
                     fontSize = 13.sp,
                     fontWeight = FontWeight.SemiBold
                 )
                 if (!errorMessage.isNullOrBlank()) {
                     Text(
                         text = errorMessage,
-                        color = LockTextSecondary,
+                        color = AppColors.current.textSecondary,
                         fontSize = 13.sp,
                         lineHeight = 18.sp
                     )
@@ -154,8 +145,8 @@ internal fun ExamWebErrorOverlay(
                     modifier = Modifier.fillMaxWidth(),
                     shape = RoundedCornerShape(UiTokens.RadiusSm),
                     colors = ButtonDefaults.buttonColors(
-                        containerColor = LockBlue,
-                        contentColor = LockOnDark
+                        containerColor = AppColors.current.blue,
+                        contentColor = AppColors.current.onDark
                     )
                 ) {
                     Text(tr("Retry Loading", "Muat Ulang"), fontWeight = FontWeight.Bold)
@@ -170,7 +161,7 @@ internal fun ExamWebErrorOverlay(
 
 /**
  * Full-screen overlay shown while screen pinning is being activated.
- * Blocks all touches â€” prevents accidental Home/Recent presses.
+ * Blocks all touches — prevents accidental Home/Recent presses.
  * No animations: safe for API 24 / 768MB RAM.
  */
 @Composable
@@ -187,7 +178,7 @@ internal fun PinningActivationOverlay(modifier: Modifier = Modifier) {
                 .padding(vertical = 24.dp)
                 .clip(RoundedCornerShape(22.dp))
                 .background(Color(0xFF1A2332))
-                .border(1.dp, LockGoldDark.copy(alpha = 0.30f), RoundedCornerShape(22.dp))
+                .border(1.dp, AppColors.current.goldDark.copy(alpha = 0.30f), RoundedCornerShape(22.dp))
         ) {
             Column(
                 modifier = Modifier.padding(horizontal = 24.dp, vertical = 28.dp),
@@ -197,12 +188,12 @@ internal fun PinningActivationOverlay(modifier: Modifier = Modifier) {
                 Box(
                     modifier = Modifier
                         .clip(CircleShape)
-                        .background(LockGoldDark.copy(alpha = 0.16f))
+                        .background(AppColors.current.goldDark.copy(alpha = 0.16f))
                 ) {
                     Icon(
                         imageVector = Icons.Rounded.Lock,
                         contentDescription = null,
-                        tint = LockGoldDark,
+                        tint = AppColors.current.goldDark,
                         modifier = Modifier.padding(14.dp).size(36.dp)
                     )
                 }
@@ -237,10 +228,10 @@ internal fun PinningActivationOverlay(modifier: Modifier = Modifier) {
                     icon = Icons.Rounded.PanTool,
                     title = tr("DO NOT press Home or Recent", "JANGAN tekan Home atau Recent"),
                     desc = tr(
-                        "Pressing Home or Recent cancels the process â€” you must try again.",
-                        "Menekan Home atau Recent membatalkan proses â€” Anda harus mencoba lagi."
+                        "Pressing Home or Recent cancels the process — you must try again.",
+                        "Menekan Home atau Recent membatalkan proses — Anda harus mencoba lagi."
                     ),
-                    accentColor = LockStatusDanger
+                    accentColor = AppColors.current.statusDanger
                 )
                 PinningStep(
                     step = "3",
@@ -254,8 +245,8 @@ internal fun PinningActivationOverlay(modifier: Modifier = Modifier) {
                 Row(
                     modifier = Modifier
                         .clip(RoundedCornerShape(UiTokens.RadiusSm))
-                        .background(LockStatusDanger.copy(alpha = 0.16f))
-                        .border(1.dp, LockStatusDanger.copy(alpha = 0.25f), RoundedCornerShape(UiTokens.RadiusSm))
+                        .background(AppColors.current.statusDanger.copy(alpha = 0.16f))
+                        .border(1.dp, AppColors.current.statusDanger.copy(alpha = 0.25f), RoundedCornerShape(UiTokens.RadiusSm))
                         .padding(horizontal = 14.dp, vertical = 10.dp),
                     horizontalArrangement = Arrangement.spacedBy(8.dp),
                     verticalAlignment = Alignment.CenterVertically
@@ -263,7 +254,7 @@ internal fun PinningActivationOverlay(modifier: Modifier = Modifier) {
                     Icon(
                         imageVector = Icons.Rounded.PanTool,
                         contentDescription = null,
-                        tint = LockStatusDanger,
+                        tint = AppColors.current.statusDanger,
                         modifier = Modifier.size(16.dp)
                     )
                     Text(
@@ -271,7 +262,7 @@ internal fun PinningActivationOverlay(modifier: Modifier = Modifier) {
                             "Do not touch Home or Recent during this process",
                             "Jangan sentuh Home atau Recent selama proses ini"
                         ),
-                        color = LockStatusDanger,
+                        color = AppColors.current.statusDanger,
                         fontSize = 12.sp,
                         fontWeight = FontWeight.Bold,
                         lineHeight = 17.sp
@@ -288,7 +279,7 @@ private fun PinningStep(
     icon: ImageVector,
     title: String,
     desc: String,
-    accentColor: Color = LockGoldDark
+    accentColor: Color = AppColors.current.goldDark
 ) {
     Row(
         horizontalArrangement = Arrangement.spacedBy(12.dp),

@@ -71,6 +71,7 @@ internal fun buildExamRuntimePreExamHealthSnapshot(
             compatibilityProfile = deviceCompatibilityProfile,
             screenPinningAvailable = ScreenPinningPlatformBridge.isAvailable(),
             screenPinningActive = lockTaskBridge.active(),
+            lockTaskState = lockTaskBridge.state(),
             screenPinningBypassed = adminSettings.bypassScreenPinning,
             accessibilityGuardAvailable = isExamGuardAccessibilityAvailable(context),
             accessibilityGuardEnabled = accessibilityGuardEnabled,

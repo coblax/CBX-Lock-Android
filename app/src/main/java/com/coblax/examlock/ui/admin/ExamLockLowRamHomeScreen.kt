@@ -10,7 +10,9 @@ import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxSize
+import androidx.compose.foundation.layout.ExperimentalLayoutApi
 import androidx.compose.foundation.layout.fillMaxWidth
+import androidx.compose.foundation.layout.FlowRow
 import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.navigationBarsPadding
 import androidx.compose.foundation.layout.padding
@@ -44,29 +46,21 @@ import com.coblax.examlock.config.DeveloperGithubUrl
 import com.coblax.examlock.i18n.tr
 import com.coblax.examlock.lowRamProfileBadgeLabel
 import com.coblax.examlock.lowRamProfileBadgePalette
+import com.coblax.examlock.model.ThemeMode
 import com.coblax.examlock.model.UiLanguage
-import com.coblax.examlock.ui.theme.LockBackground
-import com.coblax.examlock.ui.theme.LockBlue
-import com.coblax.examlock.ui.theme.LockBlueDeep
-import com.coblax.examlock.ui.theme.LockGold
-import com.coblax.examlock.ui.theme.LockOnDark
-import com.coblax.examlock.ui.theme.LockOutline
-import com.coblax.examlock.ui.theme.LockSurfaceSoft
-import com.coblax.examlock.ui.theme.LockTextMuted
-import com.coblax.examlock.ui.theme.LockTextSecondary
+import com.coblax.examlock.ui.theme.AppColors
 import com.coblax.examlock.ui.theme.adaptiveScreenPadding
 import com.coblax.examlock.ui.theme.responsiveContentWidth
 import com.coblax.examlock.ui.theme.UiTokens
 import com.coblax.examlock.ui.theme.flatPill
-import com.coblax.examlock.ui.theme.LockBlueTint
-import com.coblax.examlock.ui.theme.LockOutlineSubtle
-import com.coblax.examlock.ui.theme.LockOutlineMedium
 import java.util.concurrent.atomic.AtomicBoolean
 
 @Composable
 internal fun ExamLockLowRamHomeScreen(
     uiLanguage: UiLanguage,
     onUiLanguageChange: (UiLanguage) -> Unit,
+    themeMode: ThemeMode = ThemeMode.System,
+    onThemeModeChange: (ThemeMode) -> Unit = {},
     onScanExam: () -> Unit,
     onOpenAdmin: () -> Unit,
     onOpenFastExam: () -> Unit,
@@ -87,16 +81,16 @@ internal fun ExamLockLowRamHomeScreen(
                     StartupTrace.mark("home_first_frame", "severe=true shell=foundation")
                 }
             }
-            .background(LockBackground)
+            .background(AppColors.current.background)
     ) {
-        // Subtle top gradient accent â€” lightweight, no bitmap
+        // Subtle top gradient accent — lightweight, no bitmap
         Box(
             modifier = Modifier
                 .fillMaxWidth()
                 .height(180.dp)
                 .background(
                     brush = Brush.verticalGradient(
-                        0f to LockBlue.copy(alpha = 0.05f),
+                        0f to AppColors.current.blue.copy(alpha = 0.05f),
                         1f to Color.Transparent
                     )
                 )
@@ -116,6 +110,8 @@ internal fun ExamLockLowRamHomeScreen(
             LowRamHero(
                 uiLanguage = uiLanguage,
                 onUiLanguageChange = onUiLanguageChange,
+                themeMode = themeMode,
+                onThemeModeChange = onThemeModeChange,
                 onSecretTap = onSecretTap,
                 onOpenPerformanceProfile = onOpenPerformanceProfile
             )
@@ -130,9 +126,9 @@ internal fun ExamLockLowRamHomeScreen(
                 ),
                 badgeText = tr("RECOMMENDED", "REKOMENDASI"),
                 glyph = "QR",
-                containerColor = LockBlue,
-                contentColor = LockOnDark,
-                borderColor = LockBlue,
+                containerColor = AppColors.current.blue,
+                contentColor = AppColors.current.onDark,
+                borderColor = AppColors.current.blue,
                 glyphContainerColor = Color.White.copy(alpha = 0.18f),
                 onClick = onScanExam
             )
@@ -147,10 +143,10 @@ internal fun ExamLockLowRamHomeScreen(
                 ),
                 badgeText = "ADMIN",
                 glyph = "AD",
-                containerColor = Color.White,
-                contentColor = LockBlueDeep,
-                borderColor = LockOutline,
-                glyphContainerColor = LockBlueTint,
+                containerColor = AppColors.current.cardBg,
+                contentColor = AppColors.current.brandText,
+                borderColor = AppColors.current.outline,
+                glyphContainerColor = AppColors.current.blueTint,
                 onClick = onOpenAdmin
             )
 
@@ -164,10 +160,10 @@ internal fun ExamLockLowRamHomeScreen(
                 ),
                 badgeText = tr("DIRECT LINK", "LINK LANGSUNG"),
                 glyph = "GO",
-                containerColor = LockGold.copy(alpha = 0.12f),
-                contentColor = LockBlueDeep,
-                borderColor = LockGold.copy(alpha = 0.40f),
-                glyphContainerColor = LockBlueDeep.copy(alpha = 0.08f),
+                containerColor = AppColors.current.gold.copy(alpha = 0.12f),
+                contentColor = AppColors.current.brandText,
+                borderColor = AppColors.current.gold.copy(alpha = 0.40f),
+                glyphContainerColor = AppColors.current.blueDeep.copy(alpha = 0.08f),
                 onClick = onOpenFastExam
             )
 
@@ -178,29 +174,29 @@ internal fun ExamLockLowRamHomeScreen(
                     modifier = Modifier
                         .fillMaxWidth()
                         .clip(RoundedCornerShape(UiTokens.RadiusMd))
-                        .background(LockSurfaceSoft)
-                        .border(1.dp, LockOutline.copy(alpha = 0.50f), RoundedCornerShape(UiTokens.RadiusMd))
+                        .background(AppColors.current.surfaceSoft)
+                        .border(1.dp, AppColors.current.outline.copy(alpha = 0.50f), RoundedCornerShape(UiTokens.RadiusMd))
                         .padding(horizontal = 16.dp, vertical = 12.dp),
                     contentAlignment = Alignment.Center
                 ) {
                     Column(horizontalAlignment = Alignment.CenterHorizontally) {
                         LowRamText(
                             text = "COBLAX",
-                            color = LockBlueDeep,
+                            color = AppColors.current.brandText,
                             fontSize = 12.sp,
                             fontWeight = FontWeight.Black,
                             letterSpacing = 1.sp
                         )
                         LowRamText(
                             text = DeveloperGithubUrl,
-                            color = LockTextMuted,
+                            color = AppColors.current.textMuted,
                             fontSize = 11.sp,
                             textAlign = TextAlign.Center
                         )
                         Spacer(modifier = Modifier.height(4.dp))
                         LowRamText(
                             text = "v${BuildConfig.VERSION_NAME}",
-                            color = LockTextMuted.copy(alpha = 0.7f),
+                            color = AppColors.current.textMuted.copy(alpha = 0.7f),
                             fontSize = 11.sp,
                             textAlign = TextAlign.Center
                         )
@@ -213,10 +209,13 @@ internal fun ExamLockLowRamHomeScreen(
     }
 }
 
+@OptIn(ExperimentalLayoutApi::class)
 @Composable
 private fun LowRamHero(
     uiLanguage: UiLanguage,
     onUiLanguageChange: (UiLanguage) -> Unit,
+    themeMode: ThemeMode = ThemeMode.System,
+    onThemeModeChange: (ThemeMode) -> Unit = {},
     onSecretTap: () -> Unit,
     onOpenPerformanceProfile: () -> Unit
 ) {
@@ -232,15 +231,17 @@ private fun LowRamHero(
         modifier = Modifier
             .fillMaxWidth()
             .clip(RoundedCornerShape(UiTokens.RadiusLg))
-            .background(Color.White)
-            .border(1.dp, LockOutlineSubtle, RoundedCornerShape(UiTokens.RadiusLg))
+            .background(AppColors.current.cardBg)
+            .border(1.dp, AppColors.current.outlineSubtle, RoundedCornerShape(UiTokens.RadiusLg))
             .padding(horizontal = 20.dp, vertical = 16.dp),
         horizontalAlignment = Alignment.CenterHorizontally
     ) {
-        Row(
+        // FlowRow so the control strip wraps instead of pushing the language chips off
+        // the card edge at large font scales (same fix as HomeHeroCard).
+        FlowRow(
             modifier = Modifier.fillMaxWidth(),
             horizontalArrangement = Arrangement.SpaceBetween,
-            verticalAlignment = Alignment.CenterVertically
+            verticalArrangement = Arrangement.spacedBy(8.dp)
         ) {
             Row(
                 verticalAlignment = Alignment.CenterVertically,
@@ -282,22 +283,31 @@ private fun LowRamHero(
             }
 
             Row(
-                modifier = Modifier
-                    .flatPill(containerColor = Color(0xFFF4F7FB))
-                    .border(1.dp, LockOutlineMedium, RoundedCornerShape(UiTokens.RadiusPill))
-                    .padding(horizontal = 4.dp, vertical = 4.dp),
-                horizontalArrangement = Arrangement.spacedBy(2.dp)
+                verticalAlignment = Alignment.CenterVertically,
+                horizontalArrangement = Arrangement.spacedBy(6.dp)
             ) {
-                LowRamLanguageChip(
-                    text = "EN",
-                    selected = uiLanguage == UiLanguage.English,
-                    onClick = { onUiLanguageChange(UiLanguage.English) }
+                ThemeTogglePill(
+                    currentThemeMode = themeMode,
+                    onThemeModeChange = onThemeModeChange
                 )
-                LowRamLanguageChip(
-                    text = "ID",
-                    selected = uiLanguage == UiLanguage.Indonesian,
-                    onClick = { onUiLanguageChange(UiLanguage.Indonesian) }
-                )
+                Row(
+                    modifier = Modifier
+                        .flatPill(containerColor = AppColors.current.surfaceSoft)
+                        .border(1.dp, AppColors.current.outlineMedium, RoundedCornerShape(UiTokens.RadiusPill))
+                        .padding(horizontal = 4.dp, vertical = 4.dp),
+                    horizontalArrangement = Arrangement.spacedBy(2.dp)
+                ) {
+                    LowRamLanguageChip(
+                        text = "EN",
+                        selected = uiLanguage == UiLanguage.English,
+                        onClick = { onUiLanguageChange(UiLanguage.English) }
+                    )
+                    LowRamLanguageChip(
+                        text = "ID",
+                        selected = uiLanguage == UiLanguage.Indonesian,
+                        onClick = { onUiLanguageChange(UiLanguage.Indonesian) }
+                    )
+                }
             }
         }
 
@@ -310,15 +320,15 @@ private fun LowRamHero(
                 .clip(RoundedCornerShape(18.dp))
                 .background(
                     brush = Brush.verticalGradient(
-                        0f to LockBlueDeep,
-                        1f to LockBlue
+                        0f to AppColors.current.blueDeep,
+                        1f to AppColors.current.blue
                     )
                 ),
             contentAlignment = Alignment.Center
         ) {
             LowRamText(
                 text = "CBX",
-                color = Color.White,
+                color = AppColors.current.onDark,
                 fontSize = 22.sp,
                 fontWeight = FontWeight.Black,
                 letterSpacing = 1.sp
@@ -329,7 +339,7 @@ private fun LowRamHero(
 
         LowRamText(
             text = "EXAM LOCK",
-            color = LockBlueDeep,
+            color = AppColors.current.brandText,
             fontSize = 18.sp,
             fontWeight = FontWeight.Black,
             letterSpacing = 0.5.sp,
@@ -343,7 +353,7 @@ private fun LowRamHero(
                 "Secure exam browser for Android",
                 "Browser ujian aman untuk Android"
             ),
-            color = LockTextSecondary,
+            color = AppColors.current.textSecondary,
             fontSize = 12.sp,
             textAlign = TextAlign.Center
         )
@@ -358,17 +368,19 @@ private fun LowRamLanguageChip(
 ) {
     Box(
         modifier = Modifier
-            .flatPill(containerColor = if (selected) LockBlue else Color.Transparent)
+            .flatPill(containerColor = if (selected) AppColors.current.blue else Color.Transparent)
             .clickable(role = Role.Button, onClick = onClick)
             .padding(horizontal = 12.dp, vertical = 6.dp),
         contentAlignment = Alignment.Center
     ) {
         LowRamText(
             text = text,
-            color = if (selected) LockOnDark else LockTextSecondary,
+            color = if (selected) AppColors.current.onDark else AppColors.current.textSecondary,
             fontSize = 11.sp,
             fontWeight = FontWeight.Bold,
-            textAlign = TextAlign.Center
+            textAlign = TextAlign.Center,
+            softWrap = false,
+            maxLines = 1
         )
     }
 }
@@ -449,7 +461,9 @@ private fun LowRamText(
     fontWeight: FontWeight = FontWeight.Normal,
     textAlign: TextAlign = TextAlign.Start,
     lineHeight: TextUnit = TextUnit.Unspecified,
-    letterSpacing: TextUnit = TextUnit.Unspecified
+    letterSpacing: TextUnit = TextUnit.Unspecified,
+    softWrap: Boolean = true,
+    maxLines: Int = Int.MAX_VALUE
 ) {
     BasicText(
         text = text,
@@ -461,6 +475,8 @@ private fun LowRamText(
             textAlign = textAlign,
             lineHeight = lineHeight,
             letterSpacing = letterSpacing
-        )
+        ),
+        softWrap = softWrap,
+        maxLines = maxLines
     )
 }

@@ -45,31 +45,7 @@ internal fun handleExamRuntimeWebViewLoadFinish(
 ) {
     recordAction("WEBVIEW_LOAD_FINISH", url ?: "tanpa URL", DiagnosticEventLevel.INFO)
     if (!url.isNullOrBlank() && url != "about:blank" && !url.startsWith("data:")) {
-        // Don't clear the error overlay immediately — validate that the page
-        // actually rendered meaningful content first.  The JS probe runs after
-        // a short delay so sub-resources (JS/CSS) have time to load or fail.
-        // If the body is effectively empty the error overlay stays visible so
-        // the student can tap Retry.
-        view?.evaluateExamJavascriptSafely(
-            """
-            (function() {
-                setTimeout(function() {
-                    try {
-                        var body = document.body;
-                        var hasContent = body && body.innerText.trim().length > 50;
-                        if (hasContent) {
-                            // Page has real content — signal success to the native side
-                            if (window.ExamKeyboardBridge) {
-                                ExamKeyboardBridge.onEditableFocusChanged(false);
-                            }
-                        }
-                    } catch(e) {}
-                }, 2500);
-            })();
-            """.trimIndent()
-        )
-        // Optimistic: set status to Online and clear the error message.
-        // If a subsequent onReceivedError fires, it will re-set the error.
+        // The client forwards finishes only for successful main-frame navigations.
         setExamServerStatus(ExamServerFooterStatus.Online)
         setWebViewErrorMessage(null)
     }
@@ -132,7 +108,8 @@ private fun resolveWebViewLoadErrorMessage(description: String): String {
             "Server ujian tidak ditemukan. Periksa koneksi internet Anda, lalu tekan Refresh."
         desc.contains("ERR_INTERNET_DISCONNECTED", ignoreCase = true) ->
             "Tidak ada koneksi internet. Sambungkan ke Wi-Fi atau data seluler, lalu tekan Refresh."
-        desc.contains("ERR_CONNECTION_TIMED_OUT", ignoreCase = true) ->
+        desc.contains("ERR_CONNECTION_TIMED_OUT", ignoreCase = true) ||
+            desc.contains("ERR_TIMED_OUT", ignoreCase = true) ->
             "Koneksi ke server ujian timeout. Periksa kestabilan internet, lalu tekan Refresh."
         desc.contains("ERR_CONNECTION_REFUSED", ignoreCase = true) ->
             "Server ujian menolak koneksi. Mungkin server sedang tidak aktif. Tunggu lalu tekan Refresh."
@@ -143,7 +120,8 @@ private fun resolveWebViewLoadErrorMessage(description: String): String {
         desc.contains("ERR_NETWORK_CHANGED", ignoreCase = true) ->
             "Jaringan berubah saat memuat halaman ujian. Pastikan koneksi stabil, lalu tekan Refresh."
         desc.contains("ERR_SSL", ignoreCase = true) ||
-            desc.contains("ERR_CERT", ignoreCase = true) ->
+            desc.contains("ERR_CERT", ignoreCase = true) ||
+            desc.contains("SSL:", ignoreCase = true) ->
             "Koneksi aman ke server ujian gagal (masalah sertifikat). Hubungi admin/pengawas ujian."
         desc.contains("ERR_CACHE_MISS", ignoreCase = true) ->
             "Data cache halaman ujian tidak tersedia. Tekan Refresh untuk memuat ulang."
@@ -153,10 +131,18 @@ private fun resolveWebViewLoadErrorMessage(description: String): String {
             "Server ujian tidak menggunakan koneksi aman (HTTPS). Hubungi admin untuk memperbarui URL ujian."
         desc.contains("ERR_ADDRESS_UNREACHABLE", ignoreCase = true) ->
             "Alamat server ujian tidak bisa dijangkau. Periksa koneksi internet, lalu tekan Refresh."
+        desc.contains("ERR_SOCKET_", ignoreCase = true) ||
+            desc.contains("ERR_EMPTY_RESPONSE", ignoreCase = true) ||
+            desc.contains("ERR_CONTENT_LENGTH_MISMATCH", ignoreCase = true) ||
+            desc.contains("ERR_INCOMPLETE_CHUNKED_ENCODING", ignoreCase = true) ||
+            desc.contains("ERR_RESPONSE_HEADERS_TRUNCATED", ignoreCase = true) ||
+            desc.contains("ERR_HTTP2_", ignoreCase = true) ||
+            desc.contains("ERR_QUIC_", ignoreCase = true) ->
+            "Koneksi ke server ujian sempat terputus saat memuat. Menyambung ulang otomatis; jika tetap gagal tekan Refresh."
         desc.contains("ERR_FAILED", ignoreCase = true) ->
             "Gagal memuat halaman ujian. Periksa koneksi internet, lalu tekan Refresh."
         else ->
-            "Gagal memuat halaman ujian ($desc). Periksa koneksi internet, lalu tekan Refresh."
+            "Halaman ujian belum dapat dimuat. Periksa koneksi, lalu tekan Muat Ulang. Jika tetap gagal, hubungi admin/pengawas."
     }
 }
 

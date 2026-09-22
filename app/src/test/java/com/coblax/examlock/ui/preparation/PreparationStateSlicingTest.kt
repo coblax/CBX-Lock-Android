@@ -716,8 +716,10 @@ class PreparationStateSlicingTest {
             adbInspection = AdbInspection(
                 developerOptionsEnabled = false,
                 adbEnabled = false,
+                wirelessAdbEnabled = false,
                 developerOptionsRawValue = "0",
                 adbRawValue = "0",
+                wirelessAdbRawValue = "-",
                 adbSecureProperty = "1"
             ),
             adbBypassState = AdbBypassState.Inactive,

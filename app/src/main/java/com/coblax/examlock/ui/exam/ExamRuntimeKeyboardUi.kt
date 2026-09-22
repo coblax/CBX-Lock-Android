@@ -33,14 +33,9 @@ import androidx.compose.ui.unit.Dp
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import com.coblax.examlock.i18n.tr
-import com.coblax.examlock.ui.theme.LockBlue
-import com.coblax.examlock.ui.theme.LockOnDark
-import com.coblax.examlock.ui.theme.LockOutline
-import com.coblax.examlock.ui.theme.LockTextMuted
-import com.coblax.examlock.ui.theme.LockTextPrimary
+import com.coblax.examlock.ui.theme.AppColors
 import com.coblax.examlock.ui.theme.UiTokens
 import com.coblax.examlock.ui.theme.flatPill
-import com.coblax.examlock.ui.theme.LockOutlineStrong
 import java.util.Locale
 
 @Composable
@@ -62,8 +57,8 @@ internal fun ExamBuiltInKeyboardPanel(
     Box(
         modifier = modifier
             .clip(RoundedCornerShape(topStart = 22.dp, topEnd = 22.dp))
-            .background(Color(0xFFF2F5FA))
-            .border(1.dp, LockOutline.copy(alpha = 0.70f), RoundedCornerShape(topStart = 22.dp, topEnd = 22.dp))
+            .background(AppColors.current.surfaceSoft)
+            .border(1.dp, AppColors.current.outline.copy(alpha = 0.70f), RoundedCornerShape(topStart = 22.dp, topEnd = 22.dp))
     ) {
         Column(
             modifier = Modifier.padding(horizontal = 8.dp, vertical = 8.dp),
@@ -74,12 +69,12 @@ internal fun ExamBuiltInKeyboardPanel(
                     .align(Alignment.CenterHorizontally)
                     .width(44.dp)
                     .height(4.dp)
-                    .flatPill(containerColor = LockOutline)
+                    .flatPill(containerColor = AppColors.current.outline)
             )
 
             Text(
                 text = tr("Internal Keyboard", "Keyboard Internal"),
-                color = LockTextMuted,
+                color = AppColors.current.textMuted,
                 fontSize = 10.sp,
                 fontWeight = FontWeight.SemiBold,
                 modifier = Modifier.align(Alignment.CenterHorizontally)
@@ -158,18 +153,18 @@ internal fun ExamBuiltInKeyboardKey(
     isSecondary: Boolean = false
 ) {
     val backgroundColor = when {
-        isAccent -> LockBlue
-        isSecondary -> Color(0xFFE6EBF3)
-        else -> Color.White
+        isAccent -> AppColors.current.blue
+        isSecondary -> AppColors.current.surfaceSoft
+        else -> AppColors.current.cardBg
     }
-    val contentColor = if (isAccent) LockOnDark else LockTextPrimary
+    val contentColor = if (isAccent) AppColors.current.onDark else AppColors.current.textPrimary
 
     Box(
         modifier = modifier
             .heightIn(min = 34.dp)
             .clip(RoundedCornerShape(UiTokens.RadiusSm))
             .background(backgroundColor)
-            .border(1.dp, LockOutlineStrong, RoundedCornerShape(UiTokens.RadiusSm))
+            .border(1.dp, AppColors.current.outlineStrong, RoundedCornerShape(UiTokens.RadiusSm))
             .clickable(onClick = onClick)
     ) {
         Box(

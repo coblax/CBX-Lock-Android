@@ -24,7 +24,9 @@ internal object RuntimeStringDecoder {
         }
         return NativeSecurityBridge.decodeBase64Xor(obfuscated) {
             if (!NativeLibraryLoader.isAvailable) {
-                Log.w(Tag, "Using Kotlin fallback for string decoding. Native library unavailable.")
+                runCatching {
+                    Log.w(Tag, "Using Kotlin fallback for string decoding. Native library unavailable.")
+                }
             }
             decodeBase64XorReference(obfuscated)
         }

@@ -1,4 +1,4 @@
-﻿package com.coblax.examlock.ui.admin
+package com.coblax.examlock.ui.admin
 
 import android.location.Location
 import android.net.Uri
@@ -23,7 +23,11 @@ import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.automirrored.rounded.ArrowBack
+import androidx.compose.material.icons.automirrored.rounded.ArrowForward
+import androidx.compose.material.icons.rounded.CheckCircle
 import androidx.compose.material.icons.rounded.QrCodeScanner
+import androidx.compose.material.icons.rounded.Warning
 import androidx.compose.material3.Button
 import androidx.compose.material3.ButtonDefaults
 import androidx.compose.material3.Checkbox
@@ -70,25 +74,11 @@ import com.coblax.examlock.ui.geofence.effectiveCircleCenters
 import com.coblax.examlock.ui.geofence.PolygonGeofenceEditor
 import com.coblax.examlock.ui.geofence.summarizeCircleVertexList
 import com.coblax.examlock.ui.geofence.summarizePolygonVertexList
-import com.coblax.examlock.ui.theme.LockBackground
-import com.coblax.examlock.ui.theme.LockBlue
-import com.coblax.examlock.ui.theme.LockBlueDeep
-import com.coblax.examlock.ui.theme.LockOnDark
-import com.coblax.examlock.ui.theme.LockOutline
-import com.coblax.examlock.ui.theme.LockSurface
-import com.coblax.examlock.ui.theme.LockSurfaceSoft
-import com.coblax.examlock.ui.theme.LockTextPrimary
-import com.coblax.examlock.ui.theme.LockTextSecondary
-import com.coblax.examlock.ui.theme.LockDangerBgSubtle
-import com.coblax.examlock.ui.theme.LockDialogDangerIcon
+import com.coblax.examlock.ui.theme.AppColors
+import com.coblax.examlock.ui.theme.UpgradeUiScope
 import com.coblax.examlock.validateExamUrl
 import com.coblax.examlock.viewmodel.CustomQrDraftState
 import com.coblax.examlock.ui.theme.UiTokens
-import com.coblax.examlock.ui.theme.LockOutlineStrong
-import com.coblax.examlock.ui.theme.LockBlueFill
-import com.coblax.examlock.ui.theme.LockOutlineMedium
-import com.google.android.libraries.places.api.model.Place
-
 import java.net.URL
 import java.util.Calendar
 import java.util.Date
@@ -97,6 +87,27 @@ import java.util.Locale
 import kotlin.coroutines.resume
 import kotlin.coroutines.resumeWithException
 import kotlin.math.roundToInt
+
+internal fun isCustomQrExamStepComplete(draft: CustomQrDraftState): Boolean {
+    return draft.examName.isNotBlank() &&
+        draft.startTime.isNotBlank() &&
+        draft.endTime.isNotBlank() &&
+        validateExamUrl(draft.examUrl).normalizedUrl != null
+}
+
+internal fun canOpenCustomQrStep(
+    target: CustomQrAdminTab,
+    draft: CustomQrDraftState,
+    locationConfigurationValid: Boolean
+): Boolean {
+    return when (target) {
+        CustomQrAdminTab.Exam -> true
+        CustomQrAdminTab.Location -> isCustomQrExamStepComplete(draft)
+        CustomQrAdminTab.Generate ->
+            isCustomQrExamStepComplete(draft) &&
+                (!draft.geofenceEnabled || locationConfigurationValid)
+    }
+}
 
 @Composable
 @Suppress("AssignedValueIsNeverRead")
@@ -138,6 +149,7 @@ internal fun CustomQrAdminScreen(
     var activePickerField by remember { mutableStateOf<DateTimeField?>(null) }
     var isTimePickerVisible by remember { mutableStateOf(false) }
     var draftDateTime by remember { mutableStateOf<Calendar?>(null) }
+    var stepNavigationError by remember { mutableStateOf<String?>(null) }
     val examUrl = draft.examUrl
     val examName = draft.examName
     val startTime = draft.startTime
@@ -213,6 +225,74 @@ internal fun CustomQrAdminScreen(
         onGenerationIsErrorChange(false)
     }
 
+    fun navigateToStep(target: CustomQrAdminTab) {
+        val canMoveBack = target.ordinal <= selectedCustomQrAdminTab.ordinal
+        val locationValid = !geofenceEnabled || geofenceConfigResult.config != null
+        if (canMoveBack || canOpenCustomQrStep(target, draft, locationValid)) {
+            stepNavigationError = null
+            onSelectedTabNameChange(target.name)
+            return
+        }
+
+        stepNavigationError = when {
+            !isCustomQrExamStepComplete(draft) -> {
+                if (
+                    examUrl.isBlank() ||
+                    examName.isBlank() ||
+                    startTime.isBlank() ||
+                    endTime.isBlank()
+                ) {
+                    missingFieldsMessage
+                } else {
+                    invalidExamUrlMessage
+                }
+            }
+            else -> invalidGeofenceMessage
+        }
+    }
+
+    fun generateQr() {
+        when {
+            examUrl.isBlank() ||
+                examName.isBlank() ||
+                startTime.isBlank() ||
+                endTime.isBlank() -> {
+                onGenerationStatusChange(missingFieldsMessage)
+                onGenerationIsErrorChange(true)
+                onGeneratedQrPayloadChange(null)
+            }
+
+            geofenceEnabled && geofenceConfigResult.config == null -> {
+                onGenerationStatusChange(invalidGeofenceMessage)
+                onGenerationIsErrorChange(true)
+                onGeneratedQrPayloadChange(null)
+            }
+
+            else -> {
+                val examUrlValidation = validateExamUrl(examUrl)
+                val normalizedExamUrl = examUrlValidation.normalizedUrl
+                if (normalizedExamUrl == null) {
+                    onGenerationStatusChange(invalidExamUrlMessage)
+                    onGenerationIsErrorChange(true)
+                    onGeneratedQrPayloadChange(null)
+                } else {
+                    val payload = ExamQrPayload(
+                        examUrl = normalizedExamUrl,
+                        examName = examName.trim(),
+                        startDateTime = startTime,
+                        endDateTime = endTime,
+                        saveToDirectLink = showSaveToDirectLinkOption && saveToDirectLink,
+                        locationPolicy = currentLocationPolicy,
+                        locationPolicySource = LocationPolicySource.CustomQr
+                    )
+                    onGeneratedQrPayloadChange(ExamQrCodec.encrypt(payload))
+                    onGenerationStatusChange(qrCreatedMessage)
+                    onGenerationIsErrorChange(false)
+                }
+            }
+        }
+    }
+
     if (showCircleMapEditor) {
         CircleGeofenceEditorScreen(
             initialCenters = geofenceCircleCenters,
@@ -247,10 +327,11 @@ internal fun CustomQrAdminScreen(
         return
     }
 
+    UpgradeUiScope {
     Column(
         modifier = modifier
             .fillMaxSize()
-            .background(LockBackground)
+            .background(AppColors.current.background)
             .statusBarsPadding()
             .navigationBarsPadding()
             .padding(horizontal = 20.dp, vertical = 14.dp)
@@ -264,11 +345,11 @@ internal fun CustomQrAdminScreen(
 
             Surface(
                 shape = RoundedCornerShape(UiTokens.RadiusPill),
-                color = LockBlueFill
+                color = AppColors.current.blueFill
             ) {
                 Text(
                     text = "CUSTOM QR",
-                    color = LockBlueDeep,
+                    color = AppColors.current.brandText,
                     fontSize = 10.sp,
                     fontWeight = FontWeight.ExtraBold,
                     letterSpacing = 0.8.sp,
@@ -281,7 +362,7 @@ internal fun CustomQrAdminScreen(
 
         Text(
             text = tr("Create Exam QR", "Buat QR Ujian"),
-            color = LockTextPrimary,
+            color = AppColors.current.textPrimary,
             fontSize = 24.sp,
             fontWeight = FontWeight.Black
         )
@@ -293,7 +374,7 @@ internal fun CustomQrAdminScreen(
                 "Fill exam data, set location, then generate.",
                 "Isi data ujian, atur lokasi, lalu generate."
             ),
-            color = LockTextSecondary,
+            color = AppColors.current.textSecondary,
             fontSize = 13.sp
         )
 
@@ -301,8 +382,16 @@ internal fun CustomQrAdminScreen(
 
         CustomQrAdminTabSelector(
             selectedTab = selectedCustomQrAdminTab,
-            onTabSelected = { onSelectedTabNameChange(it.name) }
+            onTabSelected = ::navigateToStep
         )
+
+        stepNavigationError?.let { message ->
+            Spacer(modifier = Modifier.height(10.dp))
+            StatusBanner(
+                message = message,
+                isError = true
+            )
+        }
 
         Spacer(modifier = Modifier.height(14.dp))
 
@@ -320,13 +409,13 @@ internal fun CustomQrAdminScreen(
                             .fillMaxWidth()
                             .clip(RoundedCornerShape(18.dp))
                             .background(MaterialTheme.colorScheme.surface)
-                            .border(1.dp, LockOutlineStrong, RoundedCornerShape(18.dp))
+                            .border(1.dp, AppColors.current.outlineStrong, RoundedCornerShape(18.dp))
                             .padding(horizontal = 14.dp, vertical = 14.dp),
                         verticalArrangement = Arrangement.spacedBy(12.dp)
                     ) {
                             Text(
                                 text = tr("Exam Data", "Data Ujian"),
-                                color = LockTextPrimary,
+                                color = AppColors.current.textPrimary,
                                 fontSize = 16.sp,
                                 fontWeight = FontWeight.Bold
                             )
@@ -378,7 +467,7 @@ internal fun CustomQrAdminScreen(
                             .fillMaxWidth()
                             .clip(RoundedCornerShape(18.dp))
                             .background(MaterialTheme.colorScheme.surface)
-                            .border(1.dp, LockOutlineStrong, RoundedCornerShape(18.dp))
+                            .border(1.dp, AppColors.current.outlineStrong, RoundedCornerShape(18.dp))
                             .padding(horizontal = 14.dp, vertical = 14.dp),
                         verticalArrangement = Arrangement.spacedBy(12.dp)
                     ) {
@@ -388,14 +477,35 @@ internal fun CustomQrAdminScreen(
                             ) {
                                 Text(
                                     text = tr("Location / Geofence", "Lokasi / Geofence"),
-                                    color = LockTextPrimary,
+                                    color = AppColors.current.textPrimary,
                                     fontSize = 18.sp,
                                     fontWeight = FontWeight.Bold
                                 )
                                 if (geofenceEnabled) {
-                                    Text(
-                                        text = if (geofenceConfigResult.config != null) "âœ…" else if (geofenceConfigResult.error != null) "âŒ" else "âš \uFE0F",
-                                        fontSize = 16.sp
+                                    val locationReady = geofenceConfigResult.config != null
+                                    Icon(
+                                        imageVector = if (locationReady) {
+                                            Icons.Rounded.CheckCircle
+                                        } else {
+                                            Icons.Rounded.Warning
+                                        },
+                                        contentDescription = if (locationReady) {
+                                            tr(
+                                                "Location configuration valid",
+                                                "Konfigurasi lokasi valid"
+                                            )
+                                        } else {
+                                            tr(
+                                                "Location configuration needs attention",
+                                                "Konfigurasi lokasi perlu diperiksa"
+                                            )
+                                        },
+                                        tint = if (locationReady) {
+                                            AppColors.current.statusSafe
+                                        } else {
+                                            AppColors.current.statusWarn
+                                        },
+                                        modifier = Modifier.size(20.dp)
                                     )
                                 }
                             }
@@ -426,14 +536,14 @@ internal fun CustomQrAdminScreen(
                                         modifier = Modifier.weight(1f),
                                         colors = ButtonDefaults.buttonColors(
                                             containerColor = if (selectedGeofenceShapeType == GeofenceShapeType.Circle) {
-                                                LockBlue
+                                                AppColors.current.blue
                                             } else {
-                                                LockSurfaceSoft
+                                                AppColors.current.surfaceSoft
                                             },
                                             contentColor = if (selectedGeofenceShapeType == GeofenceShapeType.Circle) {
-                                                LockOnDark
+                                                AppColors.current.onDark
                                             } else {
-                                                LockTextPrimary
+                                                AppColors.current.textPrimary
                                             }
                                         )
                                     ) {
@@ -449,14 +559,14 @@ internal fun CustomQrAdminScreen(
                                         modifier = Modifier.weight(1f),
                                         colors = ButtonDefaults.buttonColors(
                                             containerColor = if (selectedGeofenceShapeType == GeofenceShapeType.Polygon) {
-                                                LockBlue
+                                                AppColors.current.blue
                                             } else {
-                                                LockSurfaceSoft
+                                                AppColors.current.surfaceSoft
                                             },
                                             contentColor = if (selectedGeofenceShapeType == GeofenceShapeType.Polygon) {
-                                                LockOnDark
+                                                AppColors.current.onDark
                                             } else {
-                                                LockTextPrimary
+                                                AppColors.current.textPrimary
                                             }
                                         )
                                     ) {
@@ -473,8 +583,8 @@ internal fun CustomQrAdminScreen(
                                             onClick = { onShowCircleMapEditorChange(true) },
                                             modifier = Modifier.weight(1f),
                                             colors = ButtonDefaults.buttonColors(
-                                                containerColor = LockBlue,
-                                                contentColor = LockOnDark
+                                                containerColor = AppColors.current.blue,
+                                                contentColor = AppColors.current.onDark
                                             )
                                         ) {
                                             Text(
@@ -498,10 +608,10 @@ internal fun CustomQrAdminScreen(
                                                     clearGeneratedQr()
                                                 },
                                                 colors = ButtonDefaults.buttonColors(
-                                                    containerColor = LockDangerBgSubtle,
-                                                    contentColor = LockDialogDangerIcon
+                                                    containerColor = AppColors.current.dangerBgSubtle,
+                                                    contentColor = AppColors.current.dialogDangerIcon
                                                 ),
-                                                border = BorderStroke(1.dp, LockDialogDangerIcon.copy(alpha = 0.3f))
+                                                border = BorderStroke(1.dp, AppColors.current.dialogDangerIcon.copy(alpha = 0.3f))
                                             ) {
                                                 Text(tr("Clear", "Hapus"), fontWeight = FontWeight.Bold)
                                             }
@@ -513,7 +623,7 @@ internal fun CustomQrAdminScreen(
                                             "Radius: ${geofenceRadiusMeters.ifBlank { "-" }} m",
                                             "Radius: ${geofenceRadiusMeters.ifBlank { "-" }} m"
                                         ),
-                                        color = LockTextPrimary,
+                                        color = AppColors.current.textPrimary,
                                         fontSize = 13.sp,
                                         fontWeight = FontWeight.Bold
                                     )
@@ -531,8 +641,8 @@ internal fun CustomQrAdminScreen(
                                     Surface(
                                         modifier = Modifier.fillMaxWidth(),
                                         shape = RoundedCornerShape(UiTokens.RadiusSm),
-                                        color = LockSurfaceSoft,
-                                        border = BorderStroke(1.dp, LockOutlineMedium)
+                                        color = AppColors.current.surfaceSoft,
+                                        border = BorderStroke(1.dp, AppColors.current.outlineMedium)
                                     ) {
                                         Column(
                                             modifier = Modifier.padding(horizontal = 14.dp, vertical = 12.dp),
@@ -543,7 +653,7 @@ internal fun CustomQrAdminScreen(
                                                     "Circle centers: ${geofenceCircleCenters.size}/5",
                                                     "Titik center circle: ${geofenceCircleCenters.size}/5"
                                                 ),
-                                                color = LockTextPrimary,
+                                                color = AppColors.current.textPrimary,
                                                 fontSize = 13.sp,
                                                 fontWeight = FontWeight.Bold
                                             )
@@ -552,7 +662,7 @@ internal fun CustomQrAdminScreen(
                                                     "Shared radius: ${geofenceRadiusMeters.ifBlank { "-" }} m",
                                                     "Radius bersama: ${geofenceRadiusMeters.ifBlank { "-" }} m"
                                                 ),
-                                                color = LockTextSecondary,
+                                                color = AppColors.current.textSecondary,
                                                 fontSize = 12.sp
                                             )
                                             Text(
@@ -568,7 +678,7 @@ internal fun CustomQrAdminScreen(
                                                         } ?: "-"
                                                     }"
                                                 ),
-                                                color = LockTextSecondary,
+                                                color = AppColors.current.textSecondary,
                                                 fontSize = 12.sp,
                                                 lineHeight = 16.sp
                                             )
@@ -578,7 +688,7 @@ internal fun CustomQrAdminScreen(
                                                         "Centers preview: ${summarizeCircleVertexList(geofenceCircleCenters)}",
                                                         "Preview center: ${summarizeCircleVertexList(geofenceCircleCenters)}"
                                                     ),
-                                                    color = LockTextSecondary,
+                                                    color = AppColors.current.textSecondary,
                                                     fontSize = 11.sp,
                                                     lineHeight = 15.sp
                                                 )
@@ -590,7 +700,7 @@ internal fun CustomQrAdminScreen(
                                             "Use the full map editor to place up to 5 center points with one shared radius.",
                                             "Gunakan editor map penuh untuk menaruh sampai 5 titik center dengan satu radius bersama."
                                         ),
-                                        color = LockTextSecondary,
+                                        color = AppColors.current.textSecondary,
                                         fontSize = 12.sp,
                                         lineHeight = 16.sp
                                     )
@@ -603,8 +713,8 @@ internal fun CustomQrAdminScreen(
                                             onClick = { onShowPolygonMapEditorChange(true) },
                                             modifier = Modifier.weight(1f),
                                             colors = ButtonDefaults.buttonColors(
-                                                containerColor = LockBlue,
-                                                contentColor = LockOnDark
+                                                containerColor = AppColors.current.blue,
+                                                contentColor = AppColors.current.onDark
                                             )
                                         ) {
                                             Text(
@@ -624,10 +734,10 @@ internal fun CustomQrAdminScreen(
                                                     clearGeneratedQr()
                                                 },
                                                 colors = ButtonDefaults.buttonColors(
-                                                    containerColor = LockDangerBgSubtle,
-                                                    contentColor = LockDialogDangerIcon
+                                                    containerColor = AppColors.current.dangerBgSubtle,
+                                                    contentColor = AppColors.current.dialogDangerIcon
                                                 ),
-                                                border = BorderStroke(1.dp, LockDialogDangerIcon.copy(alpha = 0.3f))
+                                                border = BorderStroke(1.dp, AppColors.current.dialogDangerIcon.copy(alpha = 0.3f))
                                             ) {
                                                 Text(tr("Clear", "Hapus"), fontWeight = FontWeight.Bold)
                                             }
@@ -636,8 +746,8 @@ internal fun CustomQrAdminScreen(
                                     Surface(
                                         modifier = Modifier.fillMaxWidth(),
                                         shape = RoundedCornerShape(UiTokens.RadiusSm),
-                                        color = LockSurfaceSoft,
-                                        border = BorderStroke(1.dp, LockOutlineMedium)
+                                        color = AppColors.current.surfaceSoft,
+                                        border = BorderStroke(1.dp, AppColors.current.outlineMedium)
                                     ) {
                                         Column(
                                             modifier = Modifier.padding(horizontal = 14.dp, vertical = 12.dp),
@@ -648,7 +758,7 @@ internal fun CustomQrAdminScreen(
                                                     "Polygon points: ${polygonVertices.size}/50",
                                                     "Titik polygon: ${polygonVertices.size}/50"
                                                 ),
-                                                color = LockTextPrimary,
+                                                color = AppColors.current.textPrimary,
                                                 fontSize = 13.sp,
                                                 fontWeight = FontWeight.Bold
                                             )
@@ -665,7 +775,7 @@ internal fun CustomQrAdminScreen(
                                                         } ?: "-"
                                                     }"
                                                 ),
-                                                color = LockTextSecondary,
+                                                color = AppColors.current.textSecondary,
                                                 fontSize = 12.sp,
                                                 lineHeight = 16.sp
                                             )
@@ -675,7 +785,7 @@ internal fun CustomQrAdminScreen(
                                                         "Preview: ${summarizePolygonVertexList(polygonVertices)}",
                                                         "Preview: ${summarizePolygonVertexList(polygonVertices)}"
                                                     ),
-                                                    color = LockTextSecondary,
+                                                    color = AppColors.current.textSecondary,
                                                     fontSize = 11.sp,
                                                     lineHeight = 15.sp
                                                 )
@@ -687,7 +797,7 @@ internal fun CustomQrAdminScreen(
                                             "Use the full map editor to add up to 50 polygon boundary points.",
                                             "Gunakan editor map penuh untuk menambah sampai 50 titik batas polygon."
                                         ),
-                                        color = LockTextSecondary,
+                                        color = AppColors.current.textSecondary,
                                         fontSize = 12.sp,
                                         lineHeight = 16.sp
                                     )
@@ -730,32 +840,32 @@ internal fun CustomQrAdminScreen(
                             Text(
                                 text = geofenceSummary,
                                 color = if (geofenceEnabled && geofenceConfigResult.config == null) {
-                                    LockDialogDangerIcon
+                                    AppColors.current.dialogDangerIcon
                                 } else {
-                                    LockTextSecondary
+                                    AppColors.current.textSecondary
                                 },
                                 fontSize = 12.sp,
                                 lineHeight = 16.sp
                             )
                             if (geofenceEnabled && geofenceConfigResult.error != null) {
                                 val validationMsg = when (geofenceConfigResult.error) {
-                                    "invalid_latitude" -> tr("âš  Latitude must be between -90 and 90.", "âš  Latitude harus antara -90 dan 90.")
-                                    "invalid_longitude" -> tr("âš  Longitude must be between -180 and 180.", "âš  Longitude harus antara -180 dan 180.")
-                                    "invalid_radius" -> tr("âš  Radius must be greater than 0.", "âš  Radius harus lebih dari 0.")
-                                    "polygon_min_3_vertices" -> tr("âš  Polygon requires at least 3 points.", "âš  Polygon membutuhkan minimal 3 titik.")
-                                    "polygon_degenerate" -> tr("âš  Polygon area is too small or degenerate.", "âš  Area polygon terlalu kecil atau degenerate.")
-                                    "polygon_self_intersecting" -> tr("âš  Polygon lines must not cross each other.", "âš  Garis polygon tidak boleh saling bersilangan.")
-                                    else -> tr("âš  Configuration error: ${geofenceConfigResult.error}", "âš  Error konfigurasi: ${geofenceConfigResult.error}")
+                                    "invalid_latitude" -> tr("Latitude must be between -90 and 90.", "Latitude harus antara -90 dan 90.")
+                                    "invalid_longitude" -> tr("Longitude must be between -180 and 180.", "Longitude harus antara -180 dan 180.")
+                                    "invalid_radius" -> tr("Radius must be greater than 0.", "Radius harus lebih dari 0.")
+                                    "polygon_min_3_vertices" -> tr("Polygon requires at least 3 points.", "Polygon membutuhkan minimal 3 titik.")
+                                    "polygon_degenerate" -> tr("Polygon area is too small or degenerate.", "Area polygon terlalu kecil atau degenerate.")
+                                    "polygon_self_intersecting" -> tr("Polygon lines must not cross each other.", "Garis polygon tidak boleh saling bersilangan.")
+                                    else -> tr("Configuration error: ${geofenceConfigResult.error}", "Error konfigurasi: ${geofenceConfigResult.error}")
                                 }
                                 Surface(
                                     modifier = Modifier.fillMaxWidth(),
                                     shape = RoundedCornerShape(10.dp),
-                                    color = LockDangerBgSubtle,
-                                    border = BorderStroke(1.dp, LockDialogDangerIcon.copy(alpha = 0.3f))
+                                    color = AppColors.current.dangerBgSubtle,
+                                    border = BorderStroke(1.dp, AppColors.current.dialogDangerIcon.copy(alpha = 0.3f))
                                 ) {
                                     Text(
                                         text = validationMsg,
-                                        color = LockDialogDangerIcon,
+                                        color = AppColors.current.dialogDangerIcon,
                                         fontSize = 12.sp,
                                         lineHeight = 16.sp,
                                         modifier = Modifier.padding(horizontal = 12.dp, vertical = 8.dp)
@@ -770,8 +880,8 @@ internal fun CustomQrAdminScreen(
                         Surface(
                             modifier = Modifier.fillMaxWidth(),
                             shape = RoundedCornerShape(UiTokens.RadiusMd),
-                            color = Color.White,
-                            border = BorderStroke(1.dp, LockOutlineStrong)
+                            color = MaterialTheme.colorScheme.surface,
+                            border = BorderStroke(1.dp, AppColors.current.outlineStrong)
                         ) {
                             Row(
                                 modifier = Modifier.padding(horizontal = 14.dp, vertical = 12.dp),
@@ -787,7 +897,7 @@ internal fun CustomQrAdminScreen(
                                             "Save to Direct Link after scan",
                                             "Setelah scan, simpan juga sebagai Direct Link"
                                         ),
-                                        color = LockTextPrimary,
+                                        color = AppColors.current.textPrimary,
                                         fontSize = 14.sp,
                                         fontWeight = FontWeight.Bold
                                     )
@@ -796,7 +906,7 @@ internal fun CustomQrAdminScreen(
                                             "When this QR is scanned, it will update the Direct Link config.",
                                             "Saat QR ini dipindai, konfigurasi Direct Link akan diperbarui."
                                         ),
-                                        color = LockTextSecondary,
+                                        color = AppColors.current.textSecondary,
                                         fontSize = 11.sp,
                                         lineHeight = 14.sp
                                     )
@@ -808,59 +918,14 @@ internal fun CustomQrAdminScreen(
                                         clearGeneratedQr()
                                     },
                                     colors = CheckboxDefaults.colors(
-                                        checkedColor = LockBlue,
-                                        uncheckedColor = LockOutlineStrong,
+                                        checkedColor = AppColors.current.blue,
+                                        uncheckedColor = AppColors.current.outlineStrong,
                                         checkmarkColor = Color.White
                                     )
                                 )
                             }
                         }
                     }
-
-                    ActionButton(
-                        text = tr("GENERATE QR", "GENERATE QR"),
-                        icon = Icons.Rounded.QrCodeScanner,
-                        containerColor = LockBlue,
-                        contentColor = LockOnDark,
-                        borderColor = LockBlue,
-                        onClick = {
-                            if (
-                                examUrl.isBlank() ||
-                                examName.isBlank() ||
-                                startTime.isBlank() ||
-                                endTime.isBlank()
-                            ) {
-                                onGenerationStatusChange(missingFieldsMessage)
-                                onGenerationIsErrorChange(true)
-                                onGeneratedQrPayloadChange(null)
-                            } else if (geofenceEnabled && geofenceConfigResult.config == null) {
-                                onGenerationStatusChange(invalidGeofenceMessage)
-                                onGenerationIsErrorChange(true)
-                                onGeneratedQrPayloadChange(null)
-                            } else {
-                                val examUrlValidation = validateExamUrl(examUrl)
-                                val normalizedExamUrl = examUrlValidation.normalizedUrl
-                                if (normalizedExamUrl == null) {
-                                    onGenerationStatusChange(invalidExamUrlMessage)
-                                    onGenerationIsErrorChange(true)
-                                    onGeneratedQrPayloadChange(null)
-                                    return@ActionButton
-                                }
-                                val payload = ExamQrPayload(
-                                    examUrl = normalizedExamUrl,
-                                    examName = examName.trim(),
-                                    startDateTime = startTime,
-                                    endDateTime = endTime,
-                                    saveToDirectLink = showSaveToDirectLinkOption && saveToDirectLink,
-                                    locationPolicy = currentLocationPolicy,
-                                    locationPolicySource = LocationPolicySource.CustomQr
-                                )
-                                onGeneratedQrPayloadChange(ExamQrCodec.encrypt(payload))
-                                onGenerationStatusChange(qrCreatedMessage)
-                                onGenerationIsErrorChange(false)
-                            }
-                        }
-                    )
 
                     generationStatus?.let { status ->
                         StatusBanner(
@@ -882,6 +947,92 @@ internal fun CustomQrAdminScreen(
             }
 
             Spacer(modifier = Modifier.height(12.dp))
+        }
+
+        Surface(
+            modifier = Modifier.fillMaxWidth(),
+            shape = RoundedCornerShape(UiTokens.RadiusMd),
+            color = MaterialTheme.colorScheme.surface,
+            border = BorderStroke(1.dp, AppColors.current.outlineStrong)
+        ) {
+            Row(
+                modifier = Modifier.padding(8.dp),
+                horizontalArrangement = Arrangement.spacedBy(8.dp),
+                verticalAlignment = Alignment.CenterVertically
+            ) {
+                if (selectedCustomQrAdminTab != CustomQrAdminTab.Exam) {
+                    Button(
+                        onClick = {
+                            navigateToStep(
+                                CustomQrAdminTab.entries[
+                                    selectedCustomQrAdminTab.ordinal - 1
+                                ]
+                            )
+                        },
+                        modifier = Modifier.weight(1f),
+                        shape = RoundedCornerShape(UiTokens.RadiusMd),
+                        colors = ButtonDefaults.buttonColors(
+                            containerColor = AppColors.current.surfaceSoft,
+                            contentColor = AppColors.current.textPrimary
+                        ),
+                        border = BorderStroke(1.dp, AppColors.current.outlineStrong)
+                    ) {
+                        Icon(
+                            imageVector = Icons.AutoMirrored.Rounded.ArrowBack,
+                            contentDescription = null,
+                            modifier = Modifier.size(18.dp)
+                        )
+                        Spacer(modifier = Modifier.width(6.dp))
+                        Text(
+                            text = tr("Previous", "Kembali"),
+                            fontWeight = FontWeight.Bold
+                        )
+                    }
+                } else {
+                    Spacer(modifier = Modifier.weight(1f))
+                }
+
+                Button(
+                    onClick = {
+                        if (selectedCustomQrAdminTab == CustomQrAdminTab.Generate) {
+                            generateQr()
+                        } else {
+                            navigateToStep(
+                                CustomQrAdminTab.entries[
+                                    selectedCustomQrAdminTab.ordinal + 1
+                                ]
+                            )
+                        }
+                    },
+                    modifier = Modifier.weight(1f),
+                    shape = RoundedCornerShape(UiTokens.RadiusMd),
+                    colors = ButtonDefaults.buttonColors(
+                        containerColor = AppColors.current.blue,
+                        contentColor = AppColors.current.onDark
+                    )
+                ) {
+                    Text(
+                        text = if (selectedCustomQrAdminTab == CustomQrAdminTab.Generate) {
+                            tr("Generate QR", "Generate QR")
+                        } else {
+                            tr("Next", "Lanjut")
+                        },
+                        fontWeight = FontWeight.Bold
+                    )
+                    Spacer(modifier = Modifier.width(6.dp))
+                    Icon(
+                        imageVector = if (
+                            selectedCustomQrAdminTab == CustomQrAdminTab.Generate
+                        ) {
+                            Icons.Rounded.QrCodeScanner
+                        } else {
+                            Icons.AutoMirrored.Rounded.ArrowForward
+                        },
+                        contentDescription = null,
+                        modifier = Modifier.size(18.dp)
+                    )
+                }
+            }
         }
     }
 
@@ -940,5 +1091,6 @@ internal fun CustomQrAdminScreen(
                 isTimePickerVisible = false
             }
         )
+    }
     }
 }

@@ -1,4 +1,4 @@
-﻿package com.coblax.examlock.ui.app
+package com.coblax.examlock.ui.app
 
 import android.app.Activity
 import android.app.ActivityManager
@@ -17,8 +17,13 @@ import android.view.View
 import android.webkit.WebView
 import androidx.activity.ComponentActivity
 import androidx.activity.compose.BackHandler
-import androidx.compose.animation.Crossfade
+import androidx.compose.animation.AnimatedContent
 import androidx.compose.animation.core.tween
+import androidx.compose.animation.fadeIn
+import androidx.compose.animation.fadeOut
+import androidx.compose.animation.slideInHorizontally
+import androidx.compose.animation.slideOutHorizontally
+import androidx.compose.animation.togetherWith
 import androidx.compose.foundation.background
 import androidx.compose.foundation.border
 import androidx.compose.foundation.BorderStroke
@@ -61,7 +66,6 @@ import androidx.compose.runtime.setValue
 import androidx.compose.runtime.withFrameNanos
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.draw.clip
-import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.text.font.FontWeight
@@ -98,6 +102,7 @@ import com.coblax.examlock.i18n.tr
 import com.coblax.examlock.inspectDeviceTimeSecurity
 import com.coblax.examlock.LocalDeviceCompatibilityProfile
 import com.coblax.examlock.LocalLowRamProfile
+import com.coblax.examlock.ui.LocalTelegramDiagnosticsEnabled
 import com.coblax.examlock.LocationPolicySource
 import com.coblax.examlock.LowRamProfile
 import com.coblax.examlock.LowRamProfileOverride
@@ -106,9 +111,16 @@ import com.coblax.examlock.model.AdminSettings
 import com.coblax.examlock.model.AppScreen
 import com.coblax.examlock.model.directLinkLocationPolicy
 import com.coblax.examlock.model.effectiveExamUserAgent
+import com.coblax.examlock.model.ThemeMode
 import com.coblax.examlock.model.UiLanguage
 import com.coblax.examlock.model.withDirectLinkLocationPolicy
 import com.coblax.examlock.persistence.HomeAdminSettings
+import com.coblax.examlock.persistence.AdminSettingsApplyResult
+import com.coblax.examlock.persistence.AdminSettingsRollbackStatus
+import com.coblax.examlock.persistence.AdminSettingsValidationField
+import com.coblax.examlock.persistence.AdminSettingsValidationReason
+import com.coblax.examlock.persistence.applyAdminSettingsExplicitly
+import com.coblax.examlock.persistence.commitOrdinaryAdminSettingsAndReadBack
 import com.coblax.examlock.persistence.readAdminSettings
 import com.coblax.examlock.persistence.readHomeAdminSettings
 import com.coblax.examlock.persistence.readSavedUiLanguage
@@ -130,26 +142,13 @@ import com.coblax.examlock.ui.admin.PublicPerformanceProfileDialog
 import com.coblax.examlock.ui.admin.ScanSourceDialog
 import com.coblax.examlock.ui.exam.ExamRuntimeHardeningDiagnostics
 import com.coblax.examlock.ui.exam.ExamRuntimeHardeningLogTag
-import com.coblax.examlock.ui.theme.LockBlue
-import com.coblax.examlock.ui.theme.LockBlueDeep
-import com.coblax.examlock.ui.theme.LockOnDark
-import com.coblax.examlock.ui.theme.LockOutline
-import com.coblax.examlock.ui.theme.LockSurface
-import com.coblax.examlock.ui.theme.LockSurfaceSoft
-import com.coblax.examlock.ui.theme.LockTextMuted
-import com.coblax.examlock.ui.theme.LockTextPrimary
-import com.coblax.examlock.ui.theme.LockTextSecondary
-import com.coblax.examlock.ui.theme.LockDangerBgSubtle
-import com.coblax.examlock.ui.theme.LockDialogDangerIcon
-import com.coblax.examlock.ui.theme.LockSafeStrong
+import com.coblax.examlock.ui.theme.AppColors
 import com.coblax.examlock.validateExamUrl
 import com.coblax.examlock.viewmodel.AdminFlowUiAction
 import com.coblax.examlock.viewmodel.AdminFlowUiState
 import com.coblax.examlock.viewmodel.AdminFlowViewModel
+import com.coblax.examlock.viewmodel.AdminApplyState
 import com.coblax.examlock.ui.theme.UiTokens
-import com.coblax.examlock.ui.theme.LockBlueFill
-import com.coblax.examlock.ui.theme.LockBlueTint
-import com.coblax.examlock.ui.theme.LockOutlineStrong
 
 import java.net.URL
 import java.util.Date
@@ -281,6 +280,8 @@ private fun deviceTimeEventDetails(status: DeviceTimeSecurityStatus, trigger: St
 @Composable
 internal fun AppHostRuntimeContent(
     initialUiLanguageOverride: UiLanguage? = null,
+    initialThemeModeOverride: ThemeMode = ThemeMode.System,
+    onThemeModeChange: (ThemeMode) -> Unit = {},
     initialHomeAdminSettings: HomeAdminSettings? = null,
     initialLowRamProfile: LowRamProfile? = null,
     initialHomeAction: PendingHomeAction? = null,
@@ -364,7 +365,8 @@ internal fun AppHostRuntimeContent(
         applyLowRamRuntimeDetectorBudget(lowRamProfile)
         homeAdminSettings = HomeAdminSettings(
             fastExamUrl = loaded.fastExamUrl,
-            fastExamLabel = loaded.fastExamLabel
+            fastExamLabel = loaded.fastExamLabel,
+            telegramDiagnosticsEnabled = loaded.telegramDiagnosticsEnabled
         )
         return loaded
     }
@@ -401,11 +403,137 @@ internal fun AppHostRuntimeContent(
         applyLowRamRuntimeDetectorBudget(updatedProfile)
         homeAdminSettings = HomeAdminSettings(
             fastExamUrl = normalized.fastExamUrl,
-            fastExamLabel = normalized.fastExamLabel
+            fastExamLabel = normalized.fastExamLabel,
+            telegramDiagnosticsEnabled = normalized.telegramDiagnosticsEnabled
         )
         val sendResult = adminSettingsSaveRequests.trySend(normalized)
         if (BuildConfig.DEBUG && sendResult.isFailure) {
             Log.d(AdminSettingsPerfTag, "Admin settings save request was dropped before enqueue.")
+        }
+    }
+
+    fun applyAdminSettings(updated: AdminSettings) {
+        val expectedCurrent = adminFlowUiState.persistedAdminSettings
+            ?: activeAdminSettingsSnapshot()
+        adminFlowViewModel.dispatch(
+            AdminFlowUiAction.SetAdminApplyState(AdminApplyState.Applying)
+        )
+        coroutineScope.launch {
+            when (
+                val result = context.applyAdminSettingsExplicitly(
+                    proposedSettings = updated,
+                    expectedCurrentSettings = expectedCurrent
+                )
+            ) {
+                is AdminSettingsApplyResult.Success -> {
+                    val applied = cacheAdminSettings(result.settings)
+                    adminFlowViewModel.dispatch(
+                        AdminFlowUiAction.CommitAppliedAdminSettings(applied)
+                    )
+                }
+
+                is AdminSettingsApplyResult.ValidationFailed -> {
+                    val message = result.issues.joinToString(separator = "\n") { issue ->
+                        when (issue.field) {
+                            AdminSettingsValidationField.DirectLinkUrl -> when (issue.reason) {
+                                AdminSettingsValidationReason.Required -> localized(
+                                    uiLanguage,
+                                    "Direct Link URL is required.",
+                                    "URL Direct Link wajib diisi."
+                                )
+
+                                AdminSettingsValidationReason.SecureHttpsUrlRequired -> localized(
+                                    uiLanguage,
+                                    "Direct Link URL must be a valid HTTPS URL.",
+                                    "URL Direct Link harus berupa URL HTTPS yang valid."
+                                )
+                            }
+
+                            AdminSettingsValidationField.OfficialApkUrl -> localized(
+                                uiLanguage,
+                                "Official APK URL must be blank or a valid HTTPS URL.",
+                                "URL APK resmi harus kosong atau berupa URL HTTPS yang valid."
+                            )
+                        }
+                    }
+                    adminFlowViewModel.dispatch(
+                        AdminFlowUiAction.SetAdminApplyState(
+                            AdminApplyState.Failure(message)
+                        )
+                    )
+                }
+
+                AdminSettingsApplyResult.ReauthenticationRequired -> {
+                    adminFlowViewModel.dispatch(
+                        AdminFlowUiAction.SetAdminApplyState(
+                            AdminApplyState.ReauthenticationRequired
+                        )
+                    )
+                    adminFlowViewModel.dispatch(AdminFlowUiAction.SetAdminPasswordInput(""))
+                    adminFlowViewModel.dispatch(AdminFlowUiAction.SetAdminPasswordError(null))
+                    adminFlowViewModel.dispatch(AdminFlowUiAction.ShowAdminPasswordDialog)
+                }
+
+                is AdminSettingsApplyResult.Conflict -> {
+                    val current = cacheAdminSettings(result.currentSettings)
+                    adminFlowViewModel.dispatch(
+                        AdminFlowUiAction.RefreshPersistedAdminSettings(current)
+                    )
+                    adminFlowViewModel.dispatch(
+                        AdminFlowUiAction.SetAdminApplyState(
+                            AdminApplyState.Failure(
+                                localized(
+                                    uiLanguage,
+                                    "Settings changed outside this form. Review the draft and apply again.",
+                                    "Pengaturan berubah di luar formulir ini. Tinjau draft lalu terapkan kembali."
+                                )
+                            )
+                        )
+                    )
+                }
+
+                is AdminSettingsApplyResult.PersistenceFailed -> {
+                    if (result.rollbackStatus == AdminSettingsRollbackStatus.Failed) {
+                        val reloaded = runCatching {
+                            withContext(Dispatchers.IO) {
+                                context.readAdminSettings()
+                            }
+                        }.getOrNull()
+                        if (reloaded != null) {
+                            val current = cacheAdminSettings(reloaded)
+                            adminFlowViewModel.dispatch(
+                                AdminFlowUiAction.RefreshPersistedAdminSettings(current)
+                            )
+                        }
+                    }
+                    adminFlowViewModel.dispatch(
+                        AdminFlowUiAction.SetAdminApplyState(
+                            AdminApplyState.Failure(
+                                message = if (
+                                    result.rollbackStatus == AdminSettingsRollbackStatus.Failed
+                                ) {
+                                    localized(
+                                        uiLanguage,
+                                        "Settings could not be saved and recovery was incomplete. Reloaded the stored state.",
+                                        "Pengaturan gagal disimpan dan pemulihan tidak lengkap. Status tersimpan telah dimuat ulang."
+                                    )
+                                } else {
+                                    localized(
+                                        uiLanguage,
+                                        "Settings could not be saved. Previous settings were restored.",
+                                        "Pengaturan gagal disimpan. Pengaturan sebelumnya telah dipulihkan."
+                                    )
+                                },
+                                rollbackSucceeded = when (result.rollbackStatus) {
+                                    AdminSettingsRollbackStatus.Succeeded -> true
+                                    AdminSettingsRollbackStatus.Failed -> false
+                                    AdminSettingsRollbackStatus.NotNeeded -> null
+                                }
+                            )
+                        )
+                    )
+                }
+            }
         }
     }
 
@@ -431,8 +559,9 @@ internal fun AppHostRuntimeContent(
     suspend fun persistAdminSettingsImmediately(updated: AdminSettings): AdminSettings {
         val normalized = updated.copy(examUserAgent = updated.effectiveExamUserAgent())
         val refreshed = withContext(Dispatchers.IO) {
-            context.saveAdminSettings(normalized)
-            context.readAdminSettings()
+            context.commitOrdinaryAdminSettingsAndReadBack(normalized) ?: error(
+                "Direct Link settings could not be committed."
+            )
         }
         return cacheAdminSettings(refreshed)
     }
@@ -1006,7 +1135,9 @@ internal fun AppHostRuntimeContent(
     CompositionLocalProvider(
         LocalUiLanguage provides uiLanguage,
         LocalLowRamProfile provides lowRamProfile,
-        LocalDeviceCompatibilityProfile provides deviceCompatibilityProfile
+        LocalDeviceCompatibilityProfile provides deviceCompatibilityProfile,
+        LocalTelegramDiagnosticsEnabled provides
+            (BuildConfig.REMOTE_DIAGNOSTICS_ENABLED && homeAdminSettings.telegramDiagnosticsEnabled)
     ) {
         BackHandler(enabled = adminFlowUiState.currentScreen == AppScreen.CustomQrAdmin) {
             adminFlowViewModel.dispatch(AdminFlowUiAction.CloseCustomQrAdmin)
@@ -1016,77 +1147,107 @@ internal fun AppHostRuntimeContent(
             adminFlowViewModel.dispatch(AdminFlowUiAction.CloseSecretAdmin)
         }
 
-        if (adminFlowUiState.currentScreen == AppScreen.Home) {
-            remember {
-                StartupTrace.mark("home_compose_start")
-                true
-            }
-            if (lowRamProfile.severe) {
-                ExamLockLowRamHomeScreen(
-                    uiLanguage = uiLanguage,
-                    onUiLanguageChange = { uiLanguage = it },
-                    onScanExam = { adminFlowViewModel.dispatch(AdminFlowUiAction.ShowScanSourceDialog) },
-                    onOpenAdmin = {
-                        coroutineScope.launch {
-                            loadCurrentAdminSettings()
-                            adminFlowViewModel.dispatch(AdminFlowUiAction.OpenCustomQrAdmin)
-                        }
-                    },
-                    onOpenFastExam = ::launchDirectLink,
-                    directLinkLabel = directLinkLabel,
-                    onSecretTap = ::registerSecretTap,
-                    onOpenPerformanceProfile = { showPerformanceProfileDialog = true },
-                    showDeferredChrome = showDeferredHomeChrome
-                )
-            } else {
-                ExamLockHomeScreen(
-                    uiLanguage = uiLanguage,
-                    onUiLanguageChange = { uiLanguage = it },
-                    onScanExam = { adminFlowViewModel.dispatch(AdminFlowUiAction.ShowScanSourceDialog) },
-                    onOpenAdmin = {
-                        coroutineScope.launch {
-                            loadCurrentAdminSettings()
-                            adminFlowViewModel.dispatch(AdminFlowUiAction.OpenCustomQrAdmin)
-                        }
-                    },
-                    onOpenFastExam = ::launchDirectLink,
-                    directLinkLabel = directLinkLabel,
-                    onSecretTap = ::registerSecretTap,
-                    onOpenPerformanceProfile = { showPerformanceProfileDialog = true },
-                    showDeferredChrome = showDeferredHomeChrome
-                )
-            }
-        } else {
-            AppNonHomeRouteHost(
-                screen = adminFlowUiState.currentScreen,
-                uiState = adminFlowUiState,
-                activeExamPayload = activeExamPayload,
-                adminSettingsSnapshot = ::activeAdminSettingsSnapshot,
-                updateAdminSettings = ::updateAdminSettings,
-                dispatch = adminFlowViewModel::dispatch,
-                pendingDirectLinkSaveLog = pendingDirectLinkSaveLog,
-                pendingRecoveryEventDetails = pendingRecoveryEventDetails,
-                onDirectLinkSaveLogConsumed = { pendingDirectLinkSaveLog = null },
-                onRecoveryEventConsumed = { pendingRecoveryEventDetails = null },
-                examSessionRecoveryNonce = examSessionRecoveryNonce,
-                deviceTimeBaselineWallClockMillis = deviceTimeBaseline.wallClockMillis,
-                deviceTimeBaselineElapsedRealtimeMillis = deviceTimeBaseline.elapsedRealtimeMillis,
-                onExamSessionStartedStateChange = { started ->
-                    savedRouteSnapshotRaw = if (started) {
-                        AppRecoveryRoute.ExamFlowRuntime.name
-                    } else {
-                        AppRecoveryRoute.ExamFlowPreparation.name
-                    }
-                },
-                onExamExit = {
-                    activeExamPayload = null
-                    adminFlowViewModel.dispatch(AdminFlowUiAction.SetCurrentScreen(AppScreen.Home))
-                },
-                onMissingExamPayload = {
-                        savedRouteSnapshotRaw = AppRecoveryRoute.Home.name
-                        adminFlowViewModel.dispatch(AdminFlowUiAction.SetCurrentScreen(AppScreen.Home))
+        // ── Animated screen transitions ──
+        val transitionDuration = if (lowRamProfile.severe) 120 else 250
+        AnimatedContent(
+            targetState = adminFlowUiState.currentScreen,
+            transitionSpec = {
+                val isNavigatingForward = targetState != AppScreen.Home
+                val slideOffset = { fullWidth: Int -> fullWidth / 12 }
+                if (isNavigatingForward) {
+                    (fadeIn(tween(transitionDuration)) +
+                        slideInHorizontally(tween(transitionDuration)) { slideOffset(it) }
+                    ) togetherWith (
+                        fadeOut(tween(transitionDuration / 2)) +
+                        slideOutHorizontally(tween(transitionDuration)) { -slideOffset(it) }
+                    )
+                } else {
+                    (fadeIn(tween(transitionDuration)) +
+                        slideInHorizontally(tween(transitionDuration)) { -slideOffset(it) }
+                    ) togetherWith (
+                        fadeOut(tween(transitionDuration / 2)) +
+                        slideOutHorizontally(tween(transitionDuration)) { slideOffset(it) }
+                    )
                 }
-            )
+            },
+            label = "screenTransition"
+        ) { currentScreen ->
+            if (currentScreen == AppScreen.Home) {
+                remember {
+                    StartupTrace.mark("home_compose_start")
+                    true
+                }
+                if (lowRamProfile.severe) {
+                    ExamLockLowRamHomeScreen(
+                        uiLanguage = uiLanguage,
+                        onUiLanguageChange = { uiLanguage = it },
+                        themeMode = initialThemeModeOverride,
+                        onThemeModeChange = onThemeModeChange,
+                        onScanExam = { adminFlowViewModel.dispatch(AdminFlowUiAction.ShowScanSourceDialog) },
+                        onOpenAdmin = {
+                            coroutineScope.launch {
+                                loadCurrentAdminSettings()
+                                adminFlowViewModel.dispatch(AdminFlowUiAction.OpenCustomQrAdmin)
+                            }
+                        },
+                        onOpenFastExam = ::launchDirectLink,
+                        directLinkLabel = directLinkLabel,
+                        onSecretTap = ::registerSecretTap,
+                        onOpenPerformanceProfile = { showPerformanceProfileDialog = true },
+                        showDeferredChrome = showDeferredHomeChrome
+                    )
+                } else {
+                    ExamLockHomeScreen(
+                        uiLanguage = uiLanguage,
+                        onUiLanguageChange = { uiLanguage = it },
+                        themeMode = initialThemeModeOverride,
+                        onThemeModeChange = onThemeModeChange,
+                        onScanExam = { adminFlowViewModel.dispatch(AdminFlowUiAction.ShowScanSourceDialog) },
+                        onOpenAdmin = {
+                            coroutineScope.launch {
+                                loadCurrentAdminSettings()
+                                adminFlowViewModel.dispatch(AdminFlowUiAction.OpenCustomQrAdmin)
+                            }
+                        },
+                        onOpenFastExam = ::launchDirectLink,
+                        directLinkLabel = directLinkLabel,
+                        onSecretTap = ::registerSecretTap,
+                        onOpenPerformanceProfile = { showPerformanceProfileDialog = true },
+                        showDeferredChrome = showDeferredHomeChrome
+                    )
+                }
+            } else {
+                AppNonHomeRouteHost(
+                    screen = currentScreen,
+                    uiState = adminFlowUiState,
+                    activeExamPayload = activeExamPayload,
+                    adminSettingsSnapshot = ::activeAdminSettingsSnapshot,
+                    applyAdminSettings = ::applyAdminSettings,
+                    dispatch = adminFlowViewModel::dispatch,
+                    pendingDirectLinkSaveLog = pendingDirectLinkSaveLog,
+                    pendingRecoveryEventDetails = pendingRecoveryEventDetails,
+                    onDirectLinkSaveLogConsumed = { pendingDirectLinkSaveLog = null },
+                    onRecoveryEventConsumed = { pendingRecoveryEventDetails = null },
+                    examSessionRecoveryNonce = examSessionRecoveryNonce,
+                    deviceTimeBaselineWallClockMillis = deviceTimeBaseline.wallClockMillis,
+                    deviceTimeBaselineElapsedRealtimeMillis = deviceTimeBaseline.elapsedRealtimeMillis,
+                    onExamSessionStartedStateChange = { started ->
+                        savedRouteSnapshotRaw = if (started) {
+                            AppRecoveryRoute.ExamFlowRuntime.name
+                        } else {
+                            AppRecoveryRoute.ExamFlowPreparation.name
+                        }
+                    },
+                    onExamExit = {
+                        activeExamPayload = null
+                        adminFlowViewModel.dispatch(AdminFlowUiAction.SetCurrentScreen(AppScreen.Home))
+                    },
+                    onMissingExamPayload = {
+                            savedRouteSnapshotRaw = AppRecoveryRoute.Home.name
+                            adminFlowViewModel.dispatch(AdminFlowUiAction.SetCurrentScreen(AppScreen.Home))
+                    }
+                )
+            }
         }
 
         if (showPerformanceProfileDialog) {
@@ -1111,16 +1272,32 @@ internal fun AppHostRuntimeContent(
                 },
                 onConfirm = {
                     val passwordInput = adminFlowUiState.adminPasswordInput
+                    val reauthenticationDraft = if (
+                        adminFlowUiState.currentScreen == AppScreen.SecretAdmin &&
+                        adminFlowUiState.adminApplyState ==
+                        AdminApplyState.ReauthenticationRequired
+                    ) {
+                        adminFlowUiState.draftAdminSettings
+                    } else {
+                        null
+                    }
                     coroutineScope.launch {
                         val verified = withContext(Dispatchers.Default) {
                             AdminAuth.verify(context, passwordInput)
                         }
                         if (verified) {
-                            loadCurrentAdminSettings()
+                            val loadedSettings = loadCurrentAdminSettings()
+                            adminFlowViewModel.dispatch(
+                                AdminFlowUiAction.InitializeAdminSettings(loadedSettings)
+                            )
                             adminFlowViewModel.dispatch(AdminFlowUiAction.HideAdminPasswordDialog)
                             adminFlowViewModel.dispatch(AdminFlowUiAction.SetAdminPasswordInput(""))
                             adminFlowViewModel.dispatch(AdminFlowUiAction.SetAdminPasswordError(null))
-                            adminFlowViewModel.dispatch(AdminFlowUiAction.OpenSecretAdmin)
+                            if (reauthenticationDraft != null) {
+                                applyAdminSettings(reauthenticationDraft)
+                            } else {
+                                adminFlowViewModel.dispatch(AdminFlowUiAction.OpenSecretAdmin)
+                            }
                         } else {
                             adminFlowViewModel.dispatch(
                                 AdminFlowUiAction.SetAdminPasswordError(
@@ -1159,7 +1336,7 @@ internal fun AppHostRuntimeContent(
                     dismissOnClickOutside = false
                 ),
                 shape = RoundedCornerShape(24.dp),
-                containerColor = Color.White,
+                containerColor = AppColors.current.cardBg,
                 title = {
                     Row(
                         verticalAlignment = Alignment.CenterVertically,
@@ -1169,12 +1346,12 @@ internal fun AppHostRuntimeContent(
                             modifier = Modifier
                                 .size(40.dp)
                                 .clip(CircleShape)
-                                .background(LockBlueFill),
+                                .background(AppColors.current.blueFill),
                             contentAlignment = Alignment.Center
                         ) {
                             Text(
                                 text = "QR",
-                                color = LockBlueDeep,
+                                color = AppColors.current.brandText,
                                 fontSize = 12.sp,
                                 fontWeight = FontWeight.Black
                             )
@@ -1182,7 +1359,7 @@ internal fun AppHostRuntimeContent(
                         Column(verticalArrangement = Arrangement.spacedBy(2.dp)) {
                             Text(
                                 text = tr("Review Exam QR", "Review QR Ujian"),
-                                color = LockTextPrimary,
+                                color = AppColors.current.textPrimary,
                                 fontSize = 18.sp,
                                 fontWeight = FontWeight.Black
                             )
@@ -1191,7 +1368,7 @@ internal fun AppHostRuntimeContent(
                                     "Check details before opening preparation.",
                                     "Cek detail sebelum membuka preparation."
                                 ),
-                                color = LockTextSecondary,
+                                color = AppColors.current.textSecondary,
                                 fontSize = 12.sp,
                                 lineHeight = 16.sp
                             )
@@ -1203,8 +1380,8 @@ internal fun AppHostRuntimeContent(
                         Surface(
                             modifier = Modifier.fillMaxWidth(),
                             shape = RoundedCornerShape(18.dp),
-                            color = LockSurfaceSoft,
-                            border = BorderStroke(1.dp, LockOutlineStrong)
+                            color = AppColors.current.surfaceSoft,
+                            border = BorderStroke(1.dp, AppColors.current.outlineStrong)
                         ) {
                             Column(
                                 modifier = Modifier.padding(horizontal = 14.dp, vertical = 12.dp),
@@ -1213,13 +1390,13 @@ internal fun AppHostRuntimeContent(
                                 Column(verticalArrangement = Arrangement.spacedBy(2.dp)) {
                                     Text(
                                         text = tr("Exam", "Ujian"),
-                                        color = LockTextMuted,
+                                        color = AppColors.current.textMuted,
                                         fontSize = 10.sp,
                                         fontWeight = FontWeight.Bold
                                     )
                                     Text(
                                         text = payload.examName.trim().ifBlank { "-" },
-                                        color = LockTextPrimary,
+                                        color = AppColors.current.textPrimary,
                                         fontSize = 14.sp,
                                         fontWeight = FontWeight.Bold,
                                         lineHeight = 18.sp
@@ -1235,13 +1412,13 @@ internal fun AppHostRuntimeContent(
                                     ) {
                                         Text(
                                             text = tr("Start", "Mulai"),
-                                            color = LockTextMuted,
+                                            color = AppColors.current.textMuted,
                                             fontSize = 10.sp,
                                             fontWeight = FontWeight.Bold
                                         )
                                         Text(
                                             text = payload.startDateTime,
-                                            color = LockTextPrimary,
+                                            color = AppColors.current.textPrimary,
                                             fontSize = 12.sp,
                                             lineHeight = 16.sp
                                         )
@@ -1252,13 +1429,13 @@ internal fun AppHostRuntimeContent(
                                     ) {
                                         Text(
                                             text = tr("End", "Selesai"),
-                                            color = LockTextMuted,
+                                            color = AppColors.current.textMuted,
                                             fontSize = 10.sp,
                                             fontWeight = FontWeight.Bold
                                         )
                                         Text(
                                             text = payload.endDateTime,
-                                            color = LockTextPrimary,
+                                            color = AppColors.current.textPrimary,
                                             fontSize = 12.sp,
                                             lineHeight = 16.sp
                                         )
@@ -1267,13 +1444,13 @@ internal fun AppHostRuntimeContent(
                                 Column(verticalArrangement = Arrangement.spacedBy(2.dp)) {
                                     Text(
                                         text = tr("Geofence", "Geofence"),
-                                        color = LockTextMuted,
+                                        color = AppColors.current.textMuted,
                                         fontSize = 10.sp,
                                         fontWeight = FontWeight.Bold
                                     )
                                     Text(
                                         text = geofenceInfo,
-                                        color = LockTextPrimary,
+                                        color = AppColors.current.textPrimary,
                                         fontSize = 12.sp,
                                         lineHeight = 16.sp
                                     )
@@ -1284,16 +1461,16 @@ internal fun AppHostRuntimeContent(
                             modifier = Modifier.fillMaxWidth(),
                             shape = RoundedCornerShape(UiTokens.RadiusMd),
                             color = if (payload.saveToDirectLink) {
-                                Color(0xFFEAF7EF)
+                                AppColors.current.dialogSuccessBg
                             } else {
-                                LockBlueTint
+                                AppColors.current.blueTint
                             },
                             border = BorderStroke(
                                 1.dp,
                                 if (payload.saveToDirectLink) {
-                                    LockSafeStrong.copy(alpha = 0.22f)
+                                    AppColors.current.safeStrong.copy(alpha = 0.22f)
                                 } else {
-                                    LockBlue.copy(alpha = 0.16f)
+                                    AppColors.current.blue.copy(alpha = 0.16f)
                                 }
                             )
                         ) {
@@ -1308,9 +1485,9 @@ internal fun AppHostRuntimeContent(
                                         .clip(CircleShape)
                                         .background(
                                             if (payload.saveToDirectLink) {
-                                                LockSafeStrong
+                                                AppColors.current.safeStrong
                                             } else {
-                                                LockBlue
+                                                AppColors.current.blue
                                             }
                                         )
                                 )
@@ -1327,9 +1504,9 @@ internal fun AppHostRuntimeContent(
                                         )
                                     },
                                     color = if (payload.saveToDirectLink) {
-                                        Color(0xFF155C3B)
+                                        AppColors.current.safeStrong
                                     } else {
-                                        LockBlueDeep
+                                        AppColors.current.blueDeep
                                     },
                                     fontSize = 12.sp,
                                     fontWeight = FontWeight.SemiBold,
@@ -1341,12 +1518,12 @@ internal fun AppHostRuntimeContent(
                             Surface(
                                 modifier = Modifier.fillMaxWidth(),
                                 shape = RoundedCornerShape(UiTokens.RadiusSm),
-                                color = LockDangerBgSubtle,
-                                border = BorderStroke(1.dp, LockDialogDangerIcon.copy(alpha = 0.30f))
+                                color = AppColors.current.dangerBgSubtle,
+                                border = BorderStroke(1.dp, AppColors.current.dialogDangerIcon.copy(alpha = 0.30f))
                             ) {
                                 Text(
                                     text = message,
-                                    color = LockDialogDangerIcon,
+                                    color = AppColors.current.dialogDangerIcon,
                                     fontSize = 12.sp,
                                     fontWeight = FontWeight.SemiBold,
                                     lineHeight = 16.sp,
@@ -1364,10 +1541,10 @@ internal fun AppHostRuntimeContent(
                         enabled = !pendingScanConfirmInFlight,
                         shape = RoundedCornerShape(UiTokens.RadiusSm),
                         colors = ButtonDefaults.buttonColors(
-                            containerColor = LockBlue,
-                            contentColor = LockOnDark,
-                            disabledContainerColor = LockBlue.copy(alpha = 0.45f),
-                            disabledContentColor = LockOnDark.copy(alpha = 0.75f)
+                            containerColor = AppColors.current.blue,
+                            contentColor = AppColors.current.onDark,
+                            disabledContainerColor = AppColors.current.blue.copy(alpha = 0.45f),
+                            disabledContentColor = AppColors.current.onDark.copy(alpha = 0.75f)
                         )
                     ) {
                         Text(
@@ -1393,7 +1570,7 @@ internal fun AppHostRuntimeContent(
                     }, enabled = !pendingScanConfirmInFlight) {
                         Text(
                             text = tr("Cancel", "Batal"),
-                            color = LockTextSecondary,
+                            color = AppColors.current.textSecondary,
                             fontWeight = FontWeight.Bold
                         )
                     }

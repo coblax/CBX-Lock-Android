@@ -1,0 +1,11 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <!-- Night mode outranks the version qualifier, so values-v29 is never consulted
+         on a night-mode device. forceDarkAllowed has to be repeated here. -->
+    <style name="Theme.COBLAXEXAMLOCK" parent="android:Theme.Material.Light.NoActionBar">
+        <item name="android:statusBarColor">@color/lock_background_dark</item>
+        <item name="android:navigationBarColor">@color/lock_background_dark</item>
+        <item name="android:windowBackground">@color/lock_background_dark</item>
+        <item name="android:forceDarkAllowed">false</item>
+    </style>
+</resources>

@@ -188,14 +188,22 @@ internal val VirtualFingerprintTokens = listOf(
     "generic",
     "unknown",
     "emulator",
-    "sdk_gphone"
+    "sdk_gphone",
+    "vsemu",
+    "ttVM_Hdragon",
+    "vbox86p",
+    "nox"
 )
 
 internal val VirtualModelTokens = listOf(
     "Emulator",
     "Android SDK built for x86",
     "google_sdk",
-    "sdk_gphone"
+    "sdk_gphone",
+    "Droid4X",
+    "Andy",
+    "TiantianVM",
+    "AOSP on IA Emulator"
 )
 
 internal val VirtualManufacturerTokens = listOf(
@@ -203,7 +211,13 @@ internal val VirtualManufacturerTokens = listOf(
     "BlueStacks",
     "Nox",
     "MuMu",
-    "Xamarin"
+    "Xamarin",
+    "Andy",
+    "LDPlayer",
+    "MEmu",
+    "microvirt",
+    "Phoenix",
+    "Tencent"
 )
 
 internal val VirtualProductTokens = listOf(
@@ -211,7 +225,11 @@ internal val VirtualProductTokens = listOf(
     "sdk_gphone",
     "emulator",
     "vbox86",
-    "simulator"
+    "simulator",
+    "nox",
+    "andy",
+    "Droid4X",
+    "ldplayer"
 )
 
 internal val VirtualHardwareTokens = listOf(
@@ -220,15 +238,60 @@ internal val VirtualHardwareTokens = listOf(
     "vbox86",
     "nox",
     "ttvm",
-    "android_x86"
+    "android_x86",
+    "memuplusqemu",
+    "intel"
+)
+
+internal val VirtualBoardTokens = listOf(
+    "unknown",
+    "goldfish_x86_64",
+    "windows"
 )
 
 internal val VirtualQemuFiles = listOf(
     "/dev/qemu_pipe",
     "/dev/qemu_trace",
+    "/dev/goldfish_pipe",
+    "/dev/socket/qemud",
     "/system/bin/qemu-props",
+    "/system/bin/qemud",
+    "/system/bin/androVM-prop",
+    "/system/bin/microvirt-prop",
+    "/system/bin/nox-prop",
     "/system/lib/libc_malloc_debug_qemu.so",
-    "/system/lib64/libc_malloc_debug_qemu.so"
+    "/system/lib64/libc_malloc_debug_qemu.so",
+    "/system/lib/libldutils.so",
+    "/system/bin/ldinit",
+    "/system/bin/ldmountsf"
+)
+
+// System properties whose mere PRESENCE indicates an emulator. These do not exist on
+// real hardware, so a non-blank value is a strong signal.
+//
+// Note: ro.hardware.audio.primary, qemu.hw.mainkeys and ro.bootimage.build.fingerprint
+// were previously in this list, but they are also present on many REAL devices
+// (e.g. Samsung Galaxy A55 sets ro.bootimage.build.fingerprint like every AOSP build,
+// and qemu.hw.mainkeys ships on plenty of real phones despite its name). Treating their
+// presence as an emulator signal produced false "Emulator detected" blocks on genuine
+// phones, so they now only count when their VALUE contains an emulator token
+// (see VirtualValueSystemProperties below).
+internal val VirtualPresenceSystemPropertyKeys = listOf(
+    "init.svc.qemud",
+    "init.svc.qemu-props",
+    "qemu.sf.fake_camera",
+    "ro.boot.qemu.avd_name",
+    "ro.product.device.goldfish",
+    "ro.ndk_translation.version"
+)
+
+// System properties that also exist on real devices; only an emulator-shaped VALUE counts.
+// Each pair is (propertyKey, tokens that must appear in the value to flag it).
+internal val VirtualValueSystemProperties = listOf(
+    "ro.hardware.audio.primary" to listOf("goldfish", "ranchu", "emulator"),
+    "ro.bootimage.build.fingerprint" to listOf(
+        "generic", "emulator", "sdk_gphone", "vbox86", "genymotion", "ttvm", "nox"
+    )
 )
 
 internal val EmulatorPackagePrefixes = listOf(
@@ -237,5 +300,13 @@ internal val EmulatorPackagePrefixes = listOf(
     "com.nox.mopen.app",
     "com.bignox.app",
     "com.microvirt.",
-    "com.vmos."
+    "com.vmos.",
+    "com.ldmnq.",
+    "com.lbe.parallel.",
+    "com.excelliance.dualaid",
+    "com.ludashi.",
+    "me.weishu.exp",
+    "com.tencent.gameloop",
+    "com.x8bit.biern",
+    "com.andydevelopers."
 )

@@ -26,9 +26,10 @@ import com.coblax.examlock.config.AdminKeyFastExamLabel
 import com.coblax.examlock.config.AdminPreferencesName
 import com.coblax.examlock.config.FastExamName
 import com.coblax.examlock.config.SecretTapWindowMs
+import com.coblax.examlock.model.ThemeMode
+import com.coblax.examlock.persistence.readSavedThemeMode
 import com.coblax.examlock.ui.app.AppContent
 import com.coblax.examlock.ui.app.applyLowRamRuntimeDetectorBudget
-import com.coblax.examlock.ui.theme.COBLAXEXAMLOCKTheme
 import com.coblax.examlock.ui.theme.LocalWindowSizeClass
 
 class MainActivity : ComponentActivity() {
@@ -46,6 +47,7 @@ class MainActivity : ComponentActivity() {
         StartupTrace.mark("activity_on_create_start")
         super.onCreate(savedInstanceState)
         com.coblax.examlock.runtime.TelegramMessageQueueHolder.initialize(this)
+        applySavedThemeWindowBackground()
         val lowRamProfile = resolveLowRamProfile(this)
         initialLowRamProfile = lowRamProfile
         applyLowRamRuntimeTuning(lowRamProfile)
@@ -64,6 +66,75 @@ class MainActivity : ComponentActivity() {
             StartupTrace.mark("set_content_start", "compose")
             startComposeContent()
         }
+    }
+
+    /**
+     * The launch window picks its background from values/ or values-night/, which follow
+     * the *system* night setting. When the user has pinned [ThemeMode.Light] or
+     * [ThemeMode.Dark] that can disagree, so repaint the window here before the first
+     * frame to avoid a light flash in front of a dark UI (or the reverse).
+     */
+    private fun applySavedThemeWindowBackground() {
+        val background = if (isDarkThemeActive()) {
+            getColor(R.color.lock_background_dark)
+        } else {
+            getColor(R.color.lock_background)
+        }
+        runCatching {
+            window.setBackgroundDrawable(android.graphics.drawable.ColorDrawable(background))
+        }
+    }
+
+    /** Resolves the effective dark/light mode the same way `COBLAXEXAMLOCKTheme` does. */
+    private fun isDarkThemeActive(): Boolean = when (readSavedThemeMode()) {
+        ThemeMode.Light -> false
+        ThemeMode.Dark -> true
+        ThemeMode.System ->
+            (resources.configuration.uiMode and Configuration.UI_MODE_NIGHT_MASK) ==
+                Configuration.UI_MODE_NIGHT_YES
+    }
+
+    /**
+     * Colors for the View-based low-RAM shell. It runs before Compose exists, so it
+     * cannot read [com.coblax.examlock.ui.theme.AppColors]; these values mirror the
+     * light and dark palettes in `Color.kt`.
+     */
+    private data class NativeShellPalette(
+        val background: Int,
+        val cardBackground: Int,
+        val cardBorder: Int,
+        val textPrimary: Int,
+        val textSecondary: Int,
+        val logoTile: Int,
+        val accent: Int,
+        val chipBackground: Int,
+        val glyphTint: Int
+    )
+
+    private fun nativeShellPalette(): NativeShellPalette = if (isDarkThemeActive()) {
+        NativeShellPalette(
+            background = Color.rgb(15, 17, 23),
+            cardBackground = Color.rgb(30, 33, 48),
+            cardBorder = Color.rgb(51, 55, 82),
+            textPrimary = Color.rgb(111, 162, 255),
+            textSecondary = Color.rgb(155, 163, 181),
+            logoTile = Color.rgb(26, 59, 122),
+            accent = Color.rgb(61, 122, 245),
+            chipBackground = Color.rgb(34, 38, 58),
+            glyphTint = Color.argb(40, 111, 162, 255)
+        )
+    } else {
+        NativeShellPalette(
+            background = Color.rgb(246, 248, 252),
+            cardBackground = Color.WHITE,
+            cardBorder = Color.rgb(212, 222, 233),
+            textPrimary = Color.rgb(16, 46, 106),
+            textSecondary = Color.rgb(86, 96, 107),
+            logoTile = Color.rgb(16, 46, 106),
+            accent = Color.rgb(61, 122, 245),
+            chipBackground = Color.rgb(244, 247, 251),
+            glyphTint = Color.argb(12, 61, 122, 245)
+        )
     }
 
     private fun applyLowRamRuntimeTuning(lowRamProfile: LowRamProfile) {
@@ -109,12 +180,11 @@ class MainActivity : ComponentActivity() {
             CompositionLocalProvider(
                 LocalWindowSizeClass provides windowSizeClass
             ) {
-                COBLAXEXAMLOCKTheme {
-                    AppContent(
-                        initialHomeActionRaw = pendingNativeHomeAction,
-                        initialLowRamProfile = initialLowRamProfile
-                    )
-                }
+                AppContent(
+                    initialHomeActionRaw = pendingNativeHomeAction,
+                    initialLowRamProfile = initialLowRamProfile,
+                    initialThemeMode = readSavedThemeMode()
+                )
             }
         }
     }
@@ -122,11 +192,12 @@ class MainActivity : ComponentActivity() {
     private fun showNativeLowRamHomeThenCompose() {
         StartupTrace.mark("home_compose_start", "shell=native_survival")
         val lowRamProfile = initialLowRamProfile ?: resolveLowRamProfile(this)
+        val shell = nativeShellPalette()
         val root = LinearLayout(this).apply {
             orientation = LinearLayout.VERTICAL
             gravity = Gravity.CENTER_HORIZONTAL
             setPadding(dp(20), dp(32), dp(20), dp(16))
-            setBackgroundColor(Color.rgb(246, 248, 252))
+            setBackgroundColor(shell.background)
         }
 
         // Brand container
@@ -134,7 +205,7 @@ class MainActivity : ComponentActivity() {
             orientation = LinearLayout.VERTICAL
             gravity = Gravity.CENTER_HORIZONTAL
             setPadding(dp(20), dp(16), dp(20), dp(16))
-            background = roundedBackground(Color.WHITE, Color.rgb(212, 222, 233))
+            background = roundedBackground(shell.cardBackground, shell.cardBorder)
         }
 
         // Lightweight profile badge and hidden Secret Admin trigger
@@ -156,7 +227,7 @@ class MainActivity : ComponentActivity() {
             typeface = android.graphics.Typeface.DEFAULT_BOLD
             gravity = Gravity.CENTER
             setPadding(dp(20), dp(14), dp(20), dp(14))
-            background = roundedBackground(Color.rgb(16, 46, 106), Color.TRANSPARENT)
+            background = roundedBackground(shell.logoTile, Color.TRANSPARENT)
         }
         brandCard.addView(
             logoMark,
@@ -171,7 +242,7 @@ class MainActivity : ComponentActivity() {
         brandCard.addView(
             TextView(this).apply {
                 text = "EXAM LOCK"
-                setTextColor(Color.rgb(16, 46, 106))
+                setTextColor(shell.textPrimary)
                 textSize = 18f
                 typeface = android.graphics.Typeface.DEFAULT_BOLD
                 gravity = Gravity.CENTER
@@ -185,7 +256,7 @@ class MainActivity : ComponentActivity() {
         brandCard.addView(
             TextView(this).apply {
                 text = "Secure exam browser"
-                setTextColor(Color.rgb(86, 96, 107))
+                setTextColor(shell.textSecondary)
                 textSize = 12f
                 gravity = Gravity.CENTER
             },
@@ -217,9 +288,9 @@ class MainActivity : ComponentActivity() {
                 gravity = Gravity.CENTER_VERTICAL
                 setPadding(dp(16), dp(14), dp(16), dp(14))
                 background = if (action == NativeActionScanExam) {
-                    roundedBackground(Color.rgb(61, 122, 245), Color.TRANSPARENT)
+                    roundedBackground(shell.accent, Color.TRANSPARENT)
                 } else {
-                    roundedBackground(Color.WHITE, Color.rgb(212, 222, 233))
+                    roundedBackground(shell.cardBackground, shell.cardBorder)
                 }
                 setOnClickListener { startComposeContent(action) }
             }
@@ -228,7 +299,7 @@ class MainActivity : ComponentActivity() {
                 text = glyph
                 setTextColor(
                     if (action == NativeActionScanExam) Color.WHITE
-                    else Color.rgb(16, 46, 106)
+                    else shell.textPrimary
                 )
                 textSize = 12f
                 typeface = android.graphics.Typeface.DEFAULT_BOLD
@@ -236,7 +307,7 @@ class MainActivity : ComponentActivity() {
                 setPadding(dp(10), dp(8), dp(10), dp(8))
                 background = roundedBackground(
                     if (action == NativeActionScanExam) Color.argb(35, 255, 255, 255)
-                    else Color.argb(12, 61, 122, 245),
+                    else shell.glyphTint,
                     Color.TRANSPARENT
                 )
             }
@@ -246,7 +317,7 @@ class MainActivity : ComponentActivity() {
                 text = label
                 setTextColor(
                     if (action == NativeActionScanExam) Color.WHITE
-                    else Color.rgb(16, 46, 106)
+                    else shell.textPrimary
                 )
                 textSize = 15f
                 typeface = android.graphics.Typeface.DEFAULT_BOLD
@@ -300,12 +371,20 @@ class MainActivity : ComponentActivity() {
 
     private fun createNativeProfileBadge(lowRamProfile: LowRamProfile): View {
         val palette = lowRamProfileBadgePalette(lowRamProfile)
+        val shell = nativeShellPalette()
+        // lowRamProfileBadgePalette() only defines light tiers; keep its tier dot as the
+        // accent but take the pill surface from the shell palette so the badge is not a
+        // bright white chip on the dark shell.
+        val dark = isDarkThemeActive()
+        val containerColor = if (dark) shell.chipBackground else palette.containerColorArgb
+        val borderColor = if (dark) shell.cardBorder else palette.borderColorArgb
+        val contentColor = if (dark) shell.textSecondary else palette.contentColorArgb
         return LinearLayout(this).apply {
             orientation = LinearLayout.HORIZONTAL
             gravity = Gravity.CENTER
             setMinimumHeight(dp(30))
             setPadding(dp(10), dp(6), dp(10), dp(6))
-            background = pillBackground(palette.containerColorArgb, palette.borderColorArgb)
+            background = pillBackground(containerColor, borderColor)
             setOnClickListener { registerNativeSecretTap() }
 
             addView(
@@ -321,7 +400,7 @@ class MainActivity : ComponentActivity() {
             addView(
                 TextView(this@MainActivity).apply {
                     text = lowRamProfileBadgeLabel(lowRamProfile)
-                    setTextColor(palette.contentColorArgb)
+                    setTextColor(contentColor)
                     textSize = 10f
                     typeface = android.graphics.Typeface.DEFAULT_BOLD
                     gravity = Gravity.CENTER
@@ -335,20 +414,22 @@ class MainActivity : ComponentActivity() {
         }
     }
 
-    private fun createNativePerformanceProfileButton(): View =
-        TextView(this).apply {
+    private fun createNativePerformanceProfileButton(): View {
+        val shell = nativeShellPalette()
+        return TextView(this).apply {
             text = NativePerformanceProfileGear
             contentDescription = "Buka pengaturan profil performa"
-            setTextColor(Color.rgb(16, 46, 106))
+            setTextColor(shell.textPrimary)
             textSize = 16f
             typeface = android.graphics.Typeface.DEFAULT_BOLD
             gravity = Gravity.CENTER
             includeFontPadding = false
             setMinWidth(dp(32))
             setMinimumHeight(dp(32))
-            background = pillBackground(Color.rgb(244, 247, 251), Color.rgb(212, 222, 233))
+            background = pillBackground(shell.chipBackground, shell.cardBorder)
             setOnClickListener { showNativePerformanceProfileDialog() }
         }
+    }
 
     private fun showNativePerformanceProfileDialog() {
         val detectedProfile = resolveDetectedLowRamProfile(this)
@@ -595,22 +676,24 @@ class MainActivity : ComponentActivity() {
     }
 
     fun isExamLockModeActive(): Boolean {
-        return runCatching {
-            val activityManager = getSystemService(ActivityManager::class.java) ?: return false
-            activityManager.lockTaskModeState != ActivityManager.LOCK_TASK_MODE_NONE
-        }.getOrDefault(false)
+        return getExamLockTaskState().isActive()
     }
 
     fun getExamLockTaskStateLabel(): String {
+        return getExamLockTaskState().diagnosticLabel
+    }
+
+    internal fun getExamLockTaskState(): ExamLockTaskState {
         return runCatching {
-            val activityManager = getSystemService(ActivityManager::class.java) ?: return "Unknown"
+            val activityManager = getSystemService(ActivityManager::class.java)
+                ?: return@runCatching ExamLockTaskState.Unknown
             when (activityManager.lockTaskModeState) {
-                ActivityManager.LOCK_TASK_MODE_NONE -> "NONE"
-                ActivityManager.LOCK_TASK_MODE_LOCKED -> "LOCKED"
-                ActivityManager.LOCK_TASK_MODE_PINNED -> "PINNED"
-                else -> "UNKNOWN"
+                ActivityManager.LOCK_TASK_MODE_NONE -> ExamLockTaskState.None
+                ActivityManager.LOCK_TASK_MODE_LOCKED -> ExamLockTaskState.Locked
+                ActivityManager.LOCK_TASK_MODE_PINNED -> ExamLockTaskState.Pinned
+                else -> ExamLockTaskState.Unknown
             }
-        }.getOrDefault("Unknown")
+        }.getOrDefault(ExamLockTaskState.Unknown)
     }
 
     private fun dispatchExamWindowModeChanged() {

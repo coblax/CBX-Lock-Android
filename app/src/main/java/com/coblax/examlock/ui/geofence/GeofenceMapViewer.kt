@@ -1,4 +1,4 @@
-﻿package com.coblax.examlock.ui.geofence
+package com.coblax.examlock.ui.geofence
 
 import android.content.Context
 import android.graphics.Bitmap
@@ -65,21 +65,9 @@ import com.coblax.examlock.GeofenceRuntimeStatus
 import com.coblax.examlock.GeofenceShapeType
 import com.coblax.examlock.i18n.tr
 import com.coblax.examlock.LocalLowRamProfile
-import com.coblax.examlock.ui.theme.LockBackground
-import com.coblax.examlock.ui.theme.LockBlue
-import com.coblax.examlock.ui.theme.LockBlueDeep
-import com.coblax.examlock.ui.theme.LockGold
-import com.coblax.examlock.ui.theme.LockOnDark
-import com.coblax.examlock.ui.theme.LockOutline
-import com.coblax.examlock.ui.theme.LockSurface
-import com.coblax.examlock.ui.theme.LockSurfaceSoft
-import com.coblax.examlock.ui.theme.LockTextMuted
-import com.coblax.examlock.ui.theme.LockTextPrimary
-import com.coblax.examlock.ui.theme.LockTextSecondary
+import com.coblax.examlock.ui.theme.AppColors
 import com.coblax.examlock.ui.theme.UiTokens
 import com.coblax.examlock.ui.theme.flatPill
-import com.coblax.examlock.ui.theme.LockBlueFill
-import com.coblax.examlock.ui.theme.LockOutlineSubtle
 import com.google.android.gms.maps.CameraUpdateFactory
 import com.google.android.gms.maps.GoogleMap
 import com.google.android.gms.maps.MapView
@@ -253,6 +241,9 @@ internal fun GeofenceMapViewerScreen(
         }
     }
 
+    val mapStrokeColor = AppColors.current.blue.toArgb()
+    val mapFillColor = AppColors.current.blueFill.toArgb()
+    val mapBlueFillAlpha = AppColors.current.blue.copy(alpha = 0.18f).toArgb()
     LaunchedEffect(googleMap, runtimeStatus) {
         val map = googleMap ?: return@LaunchedEffect
         map.clear()
@@ -288,8 +279,8 @@ internal fun GeofenceMapViewerScreen(
                             CircleOptions()
                                 .center(centerLatLng)
                                 .radius(radius)
-                                .strokeColor(LockBlue.toArgb())
-                                .fillColor(LockBlueFill.toArgb())
+                                .strokeColor(mapStrokeColor)
+                                .fillColor(mapFillColor)
                                 .strokeWidth(4f)
                         )
                     }
@@ -312,8 +303,8 @@ internal fun GeofenceMapViewerScreen(
                         map.addPolygon(
                             PolygonOptions()
                                 .addAll(vertices)
-                                .strokeColor(LockBlue.toArgb())
-                                .fillColor(LockBlue.copy(alpha = 0.18f).toArgb())
+                                .strokeColor(mapStrokeColor)
+                                .fillColor(mapBlueFillAlpha)
                                 .strokeWidth(5f)
                         )
                     }
@@ -321,7 +312,7 @@ internal fun GeofenceMapViewerScreen(
                         map.addPolyline(
                             PolylineOptions()
                                 .addAll(vertices)
-                                .color(LockBlue.toArgb())
+                                .color(mapStrokeColor)
                                 .width(5f)
                         )
                     }
@@ -340,13 +331,13 @@ internal fun GeofenceMapViewerScreen(
     Column(
         modifier = modifier
             .fillMaxSize()
-            .background(LockBackground)
+            .background(AppColors.current.background)
     ) {
         Box(
             modifier = Modifier
                 .clip(RoundedCornerShape(bottomStart = 14.dp, bottomEnd = 14.dp))
                 .background(MaterialTheme.colorScheme.surface)
-                .border(1.dp, LockOutlineSubtle, RoundedCornerShape(bottomStart = 14.dp, bottomEnd = 14.dp))
+                .border(1.dp, AppColors.current.outlineSubtle, RoundedCornerShape(bottomStart = 14.dp, bottomEnd = 14.dp))
         ) {
             Column(
                 modifier = Modifier
@@ -363,7 +354,7 @@ internal fun GeofenceMapViewerScreen(
                     CompactBackIconButton(onClick = onDismiss)
                     Text(
                         text = tr("Geofence Map", "Peta Geofence"),
-                        color = LockTextPrimary,
+                        color = AppColors.current.textPrimary,
                         fontWeight = FontWeight.Bold,
                         fontSize = 15.sp,
                         modifier = Modifier.weight(1f),
@@ -371,13 +362,13 @@ internal fun GeofenceMapViewerScreen(
                     )
                     GeofenceViewerBadge(
                         text = verdictText,
-                        backgroundColor = LockBlueFill,
-                        textColor = LockBlueDeep
+                        backgroundColor = AppColors.current.blueFill,
+                        textColor = AppColors.current.blueDeep
                     )
                     GeofenceViewerBadge(
                         text = shapeBadgeText,
-                        backgroundColor = LockSurfaceSoft,
-                        textColor = LockTextPrimary
+                        backgroundColor = AppColors.current.surfaceSoft,
+                        textColor = AppColors.current.textPrimary
                     )
                 }
                 Text(
@@ -385,7 +376,7 @@ internal fun GeofenceMapViewerScreen(
                         "Exam area and current device position.",
                         "Area ujian dan posisi perangkat saat ini."
                     ),
-                    color = LockTextSecondary,
+                    color = AppColors.current.textSecondary,
                     fontSize = 10.sp,
                     lineHeight = 12.sp,
                     maxLines = 2
@@ -419,7 +410,7 @@ internal fun GeofenceMapViewerScreen(
                         "Read-only map. You can inspect the area here, but editing stays in the geofence editor.",
                         "Peta baca-saja. Anda bisa memeriksa area di sini, tetapi pengeditan tetap di editor geofence."
                     ),
-                    color = LockTextMuted,
+                    color = AppColors.current.textMuted,
                     fontSize = 9.sp,
                     lineHeight = 11.sp,
                     maxLines = 2
@@ -472,8 +463,8 @@ internal fun GeofenceMapViewerScreen(
                         .align(Alignment.TopCenter)
                         .padding(10.dp)
                         .clip(RoundedCornerShape(UiTokens.RadiusSm))
-                        .background(Color.White.copy(alpha = 0.94f))
-                        .border(1.dp, LockOutline, RoundedCornerShape(UiTokens.RadiusSm))
+                        .background(AppColors.current.cardBg.copy(alpha = 0.94f))
+                        .border(1.dp, AppColors.current.outline, RoundedCornerShape(UiTokens.RadiusSm))
                         .padding(horizontal = 12.dp, vertical = 8.dp)
                 ) {
                     Text(
@@ -481,7 +472,7 @@ internal fun GeofenceMapViewerScreen(
                             "Current location unavailable. Showing saved exam area only.",
                             "Lokasi saat ini belum tersedia. Menampilkan area ujian tersimpan saja."
                         ),
-                        color = LockTextPrimary,
+                        color = AppColors.current.textPrimary,
                         fontSize = 11.sp,
                         lineHeight = 15.sp
                     )
@@ -493,7 +484,7 @@ internal fun GeofenceMapViewerScreen(
             modifier = Modifier
                 .clip(RoundedCornerShape(topStart = 14.dp, topEnd = 14.dp))
                 .background(MaterialTheme.colorScheme.surface)
-                .border(1.dp, LockOutlineSubtle, RoundedCornerShape(topStart = 14.dp, topEnd = 14.dp))
+                .border(1.dp, AppColors.current.outlineSubtle, RoundedCornerShape(topStart = 14.dp, topEnd = 14.dp))
         ) {
             Column(
                 modifier = Modifier
@@ -547,7 +538,7 @@ internal fun GeofenceMapViewerScreen(
                         "Policy: $policyText | Shape: $shapeText",
                         "Policy: $policyText | Bentuk: $shapeText"
                     ),
-                    color = LockTextSecondary,
+                    color = AppColors.current.textSecondary,
                     fontSize = 10.sp,
                     lineHeight = 12.sp,
                     maxLines = 2
@@ -563,8 +554,8 @@ internal fun GeofenceMapViewerScreen(
                             .height(34.dp),
                         enabled = !isRefreshingLocation,
                         colors = ButtonDefaults.buttonColors(
-                            containerColor = LockBlue,
-                            contentColor = LockOnDark
+                            containerColor = AppColors.current.blue,
+                            contentColor = AppColors.current.onDark
                         ),
                         contentPadding = ButtonDefaults.ContentPadding
                     ) {
@@ -572,7 +563,7 @@ internal fun GeofenceMapViewerScreen(
                             CircularProgressIndicator(
                                 modifier = Modifier.size(12.dp),
                                 strokeWidth = 2.dp,
-                                color = LockOnDark
+                                color = AppColors.current.onDark
                             )
                             Spacer(modifier = Modifier.width(6.dp))
                         }
@@ -601,8 +592,8 @@ internal fun GeofenceMapViewerScreen(
                             .weight(1f)
                             .height(34.dp),
                         colors = ButtonDefaults.buttonColors(
-                            containerColor = LockSurfaceSoft,
-                            contentColor = LockTextPrimary
+                            containerColor = AppColors.current.surfaceSoft,
+                            contentColor = AppColors.current.textPrimary
                         )
                     ) {
                         Text(
@@ -618,8 +609,8 @@ internal fun GeofenceMapViewerScreen(
                             .weight(1f)
                             .height(34.dp),
                         colors = ButtonDefaults.buttonColors(
-                            containerColor = LockGold,
-                            contentColor = LockTextPrimary
+                            containerColor = AppColors.current.gold,
+                            contentColor = AppColors.current.textPrimary
                         )
                     ) {
                         Text(
@@ -661,13 +652,13 @@ private fun GeofenceMapViewerTextFallback(
     Column(
         modifier = modifier
             .fillMaxSize()
-            .background(LockBackground)
+            .background(AppColors.current.background)
     ) {
         Box(
             modifier = Modifier
                 .clip(RoundedCornerShape(bottomStart = 14.dp, bottomEnd = 14.dp))
                 .background(MaterialTheme.colorScheme.surface)
-                .border(1.dp, LockOutlineSubtle, RoundedCornerShape(bottomStart = 14.dp, bottomEnd = 14.dp))
+                .border(1.dp, AppColors.current.outlineSubtle, RoundedCornerShape(bottomStart = 14.dp, bottomEnd = 14.dp))
         ) {
             Column(
                 modifier = Modifier
@@ -684,7 +675,7 @@ private fun GeofenceMapViewerTextFallback(
                     CompactBackIconButton(onClick = onDismiss)
                     Text(
                         text = tr("Geofence Summary", "Ringkasan Geofence"),
-                        color = LockTextPrimary,
+                        color = AppColors.current.textPrimary,
                         fontWeight = FontWeight.Bold,
                         fontSize = 15.sp,
                         modifier = Modifier.weight(1f),
@@ -692,16 +683,16 @@ private fun GeofenceMapViewerTextFallback(
                     )
                     GeofenceViewerBadge(
                         text = verdictText,
-                        backgroundColor = LockBlueFill,
-                        textColor = LockBlueDeep
+                        backgroundColor = AppColors.current.blueFill,
+                        textColor = AppColors.current.blueDeep
                     )
                 }
                 Text(
                     text = tr(
-                        "Lightweight view â€” interactive map disabled to save memory on this device.",
-                        "Tampilan ringan â€” peta interaktif dinonaktifkan untuk menghemat memori perangkat ini."
+                        "Lightweight view — interactive map disabled to save memory on this device.",
+                        "Tampilan ringan — peta interaktif dinonaktifkan untuk menghemat memori perangkat ini."
                     ),
-                    color = LockTextMuted,
+                    color = AppColors.current.textMuted,
                     fontSize = 9.sp,
                     lineHeight = 11.sp,
                     maxLines = 2
@@ -738,13 +729,13 @@ private fun GeofenceMapViewerTextFallback(
                 modifier = Modifier
                     .fillMaxWidth()
                     .clip(RoundedCornerShape(UiTokens.RadiusSm))
-                    .background(LockSurfaceSoft)
+                    .background(AppColors.current.surfaceSoft)
                     .padding(horizontal = 10.dp, vertical = 8.dp)
             ) {
                 Column(verticalArrangement = Arrangement.spacedBy(4.dp)) {
                     Text(
                         text = tr("Shape: $shapeText | Policy: $policyText", "Bentuk: $shapeText | Policy: $policyText"),
-                        color = LockTextPrimary,
+                        color = AppColors.current.textPrimary,
                         fontSize = 11.sp,
                         fontWeight = FontWeight.SemiBold
                     )
@@ -758,13 +749,13 @@ private fun GeofenceMapViewerTextFallback(
                                         "Radius: ${String.format(Locale.US, "%.1f", config.radiusMeters)} m | Centers: ${centers.size}",
                                         "Radius: ${String.format(Locale.US, "%.1f", config.radiusMeters)} m | Pusat: ${centers.size}"
                                     ),
-                                    color = LockTextSecondary,
+                                    color = AppColors.current.textSecondary,
                                     fontSize = 10.sp
                                 )
                                 centers.forEachIndexed { index, point ->
                                     Text(
                                         text = "  #${index + 1}: ${formatCoordinates(point.latitude, point.longitude)}",
-                                        color = LockTextMuted,
+                                        color = AppColors.current.textMuted,
                                         fontSize = 9.sp
                                     )
                                 }
@@ -772,13 +763,13 @@ private fun GeofenceMapViewerTextFallback(
                             GeofenceShapeType.Polygon -> {
                                 Text(
                                     text = tr("Vertices: ${config.vertices.size}", "Titik: ${config.vertices.size}"),
-                                    color = LockTextSecondary,
+                                    color = AppColors.current.textSecondary,
                                     fontSize = 10.sp
                                 )
                                 config.vertices.forEachIndexed { index, vertex ->
                                     Text(
                                         text = "  #${index + 1}: ${formatCoordinates(vertex.latitude, vertex.longitude)}",
-                                        color = LockTextMuted,
+                                        color = AppColors.current.textMuted,
                                         fontSize = 9.sp
                                     )
                                 }
@@ -791,7 +782,7 @@ private fun GeofenceMapViewerTextFallback(
                             "Violations: ${runtimeStatus.violationCount}",
                             "Pelanggaran: ${runtimeStatus.violationCount}"
                         ),
-                        color = if (runtimeStatus.violationCount > 0) Color(0xFFE14B4B) else LockTextSecondary,
+                        color = if (runtimeStatus.violationCount > 0) AppColors.current.statusDanger else AppColors.current.textSecondary,
                         fontSize = 10.sp,
                         fontWeight = if (runtimeStatus.violationCount > 0) FontWeight.Bold else FontWeight.Normal
                     )
@@ -803,7 +794,7 @@ private fun GeofenceMapViewerTextFallback(
             modifier = Modifier
                 .clip(RoundedCornerShape(topStart = 14.dp, topEnd = 14.dp))
                 .background(MaterialTheme.colorScheme.surface)
-                .border(1.dp, LockOutlineSubtle, RoundedCornerShape(topStart = 14.dp, topEnd = 14.dp))
+                .border(1.dp, AppColors.current.outlineSubtle, RoundedCornerShape(topStart = 14.dp, topEnd = 14.dp))
         ) {
             Row(
                 modifier = Modifier
@@ -819,15 +810,15 @@ private fun GeofenceMapViewerTextFallback(
                         .height(34.dp),
                     enabled = !isRefreshingLocation,
                     colors = ButtonDefaults.buttonColors(
-                        containerColor = LockBlue,
-                        contentColor = LockOnDark
+                        containerColor = AppColors.current.blue,
+                        contentColor = AppColors.current.onDark
                     )
                 ) {
                     if (isRefreshingLocation) {
                         CircularProgressIndicator(
                             modifier = Modifier.size(12.dp),
                             strokeWidth = 2.dp,
-                            color = LockOnDark
+                            color = AppColors.current.onDark
                         )
                         Spacer(modifier = Modifier.width(6.dp))
                     }
@@ -844,8 +835,8 @@ private fun GeofenceMapViewerTextFallback(
                         .weight(1f)
                         .height(34.dp),
                     colors = ButtonDefaults.buttonColors(
-                        containerColor = LockGold,
-                        contentColor = LockTextPrimary
+                        containerColor = AppColors.current.gold,
+                        contentColor = AppColors.current.textPrimary
                     )
                 ) {
                     Text(
@@ -901,7 +892,7 @@ internal fun GeofenceViewerLegendItem(
         )
         Text(
             text = text,
-            color = LockTextSecondary,
+            color = AppColors.current.textSecondary,
             fontSize = 9.sp,
             maxLines = 1
         )
@@ -917,8 +908,8 @@ internal fun GeofenceViewerMetricCard(
     Box(
         modifier = modifier
             .clip(RoundedCornerShape(UiTokens.RadiusSm))
-            .background(Color(0xFFF2F5FA))
-            .border(1.dp, LockOutline, RoundedCornerShape(UiTokens.RadiusSm))
+            .background(AppColors.current.surfaceSoft)
+            .border(1.dp, AppColors.current.outline, RoundedCornerShape(UiTokens.RadiusSm))
     ) {
         Column(
             modifier = Modifier.padding(horizontal = 8.dp, vertical = 7.dp),
@@ -926,13 +917,13 @@ internal fun GeofenceViewerMetricCard(
         ) {
             Text(
                 text = label,
-                color = LockTextSecondary,
+                color = AppColors.current.textSecondary,
                 fontSize = 10.sp,
                 maxLines = 1
             )
             Text(
                 text = value,
-                color = LockTextPrimary,
+                color = AppColors.current.textPrimary,
                 fontSize = 11.sp,
                 fontWeight = FontWeight.SemiBold,
                 maxLines = 1
@@ -956,10 +947,10 @@ internal fun GeofenceViewerActionButton(
         enabled = enabled,
         shape = RoundedCornerShape(UiTokens.RadiusMd),
         colors = ButtonDefaults.buttonColors(
-            containerColor = if (filled) LockBlue else Color(0xFFF2F5FA),
-            contentColor = if (filled) LockOnDark else LockBlueDeep
+            containerColor = if (filled) AppColors.current.blue else AppColors.current.surfaceSoft,
+            contentColor = if (filled) AppColors.current.onDark else AppColors.current.brandText
         ),
-        border = if (filled) null else BorderStroke(1.dp, LockOutline)
+        border = if (filled) null else BorderStroke(1.dp, AppColors.current.outline)
     ) {
         Row(
             verticalAlignment = Alignment.CenterVertically,
@@ -969,7 +960,7 @@ internal fun GeofenceViewerActionButton(
                 CircularProgressIndicator(
                     modifier = Modifier.size(12.dp),
                     strokeWidth = 2.dp,
-                    color = if (filled) LockOnDark else LockBlueDeep
+                    color = if (filled) AppColors.current.onDark else AppColors.current.brandText
                 )
             }
             Text(

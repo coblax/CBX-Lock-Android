@@ -1,4 +1,4 @@
-﻿package com.coblax.examlock.ui.admin
+package com.coblax.examlock.ui.admin
 
 import androidx.compose.foundation.background
 import androidx.compose.foundation.border
@@ -41,21 +41,8 @@ import com.coblax.examlock.isLowRamProfileOverrideRisky
 import com.coblax.examlock.lowRamProfileBadgeLabel
 import com.coblax.examlock.lowRamProfileOverrideOptions
 import com.coblax.examlock.i18n.tr
-import com.coblax.examlock.ui.theme.LockBackground
-import com.coblax.examlock.ui.theme.LockBlue
-import com.coblax.examlock.ui.theme.LockBlueDeep
-import com.coblax.examlock.ui.theme.LockBlueSoft
-import com.coblax.examlock.ui.theme.LockGold
-import com.coblax.examlock.ui.theme.LockGoldDark
-import com.coblax.examlock.ui.theme.LockOnDark
-import com.coblax.examlock.ui.theme.LockOutline
-import com.coblax.examlock.ui.theme.LockSurfaceSoft
-import com.coblax.examlock.ui.theme.LockTextPrimary
-import com.coblax.examlock.ui.theme.LockTextSecondary
-import com.coblax.examlock.ui.theme.LockWarnBgSoft
+import com.coblax.examlock.ui.theme.AppColors
 import com.coblax.examlock.ui.theme.UiTokens
-import com.coblax.examlock.ui.theme.LockOutlineStrong
-import com.coblax.examlock.ui.theme.LockOutlineSubtle
 
 @Composable
 internal fun PerformanceProfileGearButton(
@@ -66,8 +53,8 @@ internal fun PerformanceProfileGearButton(
         modifier = modifier
             .size(32.dp)
             .clip(CircleShape)
-            .background(LockSurfaceSoft)
-            .border(1.dp, LockOutline.copy(alpha = 0.72f), CircleShape)
+            .background(AppColors.current.surfaceSoft)
+            .border(1.dp, AppColors.current.outline.copy(alpha = 0.72f), CircleShape)
             .clickable(
                 interactionSource = remember { MutableInteractionSource() },
                 indication = null,
@@ -82,7 +69,7 @@ internal fun PerformanceProfileGearButton(
                 "Open performance profile settings",
                 "Buka pengaturan profil performa"
             ),
-            tint = LockBlueDeep,
+            tint = AppColors.current.brandText,
             modifier = Modifier.size(16.dp)
         )
     }
@@ -100,11 +87,11 @@ internal fun PublicPerformanceProfileDialog(
     val riskyOverride = isLowRamProfileOverrideRisky(detectedProfile, selectedOverride)
     AlertDialog(
         onDismissRequest = onDismiss,
-        containerColor = LockBackground,
+        containerColor = AppColors.current.background,
         title = {
             Text(
                 text = tr("Performance Profile", "Profil Performa"),
-                color = LockTextPrimary,
+                color = AppColors.current.textPrimary,
                 fontWeight = FontWeight.Bold
             )
         },
@@ -118,7 +105,7 @@ internal fun PublicPerformanceProfileDialog(
                         "Mode ini hanya mengatur beban UI dan interval polling. Proteksi ujian tetap aktif.",
                         "Mode ini hanya mengatur beban UI dan interval polling. Proteksi ujian tetap aktif."
                     ),
-                    color = LockTextSecondary,
+                    color = AppColors.current.textSecondary,
                     fontSize = 12.sp,
                     lineHeight = 16.sp
                 )
@@ -166,7 +153,7 @@ internal fun PublicPerformanceProfileDialog(
                         .fillMaxWidth()
                         .clip(RoundedCornerShape(UiTokens.RadiusMd))
                         .background(MaterialTheme.colorScheme.surface)
-                        .border(1.dp, LockOutlineSubtle, RoundedCornerShape(UiTokens.RadiusMd))
+                        .border(1.dp, AppColors.current.outlineSubtle, RoundedCornerShape(UiTokens.RadiusMd))
                         .padding(horizontal = 12.dp, vertical = 10.dp),
                     verticalArrangement = Arrangement.spacedBy(7.dp)
                 ) {
@@ -191,7 +178,7 @@ internal fun PublicPerformanceProfileDialog(
         },
         confirmButton = {
             TextButton(onClick = onDismiss) {
-                Text(tr("Close", "Tutup"), color = LockBlue)
+                Text(tr("Close", "Tutup"), color = AppColors.current.blue)
             }
         }
     )
@@ -208,17 +195,17 @@ private fun PerformanceProfileOptionPill(
     val containerColor = if (selected) {
         performanceProfileSelectedContainer(override)
     } else {
-        Color.White
+        AppColors.current.cardBg
     }
     val borderColor = if (selected) {
         performanceProfileDotColor(override).copy(alpha = 0.65f)
     } else {
-        LockOutlineStrong
+        AppColors.current.outlineStrong
     }
     val contentColor = if (selected && override == LowRamProfileOverride.Ultra) {
-        LockOnDark
+        AppColors.current.onDark
     } else {
-        LockTextPrimary
+        AppColors.current.textPrimary
     }
     Row(
         modifier = modifier
@@ -253,9 +240,9 @@ private fun PerformanceProfileOptionPill(
             Text(
                 text = performanceProfileSubtitle(override),
                 color = if (selected && override == LowRamProfileOverride.Ultra) {
-                    LockOnDark.copy(alpha = 0.74f)
+                    AppColors.current.onDark.copy(alpha = 0.74f)
                 } else {
-                    LockTextSecondary
+                    AppColors.current.textSecondary
                 },
                 fontSize = 10.sp,
                 maxLines = 1
@@ -276,12 +263,12 @@ private fun PerformanceProfileSummaryRow(
     ) {
         Text(
             text = label,
-            color = LockTextSecondary,
+            color = AppColors.current.textSecondary,
             fontSize = 11.sp
         )
         Text(
             text = value,
-            color = LockTextPrimary,
+            color = AppColors.current.textPrimary,
             fontSize = 11.sp,
             fontWeight = FontWeight.SemiBold,
             textAlign = TextAlign.End
@@ -305,18 +292,20 @@ private fun performanceProfileSubtitle(override: LowRamProfileOverride): String 
         LowRamProfileOverride.Ultra -> "Paling ringan"
     }
 
+@Composable
 private fun performanceProfileDotColor(override: LowRamProfileOverride): Color =
     when (override) {
-        LowRamProfileOverride.Auto -> LockBlue
-        LowRamProfileOverride.Normal -> Color(0xFF2E7D32)
-        LowRamProfileOverride.Low -> LockGoldDark
-        LowRamProfileOverride.Ultra -> LockGold
+        LowRamProfileOverride.Auto -> AppColors.current.blue
+        LowRamProfileOverride.Normal -> AppColors.current.safeStrong
+        LowRamProfileOverride.Low -> AppColors.current.goldDark
+        LowRamProfileOverride.Ultra -> AppColors.current.gold
     }
 
+@Composable
 private fun performanceProfileSelectedContainer(override: LowRamProfileOverride): Color =
     when (override) {
-        LowRamProfileOverride.Auto -> LockBlueSoft.copy(alpha = 0.56f)
-        LowRamProfileOverride.Normal -> Color(0xFFEFFAF1)
-        LowRamProfileOverride.Low -> LockWarnBgSoft
-        LowRamProfileOverride.Ultra -> LockBlueDeep
+        LowRamProfileOverride.Auto -> AppColors.current.blueSoft.copy(alpha = 0.56f)
+        LowRamProfileOverride.Normal -> AppColors.current.statusSafeFill
+        LowRamProfileOverride.Low -> AppColors.current.warnBgSoft
+        LowRamProfileOverride.Ultra -> AppColors.current.blueDeep
     }

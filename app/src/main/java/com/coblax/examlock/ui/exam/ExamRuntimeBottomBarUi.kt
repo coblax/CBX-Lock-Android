@@ -1,74 +1,48 @@
-﻿package com.coblax.examlock.ui.exam
+package com.coblax.examlock.ui.exam
 
 import android.util.Log
-import androidx.compose.animation.core.animateFloat
-import androidx.compose.animation.core.animateFloatAsState
-import androidx.compose.animation.core.FastOutSlowInEasing
-import androidx.compose.animation.core.infiniteRepeatable
-import androidx.compose.animation.core.LinearEasing
-import androidx.compose.animation.core.rememberInfiniteTransition
-import androidx.compose.animation.core.RepeatMode
-import androidx.compose.animation.core.tween
-import androidx.compose.foundation.background
-import androidx.compose.foundation.border
-import androidx.compose.foundation.clickable
+import androidx.compose.foundation.BorderStroke
 import androidx.compose.foundation.layout.Arrangement
-import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.BoxWithConstraints
-import androidx.compose.foundation.layout.Column
+import androidx.compose.foundation.layout.Row
+import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
-import androidx.compose.foundation.layout.heightIn
 import androidx.compose.foundation.layout.padding
-import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.size
-import androidx.compose.foundation.layout.Spacer
-import androidx.compose.foundation.layout.width
+import androidx.compose.foundation.layout.widthIn
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
-import androidx.compose.material.icons.rounded.Close
-import androidx.compose.material.icons.rounded.Home
 import androidx.compose.material.icons.automirrored.rounded.KeyboardArrowLeft
-import androidx.compose.material.icons.automirrored.rounded.KeyboardArrowRight
+import androidx.compose.material.icons.rounded.Close
+import androidx.compose.material.icons.automirrored.rounded.ExitToApp
 import androidx.compose.material.icons.rounded.Refresh
 import androidx.compose.material3.Icon
 import androidx.compose.material3.Surface
-import androidx.compose.material3.VerticalDivider
+import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
-import androidx.compose.runtime.getValue
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.ui.Alignment
-import androidx.compose.ui.draw.clip
-import androidx.compose.ui.graphics.Color
-import androidx.compose.ui.graphics.graphicsLayer
-import androidx.compose.ui.graphics.vector.ImageVector
 import androidx.compose.ui.Modifier
-import androidx.compose.ui.unit.dp
+import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.graphics.vector.ImageVector
+import androidx.compose.ui.platform.testTag
+import androidx.compose.ui.semantics.Role
+import androidx.compose.ui.semantics.contentDescription
+import androidx.compose.ui.semantics.role
+import androidx.compose.ui.semantics.semantics
+import androidx.compose.ui.semantics.stateDescription
+import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.Dp
-import androidx.compose.ui.unit.sp
-
-import com.coblax.examlock.i18n.tr
+import androidx.compose.ui.unit.dp
 import com.coblax.examlock.LocalLowRamProfile
-import com.coblax.examlock.model.ExamBatteryStatus
-import com.coblax.examlock.model.NetworkReadinessStatus
-import com.coblax.examlock.model.NetworkReadinessVerdict
-import com.coblax.examlock.ui.theme.LockBlue
-import com.coblax.examlock.ui.theme.LockBlueDeep
-import com.coblax.examlock.ui.theme.LockFooterBg
-import com.coblax.examlock.ui.theme.LockGold
-import com.coblax.examlock.ui.theme.LockGoldDark
-import com.coblax.examlock.ui.theme.LockOnDark
-import com.coblax.examlock.ui.theme.LockOutline
-import com.coblax.examlock.ui.theme.LockSurfaceSoft
-import com.coblax.examlock.ui.theme.UiTokens
-import com.coblax.examlock.ui.theme.LockOutlineSubtle
+import com.coblax.examlock.i18n.tr
+import com.coblax.examlock.ui.theme.AppColors
+import com.coblax.examlock.ui.theme.AppTextStyles
+import com.coblax.examlock.ui.theme.ScopedUiTokens
 
 @Composable
 internal fun ExamWebViewBottomBar(
-    networkStatus: NetworkReadinessStatus,
-    serverStatus: ExamServerFooterStatus,
-    batteryStatus: ExamBatteryStatus,
-    shieldStatus: ExamFooterShieldStatus,
     showArrowControls: Boolean,
     isRefreshing: Boolean,
     onToggleArrowControls: () -> Unit,
@@ -76,87 +50,8 @@ internal fun ExamWebViewBottomBar(
     onGoHome: () -> Unit,
     modifier: Modifier = Modifier
 ) {
-    val batteryIndicatorColor = when {
-        batteryStatus.isCharging -> Color(0xFF2E9E52)
-        batteryStatus.levelPercent <= 20 -> Color(0xFFD93025)
-        batteryStatus.levelPercent <= 40 -> LockGoldDark
-        else -> LockBlue
-    }
-    val serverContentDescription = when (serverStatus) {
-        ExamServerFooterStatus.Online -> tr("Exam server reachable", "Server ujian bisa diakses")
-        ExamServerFooterStatus.Warning -> tr("Exam server warning", "Peringatan server ujian")
-        ExamServerFooterStatus.Offline -> tr("Exam server unreachable", "Server ujian tidak bisa diakses")
-        ExamServerFooterStatus.Checking -> tr("Checking exam server", "Mengecek server ujian")
-        ExamServerFooterStatus.Unstable -> tr("Exam server unstable", "Server ujian tidak stabil")
-    }
-    val shieldIndicatorColor = when (shieldStatus) {
-        ExamFooterShieldStatus.Safe -> Color(0xFF2E9E52)
-        ExamFooterShieldStatus.Warning -> LockGoldDark
-        ExamFooterShieldStatus.Danger -> Color(0xFFD93025)
-    }
-    val shieldContentDescription = when (shieldStatus) {
-        ExamFooterShieldStatus.Safe -> tr("Security protected", "Keamanan terlindungi")
-        ExamFooterShieldStatus.Warning -> tr("Security warning", "Peringatan keamanan")
-        ExamFooterShieldStatus.Danger -> tr("Security issue detected", "Masalah keamanan terdeteksi")
-    }
-    val shieldLabel = when (shieldStatus) {
-        ExamFooterShieldStatus.Safe -> "Aman"
-        ExamFooterShieldStatus.Warning -> "Cek"
-        ExamFooterShieldStatus.Danger -> "Blok"
-    }
-    val transportLabel = networkStatus.transportLabel
-    val networkContentDescription = when (networkStatus.verdict) {
-        NetworkReadinessVerdict.ConnectedStable ->
-            tr(
-                "Network connected: ${transportLabel.ifBlank { "unknown transport" }}",
-                "Jaringan terhubung: ${transportLabel.ifBlank { "transport tidak diketahui" }}"
-            )
-        NetworkReadinessVerdict.Offline ->
-            tr("Network offline", "Jaringan offline")
-        NetworkReadinessVerdict.AirplaneMode ->
-            tr("Airplane mode is active", "Mode pesawat aktif")
-        NetworkReadinessVerdict.Unvalidated ->
-            tr("Network is limited", "Jaringan terbatas")
-        NetworkReadinessVerdict.CaptivePortal ->
-            tr("Network requires captive portal login", "Jaringan membutuhkan login captive portal")
-        NetworkReadinessVerdict.VpnActive ->
-            tr("VPN is active", "VPN aktif")
-        NetworkReadinessVerdict.Unstable ->
-            tr("Network is unstable", "Jaringan tidak stabil")
-    }
     val lowRamProfile = LocalLowRamProfile.current
-    val connectivityIndicatorColor = when {
-        networkStatus.verdict == NetworkReadinessVerdict.Offline ||
-            networkStatus.verdict == NetworkReadinessVerdict.VpnActive ||
-            networkStatus.verdict == NetworkReadinessVerdict.AirplaneMode -> Color(0xFFD93025)
-        networkStatus.verdict == NetworkReadinessVerdict.Unvalidated ||
-            networkStatus.verdict == NetworkReadinessVerdict.CaptivePortal ||
-            networkStatus.verdict == NetworkReadinessVerdict.Unstable -> LockGoldDark
-        else -> Color(0xFF2E9E52)
-    }
-    val connectivityVisual = resolveExamFooterConnectivityVisual(networkStatus, serverStatus)
-    val connectivityDescription = "$networkContentDescription. $serverContentDescription"
-    val refreshContainerColor = if (isRefreshing) LockGold else LockBlue
-
-    // Refresh spin animation Ã¢â‚¬â€ continuous rotation while loading
-    val infiniteTransition = rememberInfiniteTransition(label = "refresh_spin")
-    val refreshRotation by if (isRefreshing && !lowRamProfile.enabled) {
-        infiniteTransition.animateFloat(
-            initialValue = 0f,
-            targetValue = 360f,
-            animationSpec = infiniteRepeatable(
-                animation = tween(durationMillis = 800, easing = LinearEasing),
-                repeatMode = RepeatMode.Restart
-            ),
-            label = "refresh_rotation"
-        )
-    } else {
-        animateFloatAsState(
-            targetValue = 0f,
-            animationSpec = tween(durationMillis = 300, easing = FastOutSlowInEasing),
-            label = "refresh_rotation"
-        )
-    }
+    val tokens = ScopedUiTokens.current
 
     BoxWithConstraints(modifier = modifier) {
         val layoutSpec = calculateExamFooterLayoutSpec(
@@ -164,23 +59,8 @@ internal fun ExamWebViewBottomBar(
             lowRamEnabled = lowRamProfile.enabled,
             lowRamSevere = lowRamProfile.severe
         )
-        val footerHorizontalPadding = layoutSpec.horizontalPaddingDp.dp
-        val footerVerticalPadding = layoutSpec.verticalPaddingDp.dp
-        val itemSpacing = layoutSpec.itemSpacingDp.dp
         val actionSpacing = layoutSpec.actionSpacingDp.dp
-        val actionButtonSize = layoutSpec.buttonSizeDp.dp
-        val arrowPillWidth = layoutSpec.arrowPillWidthDp.dp
-        val connectivityPillWidth = layoutSpec.connectivityPillWidthDp.dp
-        val shieldPillWidth = layoutSpec.shieldPillWidthDp.dp
-        val actionTouchTargetSize = layoutSpec.touchTargetDp.dp
-        val iconSize = layoutSpec.iconSizeDp.dp
-        val rowSpacing = layoutSpec.rowSpacingDp.dp
-        val batteryPillWidth = when {
-            !layoutSpec.showBatteryPercent -> actionButtonSize
-            layoutSpec.compact -> 52.dp
-            batteryStatus.levelPercent.coerceIn(0, 100) >= 100 -> 62.dp
-            else -> 58.dp
-        }
+
         LaunchedEffect(
             layoutSpec.layoutMode,
             maxWidth.value.toInt(),
@@ -197,134 +77,67 @@ internal fun ExamWebViewBottomBar(
             )
         }
 
-        val footerShape = RoundedCornerShape(
-                topStart = 20.dp,
-                topEnd = 20.dp,
-                bottomStart = layoutSpec.cornerRadiusDp.dp,
-                bottomEnd = layoutSpec.cornerRadiusDp.dp
-            )
-        Box(
+        Surface(
             modifier = Modifier
                 .fillMaxWidth()
-                .clip(footerShape)
-                .background(LockFooterBg)
-                .border(1.dp, LockOutlineSubtle, footerShape)
+                .height(layoutSpec.railHeightDp.dp)
+                .testTag(ExamRuntimeUiTestTags.BottomActionRail),
+            shape = RoundedCornerShape(
+                topStart = tokens.radiusMedium,
+                topEnd = tokens.radiusMedium,
+                bottomStart = layoutSpec.cornerRadiusDp.dp,
+                bottomEnd = layoutSpec.cornerRadiusDp.dp
+            ),
+            color = AppColors.current.cardBg,
+            border = BorderStroke(1.dp, AppColors.current.outlineSubtle)
         ) {
-            if (layoutSpec.layoutMode == ExamFooterLayoutMode.TwoRowCompact) {
-                Column(
-                    modifier = Modifier
-                        .fillMaxWidth()
-                        .heightIn(
-                            min = layoutSpec.minHeightDp.dp,
-                            max = layoutSpec.maxHeightDp.dp
-                        )
-                        .padding(
-                            horizontal = footerHorizontalPadding,
-                            vertical = footerVerticalPadding
-                        ),
-                    horizontalAlignment = Alignment.CenterHorizontally,
-                    verticalArrangement = Arrangement.spacedBy(rowSpacing, Alignment.CenterVertically)
-                ) {
-                    ArrowVisibilityTogglePill(
-                        visible = showArrowControls,
-                        buttonWidth = arrowPillWidth,
-                        buttonSize = actionButtonSize,
-                        touchTargetSize = actionTouchTargetSize,
-                        iconSize = layoutSpec.arrowIconSizeDp.dp,
-                        onClick = onToggleArrowControls
+            if (layoutSpec.compact) {
+                CompactActionRow(
+                    layoutSpec = layoutSpec,
+                    showArrowControls = showArrowControls,
+                    isRefreshing = isRefreshing,
+                    onToggleArrowControls = onToggleArrowControls,
+                    onRefresh = onRefresh,
+                    onGoHome = onGoHome,
+                    modifier = Modifier.padding(
+                        horizontal = layoutSpec.horizontalPaddingDp.dp,
+                        vertical = 2.dp
                     )
-                    ExamFooterStatusCluster(
-                        connectivityVisual = connectivityVisual,
-                        connectivityIndicatorColor = connectivityIndicatorColor,
-                        connectivityDescription = connectivityDescription,
-                        connectivityPillWidth = connectivityPillWidth,
-                        batteryStatus = batteryStatus,
-                        batteryIndicatorColor = batteryIndicatorColor,
-                        batteryPillWidth = batteryPillWidth,
-                        shieldIndicatorColor = shieldIndicatorColor,
-                        shieldLabel = shieldLabel,
-                        shieldContentDescription = shieldContentDescription,
-                        shieldPillWidth = shieldPillWidth,
-                        shieldStatus = shieldStatus,
-                        serverStatus = serverStatus,
-                        actionButtonSize = actionButtonSize,
-                        iconSize = iconSize,
-                        itemSpacing = itemSpacing,
-                        showBatteryPercent = layoutSpec.showBatteryPercent
-                    )
-                    ExamFooterActionCluster(
-                        isRefreshing = isRefreshing,
-                        refreshContainerColor = refreshContainerColor,
-                        refreshRotation = refreshRotation,
-                        actionButtonSize = actionButtonSize,
-                        actionTouchTargetSize = actionTouchTargetSize,
-                        iconSize = iconSize,
-                        actionSpacing = actionSpacing,
-                        onRefresh = onRefresh,
-                        onGoHome = onGoHome
-                    )
-                }
+                )
             } else {
                 Row(
                     modifier = Modifier
                         .fillMaxWidth()
-                        .heightIn(
-                            min = layoutSpec.minHeightDp.dp,
-                            max = layoutSpec.maxHeightDp.dp
-                        )
-                        .padding(horizontal = footerHorizontalPadding, vertical = footerVerticalPadding),
+                        .padding(
+                            horizontal = layoutSpec.horizontalPaddingDp.dp,
+                            vertical = 2.dp
+                        ),
+                    horizontalArrangement = Arrangement.spacedBy(actionSpacing),
                     verticalAlignment = Alignment.CenterVertically
                 ) {
-                    ArrowVisibilityTogglePill(
+                    ArrowToggleAction(
                         visible = showArrowControls,
-                        buttonWidth = arrowPillWidth,
-                        buttonSize = actionButtonSize,
-                        touchTargetSize = actionTouchTargetSize,
-                        iconSize = layoutSpec.arrowIconSizeDp.dp,
+                        fullLabel = layoutSpec.showFullActionLabels,
+                        touchTarget = layoutSpec.touchTargetDp.dp,
+                        iconSize = layoutSpec.iconSizeDp.dp,
+                        modifier = Modifier.widthIn(min = 124.dp, max = 168.dp),
                         onClick = onToggleArrowControls
                     )
-                    Spacer(modifier = Modifier.width(itemSpacing))
-                    ExamFooterStatusCluster(
-                        connectivityVisual = connectivityVisual,
-                        connectivityIndicatorColor = connectivityIndicatorColor,
-                        connectivityDescription = connectivityDescription,
-                        connectivityPillWidth = connectivityPillWidth,
-                        batteryStatus = batteryStatus,
-                        batteryIndicatorColor = batteryIndicatorColor,
-                        batteryPillWidth = batteryPillWidth,
-                        shieldIndicatorColor = shieldIndicatorColor,
-                        shieldLabel = shieldLabel,
-                        shieldContentDescription = shieldContentDescription,
-                        shieldPillWidth = shieldPillWidth,
-                        shieldStatus = shieldStatus,
-                        serverStatus = serverStatus,
-                        actionButtonSize = actionButtonSize,
-                        iconSize = iconSize,
-                        itemSpacing = itemSpacing,
-                        showBatteryPercent = layoutSpec.showBatteryPercent
-                    )
-
-                    Spacer(modifier = Modifier.weight(1f))
-
-                    // Visual separator between status cluster and action cluster
-                    VerticalDivider(
-                        modifier = Modifier
-                            .height(actionButtonSize * 0.7f)
-                            .padding(end = actionSpacing),
-                        thickness = 0.5.dp,
-                        color = LockOutlineSubtle
-                    )
-
-                    ExamFooterActionCluster(
+                    Spacer(Modifier.weight(1f))
+                    RefreshAction(
                         isRefreshing = isRefreshing,
-                        refreshContainerColor = refreshContainerColor,
-                        refreshRotation = refreshRotation,
-                        actionButtonSize = actionButtonSize,
-                        actionTouchTargetSize = actionTouchTargetSize,
-                        iconSize = iconSize,
-                        actionSpacing = actionSpacing,
-                        onRefresh = onRefresh,
-                        onGoHome = onGoHome
+                        fullLabel = layoutSpec.showFullActionLabels,
+                        touchTarget = layoutSpec.touchTargetDp.dp,
+                        iconSize = layoutSpec.iconSizeDp.dp,
+                        modifier = Modifier.widthIn(min = 124.dp, max = 168.dp),
+                        onClick = onRefresh
+                    )
+                    ExitAction(
+                        fullLabel = layoutSpec.showFullActionLabels,
+                        touchTarget = layoutSpec.touchTargetDp.dp,
+                        iconSize = layoutSpec.iconSizeDp.dp,
+                        modifier = Modifier.widthIn(min = 124.dp, max = 168.dp),
+                        onClick = onGoHome
                     )
                 }
             }
@@ -333,147 +146,203 @@ internal fun ExamWebViewBottomBar(
 }
 
 @Composable
-private fun ExamFooterActionCluster(
+private fun CompactActionRow(
+    layoutSpec: ExamFooterLayoutSpec,
+    showArrowControls: Boolean,
     isRefreshing: Boolean,
-    refreshContainerColor: Color,
-    refreshRotation: Float,
-    actionButtonSize: Dp,
-    actionTouchTargetSize: Dp,
-    iconSize: Dp,
-    actionSpacing: Dp,
+    onToggleArrowControls: () -> Unit,
     onRefresh: () -> Unit,
     onGoHome: () -> Unit,
     modifier: Modifier = Modifier
 ) {
-    val refreshIcon = if (isRefreshing) Icons.Rounded.Close else Icons.Rounded.Refresh
-    val refreshContentDescription = if (isRefreshing) {
-        tr("Stop loading exam page", "Batalkan loading halaman ujian")
-    } else {
-        tr("Refresh exam page", "Refresh halaman ujian")
-    }
-    val refreshIconRotation = if (isRefreshing) 0f else refreshRotation
-
     Row(
-        modifier = modifier,
-        horizontalArrangement = Arrangement.spacedBy(actionSpacing, Alignment.CenterHorizontally),
+        modifier = modifier.fillMaxWidth(),
+        horizontalArrangement = Arrangement.spacedBy(layoutSpec.actionSpacingDp.dp),
         verticalAlignment = Alignment.CenterVertically
     ) {
-        ExamFooterIconButton(
-            onClick = onRefresh,
-            icon = refreshIcon,
-            contentDescription = refreshContentDescription,
-            containerColor = refreshContainerColor,
-            contentColor = LockOnDark,
-            size = actionButtonSize,
-            touchTargetSize = actionTouchTargetSize,
-            iconSize = iconSize,
-            iconRotation = refreshIconRotation
+        ArrowToggleAction(
+            visible = showArrowControls,
+            fullLabel = false,
+            touchTarget = layoutSpec.touchTargetDp.dp,
+            iconSize = layoutSpec.iconSizeDp.dp,
+            modifier = Modifier.weight(1f),
+            onClick = onToggleArrowControls
         )
-
-        ExamFooterIconButton(
-            onClick = onGoHome,
-            icon = Icons.Rounded.Home,
-            contentDescription = tr("Back to the main menu", "Kembali ke menu utama"),
-            containerColor = LockSurfaceSoft,
-            contentColor = LockBlueDeep,
-            size = actionButtonSize,
-            touchTargetSize = actionTouchTargetSize,
-            iconSize = iconSize
+        RefreshAction(
+            isRefreshing = isRefreshing,
+            fullLabel = false,
+            touchTarget = layoutSpec.touchTargetDp.dp,
+            iconSize = layoutSpec.iconSizeDp.dp,
+            modifier = Modifier.weight(1f),
+            onClick = onRefresh
+        )
+        ExitAction(
+            fullLabel = false,
+            touchTarget = layoutSpec.touchTargetDp.dp,
+            iconSize = layoutSpec.iconSizeDp.dp,
+            modifier = Modifier.weight(1f),
+            onClick = onGoHome
         )
     }
 }
 
 @Composable
-private fun ArrowVisibilityTogglePill(
+private fun ArrowToggleAction(
     visible: Boolean,
-    buttonWidth: Dp,
-    buttonSize: Dp,
-    touchTargetSize: Dp,
-    iconSize: Dp,
-    onClick: () -> Unit
-) {
-    val containerColor = if (visible) LockBlue else LockSurfaceSoft
-    val contentColor = if (visible) LockOnDark else LockBlueDeep
-    Box(
-        modifier = Modifier
-            .width(buttonWidth)
-            .height(touchTargetSize)
-            .clip(RoundedCornerShape(UiTokens.RadiusSm))
-            .clickable(onClick = onClick),
-        contentAlignment = Alignment.Center
-    ) {
-        Box(
-            modifier = Modifier
-                .width(buttonWidth)
-                .height(buttonSize)
-                .clip(RoundedCornerShape(UiTokens.RadiusSm))
-                .background(containerColor)
-                .border(
-                    width = 1.dp,
-                    color = if (visible) LockBlue.copy(alpha = 0.50f) else LockOutlineSubtle,
-                    shape = RoundedCornerShape(UiTokens.RadiusSm)
-                ),
-            contentAlignment = Alignment.Center
-        ) {
-            Row(
-                verticalAlignment = Alignment.CenterVertically,
-                horizontalArrangement = Arrangement.spacedBy(0.dp, Alignment.CenterHorizontally)
-            ) {
-                Icon(
-                    imageVector = Icons.AutoMirrored.Rounded.KeyboardArrowLeft,
-                    contentDescription = tr("Arrow controls", "Kontrol panah"),
-                    tint = contentColor,
-                    modifier = Modifier.size(iconSize)
-                )
-                Icon(
-                    imageVector = Icons.AutoMirrored.Rounded.KeyboardArrowRight,
-                    contentDescription = if (visible) {
-                        tr("Hide side arrows", "Sembunyikan tombol panah")
-                    } else {
-                        tr("Show side arrows", "Tampilkan tombol panah")
-                    },
-                    tint = contentColor,
-                    modifier = Modifier.size(iconSize)
-                )
-            }
-        }
-    }
-}
-
-@Composable
-private fun ExamFooterIconButton(
-    icon: ImageVector,
-    contentDescription: String,
-    containerColor: Color,
-    contentColor: Color,
-    size: Dp,
-    touchTargetSize: Dp,
+    fullLabel: Boolean,
+    touchTarget: Dp,
     iconSize: Dp,
     onClick: () -> Unit,
-    iconRotation: Float = 0f
+    modifier: Modifier = Modifier
 ) {
-    Box(
-        modifier = Modifier
-            .size(touchTargetSize)
-            .clip(RoundedCornerShape(UiTokens.RadiusSm))
-            .clickable(onClick = onClick),
-        contentAlignment = Alignment.Center
+    val colors = AppColors.current
+    val label = if (fullLabel) {
+        if (visible) {
+            tr("Hide arrows", "Sembunyikan panah")
+        } else {
+            tr("Show arrows", "Tampilkan panah")
+        }
+    } else {
+        tr("Arrows", "Panah")
+    }
+    val description = if (visible) {
+        tr("Hide side arrow controls", "Sembunyikan kontrol panah samping")
+    } else {
+        tr("Show side arrow controls", "Tampilkan kontrol panah samping")
+    }
+    val state = if (visible) {
+        tr("Arrow controls shown", "Kontrol panah ditampilkan")
+    } else {
+        tr("Arrow controls hidden", "Kontrol panah disembunyikan")
+    }
+
+    ExamRuntimeActionButton(
+        label = label,
+        icon = Icons.AutoMirrored.Rounded.KeyboardArrowLeft,
+        contentDescriptionText = description,
+        containerColor = if (visible) colors.blueDeep else colors.surfaceSoft,
+        contentColor = if (visible) {
+            colors.onDark
+        } else if (colors.isDark) {
+            colors.blue
+        } else {
+            colors.blueDeep
+        },
+        touchTarget = touchTarget,
+        iconSize = iconSize,
+        onClick = onClick,
+        modifier = modifier
+            .testTag(ExamRuntimeUiTestTags.ArrowToggle)
+            .semantics { stateDescription = state }
+    )
+}
+
+@Composable
+private fun RefreshAction(
+    isRefreshing: Boolean,
+    fullLabel: Boolean,
+    touchTarget: Dp,
+    iconSize: Dp,
+    onClick: () -> Unit,
+    modifier: Modifier = Modifier
+) {
+    val colors = AppColors.current
+    val label = when {
+        isRefreshing && fullLabel -> tr("Stop loading", "Hentikan loading")
+        isRefreshing -> tr("Stop", "Stop")
+        fullLabel -> tr("Reload page", "Muat ulang halaman")
+        else -> tr("Reload", "Ulang")
+    }
+    val description = if (isRefreshing) {
+        tr("Stop loading the exam page", "Hentikan pemuatan halaman ujian")
+    } else {
+        tr("Reload the exam page", "Muat ulang halaman ujian")
+    }
+
+    ExamRuntimeActionButton(
+        label = label,
+        icon = if (isRefreshing) Icons.Rounded.Close else Icons.Rounded.Refresh,
+        contentDescriptionText = description,
+        containerColor = if (isRefreshing) colors.gold else colors.blueDeep,
+        contentColor = if (isRefreshing) colors.blueDeep else colors.onDark,
+        touchTarget = touchTarget,
+        iconSize = iconSize,
+        onClick = onClick,
+        modifier = modifier.testTag(ExamRuntimeUiTestTags.RefreshAction)
+    )
+}
+
+@Composable
+private fun ExitAction(
+    fullLabel: Boolean,
+    touchTarget: Dp,
+    iconSize: Dp,
+    onClick: () -> Unit,
+    modifier: Modifier = Modifier
+) {
+    val colors = AppColors.current
+    ExamRuntimeActionButton(
+        label = if (fullLabel) tr("Exit exam", "Keluar ujian") else tr("Exit", "Keluar"),
+        icon = Icons.AutoMirrored.Rounded.ExitToApp,
+        contentDescriptionText = tr(
+            "Open the exit exam confirmation",
+            "Buka konfirmasi keluar dari ujian"
+        ),
+        containerColor = colors.surfaceSoft,
+        contentColor = if (colors.isDark) colors.blue else colors.blueDeep,
+        touchTarget = touchTarget,
+        iconSize = iconSize,
+        onClick = onClick,
+        modifier = modifier.testTag(ExamRuntimeUiTestTags.ExitAction)
+    )
+}
+
+@Composable
+private fun ExamRuntimeActionButton(
+    label: String,
+    icon: ImageVector,
+    contentDescriptionText: String,
+    containerColor: Color,
+    contentColor: Color,
+    touchTarget: Dp,
+    iconSize: Dp,
+    onClick: () -> Unit,
+    modifier: Modifier = Modifier
+) {
+    val tokens = ScopedUiTokens.current
+    Surface(
+        onClick = onClick,
+        modifier = modifier
+            .height(touchTarget)
+            .semantics(mergeDescendants = true) {
+                role = Role.Button
+                contentDescription = contentDescriptionText
+            },
+        shape = RoundedCornerShape(tokens.radiusSmall),
+        color = containerColor,
+        contentColor = contentColor,
+        border = BorderStroke(1.dp, AppColors.current.outline.copy(alpha = 0.28f))
     ) {
-        Box(
-            modifier = Modifier
-                .size(size)
-                .clip(RoundedCornerShape(UiTokens.RadiusSm))
-                .background(containerColor)
-                .border(1.dp, LockOutline.copy(alpha = 0.28f), RoundedCornerShape(UiTokens.RadiusSm)),
-            contentAlignment = Alignment.Center
+        Row(
+            modifier = Modifier.padding(horizontal = tokens.spaceSmall),
+            horizontalArrangement = Arrangement.spacedBy(
+                tokens.spaceXSmall,
+                Alignment.CenterHorizontally
+            ),
+            verticalAlignment = Alignment.CenterVertically
         ) {
             Icon(
                 imageVector = icon,
-                contentDescription = contentDescription,
+                contentDescription = null,
                 tint = contentColor,
-                modifier = Modifier
-                    .size(iconSize)
-                    .graphicsLayer { rotationZ = iconRotation }
+                modifier = Modifier.size(iconSize)
+            )
+            Text(
+                text = label,
+                color = contentColor,
+                style = AppTextStyles.button,
+                maxLines = 1,
+                overflow = TextOverflow.Ellipsis
             )
         }
     }

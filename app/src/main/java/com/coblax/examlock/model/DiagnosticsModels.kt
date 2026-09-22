@@ -57,10 +57,14 @@ internal enum class RootIndicatorType {
 internal data class VirtualEnvironmentDiagnostics(
     val detected: Boolean,
     val indicators: List<String>,
+    val score: Int,
     val qemuProperty: String,
     val emulatorPackages: List<String>,
     val qemuFiles: List<String>,
-    val abis: List<String>
+    val suspiciousSystemProperties: List<String>,
+    val abis: List<String>,
+    val sensorCount: Int,
+    val hasBattery: Boolean
 )
 
 internal data class ClipboardDiagnostics(

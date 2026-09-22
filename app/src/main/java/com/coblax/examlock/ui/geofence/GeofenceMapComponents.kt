@@ -1,4 +1,4 @@
-﻿package com.coblax.examlock.ui.geofence
+package com.coblax.examlock.ui.geofence
 
 import androidx.compose.foundation.background
 import androidx.compose.foundation.border
@@ -37,17 +37,8 @@ import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 
 import com.coblax.examlock.i18n.tr
-import com.coblax.examlock.ui.theme.LockBlue
-import com.coblax.examlock.ui.theme.LockBlueDeep
-import com.coblax.examlock.ui.theme.LockOnDark
-import com.coblax.examlock.ui.theme.LockOutline
-import com.coblax.examlock.ui.theme.LockSurface
-import com.coblax.examlock.ui.theme.LockSurfaceSoft
-import com.coblax.examlock.ui.theme.LockTextMuted
-import com.coblax.examlock.ui.theme.LockTextPrimary
-import com.coblax.examlock.ui.theme.LockTextSecondary
+import com.coblax.examlock.ui.theme.AppColors
 import com.coblax.examlock.ui.theme.UiTokens
-import com.coblax.examlock.ui.theme.LockOutlineStrong
 
 import kotlin.coroutines.resume
 import kotlin.coroutines.resumeWithException
@@ -59,15 +50,15 @@ internal fun CompactBackIconButton(onClick: () -> Unit) {
         modifier = Modifier
             .size(38.dp)
             .clip(CircleShape)
-            .background(LockSurfaceSoft)
-            .border(1.dp, LockOutlineStrong, CircleShape)
+            .background(AppColors.current.surfaceSoft)
+            .border(1.dp, AppColors.current.outlineStrong, CircleShape)
             .clickable(onClick = onClick),
         contentAlignment = Alignment.Center
     ) {
         Icon(
             imageVector = Icons.AutoMirrored.Rounded.ArrowBack,
             contentDescription = tr("Back", "Kembali"),
-            tint = LockBlueDeep,
+            tint = AppColors.current.brandText,
             modifier = Modifier.size(18.dp)
         )
     }
@@ -82,8 +73,8 @@ internal fun CompactInfoMetricCard(
     Box(
         modifier = modifier
             .clip(RoundedCornerShape(UiTokens.RadiusSm))
-            .background(LockSurfaceSoft)
-            .border(1.dp, LockOutlineStrong, RoundedCornerShape(UiTokens.RadiusSm))
+            .background(AppColors.current.surfaceSoft)
+            .border(1.dp, AppColors.current.outlineStrong, RoundedCornerShape(UiTokens.RadiusSm))
     ) {
         Column(
             modifier = Modifier.padding(horizontal = 7.dp, vertical = 6.dp),
@@ -91,13 +82,13 @@ internal fun CompactInfoMetricCard(
         ) {
             Text(
                 text = label,
-                color = LockTextSecondary,
+                color = AppColors.current.textSecondary,
                 fontSize = 9.sp,
                 maxLines = 1
             )
             Text(
                 text = value,
-                color = LockTextPrimary,
+                color = AppColors.current.textPrimary,
                 fontSize = 10.sp,
                 fontWeight = FontWeight.Bold,
                 lineHeight = 11.sp,
@@ -117,8 +108,8 @@ internal fun CompactCoordinateMetricCard(
     Box(
         modifier = modifier
             .clip(RoundedCornerShape(UiTokens.RadiusSm))
-            .background(LockSurfaceSoft)
-            .border(1.dp, LockOutlineStrong, RoundedCornerShape(UiTokens.RadiusSm))
+            .background(AppColors.current.surfaceSoft)
+            .border(1.dp, AppColors.current.outlineStrong, RoundedCornerShape(UiTokens.RadiusSm))
     ) {
         Column(
             modifier = Modifier.padding(horizontal = 7.dp, vertical = 6.dp),
@@ -126,7 +117,7 @@ internal fun CompactCoordinateMetricCard(
         ) {
             Text(
                 text = label,
-                color = LockTextSecondary,
+                color = AppColors.current.textSecondary,
                 fontSize = 9.sp,
                 maxLines = 1
             )
@@ -136,7 +127,7 @@ internal fun CompactCoordinateMetricCard(
                 singleLine = true,
                 keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Decimal),
                 textStyle = TextStyle(
-                    color = LockTextPrimary,
+                    color = AppColors.current.textPrimary,
                     fontSize = 10.sp,
                     fontWeight = FontWeight.Bold
                 ),
@@ -146,7 +137,7 @@ internal fun CompactCoordinateMetricCard(
                         if (value.isBlank()) {
                             Text(
                                 text = "-",
-                                color = LockTextMuted,
+                                color = AppColors.current.textMuted,
                                 fontSize = 10.sp,
                                 fontWeight = FontWeight.Medium,
                                 lineHeight = 11.sp
@@ -169,8 +160,8 @@ internal fun CompactRadiusMetricCard(
     Box(
         modifier = modifier
             .clip(RoundedCornerShape(UiTokens.RadiusSm))
-            .background(LockSurfaceSoft)
-            .border(1.dp, LockOutlineStrong, RoundedCornerShape(UiTokens.RadiusSm))
+            .background(AppColors.current.surfaceSoft)
+            .border(1.dp, AppColors.current.outlineStrong, RoundedCornerShape(UiTokens.RadiusSm))
     ) {
         Column(
             modifier = Modifier.padding(horizontal = 7.dp, vertical = 6.dp),
@@ -178,7 +169,7 @@ internal fun CompactRadiusMetricCard(
         ) {
             Text(
                 text = tr("Radius (m)", "Radius (m)"),
-                color = LockTextSecondary,
+                color = AppColors.current.textSecondary,
                 fontSize = 9.sp,
                 maxLines = 1
             )
@@ -188,7 +179,7 @@ internal fun CompactRadiusMetricCard(
                 singleLine = true,
                 keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Decimal),
                 textStyle = TextStyle(
-                    color = LockTextPrimary,
+                    color = AppColors.current.textPrimary,
                     fontSize = 10.sp,
                     fontWeight = FontWeight.Bold
                 ),
@@ -200,7 +191,7 @@ internal fun CompactRadiusMetricCard(
                         if (value.isBlank()) {
                             Text(
                                 text = "100",
-                                color = LockTextMuted,
+                                color = AppColors.current.textMuted,
                                 fontSize = 10.sp,
                                 fontWeight = FontWeight.Medium,
                                 lineHeight = 11.sp
@@ -223,8 +214,8 @@ internal fun MapTypeSelectorOverlay(
     Box(
         modifier = modifier
             .clip(RoundedCornerShape(UiTokens.RadiusSm))
-            .background(Color.White.copy(alpha = 0.96f))
-            .border(1.dp, LockOutlineStrong, RoundedCornerShape(UiTokens.RadiusSm))
+            .background(AppColors.current.cardBg.copy(alpha = 0.96f))
+            .border(1.dp, AppColors.current.outlineStrong, RoundedCornerShape(UiTokens.RadiusSm))
     ) {
         Row(
             modifier = Modifier.padding(horizontal = 6.dp, vertical = 6.dp),
@@ -236,8 +227,8 @@ internal fun MapTypeSelectorOverlay(
                 Box(
                     modifier = Modifier
                         .clip(RoundedCornerShape(10.dp))
-                        .background(if (selected) LockBlue else LockSurfaceSoft)
-                        .border(1.dp, if (selected) LockBlue else LockOutlineStrong, RoundedCornerShape(10.dp))
+                        .background(if (selected) AppColors.current.blue else AppColors.current.surfaceSoft)
+                        .border(1.dp, if (selected) AppColors.current.blue else AppColors.current.outlineStrong, RoundedCornerShape(10.dp))
                         .clickable { onTypeSelected(mapType) }
                 ) {
                     Text(
@@ -246,7 +237,7 @@ internal fun MapTypeSelectorOverlay(
                             GeofenceMapType.Satellite -> tr("Satellite", "Satellite")
                             GeofenceMapType.Terrain -> tr("Terrain", "Terrain")
                         },
-                        color = if (selected) LockOnDark else LockTextPrimary,
+                        color = if (selected) AppColors.current.onDark else AppColors.current.textPrimary,
                         fontSize = 10.sp,
                         fontWeight = FontWeight.SemiBold,
                         modifier = Modifier.padding(horizontal = 10.dp, vertical = 6.dp),

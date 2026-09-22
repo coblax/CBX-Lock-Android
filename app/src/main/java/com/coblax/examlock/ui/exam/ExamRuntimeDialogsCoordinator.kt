@@ -1,4 +1,4 @@
-package com.coblax.examlock.ui.exam
+﻿package com.coblax.examlock.ui.exam
 
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Column
@@ -30,10 +30,7 @@ import com.coblax.examlock.ui.admin.InfoDialog
 import com.coblax.examlock.ui.dialog.ExamRuntimeDialogsActions
 import com.coblax.examlock.ui.dialog.ExamRuntimeDialogsHost
 import com.coblax.examlock.ui.dialog.ExamRuntimeDialogsState
-import com.coblax.examlock.ui.theme.LockBackground
-import com.coblax.examlock.ui.theme.LockBlueDeep
-import com.coblax.examlock.ui.theme.LockTextPrimary
-import com.coblax.examlock.ui.theme.LockTextSecondary
+import com.coblax.examlock.ui.theme.AppColors
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.window.DialogProperties
 import kotlinx.coroutines.delay
@@ -76,7 +73,7 @@ internal fun ExamRuntimeDialogsCoordinator(
                         "Send diagnostics for $sectionLabel to Telegram?",
                         "Kirim diagnostik $sectionLabel ke Telegram?"
                     ),
-                    color = LockTextSecondary,
+                    color = AppColors.current.textSecondary,
                     fontSize = 14.sp,
                     lineHeight = 18.sp
                 )
@@ -91,7 +88,7 @@ internal fun ExamRuntimeDialogsCoordinator(
                     Text(tr("Cancel", "Batal"))
                 }
             },
-            containerColor = Color.White
+            containerColor = AppColors.current.cardBg
         )
     }
 
@@ -114,18 +111,18 @@ internal fun ExamRuntimeDialogsCoordinator(
                     dismissOnBackPress = false,
                     dismissOnClickOutside = false
                 ),
-                containerColor = LockBackground,
+                containerColor = AppColors.current.background,
                 title = {
                     Text(
                         text = localized(uiLanguage, "Screen Pinning Required", "Screen Pinning Diperlukan"),
-                        color = LockTextPrimary,
+                        color = AppColors.current.textPrimary,
                         fontWeight = FontWeight.Bold
                     )
                 },
                 text = {
                     Text(
                         text = message,
-                        color = LockTextSecondary
+                        color = AppColors.current.textSecondary
                     )
                 },
                 confirmButton = {
@@ -136,9 +133,9 @@ internal fun ExamRuntimeDialogsCoordinator(
                         CircularProgressIndicator(
                             modifier = Modifier.size(16.dp),
                             strokeWidth = 2.dp,
-                            color = LockBlueDeep
+                            color = AppColors.current.brandText
                         )
-                        Text(localized(uiLanguage, "Waiting", "Menunggu"), color = LockTextSecondary)
+                        Text(localized(uiLanguage, "Waiting", "Menunggu"), color = AppColors.current.textSecondary)
                     }
                 }
             )
@@ -161,7 +158,7 @@ internal fun ExamRuntimeDialogsCoordinator(
                 text = {
                     Text(
                         text = message,
-                        color = LockTextSecondary,
+                        color = AppColors.current.textSecondary,
                         fontSize = 14.sp,
                         lineHeight = 18.sp
                     )
@@ -193,7 +190,7 @@ internal fun ExamRuntimeDialogsCoordinator(
                         Text(tr("Close", "Tutup"))
                     }
                 },
-                containerColor = Color.White
+                containerColor = AppColors.current.cardBg
             )
         } else {
             InfoDialog(
@@ -267,7 +264,7 @@ private fun StartExamPreflightDialog(
                 Spacer(Modifier.height(10.dp))
                 Text(
                     text = detail,
-                    color = LockTextSecondary,
+                    color = AppColors.current.textSecondary,
                     fontSize = 14.sp,
                     lineHeight = 18.sp
                 )
@@ -279,7 +276,7 @@ private fun StartExamPreflightDialog(
                             "If this takes longer than usual, the app is waiting for the network or device checks to respond.",
                             "Jika lebih lama dari biasanya, aplikasi sedang menunggu jaringan atau pemeriksaan perangkat merespons."
                         ),
-                        color = LockTextSecondary,
+                        color = AppColors.current.textSecondary,
                         fontSize = 13.sp,
                         lineHeight = 17.sp
                     )
@@ -291,11 +288,11 @@ private fun StartExamPreflightDialog(
                 TextButton(onClick = onCancel) {
                     Text(
                         localized(uiLanguage, "Cancel", "Batal"),
-                        color = LockTextSecondary
+                        color = AppColors.current.textSecondary
                     )
                 }
             }
         },
-        containerColor = Color.White
+        containerColor = AppColors.current.cardBg
     )
 }

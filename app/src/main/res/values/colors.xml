@@ -5,6 +5,7 @@
     <color name="lock_blue">#FF3D7AF5</color>
     <color name="lock_blue_deep">#FF102E6A</color>
     <color name="lock_background">#FFF6F8FC</color>
+    <color name="lock_background_dark">#FF0F1117</color>
     <color name="lock_surface">#FF1A1F2B</color>
     <color name="lock_card_bg">#FFFFFFFF</color>
     <color name="lock_outline">#FFD4DEE9</color>

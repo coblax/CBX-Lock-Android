@@ -1,6 +1,8 @@
 package com.coblax.examlock.persistence
 
+import android.annotation.SuppressLint
 import android.content.Context
+import android.content.SharedPreferences
 import androidx.core.content.edit
 import com.coblax.examlock.CriticalGateResolution
 import com.coblax.examlock.GateKey
@@ -21,17 +23,23 @@ import com.coblax.examlock.config.AdminKeyFastExamUrl
 import com.coblax.examlock.config.AdminKeyLowRamProfileOverride
 import com.coblax.examlock.config.AdminKeyOfficialApkUrl
 import com.coblax.examlock.config.AdminKeyShowChecklistDetails
+import com.coblax.examlock.config.AdminKeyTelegramDiagnosticsEnabled
 import com.coblax.examlock.config.AdminPreferencesName
 import com.coblax.examlock.config.DefaultExamUserAgent
 import com.coblax.examlock.config.FastExamName
 import com.coblax.examlock.config.UiLanguagePreferenceKey
+import com.coblax.examlock.config.UiThemeModePreferenceKey
 import com.coblax.examlock.config.UiPreferencesName
 import com.coblax.examlock.model.AdminSettings
+import com.coblax.examlock.model.ThemeMode
 import com.coblax.examlock.model.UiLanguage
 import com.coblax.examlock.model.effectiveExamUserAgent
 import com.coblax.examlock.model.normalizeExamUserAgent
 import com.coblax.examlock.lowRamProfileOverrideToRaw
 import com.coblax.examlock.parseLowRamProfileOverride
+
+internal object AdminSettingsPersistenceLock {
+}
 
 internal fun Context.readSavedUiLanguage(): UiLanguage {
     val savedCode = getSharedPreferences(UiPreferencesName, Context.MODE_PRIVATE)
@@ -45,9 +53,22 @@ internal fun Context.saveUiLanguage(language: UiLanguage) {
     }
 }
 
+internal fun Context.readSavedThemeMode(): ThemeMode {
+    val savedCode = getSharedPreferences(UiPreferencesName, Context.MODE_PRIVATE)
+        .getString(UiThemeModePreferenceKey, ThemeMode.System.code)
+    return ThemeMode.entries.firstOrNull { it.code == savedCode } ?: ThemeMode.System
+}
+
+internal fun Context.saveThemeMode(mode: ThemeMode) {
+    getSharedPreferences(UiPreferencesName, Context.MODE_PRIVATE).edit {
+        putString(UiThemeModePreferenceKey, mode.code)
+    }
+}
+
 internal data class HomeAdminSettings(
     val fastExamUrl: String = SecureStrings.fastExamUrl,
-    val fastExamLabel: String = FastExamName
+    val fastExamLabel: String = FastExamName,
+    val telegramDiagnosticsEnabled: Boolean = true
 )
 
 internal fun Context.readHomeAdminSettings(): HomeAdminSettings {
@@ -56,7 +77,10 @@ internal fun Context.readHomeAdminSettings(): HomeAdminSettings {
         fastExamUrl = preferences.getString(AdminKeyFastExamUrl, SecureStrings.fastExamUrl)
             ?: SecureStrings.fastExamUrl,
         fastExamLabel = preferences.getString(AdminKeyFastExamLabel, FastExamName)
-            ?: FastExamName
+            ?: FastExamName,
+        telegramDiagnosticsEnabled = preferences.getBoolean(
+            AdminKeyTelegramDiagnosticsEnabled, true
+        )
     )
 }
 
@@ -160,6 +184,7 @@ internal fun Context.readAdminSettings(): AdminSettings {
         bypassApkIntegrity = apkIntegrityBypassResolution.enabled,
         apkIntegrityBypassTampered = apkIntegrityBypassResolution.tampered,
         showChecklistDetails = preferences.getBoolean(AdminKeyShowChecklistDetails, false),
+        telegramDiagnosticsEnabled = preferences.getBoolean(AdminKeyTelegramDiagnosticsEnabled, true),
         bypassMigrationResetNotice = bypassSnapshot.migrationResetNotice
     )
 }
@@ -172,30 +197,75 @@ private fun BypassStorageReadResult.resolveCritical(key: GateKey): CriticalGateR
 }
 
 internal fun Context.saveAdminSettings(settings: AdminSettings) {
-    val effectiveExamUserAgent = settings.effectiveExamUserAgent()
-    getSharedPreferences(AdminPreferencesName, Context.MODE_PRIVATE).edit {
-        putString(AdminKeyFastExamUrl, settings.fastExamUrl)
-        putString(AdminKeyFastExamLabel, settings.fastExamLabel)
-        putString(AdminKeyOfficialApkUrl, settings.officialApkUrl)
-        putString(AdminKeyExamUserAgent, effectiveExamUserAgent)
-        putString(
+    val normalized = settings.normalizedForAdminPersistence()
+    synchronized(AdminSettingsPersistenceLock) {
+        getSharedPreferences(AdminPreferencesName, Context.MODE_PRIVATE)
+            .edit()
+            .putOrdinaryAdminSettings(normalized)
+            .apply()
+        AdminBypassController.persistBypassSettings(this, normalized)
+    }
+}
+
+/**
+ * Synchronous ordinary-settings write used by explicit Admin apply and confirmed QR saves.
+ *
+ * This deliberately excludes the authenticated bypass envelope. Callers that intend to change
+ * bypasses must go through [applyAdminSettingsExplicitly].
+ */
+@SuppressLint("ApplySharedPref")
+internal fun Context.commitOrdinaryAdminSettings(settings: AdminSettings): Boolean {
+    val normalized = settings.normalizedForAdminPersistence()
+    return synchronized(AdminSettingsPersistenceLock) {
+        getSharedPreferences(AdminPreferencesName, Context.MODE_PRIVATE)
+            .edit()
+            .putOrdinaryAdminSettings(normalized)
+            .commit()
+    }
+}
+
+internal fun Context.commitOrdinaryAdminSettingsAndReadBack(
+    settings: AdminSettings
+): AdminSettings? {
+    val normalized = settings.normalizedForAdminPersistence()
+    return synchronized(AdminSettingsPersistenceLock) {
+        if (!commitOrdinaryAdminSettings(normalized)) {
+            return@synchronized null
+        }
+        readAdminSettings().takeIf { reloaded ->
+            reloaded.persistedSnapshot().ordinary ==
+                normalized.persistedSnapshot().ordinary
+        }
+    }
+}
+
+private fun SharedPreferences.Editor.putOrdinaryAdminSettings(
+    settings: AdminSettings
+): SharedPreferences.Editor {
+    return putString(AdminKeyFastExamUrl, settings.fastExamUrl)
+        .putString(AdminKeyFastExamLabel, settings.fastExamLabel)
+        .putString(AdminKeyOfficialApkUrl, settings.officialApkUrl)
+        .putString(AdminKeyExamUserAgent, settings.effectiveExamUserAgent())
+        .putString(
             AdminKeyLowRamProfileOverride,
             lowRamProfileOverrideToRaw(settings.lowRamProfileOverride)
         )
-        putBoolean(AdminKeyDirectLinkLocationPolicySaved, settings.directLinkLocationPolicySaved)
-        putString(
+        .putBoolean(AdminKeyDirectLinkLocationPolicySaved, settings.directLinkLocationPolicySaved)
+        .putString(
             AdminKeyDirectLinkLocationPolicySerialized,
             settings.directLinkLocationPolicySerialized
         )
-        putBoolean(AdminKeyDirectLinkGeofenceEnabled, settings.directLinkGeofenceEnabled)
-        putString(AdminKeyDirectLinkGeofenceCenterLat, settings.directLinkGeofenceCenterLat)
-        putString(AdminKeyDirectLinkGeofenceCenterLng, settings.directLinkGeofenceCenterLng)
-        putString(AdminKeyDirectLinkGeofenceRadiusMeters, settings.directLinkGeofenceRadiusMeters)
-        putBoolean(
+        .putBoolean(AdminKeyDirectLinkGeofenceEnabled, settings.directLinkGeofenceEnabled)
+        .putString(AdminKeyDirectLinkGeofenceCenterLat, settings.directLinkGeofenceCenterLat)
+        .putString(AdminKeyDirectLinkGeofenceCenterLng, settings.directLinkGeofenceCenterLng)
+        .putString(
+            AdminKeyDirectLinkGeofenceRadiusMeters,
+            settings.directLinkGeofenceRadiusMeters
+        )
+        .putBoolean(
             AdminKeyCustomQrSaveToDirectLinkEnabled,
             settings.customQrSaveToDirectLinkEnabled
         )
-        putBoolean(AdminKeyShowChecklistDetails, settings.showChecklistDetails)
-    }
-    AdminBypassController.persistBypassSettings(this, settings)
+        .putBoolean(AdminKeyShowChecklistDetails, settings.showChecklistDetails)
+        .putBoolean(AdminKeyTelegramDiagnosticsEnabled, settings.telegramDiagnosticsEnabled)
 }

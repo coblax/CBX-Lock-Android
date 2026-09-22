@@ -38,6 +38,7 @@ import com.coblax.examlock.evaluateLocationFixQuality
 import com.coblax.examlock.i18n.localized
 import com.coblax.examlock.isExamGuardAccessibilityAvailable
 import com.coblax.examlock.isExamGuardAccessibilityEnabled
+import com.coblax.examlock.resolveLockTaskSecurityRequirement
 import com.coblax.examlock.model.ExamBatteryStatus
 import com.coblax.examlock.model.DiagnosticEventLevel
 import com.coblax.examlock.model.NetworkReadinessStatus
@@ -344,8 +345,14 @@ private suspend fun runExamRuntimeStartPrechecksBody(
 
     updatePreflight(StartExamPreflightStep.DeviceSecurity, null)
     callbacks.refreshScreenPinningDiagnostics()
-    if (screenPinningMode == ScreenPinningMode.Enforced && !lockTaskBridge.active()) {
+    var startDpcRuntimeStatus = callbacks.refreshDpcRuntimeStatus()
+    var managedLockTaskRequired = startDpcRuntimeStatus.deviceOwner
+    var lockTaskRequirement = resolveLockTaskSecurityRequirement(managedLockTaskRequired)
+    if (screenPinningMode == ScreenPinningMode.Enforced && !lockTaskBridge.satisfies(lockTaskRequirement)) {
         callbacks.ensureDeviceOwnerLockTaskActive()
+        startDpcRuntimeStatus = callbacks.refreshDpcRuntimeStatus()
+        managedLockTaskRequired = managedLockTaskRequired || startDpcRuntimeStatus.deviceOwner
+        lockTaskRequirement = resolveLockTaskSecurityRequirement(managedLockTaskRequired)
     }
     val latestAccessibilityGuardAvailable = isExamGuardAccessibilityAvailable(context)
     val latestAccessibilityGuardEnabled = isExamGuardAccessibilityEnabled(context)
@@ -354,7 +361,8 @@ private suspend fun runExamRuntimeStartPrechecksBody(
         uiLanguage = uiLanguage,
         screenPinningMode = screenPinningMode,
         screenPinningAvailable = screenPinningAvailable,
-        screenPinningActive = lockTaskBridge.active(),
+        lockTaskState = lockTaskBridge.state(),
+        lockTaskRequirement = lockTaskRequirement,
         accessibilityGuardAvailable = latestAccessibilityGuardAvailable,
         accessibilityGuardEnabled = latestAccessibilityGuardEnabled
     )
@@ -375,8 +383,11 @@ private suspend fun runExamRuntimeStartPrechecksBody(
 
     debugMeasureExamStartWork("startExamSession:device_prechecks") {
         callbacks.refreshScreenPinningDiagnostics()
-        if (screenPinningMode == ScreenPinningMode.Enforced && !lockTaskBridge.active()) {
+        if (screenPinningMode == ScreenPinningMode.Enforced && !lockTaskBridge.satisfies(lockTaskRequirement)) {
             callbacks.ensureDeviceOwnerLockTaskActive()
+            startDpcRuntimeStatus = callbacks.refreshDpcRuntimeStatus()
+            managedLockTaskRequired = managedLockTaskRequired || startDpcRuntimeStatus.deviceOwner
+            lockTaskRequirement = resolveLockTaskSecurityRequirement(managedLockTaskRequired)
         }
         accessibilityGuardEnabledState.value = isExamGuardAccessibilityEnabled(context)
         callbacks.refreshKeyboardSecurity(false)
@@ -387,7 +398,8 @@ private suspend fun runExamRuntimeStartPrechecksBody(
         uiLanguage = uiLanguage,
         screenPinningMode = screenPinningMode,
         screenPinningAvailable = screenPinningAvailable,
-        screenPinningActive = lockTaskBridge.active(),
+        lockTaskState = lockTaskBridge.state(),
+        lockTaskRequirement = lockTaskRequirement,
         accessibilityGuardAvailable = isExamGuardAccessibilityAvailable(context),
         accessibilityGuardEnabled = accessibilityGuardEnabledState.value,
         phaseSuffix = "phase=device_prechecks"
@@ -455,7 +467,9 @@ private suspend fun runExamRuntimeStartPrechecksBody(
         applyBlock(serverBlock)
         return
     }
-    val startDpcRuntimeStatus = callbacks.refreshDpcRuntimeStatus()
+    startDpcRuntimeStatus = callbacks.refreshDpcRuntimeStatus()
+    managedLockTaskRequired = managedLockTaskRequired || startDpcRuntimeStatus.deviceOwner
+    lockTaskRequirement = resolveLockTaskSecurityRequirement(managedLockTaskRequired)
 
     updatePreflight(StartExamPreflightStep.HealthSnapshot, null)
     val startHealthSnapshot = buildPreExamHealthSnapshot(
@@ -463,6 +477,7 @@ private suspend fun runExamRuntimeStartPrechecksBody(
             compatibilityProfile = deviceCompatibilityProfile,
             screenPinningAvailable = screenPinningAvailable,
             screenPinningActive = lockTaskBridge.active(),
+            lockTaskState = lockTaskBridge.state(),
             screenPinningBypassed = bypassScreenPinning,
             accessibilityGuardAvailable = isExamGuardAccessibilityAvailable(context),
             accessibilityGuardEnabled = accessibilityGuardEnabledState.value,
@@ -574,6 +589,7 @@ private suspend fun runExamRuntimeStartPrechecksBody(
         bypassVirtualEnvironment = bypassVirtualEnvironment,
         virtualEnvironmentDetected = securityUiState.virtualEnvironmentDetected.value,
         adbEnabled = securityUiState.adbEnabled.value,
+        wirelessAdbEnabled = securityUiState.wirelessAdbEnabled.value,
         adbInsecureSystemProperty = securityUiState.adbInspection.value.insecureSystemProperty,
         bypassRoot = bypassRoot,
         rootSecurityStatus = securityUiState.rootSecurityStatus.value,
@@ -719,6 +735,7 @@ internal class ExamRuntimeCompleteStartCallbacks(
     val armExamRuntimeMonitoring: (String) -> Unit,
     val finalizeExamSessionStart: (Boolean) -> Unit,
     val ensureDeviceOwnerLockTaskActive: () -> Boolean,
+    val refreshDpcRuntimeStatus: () -> DpcRuntimeStatus,
     val clearAppSwitchSuppression: () -> Unit,
     val setAppSwitchSuppression: (AppSwitchSuppressionReason) -> Unit,
     val hideStartExamPreflight: () -> Unit,
@@ -862,11 +879,17 @@ internal fun completeExamRuntimeStartAfterPrechecks(
         return
     }
 
-    if (screenPinningMode == ScreenPinningMode.Enforced && !lockTaskBridge.active()) {
+    var dpcStatus = callbacks.refreshDpcRuntimeStatus()
+    var managedLockTaskRequired = dpcStatus.deviceOwner
+    var lockTaskRequirement = resolveLockTaskSecurityRequirement(managedLockTaskRequired)
+    if (screenPinningMode == ScreenPinningMode.Enforced && !lockTaskBridge.satisfies(lockTaskRequirement)) {
         callbacks.ensureDeviceOwnerLockTaskActive()
+        dpcStatus = callbacks.refreshDpcRuntimeStatus()
+        managedLockTaskRequired = managedLockTaskRequired || dpcStatus.deviceOwner
+        lockTaskRequirement = resolveLockTaskSecurityRequirement(managedLockTaskRequired)
     }
 
-    if (lockTaskBridge.active()) {
+    if (lockTaskBridge.satisfies(lockTaskRequirement)) {
         val activeState = lockTaskBridge.stateLabel()
         callbacks.setLockTaskStateBeforePinningRequest(activeState)
         callbacks.setLockTaskStateAfterPinningRequest(activeState)
@@ -938,7 +961,8 @@ internal fun completeExamRuntimeStartAfterPrechecks(
                 uiLanguage = uiLanguage,
                 screenPinningMode = screenPinningMode,
                 screenPinningAvailable = screenPinningAvailable,
-                screenPinningActive = false,
+                lockTaskState = lockTaskBridge.state(),
+                lockTaskRequirement = lockTaskRequirement,
                 accessibilityGuardAvailable = isExamGuardAccessibilityAvailable(context),
                 accessibilityGuardEnabled = accessibilityGuardEnabled,
                 phaseSuffix = "phase=final_precheck"

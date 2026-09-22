@@ -293,8 +293,8 @@ internal fun buildSectionHealthMap(
         ),
         "checklist_device_integrity" to SectionHealth(
             title = "Device Integrity",
-            allClear = readiness.adbReady && readiness.rootReady && readiness.signatureReady && readiness.virtualEnvironmentReady,
-            issueCount = listOf(readiness.adbReady, readiness.rootReady, readiness.signatureReady, readiness.virtualEnvironmentReady).count { !it }
+            allClear = readiness.adbReady && readiness.rootReady && readiness.signatureReady && readiness.virtualEnvironmentReady && readiness.reverseEngineeringReady && readiness.integrityReady,
+            issueCount = listOf(readiness.adbReady, readiness.rootReady, readiness.signatureReady, readiness.virtualEnvironmentReady, readiness.reverseEngineeringReady, readiness.integrityReady).count { !it }
         ),
         "checklist_runtime_clipboard" to SectionHealth(
             title = "Clipboard",
@@ -313,8 +313,8 @@ internal fun buildSectionHealthMap(
         ),
         "checklist_runtime_static_security" to SectionHealth(
             title = "Runtime Security",
-            allClear = readiness.screenRecorderReady && readiness.displayMirrorReady && readiness.multiWindowReady && readiness.appSwitchReady,
-            issueCount = listOf(readiness.screenRecorderReady, readiness.displayMirrorReady, readiness.multiWindowReady, readiness.appSwitchReady).count { !it }
+            allClear = readiness.screenRecorderReady && readiness.displayMirrorReady && readiness.multiWindowReady && readiness.appSwitchReady && readiness.reverseEngineeringReady,
+            issueCount = listOf(readiness.screenRecorderReady, readiness.displayMirrorReady, readiness.multiWindowReady, readiness.appSwitchReady, readiness.reverseEngineeringReady).count { !it }
         )
     )
 }

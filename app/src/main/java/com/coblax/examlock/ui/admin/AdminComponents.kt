@@ -74,22 +74,9 @@ import com.coblax.examlock.LocalLowRamProfile
 import com.coblax.examlock.QrCodeGenerator
 import com.coblax.examlock.R
 import com.coblax.examlock.ui.geofence.effectiveCircleCenters
-import com.coblax.examlock.ui.theme.LockBackground
-import com.coblax.examlock.ui.theme.LockBlue
-import com.coblax.examlock.ui.theme.LockBlueDeep
-import com.coblax.examlock.ui.theme.LockBlueSoft
-import com.coblax.examlock.ui.theme.LockOnDark
-import com.coblax.examlock.ui.theme.LockOutline
-import com.coblax.examlock.ui.theme.LockSurface
-import com.coblax.examlock.ui.theme.LockSurfaceSoft
-import com.coblax.examlock.ui.theme.LockTextMuted
-import com.coblax.examlock.ui.theme.LockTextPrimary
-import com.coblax.examlock.ui.theme.LockTextSecondary
+import com.coblax.examlock.ui.theme.AppColors
 import com.coblax.examlock.ui.theme.UiTokens
 import com.coblax.examlock.ui.theme.flatPill
-import com.coblax.examlock.ui.theme.LockBlueTint
-import com.coblax.examlock.ui.theme.LockOutlineStrong
-import com.coblax.examlock.ui.theme.LockOutlineMedium
 import com.google.android.libraries.places.api.model.Place
 
 import java.util.Calendar
@@ -104,8 +91,8 @@ internal fun BackPillButton(onClick: () -> Unit) {
     Row(
         modifier = Modifier
             .clip(RoundedCornerShape(UiTokens.RadiusSm))
-            .background(LockSurfaceSoft)
-            .border(1.dp, LockOutlineStrong, RoundedCornerShape(UiTokens.RadiusSm))
+            .background(AppColors.current.surfaceSoft)
+            .border(1.dp, AppColors.current.outlineStrong, RoundedCornerShape(UiTokens.RadiusSm))
             .clickable(onClick = onClick)
             .heightIn(min = 48.dp)
             .padding(horizontal = 12.dp, vertical = 10.dp),
@@ -116,20 +103,20 @@ internal fun BackPillButton(onClick: () -> Unit) {
             modifier = Modifier
                 .size(24.dp)
                 .clip(CircleShape)
-                .background(LockBlue),
+                .background(AppColors.current.blue),
             contentAlignment = Alignment.Center
         ) {
             Icon(
                 imageVector = Icons.Rounded.Home,
                 contentDescription = tr("Main menu", "Menu utama"),
-                tint = LockOnDark,
+                tint = AppColors.current.onDark,
                 modifier = Modifier.size(14.dp)
             )
         }
 
         Text(
             text = "MENU",
-            color = LockTextPrimary,
+            color = AppColors.current.textPrimary,
             fontSize = 12.sp,
             fontWeight = FontWeight.Bold,
             letterSpacing = 0.5.sp
@@ -153,13 +140,13 @@ internal fun AdminInputField(
             .fillMaxWidth()
             .heightIn(min = 56.dp),
         textStyle = androidx.compose.ui.text.TextStyle(
-            color = LockTextPrimary,
+            color = AppColors.current.textPrimary,
             fontSize = 16.sp
         ),
         placeholder = {
             Text(
                 text = placeholder,
-                color = LockTextMuted,
+                color = AppColors.current.textMuted,
                 fontSize = 16.sp
             )
         },
@@ -168,15 +155,15 @@ internal fun AdminInputField(
         keyboardOptions = KeyboardOptions(keyboardType = keyboardType),
         interactionSource = interactionSource,
         colors = OutlinedTextFieldDefaults.colors(
-            focusedContainerColor = LockSurfaceSoft,
-            unfocusedContainerColor = LockSurfaceSoft,
-            focusedBorderColor = LockBlue,
-            unfocusedBorderColor = LockOutline,
-            focusedTextColor = LockTextPrimary,
-            unfocusedTextColor = LockTextPrimary,
-            cursorColor = LockBlue,
-            focusedPlaceholderColor = LockTextMuted,
-            unfocusedPlaceholderColor = LockTextMuted
+            focusedContainerColor = AppColors.current.surfaceSoft,
+            unfocusedContainerColor = AppColors.current.surfaceSoft,
+            focusedBorderColor = AppColors.current.blue,
+            unfocusedBorderColor = AppColors.current.outline,
+            focusedTextColor = AppColors.current.textPrimary,
+            unfocusedTextColor = AppColors.current.textPrimary,
+            cursorColor = AppColors.current.blue,
+            focusedPlaceholderColor = AppColors.current.textMuted,
+            unfocusedPlaceholderColor = AppColors.current.textMuted
         )
     )
 }
@@ -192,10 +179,10 @@ internal fun AdminPickerField(
         modifier = Modifier
             .fillMaxWidth()
             .clip(RoundedCornerShape(10.dp))
-            .background(LockSurfaceSoft)
+            .background(AppColors.current.surfaceSoft)
             .border(
                 width = 1.dp,
-                color = if (isActive) LockBlue else LockOutline,
+                color = if (isActive) AppColors.current.blue else AppColors.current.outline,
                 shape = RoundedCornerShape(10.dp)
             )
             .clickable(
@@ -210,14 +197,14 @@ internal fun AdminPickerField(
         val isBlank = value.isBlank()
         Text(
             text = value.ifBlank { placeholder },
-            color = if (isBlank) LockTextMuted else LockTextPrimary,
+            color = if (isBlank) AppColors.current.textMuted else AppColors.current.textPrimary,
             fontSize = 16.sp,
             modifier = Modifier.weight(1f)
         )
 
         Text(
             text = tr("Pick", "Pilih"),
-            color = LockBlue,
+            color = AppColors.current.blue,
             fontSize = 14.sp,
             fontWeight = FontWeight.SemiBold
         )
@@ -237,7 +224,7 @@ internal fun AdminToggleRow(
             .fillMaxWidth()
             .clip(RoundedCornerShape(UiTokens.RadiusSm))
             .background(MaterialTheme.colorScheme.surface)
-            .border(1.dp, LockOutlineMedium, RoundedCornerShape(UiTokens.RadiusSm))
+            .border(1.dp, AppColors.current.outlineMedium, RoundedCornerShape(UiTokens.RadiusSm))
             .padding(horizontal = 16.dp, vertical = 14.dp),
         horizontalArrangement = Arrangement.spacedBy(12.dp),
         verticalAlignment = Alignment.CenterVertically
@@ -248,13 +235,13 @@ internal fun AdminToggleRow(
         ) {
             Text(
                 text = title,
-                color = LockTextPrimary,
+                color = AppColors.current.textPrimary,
                 fontSize = 13.sp,
                 fontWeight = FontWeight.Bold
             )
             Text(
                 text = description,
-                color = LockTextSecondary,
+                color = AppColors.current.textSecondary,
                 fontSize = 11.sp,
                 lineHeight = 14.sp
             )
@@ -264,9 +251,9 @@ internal fun AdminToggleRow(
             onCheckedChange = onCheckedChange,
             colors = SwitchDefaults.colors(
                 checkedThumbColor = Color.White,
-                checkedTrackColor = LockBlue,
-                uncheckedThumbColor = LockBlue.copy(alpha = 0.6f),
-                uncheckedTrackColor = LockOutlineMedium
+                checkedTrackColor = AppColors.current.blue,
+                uncheckedThumbColor = AppColors.current.blue.copy(alpha = 0.6f),
+                uncheckedTrackColor = AppColors.current.outlineMedium
             )
         )
     }
@@ -278,9 +265,16 @@ internal fun StatusBanner(
     message: String,
     isError: Boolean
 ) {
-    val backgroundColor = if (isError) Color(0xFFFFF4F4) else Color(0xFFEFF6FF)
-    val borderColor = if (isError) Color(0xFFE9B4B4) else Color(0xFFB8D2FF)
-    val textColor = if (isError) Color(0xFF9A3030) else LockBlueDeep
+    val colors = AppColors.current
+    val backgroundColor = when {
+        isError -> colors.dangerBgSoft
+        else -> colors.blueTint
+    }
+    val borderColor = when {
+        isError -> colors.statusDanger.copy(alpha = if (colors.isDark) 0.40f else 0.35f)
+        else -> colors.blue.copy(alpha = if (colors.isDark) 0.40f else 0.30f)
+    }
+    val textColor = if (isError) colors.issueText else colors.brandText
 
     Box(
         modifier = Modifier
@@ -340,14 +334,14 @@ internal fun GeneratedQrCard(
         modifier = Modifier
             .fillMaxWidth()
             .clip(RoundedCornerShape(22.dp))
-            .background(LockSurfaceSoft)
-            .border(1.dp, LockOutline, RoundedCornerShape(22.dp))
+            .background(AppColors.current.surfaceSoft)
+            .border(1.dp, AppColors.current.outline, RoundedCornerShape(22.dp))
             .padding(18.dp),
         horizontalAlignment = Alignment.CenterHorizontally
     ) {
         Text(
             text = tr("Encrypted Exam QR", "QR Ujian Terenkripsi"),
-            color = LockTextPrimary,
+            color = AppColors.current.textPrimary,
             fontSize = 18.sp,
             fontWeight = FontWeight.Bold
         )
@@ -359,7 +353,7 @@ internal fun GeneratedQrCard(
                 "The CBX Lock app can read and decrypt this data when scanned.",
                 "Aplikasi CBX Lock dapat membaca dan mendekripsi data ini saat dipindai."
             ),
-            color = LockTextSecondary,
+            color = AppColors.current.textSecondary,
             fontSize = 14.sp,
             textAlign = TextAlign.Center
         )
@@ -370,7 +364,7 @@ internal fun GeneratedQrCard(
             modifier = Modifier
                 .clip(RoundedCornerShape(18.dp))
                 .background(MaterialTheme.colorScheme.surface)
-                .border(1.dp, LockOutline, RoundedCornerShape(18.dp))
+                .border(1.dp, AppColors.current.outline, RoundedCornerShape(18.dp))
                 .padding(14.dp)
         ) {
             Image(
@@ -439,8 +433,8 @@ internal fun GeneratedQrCard(
                 modifier = Modifier.weight(1f),
                 shape = RoundedCornerShape(UiTokens.RadiusMd),
                 colors = ButtonDefaults.buttonColors(
-                    containerColor = LockBlue,
-                    contentColor = LockOnDark
+                    containerColor = AppColors.current.blue,
+                    contentColor = AppColors.current.onDark
                 )
             ) {
                 Text(tr("Share", "Bagikan"), fontWeight = FontWeight.Bold)
@@ -485,10 +479,10 @@ internal fun GeneratedQrCard(
                 modifier = Modifier.weight(1f),
                 shape = RoundedCornerShape(UiTokens.RadiusMd),
                 colors = ButtonDefaults.buttonColors(
-                    containerColor = LockBackground,
-                    contentColor = LockBlueDeep
+                    containerColor = AppColors.current.background,
+                    contentColor = AppColors.current.brandText
                 ),
-                border = BorderStroke(1.dp, LockBlue.copy(alpha = 0.45f))
+                border = BorderStroke(1.dp, AppColors.current.blue.copy(alpha = 0.45f))
             ) {
                 Text(tr("Download", "Download"), fontWeight = FontWeight.SemiBold)
             }
@@ -508,12 +502,12 @@ internal fun ExamDetailLine(
     ) {
         Text(
             text = label,
-            color = LockTextSecondary,
+            color = AppColors.current.textSecondary,
             fontSize = 14.sp
         )
         Text(
             text = value,
-            color = LockTextPrimary,
+            color = AppColors.current.textPrimary,
             fontSize = 14.sp,
             fontWeight = FontWeight.SemiBold,
             textAlign = TextAlign.Start
@@ -541,12 +535,12 @@ internal fun ComposeDatePickerDialog(
             onDismissRequest = onDismiss,
             confirmButton = {
                 TextButton(onClick = { onConfirm(datePickerState.selectedDateMillis) }) {
-                    Text(tr("Next", "Lanjut"), color = LockBlueSoft)
+                    Text(tr("Next", "Lanjut"), color = AppColors.current.blueSoft)
                 }
             },
             dismissButton = {
                 TextButton(onClick = onDismiss) {
-                    Text(tr("Cancel", "Batal"), color = LockTextMuted)
+                    Text(tr("Cancel", "Batal"), color = AppColors.current.textMuted)
                 }
             }
         ) {
@@ -572,13 +566,13 @@ internal fun ComposeTimePickerDialog(
     PickerDialogTheme {
         AlertDialog(
             onDismissRequest = onDismiss,
-            containerColor = LockSurface,
-            titleContentColor = LockOnDark,
-            textContentColor = LockOnDark,
+            containerColor = AppColors.current.surface,
+            titleContentColor = AppColors.current.onDark,
+            textContentColor = AppColors.current.onDark,
             title = {
                 Text(
                     text = tr("Select Time", "Pilih Jam"),
-                    color = LockOnDark,
+                    color = AppColors.current.onDark,
                     fontWeight = FontWeight.Bold
                 )
             },
@@ -591,12 +585,12 @@ internal fun ComposeTimePickerDialog(
                         onConfirm(timePickerState.hour, timePickerState.minute)
                     }
                 ) {
-                    Text(tr("Save", "Simpan"), color = LockBlueSoft)
+                    Text(tr("Save", "Simpan"), color = AppColors.current.blueSoft)
                 }
             },
             dismissButton = {
                 TextButton(onClick = onDismiss) {
-                    Text(tr("Cancel", "Batal"), color = LockTextMuted)
+                    Text(tr("Cancel", "Batal"), color = AppColors.current.textMuted)
                 }
             }
         )
@@ -628,27 +622,27 @@ internal fun ActionButton(
     Row(
         modifier = Modifier
             .fillMaxWidth()
-            .heightIn(min = if (subtitle.isNullOrBlank()) 72.dp else 90.dp)
+            .heightIn(min = if (subtitle.isNullOrBlank()) 64.dp else 80.dp)
             .clip(RoundedCornerShape(UiTokens.RadiusLg))
             .background(containerColor)
             .border(1.dp, borderColor.copy(alpha = 0.70f), RoundedCornerShape(UiTokens.RadiusLg))
             .clickable(role = Role.Button, onClick = onClick)
-            .padding(horizontal = 18.dp, vertical = 16.dp),
-        horizontalArrangement = Arrangement.spacedBy(14.dp),
+            .padding(horizontal = 14.dp, vertical = 12.dp),
+        horizontalArrangement = Arrangement.spacedBy(12.dp),
         verticalAlignment = Alignment.CenterVertically
     ) {
         Column(
             modifier = Modifier.weight(1f),
-            verticalArrangement = Arrangement.spacedBy(5.dp)
+            verticalArrangement = Arrangement.spacedBy(4.dp)
         ) {
             if (!badgeText.isNullOrBlank()) {
                 Box(
                     modifier = Modifier
                         .flatPill(containerColor = 
-                            if (contentColor == LockOnDark) {
+                            if (contentColor == AppColors.current.onDark) {
                                 Color.White.copy(alpha = 0.14f)
                             } else {
-                                LockBlueTint
+                                AppColors.current.blueTint
                             }
                         )
                         .padding(horizontal = 10.dp, vertical = 4.dp)
@@ -675,10 +669,10 @@ internal fun ActionButton(
             if (!subtitle.isNullOrBlank()) {
                 Text(
                     text = subtitle,
-                    color = if (contentColor == LockOnDark) {
+                    color = if (contentColor == AppColors.current.onDark) {
                         Color.White.copy(alpha = 0.80f)
                     } else {
-                        LockTextSecondary
+                        AppColors.current.textSecondary
                     },
                     fontSize = 12.sp,
                     lineHeight = 17.sp,

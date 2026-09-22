@@ -252,6 +252,7 @@ internal class ExamRuntimeDeviceIntegrityCallbacks(
     val getAccessibilityServiceEnabled: () -> Boolean,
     val getDeveloperOptionsEnabled: () -> Boolean,
     val getAdbEnabled: () -> Boolean,
+    val getWirelessAdbEnabled: () -> Boolean,
     val getRootDetected: () -> Boolean,
     val setAccessibilityInspection: (AccessibilityInspectionResult) -> Unit,
     val setAccessibilityServiceEnabled: (Boolean) -> Unit,
@@ -259,6 +260,7 @@ internal class ExamRuntimeDeviceIntegrityCallbacks(
     val setAdbInspection: (AdbInspection) -> Unit,
     val setDeveloperOptionsEnabled: (Boolean) -> Unit,
     val setAdbEnabled: (Boolean) -> Unit,
+    val setWirelessAdbEnabled: (Boolean) -> Unit,
     val setRootSecurityStatus: (RootSecurityStatus) -> Unit,
     val setRootDetected: (Boolean) -> Unit,
     val setSelinuxPermissiveWarning: (Boolean) -> Unit,
@@ -336,6 +338,19 @@ internal fun refreshExamRuntimeDeviceIntegritySecurity(
             examAlarmController.start()
         }
 
+        if (!bypassAdb && !callbacks.getWirelessAdbEnabled() && latestAdbInspection.wirelessAdbEnabled) {
+            callbacks.recordAction(
+                "WIRELESS_ADB_ENABLED_DURING_EXAM",
+                "-",
+                DiagnosticEventLevel.SECURITY
+            )
+            callbacks.setSecurityIssueDialogTitle(localized(uiLanguage, "Wireless Debugging (ADB Wi-Fi) Active", "Wireless Debugging (ADB Wi-Fi) Aktif"))
+            callbacks.setSecurityIssueDialogMessage(
+                localized(uiLanguage, "Wireless debugging was detected while the exam is running. Disable wireless ADB before continuing.", "Wireless debugging terdeteksi aktif saat ujian berjalan. Nonaktifkan wireless ADB sebelum melanjutkan.")
+            )
+            examAlarmController.start()
+        }
+
         if (!bypassRoot && !callbacks.getRootDetected() && latestRootSecurityStatus.detected) {
             callbacks.recordAction(
                 "ROOT_INDICATOR_DETECTED",
@@ -356,6 +371,7 @@ internal fun refreshExamRuntimeDeviceIntegritySecurity(
     callbacks.setAdbInspection(latestAdbInspection)
     callbacks.setDeveloperOptionsEnabled(latestAdbInspection.developerOptionsEnabled)
     callbacks.setAdbEnabled(latestAdbInspection.adbEnabled)
+    callbacks.setWirelessAdbEnabled(latestAdbInspection.wirelessAdbEnabled)
     callbacks.setRootSecurityStatus(latestRootSecurityStatus)
     callbacks.setRootDetected(latestRootSecurityStatus.detected)
     callbacks.setSelinuxPermissiveWarning(latestRootSecurityStatus.selinuxPermissive)
@@ -538,6 +554,7 @@ internal class ExamRuntimeSecurityOps(
                 getAccessibilityServiceEnabled = { securityUiState.accessibilityServiceEnabled.value },
                 getDeveloperOptionsEnabled = { securityUiState.developerOptionsEnabled.value },
                 getAdbEnabled = { securityUiState.adbEnabled.value },
+                getWirelessAdbEnabled = { securityUiState.wirelessAdbEnabled.value },
                 getRootDetected = { securityUiState.rootDetected.value },
                 setAccessibilityInspection = { securityUiState.accessibilityInspection.value = it },
                 setAccessibilityServiceEnabled = { securityUiState.accessibilityServiceEnabled.value = it },
@@ -545,6 +562,7 @@ internal class ExamRuntimeSecurityOps(
                 setAdbInspection = { securityUiState.adbInspection.value = it },
                 setDeveloperOptionsEnabled = { securityUiState.developerOptionsEnabled.value = it },
                 setAdbEnabled = { securityUiState.adbEnabled.value = it },
+                setWirelessAdbEnabled = { securityUiState.wirelessAdbEnabled.value = it },
                 setRootSecurityStatus = { securityUiState.rootSecurityStatus.value = it },
                 setRootDetected = { securityUiState.rootDetected.value = it },
                 setSelinuxPermissiveWarning = { securityUiState.selinuxPermissiveWarning.value = it },

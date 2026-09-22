@@ -1,0 +1,12 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <!-- Night variant of the launch theme. Without it the launch window stays
+         #F6F8FC, so starting the app in dark mode flashes a white screen before
+         Compose draws the dark UI. Parent stays the light Material theme so the
+         View-based low-RAM shell, which paints its own colors, is unaffected. -->
+    <style name="Theme.COBLAXEXAMLOCK" parent="android:Theme.Material.Light.NoActionBar">
+        <item name="android:statusBarColor">@color/lock_background_dark</item>
+        <item name="android:navigationBarColor">@color/lock_background_dark</item>
+        <item name="android:windowBackground">@color/lock_background_dark</item>
+    </style>
+</resources>

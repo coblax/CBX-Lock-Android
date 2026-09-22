@@ -7,12 +7,14 @@ import com.coblax.examlock.ExamQrPayload
 import com.coblax.examlock.SecureStrings
 import com.coblax.examlock.StartupTrace
 import com.coblax.examlock.config.FastExamName
+import com.coblax.examlock.i18n.tr
 import com.coblax.examlock.model.AdminSettings
 import com.coblax.examlock.model.AppScreen
 import com.coblax.examlock.model.withoutDirectLinkLocationPolicy
 import com.coblax.examlock.ui.admin.CustomQrAdminScreen
 import com.coblax.examlock.ui.admin.SecretAdminScreen
 import com.coblax.examlock.ui.exam.ExamWebViewScreen
+import com.coblax.examlock.viewmodel.AdminApplyState
 import com.coblax.examlock.viewmodel.AdminFlowUiAction
 import com.coblax.examlock.viewmodel.AdminFlowUiState
 
@@ -22,7 +24,7 @@ internal fun AppNonHomeRouteHost(
     uiState: AdminFlowUiState,
     activeExamPayload: ExamQrPayload?,
     adminSettingsSnapshot: () -> AdminSettings,
-    updateAdminSettings: (AdminSettings) -> Unit,
+    applyAdminSettings: (AdminSettings) -> Unit,
     dispatch: (AdminFlowUiAction) -> Unit,
     pendingDirectLinkSaveLog: String?,
     pendingRecoveryEventDetails: String?,
@@ -79,19 +81,41 @@ internal fun AppNonHomeRouteHost(
         }
 
         AppScreen.SecretAdmin -> {
-            val activeSettings = adminSettingsSnapshot()
+            val persistedSettings = uiState.persistedAdminSettings
+                ?: adminSettingsSnapshot()
+            val draftSettings = uiState.draftAdminSettings
+                ?: persistedSettings
+            val applyStatusMessage = when (val state = uiState.adminApplyState) {
+                AdminApplyState.Idle,
+                AdminApplyState.Applying -> null
+
+                AdminApplyState.Success -> tr(
+                    "Settings saved and verified.",
+                    "Pengaturan tersimpan dan telah diverifikasi."
+                )
+
+                is AdminApplyState.Failure -> state.message
+                AdminApplyState.ReauthenticationRequired -> tr(
+                    "Admin authentication expired. Sign in again before applying security overrides.",
+                    "Autentikasi Admin kedaluwarsa. Masuk kembali sebelum menerapkan override keamanan."
+                )
+            }
             SecretAdminScreen(
-                settings = activeSettings,
+                settings = persistedSettings,
                 examName = activeExamPayload?.examName?.trim().orEmpty().ifBlank {
-                    activeSettings.fastExamLabel
+                    persistedSettings.fastExamLabel
                 },
-                onSettingsChange = { updateAdminSettings(it) },
+                onSettingsChange = {
+                    dispatch(AdminFlowUiAction.UpdateAdminSettingsDraft(it))
+                },
                 onResetDirectLink = {
-                    updateAdminSettings(
-                        activeSettings.copy(
+                    dispatch(
+                        AdminFlowUiAction.UpdateAdminSettingsDraft(
+                            draftSettings.copy(
                             fastExamUrl = SecureStrings.fastExamUrl,
                             fastExamLabel = FastExamName
-                        ).withoutDirectLinkLocationPolicy()
+                            ).withoutDirectLinkLocationPolicy()
+                        )
                     )
                 },
                 onBack = {
@@ -102,6 +126,18 @@ internal fun AppNonHomeRouteHost(
                 onSelectedTabNameChange = {
                     dispatch(AdminFlowUiAction.SelectSecretTab(it))
                 },
+                externalDraftSettings = draftSettings,
+                onDraftSettingsChange = {
+                    dispatch(AdminFlowUiAction.UpdateAdminSettingsDraft(it))
+                },
+                onApplySettings = applyAdminSettings,
+                onRevertSettings = {
+                    dispatch(AdminFlowUiAction.RevertAdminSettingsDraft)
+                },
+                isApplyInProgress = uiState.adminApplyState == AdminApplyState.Applying,
+                applyStatusMessage = applyStatusMessage,
+                applyStatusIsError = uiState.adminApplyState is AdminApplyState.Failure ||
+                    uiState.adminApplyState == AdminApplyState.ReauthenticationRequired,
                 deviceTimeBaselineWallClockMillis = deviceTimeBaselineWallClockMillis,
                 deviceTimeBaselineElapsedRealtimeMillis = deviceTimeBaselineElapsedRealtimeMillis
             )

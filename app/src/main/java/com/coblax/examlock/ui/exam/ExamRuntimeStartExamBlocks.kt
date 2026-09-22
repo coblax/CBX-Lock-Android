@@ -11,6 +11,8 @@ import com.coblax.examlock.LocationSpoofSecurityVerdict
 import com.coblax.examlock.RootSecurityStatus
 import com.coblax.examlock.runtime.buildRootIssueMessage
 import com.coblax.examlock.ScreenPinningMode
+import com.coblax.examlock.ExamLockTaskState
+import com.coblax.examlock.LockTaskSecurityRequirement
 import com.coblax.examlock.SplitLocationSecurityStatus
 import com.coblax.examlock.i18n.localized
 import com.coblax.examlock.model.NetworkReadinessUserVerdict
@@ -131,7 +133,8 @@ internal fun resolveStartExamScreenPinningBlockMessage(
     uiLanguage: UiLanguage,
     screenPinningMode: ScreenPinningMode,
     screenPinningAvailable: Boolean,
-    screenPinningActive: Boolean,
+    lockTaskState: ExamLockTaskState,
+    lockTaskRequirement: LockTaskSecurityRequirement,
     accessibilityGuardAvailable: Boolean,
     accessibilityGuardEnabled: Boolean,
     phaseSuffix: String = ""
@@ -141,10 +144,24 @@ internal fun resolveStartExamScreenPinningBlockMessage(
     }
 
     val suffix = phaseSuffix.takeIf { it.isNotBlank() }?.let { " | $it" }.orEmpty()
-    if (screenPinningAvailable && !screenPinningActive) {
+    if (screenPinningAvailable && !lockTaskState.satisfies(lockTaskRequirement)) {
+        if (lockTaskRequirement == LockTaskSecurityRequirement.Locked) {
+            return StartExamBlockMessage(
+                code = ExamRuntimeHardeningDiagnostics.StartExamBlockedManagedLockTaskNotLocked,
+                details = "screen_pinning_available=true | lock_task_state=${lockTaskState.diagnosticLabel}" +
+                    " | required_state=LOCKED | device_owner=true | bypass=false$suffix",
+                title = localized(uiLanguage, "Managed Kiosk Mode Required", "Mode Kiosk Terkelola Diperlukan"),
+                message = localized(
+                    uiLanguage,
+                    "This managed device did not enter LOCKED kiosk mode. Ask the administrator to reapply the Device Owner lock-task policy before starting the exam.",
+                    "Perangkat terkelola ini belum masuk mode kiosk LOCKED. Minta administrator menerapkan ulang kebijakan lock-task Device Owner sebelum memulai ujian."
+                )
+            )
+        }
         return StartExamBlockMessage(
             code = ExamRuntimeHardeningDiagnostics.StartExamBlockedScreenPinningInactive,
-            details = "screen_pinning_available=true | lock_task_active=false | bypass=false$suffix",
+            details = "screen_pinning_available=true | lock_task_state=${lockTaskState.diagnosticLabel}" +
+                " | required_state=ANY_ACTIVE | bypass=false$suffix",
             title = localized(uiLanguage, "Start Screen Pinning First", "Start Screen Pinning Dulu"),
             message = localized(
                 uiLanguage,
@@ -352,6 +369,7 @@ internal fun resolveStartExamStaticSecurityBlockMessage(
     bypassVirtualEnvironment: Boolean,
     virtualEnvironmentDetected: Boolean,
     adbEnabled: Boolean,
+    wirelessAdbEnabled: Boolean,
     adbInsecureSystemProperty: Boolean,
     bypassRoot: Boolean,
     rootSecurityStatus: RootSecurityStatus,
@@ -400,6 +418,16 @@ internal fun resolveStartExamStaticSecurityBlockMessage(
                 message = localized(uiLanguage,
                     "USB debugging is detected as active. Disable ADB before starting the exam.",
                     "USB debugging terdeteksi aktif. Nonaktifkan ADB sebelum memulai ujian."
+                )
+            )
+
+        !bypassAdb && wirelessAdbEnabled ->
+            StartExamBlockMessage(
+                code = "START_EXAM_BLOCKED_WIRELESS_ADB",
+                title = localized(uiLanguage, "Wireless Debugging (ADB Wi-Fi) Still Active", "Wireless Debugging (ADB Wi-Fi) Masih Aktif"),
+                message = localized(uiLanguage,
+                    "Wireless debugging is detected as active. Disable wireless ADB in Developer Options before starting the exam.",
+                    "Wireless debugging terdeteksi aktif. Nonaktifkan wireless ADB di Developer Options sebelum memulai ujian."
                 )
             )
 

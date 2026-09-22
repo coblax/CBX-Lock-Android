@@ -31,11 +31,7 @@ import com.coblax.examlock.AccessibilityInspectionResult
 import com.coblax.examlock.LocalLowRamProfile
 import com.coblax.examlock.i18n.LocalUiLanguage
 import com.coblax.examlock.i18n.tr
-import com.coblax.examlock.ui.theme.LockGoldDark
-import com.coblax.examlock.ui.theme.LockTextPrimary
-import com.coblax.examlock.ui.theme.LockTextSecondary
-import com.coblax.examlock.ui.theme.LockIssueText
-import com.coblax.examlock.ui.theme.LockWarnBgSoft
+import com.coblax.examlock.ui.theme.AppColors
 import com.coblax.examlock.ui.theme.UiTokens
 
 @Composable
@@ -108,10 +104,10 @@ internal fun PreparationQuickFixPanel(
     val blockingQuickFixCount = displayActions.blockingCount
     val warningQuickFixCount = displayActions.warningCount
     val quickFixBorderColor = if (blockingQuickFixCount > 0)
-        LockIssueText.copy(alpha = 0.30f)
+        AppColors.current.issueText.copy(alpha = 0.30f)
     else
-        LockGoldDark.copy(alpha = 0.30f)
-    val quickFixAccentColor = if (blockingQuickFixCount > 0) LockIssueText else LockGoldDark
+        AppColors.current.goldDark.copy(alpha = 0.30f)
+    val quickFixAccentColor = if (blockingQuickFixCount > 0) AppColors.current.issueText else AppColors.current.goldDark
     val showQuickFixesCard = quickFixActions.isNotEmpty()
 
     if (showQuickFixesCard) {
@@ -137,7 +133,7 @@ internal fun PreparationQuickFixPanel(
                 ) {
                     Text(
                         text = tr("Auto-Fix Assistant", "Asisten Auto-Fix"),
-                        color = LockTextPrimary,
+                        color = AppColors.current.textPrimary,
                         fontSize = 16.sp,
                         fontWeight = FontWeight.Bold
                     )
@@ -156,7 +152,7 @@ internal fun PreparationQuickFixPanel(
                             "Fix the first item, then return here.",
                             "Perbaiki item pertama, lalu kembali ke sini."
                         ),
-                        color = LockTextSecondary,
+                        color = AppColors.current.textSecondary,
                         fontSize = 12.sp,
                         lineHeight = 17.sp
                     )
@@ -166,13 +162,13 @@ internal fun PreparationQuickFixPanel(
                             modifier = Modifier
                                 .fillMaxWidth()
                                 .clip(RoundedCornerShape(UiTokens.RadiusSm))
-                                .background(LockWarnBgSoft)
-                                .border(1.dp, LockGoldDark.copy(alpha = 0.35f), RoundedCornerShape(UiTokens.RadiusSm))
+                                .background(AppColors.current.warnBgSoft)
+                                .border(1.dp, AppColors.current.goldDark.copy(alpha = 0.35f), RoundedCornerShape(UiTokens.RadiusSm))
                                 .padding(horizontal = 12.dp, vertical = 9.dp)
                         ) {
                             Text(
                                 text = notice.text,
-                                color = LockGoldDark,
+                                color = AppColors.current.goldDark,
                                 fontSize = 12.sp,
                                 lineHeight = 16.sp,
                                 fontWeight = FontWeight.SemiBold
@@ -180,12 +176,11 @@ internal fun PreparationQuickFixPanel(
                         }
                     }
 
-                    val stepNumbers = listOf("â‘ ", "â‘¡", "â‘¢", "â‘£", "â‘¤", "â‘¥", "â‘¦", "â‘§", "â‘¨", "â‘©")
                     var stepIndex = 0
 
                     val primaryAction = primaryQuickFixAction
                     if (primaryAction != null) {
-                        val stepLabel = stepNumbers.getOrElse(stepIndex) { "${stepIndex + 1}." }
+                        val stepLabel = "${stepIndex + 1}."
                         stepIndex++
                         PreparationAssistButton(
                             text = primaryAction.displayTextForProfile(lowRamProfile),
@@ -198,7 +193,7 @@ internal fun PreparationQuickFixPanel(
                         if (!primaryAction.reason.isNullOrBlank()) {
                             Text(
                                 text = primaryAction.reason,
-                                color = LockTextSecondary,
+                                color = AppColors.current.textSecondary,
                                 fontSize = 10.sp,
                                 lineHeight = 13.sp
                             )
@@ -214,17 +209,17 @@ internal fun PreparationQuickFixPanel(
                                 modifier = Modifier
                                     .size(8.dp)
                                     .clip(CircleShape)
-                                    .background(LockIssueText)
+                                    .background(AppColors.current.issueText)
                             )
                             Text(
                                 text = tr("Blocking Fixes", "Perbaikan Wajib"),
-                                color = LockTextPrimary,
+                                color = AppColors.current.textPrimary,
                                 fontSize = 12.sp,
                                 fontWeight = FontWeight.Bold
                             )
                         }
                         blockingQuickFixActions.forEachIndexed { _, action ->
-                            val stepLabel = stepNumbers.getOrElse(stepIndex) { "${stepIndex + 1}." }
+                            val stepLabel = "${stepIndex + 1}."
                             stepIndex++
                             PreparationAssistButton(
                                 text = action.displayTextForProfile(lowRamProfile),
@@ -238,7 +233,7 @@ internal fun PreparationQuickFixPanel(
                             if (!action.reason.isNullOrBlank()) {
                                 Text(
                                     text = action.reason,
-                                    color = LockTextSecondary,
+                                    color = AppColors.current.textSecondary,
                                     fontSize = 10.sp,
                                     lineHeight = 13.sp
                                 )
@@ -255,17 +250,17 @@ internal fun PreparationQuickFixPanel(
                                 modifier = Modifier
                                     .size(8.dp)
                                     .clip(CircleShape)
-                                    .background(LockGoldDark)
+                                    .background(AppColors.current.goldDark)
                             )
                             Text(
                                 text = tr("Optional Checks", "Cek Opsional"),
-                                color = LockTextSecondary,
+                                color = AppColors.current.textSecondary,
                                 fontSize = 12.sp,
                                 fontWeight = FontWeight.Bold
                             )
                         }
                         warningQuickFixActions.forEachIndexed { _, action ->
-                            val stepLabel = stepNumbers.getOrElse(stepIndex) { "${stepIndex + 1}." }
+                            val stepLabel = "${stepIndex + 1}."
                             stepIndex++
                             PreparationAssistButton(
                                 text = action.displayTextForProfile(lowRamProfile),
@@ -279,7 +274,7 @@ internal fun PreparationQuickFixPanel(
                             if (!action.reason.isNullOrBlank()) {
                                 Text(
                                     text = action.reason,
-                                    color = LockTextSecondary,
+                                    color = AppColors.current.textSecondary,
                                     fontSize = 10.sp,
                                     lineHeight = 13.sp
                                 )

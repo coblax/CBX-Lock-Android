@@ -16,7 +16,7 @@ class OverlayPermissionGuardrailTest {
 
     @Test
     fun overlayShieldUsesWindowHideOverlayApi() {
-        val source = projectFile("src/main/java/com/example/coblaxexamlock/MainActivity.kt")
+        val source = projectFile("src/main/java/com/coblax/examlock/MainActivity.kt")
             .readText()
         val shieldSource = Regex("fun setOverlayShieldMode[\\s\\S]*?\\n    }")
             .find(source)?.value.orEmpty()
@@ -27,7 +27,7 @@ class OverlayPermissionGuardrailTest {
 
     @Test
     fun overlaySettingsLauncherDoesNotOpenCbxSpecificAppearOnTopPermission() {
-        val source = projectFile("src/main/java/com/example/coblaxexamlock/HostPlatformHelpers.kt")
+        val source = projectFile("src/main/java/com/coblax/examlock/HostPlatformHelpers.kt")
             .readText()
         val openOverlaySettingsSource = Regex(
             "internal fun openOverlaySettings[\\s\\S]*?internal fun openWebViewProviderSettings"
@@ -41,7 +41,7 @@ class OverlayPermissionGuardrailTest {
     @Test
     fun preparationQuickFixTextDoesNotInviteCbxAppearOnTopSetup() {
         val source = projectFile(
-            "src/main/java/com/example/coblaxexamlock/ui/preparation/PreparationQuickFixActions.kt"
+            "src/main/java/com/coblax/examlock/ui/preparation/PreparationQuickFixActions.kt"
         ).readText()
 
         assertFalse(source.contains("Open Overlay Settings"))

@@ -809,12 +809,15 @@ internal class ExamRuntimeDiagnosticsOps(
         }
         coroutineScope.launch(launchExceptionHandler) {
             networkUiState.networkManualRefreshInFlight.value = true
-            applyNetworkReadinessStatus(
-                trigger,
-                readNetworkReadinessStatusWithExamHostProbe(context, examUrl)
-            )
-            delay(250L)
-            networkUiState.networkManualRefreshInFlight.value = false
+            try {
+                applyNetworkReadinessStatus(
+                    trigger,
+                    readNetworkReadinessStatusWithExamHostProbe(context, examUrl)
+                )
+                delay(250L)
+            } finally {
+                networkUiState.networkManualRefreshInFlight.value = false
+            }
         }
     }
 

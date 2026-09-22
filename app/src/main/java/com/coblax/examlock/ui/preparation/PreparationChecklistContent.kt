@@ -5,10 +5,12 @@ import android.util.Log
 import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
+import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.navigationBarsPadding
+import androidx.compose.foundation.layout.statusBarsPadding
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.PaddingValues
 import androidx.compose.foundation.layout.Row
@@ -45,15 +47,9 @@ import com.coblax.examlock.runtime.LowRamDispatchers
 import com.coblax.examlock.runtime.requiresBluetoothExamPermission
 import com.coblax.examlock.ui.exam.formatApkIntegrityBlockReason
 import com.coblax.examlock.ui.exam.formatReverseEngineeringBlockReason
+import com.coblax.examlock.ui.theme.AppColors
 import com.coblax.examlock.ui.theme.adaptiveScreenPadding
 import com.coblax.examlock.ui.theme.isExpandedLayout
-import com.coblax.examlock.ui.theme.LockBackground
-import com.coblax.examlock.ui.theme.LockBlueDeep
-import com.coblax.examlock.ui.theme.LockGold
-import com.coblax.examlock.ui.theme.LockDangerBgSoft
-import com.coblax.examlock.ui.theme.LockIssueText
-import com.coblax.examlock.ui.theme.LockSafeEmphasis
-import com.coblax.examlock.ui.theme.LockWarnBgSoft
 
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.Job
@@ -410,32 +406,37 @@ internal fun ExamSecurityPreparationScreenContent(
         buildSectionHealthMap(readiness)
     }
     val startButtonColor = when {
-        !canStartExam -> LockIssueText
-        hasBypassIndicators -> LockGold
-        else -> LockSafeEmphasis
+        !canStartExam -> AppColors.current.issueText
+        hasBypassIndicators -> AppColors.current.gold
+        else -> AppColors.current.safeEmphasis
     }
     val startButtonContentColor =
-        if (hasBypassIndicators && canStartExam) LockBlueDeep else Color.White
+        if (hasBypassIndicators && canStartExam) AppColors.current.blueDeep else Color.White
 
     val screenPadding = adaptiveScreenPadding()
     val useExpandedGrid = isExpandedLayout()
-    Box(
+    // The action bar is docked in the same Column as the list rather than floating in a
+    // Box over it. A floating bar left rows sliding underneath it and peeking out in the
+    // strip below it; docking makes overlap structurally impossible.
+    Column(
         modifier = modifier
             .fillMaxSize()
-            .background(LockBackground)
+            .background(AppColors.current.background)
     ) {
         LazyColumn(
             state = listState,
             modifier = Modifier
-                .fillMaxSize(),
+                .weight(1f)
+                .fillMaxWidth()
+                .statusBarsPadding(),
             contentPadding = PaddingValues(
                 start = screenPadding,
-                top = 14.dp,
+                top = 10.dp,
                 end = screenPadding,
-                bottom = 118.dp
+                bottom = 10.dp
             ),
             horizontalAlignment = Alignment.CenterHorizontally,
-            verticalArrangement = Arrangement.spacedBy(14.dp)
+            verticalArrangement = Arrangement.spacedBy(10.dp)
         ) {
             item(key = "preparation_header") {
                 PreparationChecklistHeader(
@@ -455,8 +456,8 @@ internal fun ExamSecurityPreparationScreenContent(
                     PreparationNoticeCard(
                         title = tr("Status", "Status"),
                         message = feedbackText,
-                        accentColor = LockGold,
-                        backgroundColor = LockWarnBgSoft
+                        accentColor = AppColors.current.gold,
+                        backgroundColor = AppColors.current.warnBgSoft
                     )
                 }
             }
@@ -469,7 +470,7 @@ internal fun ExamSecurityPreparationScreenContent(
             }
             if (showFullChecklist) {
                 if (useExpandedGrid) {
-                    // â”€â”€ Expanded (tablet): 2-column grid â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
+                    // ── Expanded (tablet): 2-column grid ─────────────────
                     item(key = "checklist_row_1") {
                         Row(
                             modifier = Modifier.fillMaxWidth(),
@@ -620,7 +621,7 @@ internal fun ExamSecurityPreparationScreenContent(
                         }
                     }
                 } else {
-                    // â”€â”€ Compact (phone): single column â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
+                    // ── Compact (phone): single column ───────────────────
                     item(key = "checklist_device_setup") {
                         CollapsibleChecklistSection("checklist_device_setup", sectionHealthMap["checklist_device_setup"]) {
                             rememberChecklistTextForStep(WizardStep.DeviceSetup)?.let { visibleChecklistText ->
@@ -750,8 +751,8 @@ internal fun ExamSecurityPreparationScreenContent(
                             "Technical checklist details are hidden to keep this phone responsive. Open technical details only when a full audit is needed.",
                             "Detail checklist teknis disembunyikan agar HP tetap responsif. Buka Detail Teknis hanya saat perlu audit lengkap."
                         ),
-                        accentColor = LockGold,
-                        backgroundColor = LockWarnBgSoft
+                        accentColor = AppColors.current.gold,
+                        backgroundColor = AppColors.current.warnBgSoft
                     )
                 }
             }
@@ -782,8 +783,8 @@ internal fun ExamSecurityPreparationScreenContent(
                                 "Alasan: ${formatReverseEngineeringBlockReason(state.runtimeSecurity.reverseEngineeringSummary)}\nTutup debugger, tracer, tool hooking/root, lalu buka ulang aplikasi."
                             )
                         },
-                        accentColor = if (bypassActive) LockGold else LockIssueText,
-                        backgroundColor = if (bypassActive) LockWarnBgSoft else LockDangerBgSoft
+                        accentColor = if (bypassActive) AppColors.current.gold else AppColors.current.issueText,
+                        backgroundColor = if (bypassActive) AppColors.current.warnBgSoft else AppColors.current.dangerBgSoft
                     )
                 }
             }
@@ -815,8 +816,8 @@ internal fun ExamSecurityPreparationScreenContent(
                                 "Alasan: ${formatApkIntegrityBlockReason(integritySummary)}\nInstal ulang APK resmi, lalu buka ulang aplikasi."
                             )
                         },
-                        accentColor = if (bypassActive) LockGold else LockIssueText,
-                        backgroundColor = if (bypassActive) LockWarnBgSoft else LockDangerBgSoft
+                        accentColor = if (bypassActive) AppColors.current.gold else AppColors.current.issueText,
+                        backgroundColor = if (bypassActive) AppColors.current.warnBgSoft else AppColors.current.dangerBgSoft
                     )
                 }
             }
@@ -865,10 +866,9 @@ internal fun ExamSecurityPreparationScreenContent(
             onStartExam = onStartExam,
             onBackHome = onBackHome,
             modifier = Modifier
-                .align(Alignment.BottomCenter)
                 .fillMaxWidth()
                 .navigationBarsPadding()
-                .padding(horizontal = 16.dp, vertical = 10.dp)
+                .padding(start = 16.dp, end = 16.dp, bottom = 8.dp)
             )
     }
         }

@@ -24,7 +24,9 @@ internal object NativeLibraryLoader {
         loadFailure = failure
         isAvailable = available
         failure?.let {
-            Log.w(NativeLoaderTag, "Native library 'examlock_native' unavailable; Kotlin fallback will be used.", it)
+            runCatching {
+                Log.w(NativeLoaderTag, "Native library 'examlock_native' unavailable; Kotlin fallback will be used.", it)
+            }
         }
     }
 }

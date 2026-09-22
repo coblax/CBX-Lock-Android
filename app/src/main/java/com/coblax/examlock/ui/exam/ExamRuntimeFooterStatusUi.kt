@@ -1,369 +1,301 @@
-﻿package com.coblax.examlock.ui.exam
+package com.coblax.examlock.ui.exam
 
-import androidx.compose.animation.core.animateFloat
-import androidx.compose.animation.core.FastOutSlowInEasing
-import androidx.compose.animation.core.infiniteRepeatable
-import androidx.compose.animation.core.LinearEasing
-import androidx.compose.animation.core.rememberInfiniteTransition
-import androidx.compose.animation.core.RepeatMode
-import androidx.compose.animation.core.tween
+import androidx.compose.foundation.BorderStroke
 import androidx.compose.foundation.background
 import androidx.compose.foundation.border
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
-import androidx.compose.foundation.layout.fillMaxSize
-import androidx.compose.foundation.layout.height
-import androidx.compose.foundation.layout.offset
-import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.Row
+import androidx.compose.foundation.layout.Spacer
+import androidx.compose.foundation.layout.fillMaxWidth
+import androidx.compose.foundation.layout.height
+import androidx.compose.foundation.layout.heightIn
+import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.width
-import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.rounded.BatteryAlert
 import androidx.compose.material.icons.rounded.BatteryChargingFull
 import androidx.compose.material.icons.rounded.BatteryFull
-import androidx.compose.material.icons.rounded.Security
 import androidx.compose.material3.Icon
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
-import androidx.compose.runtime.getValue
 import androidx.compose.ui.Alignment
-import androidx.compose.ui.draw.clip
-import androidx.compose.ui.draw.scale
-import androidx.compose.ui.graphics.Color
-import androidx.compose.ui.graphics.graphicsLayer
-import androidx.compose.ui.graphics.vector.ImageVector
 import androidx.compose.ui.Modifier
-import androidx.compose.ui.text.font.FontWeight
+import androidx.compose.ui.draw.clip
+import androidx.compose.ui.semantics.semantics
+import androidx.compose.ui.semantics.stateDescription
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
-import androidx.compose.ui.unit.Dp
-import androidx.compose.ui.unit.sp
-
+import androidx.compose.ui.platform.testTag
 import com.coblax.examlock.i18n.tr
-import com.coblax.examlock.LocalLowRamProfile
 import com.coblax.examlock.model.ExamBatteryStatus
-import com.coblax.examlock.ui.performance.shouldRenderRuntimeAnimation
-import com.coblax.examlock.ui.theme.LockGoldDark
-import com.coblax.examlock.ui.theme.LockOutline
-import com.coblax.examlock.ui.theme.LockStatusDanger
-import com.coblax.examlock.ui.theme.LockStatusDangerFill
-import com.coblax.examlock.ui.theme.LockStatusSafe
-import com.coblax.examlock.ui.theme.LockStatusSafeFill
-import com.coblax.examlock.ui.theme.LockStatusWarnFill
-import com.coblax.examlock.ui.theme.LockSurfaceSoft
-import com.coblax.examlock.ui.theme.LockTextPrimary
-import com.coblax.examlock.ui.theme.UiTokens
-import com.coblax.examlock.ui.theme.flatPill
+import com.coblax.examlock.model.NetworkReadinessStatus
+import com.coblax.examlock.model.NetworkReadinessVerdict
+import com.coblax.examlock.ui.theme.AppColors
+import com.coblax.examlock.ui.theme.AppTextStyles
+import com.coblax.examlock.ui.theme.ScopedUiTokens
+import com.coblax.examlock.ui.theme.StatusBadge
+import com.coblax.examlock.ui.theme.StatusBanner
+import com.coblax.examlock.ui.theme.UiStatusIcon
+import com.coblax.examlock.ui.theme.UiStatusTone
+import com.coblax.examlock.ui.theme.resolveUiStatusVisual
+
+internal object ExamRuntimeUiTestTags {
+    const val StatusStrip = "exam_runtime_status_strip"
+    const val WarningBanner = "exam_runtime_warning_banner"
+    const val KeyboardPanel = "exam_runtime_keyboard_panel"
+    const val BottomActionRail = "exam_runtime_bottom_action_rail"
+    const val ArrowToggle = "exam_runtime_arrow_toggle"
+    const val RefreshAction = "exam_runtime_refresh_action"
+    const val ExitAction = "exam_runtime_exit_action"
+}
 
 @Composable
-internal fun ExamFooterStatusCluster(
-    connectivityVisual: ExamFooterConnectivityVisual,
-    connectivityIndicatorColor: Color,
-    connectivityDescription: String,
-    connectivityPillWidth: Dp,
-    batteryStatus: ExamBatteryStatus,
-    batteryIndicatorColor: Color,
-    batteryPillWidth: Dp,
-    shieldIndicatorColor: Color,
-    shieldLabel: String,
-    shieldContentDescription: String,
-    shieldPillWidth: Dp,
-    shieldStatus: ExamFooterShieldStatus,
+internal fun ExamRuntimeStatusStrip(
+    examDisplayName: String,
+    networkStatus: NetworkReadinessStatus,
     serverStatus: ExamServerFooterStatus,
-    actionButtonSize: Dp,
-    iconSize: Dp,
-    itemSpacing: Dp,
-    showBatteryPercent: Boolean,
+    batteryStatus: ExamBatteryStatus,
+    shieldStatus: ExamFooterShieldStatus,
     modifier: Modifier = Modifier
 ) {
+    val tokens = ScopedUiTokens.current
+    val connectivity = resolveExamFooterConnectivityVisual(networkStatus, serverStatus)
+    val connectionLabel = connectivityStateLabel(connectivity.state)
+    val connectionTone = when (connectivity.severity) {
+        ExamFooterConnectivitySeverity.Stable -> UiStatusTone.Success
+        ExamFooterConnectivitySeverity.Info -> UiStatusTone.Info
+        ExamFooterConnectivitySeverity.Warning -> UiStatusTone.Warning
+    }
+    val connectionIcon = when (connectivity.state) {
+        ExamRuntimeConnectivityState.Online -> UiStatusIcon.Check
+        ExamRuntimeConnectivityState.Checking -> UiStatusIcon.Loading
+        ExamRuntimeConnectivityState.Limited,
+        ExamRuntimeConnectivityState.Offline -> UiStatusIcon.Warning
+    }
+    val shieldLabel = when (shieldStatus) {
+        ExamFooterShieldStatus.Safe -> tr("Protected", "Aman")
+        ExamFooterShieldStatus.Warning -> tr("Check", "Periksa")
+        ExamFooterShieldStatus.Danger -> tr("Blocked", "Diblokir")
+    }
+    val shieldTone = when (shieldStatus) {
+        ExamFooterShieldStatus.Safe -> UiStatusTone.Success
+        ExamFooterShieldStatus.Warning -> UiStatusTone.Warning
+        ExamFooterShieldStatus.Danger -> UiStatusTone.Danger
+    }
+    val shieldDescription = when (shieldStatus) {
+        ExamFooterShieldStatus.Safe ->
+            tr("Exam security is protected", "Keamanan ujian terlindungi")
+        ExamFooterShieldStatus.Warning ->
+            tr("Exam security needs attention", "Keamanan ujian perlu diperiksa")
+        ExamFooterShieldStatus.Danger ->
+            tr("A blocking security issue was detected", "Masalah keamanan yang memblokir terdeteksi")
+    }
+
     Row(
-        modifier = modifier,
-        horizontalArrangement = Arrangement.spacedBy(itemSpacing, Alignment.CenterHorizontally),
+        modifier = modifier
+            .fillMaxWidth()
+            .height(tokens.statusStripHeight)
+            .testTag(ExamRuntimeUiTestTags.StatusStrip)
+            .background(AppColors.current.footerBg)
+            .border(
+                BorderStroke(1.dp, AppColors.current.outlineSubtle),
+                RoundedCornerShape(0.dp)
+            )
+            .padding(horizontal = tokens.spaceSmall, vertical = tokens.spaceXSmall),
         verticalAlignment = Alignment.CenterVertically
     ) {
-        ConnectivityInfoPill(
-            visual = connectivityVisual,
-            statusColor = connectivityIndicatorColor,
-            serverStatus = serverStatus,
-            contentDescription = connectivityDescription,
-            width = connectivityPillWidth,
-            height = actionButtonSize
-        )
-        BatteryInfoPill(
-            batteryStatus = batteryStatus,
-            statusColor = batteryIndicatorColor,
-            height = actionButtonSize,
-            width = batteryPillWidth,
-            iconSize = iconSize,
-            showPercent = showBatteryPercent
-        )
-        SecurityShieldPill(
-            shieldStatus = shieldStatus,
-            statusColor = shieldIndicatorColor,
-            label = shieldLabel,
-            contentDescription = shieldContentDescription,
-            width = shieldPillWidth,
-            height = actionButtonSize,
-            iconSize = iconSize
-        )
-    }
-}
-
-// ---------------------------------------------------------------------------
-// Connectivity pill
-// ---------------------------------------------------------------------------
-
-@Composable
-private fun ConnectivityInfoPill(
-    visual: ExamFooterConnectivityVisual,
-    statusColor: Color,
-    serverStatus: ExamServerFooterStatus,
-    contentDescription: String,
-    width: Dp,
-    height: Dp
-) {
-    val pillFill = when (visual.severity) {
-        ExamFooterConnectivitySeverity.Stable  -> LockStatusSafeFill
-        ExamFooterConnectivitySeverity.Warning -> LockStatusWarnFill
-        ExamFooterConnectivitySeverity.Danger  -> LockStatusDangerFill
-    }
-    val pillBorder = statusColor.copy(alpha = 0.45f)
-
-    Box(
-        modifier = Modifier
-            .width(width)
-            .height(height)
-    ) {
-        Box(
-            modifier = Modifier
-                .fillMaxSize()
-                .clip(RoundedCornerShape(UiTokens.RadiusSm))
-                .background(pillFill)
-                .border(1.dp, pillBorder, RoundedCornerShape(UiTokens.RadiusSm)),
-            contentAlignment = Alignment.Center
-        ) {
-            Row(
-                verticalAlignment = Alignment.Bottom,
-                horizontalArrangement = Arrangement.spacedBy(2.dp, Alignment.CenterHorizontally)
-            ) {
-                SignalBars(
-                    level = visual.signalLevel,
-                    statusColor = statusColor,
-                    danger = visual.severity == ExamFooterConnectivitySeverity.Danger
-                )
-                visual.cellularLabel?.let { label ->
-                    Text(
-                        text = label,
-                        color = statusColor,
-                        fontSize = 8.sp,
-                        fontWeight = FontWeight.Bold,
-                        maxLines = 1,
-                        modifier = Modifier.offset(y = 1.dp)
-                    )
-                }
-            }
-        }
-
-        // Server-status badge dot (replaces the old "!" badge text)
-        val serverDotColor = when (serverStatus) {
-            ExamServerFooterStatus.Online   -> LockStatusSafe
-            ExamServerFooterStatus.Checking -> LockGoldDark
-            ExamServerFooterStatus.Warning  -> LockGoldDark
-            ExamServerFooterStatus.Offline  -> LockStatusDanger
-            ExamServerFooterStatus.Unstable -> LockGoldDark
-        }
-        // Hide dot when everything is stable & server is online to reduce clutter
-        val showServerDot = serverStatus != ExamServerFooterStatus.Online ||
-            visual.severity != ExamFooterConnectivitySeverity.Stable
-        if (showServerDot) {
-            Box(
-                modifier = Modifier
-                    .align(Alignment.TopEnd)
-                    .padding(top = 3.dp, end = 3.dp)
-                    .size(7.dp)
-                    .clip(CircleShape)
-                    .background(serverDotColor)
-                    .border(0.5.dp, Color.White.copy(alpha = 0.9f), CircleShape)
-            )
-        }
-    }
-}
-
-@Composable
-private fun SignalBars(
-    level: Int,
-    statusColor: Color,
-    danger: Boolean
-) {
-    val activeBars = if (danger) 1 else level.coerceIn(0, 4)
-    val inactiveColor = LockOutline.copy(alpha = 0.42f)
-    Row(
-        verticalAlignment = Alignment.Bottom,
-        horizontalArrangement = Arrangement.spacedBy(2.dp)
-    ) {
-        listOf(7.dp, 10.dp, 13.dp, 16.dp).forEachIndexed { index, barHeight ->
-            Box(
-                modifier = Modifier
-                    .width(4.dp)
-                    .height(barHeight)
-                    .flatPill(containerColor = if (index < activeBars) statusColor else inactiveColor)
-            )
-        }
-    }
-}
-
-// ---------------------------------------------------------------------------
-// Security shield pill
-// ---------------------------------------------------------------------------
-
-@Composable
-private fun SecurityShieldPill(
-    shieldStatus: ExamFooterShieldStatus,
-    statusColor: Color,
-    label: String,
-    contentDescription: String,
-    width: Dp,
-    height: Dp,
-    iconSize: Dp
-) {
-    val lowRam = LocalLowRamProfile.current
-    val pillFill = when (shieldStatus) {
-        ExamFooterShieldStatus.Safe    -> LockStatusSafeFill
-        ExamFooterShieldStatus.Warning -> LockStatusWarnFill
-        ExamFooterShieldStatus.Danger  -> LockStatusDangerFill
-    }
-    val pillBorder = statusColor.copy(alpha = 0.45f)
-
-    // Pulse animation for Danger state (disabled on low-RAM)
-    val animatePulse = shieldStatus == ExamFooterShieldStatus.Danger &&
-        shouldRenderRuntimeAnimation(lowRam)
-    val pulseScale by if (animatePulse) {
-        rememberInfiniteTransition(label = "shield_pulse").animateFloat(
-            initialValue = 1f,
-            targetValue = 1.04f,
-            animationSpec = infiniteRepeatable(
-                animation = tween(600, easing = FastOutSlowInEasing),
-                repeatMode = RepeatMode.Reverse
-            ),
-            label = "shield_pulse_scale"
-        )
-    } else {
-        androidx.compose.runtime.remember { androidx.compose.runtime.mutableFloatStateOf(1f) }
-    }
-
-    Row(
-        modifier = Modifier
-            .width(width)
-            .height(height)
-            .scale(pulseScale)
-            .clip(RoundedCornerShape(UiTokens.RadiusSm))
-            .background(pillFill)
-            .border(1.dp, pillBorder, RoundedCornerShape(UiTokens.RadiusSm))
-            .padding(horizontal = 4.dp),
-        verticalAlignment = Alignment.CenterVertically,
-        horizontalArrangement = Arrangement.spacedBy(3.dp, Alignment.CenterHorizontally)
-    ) {
-        Icon(
-            imageVector = Icons.Rounded.Security,
-            contentDescription = contentDescription,
-            tint = statusColor,
-            modifier = Modifier.size((iconSize.value - 3).coerceAtLeast(12f).dp)
-        )
         Text(
-            text = label,
-            color = statusColor,
-            fontSize = 9.sp,
-            fontWeight = FontWeight.Bold,
+            text = examDisplayName.ifBlank { tr("Exam", "Ujian") },
+            modifier = Modifier.weight(1f),
+            color = AppColors.current.textPrimary,
+            style = AppTextStyles.label,
             maxLines = 1,
-            overflow = TextOverflow.Clip
+            overflow = TextOverflow.Ellipsis
         )
+        Spacer(Modifier.width(tokens.spaceXSmall))
+        Row(
+            horizontalArrangement = Arrangement.spacedBy(tokens.spaceXSmall),
+            verticalAlignment = Alignment.CenterVertically
+        ) {
+            StatusBadge(
+                label = connectionLabel,
+                tone = connectionTone,
+                icon = connectionIcon,
+                semanticLabel = connectionSemanticLabel(networkStatus, serverStatus)
+            )
+            RuntimeBatteryBadge(batteryStatus = batteryStatus)
+            StatusBadge(
+                label = shieldLabel,
+                tone = shieldTone,
+                icon = when (shieldTone) {
+                    UiStatusTone.Success -> UiStatusIcon.Check
+                    UiStatusTone.Warning -> UiStatusIcon.Warning
+                    UiStatusTone.Danger -> UiStatusIcon.Blocked
+                    else -> UiStatusIcon.Info
+                },
+                semanticLabel = shieldDescription
+            )
+        }
     }
 }
 
-// ---------------------------------------------------------------------------
-// Battery pill
-// ---------------------------------------------------------------------------
+@Composable
+internal fun RuntimeConnectionWarningBanner(
+    noticeKind: ExamRuntimeConnectionNoticeKind,
+    modifier: Modifier = Modifier
+) {
+    val message = when (noticeKind) {
+        ExamRuntimeConnectionNoticeKind.Offline ->
+            tr(
+                "The connection is offline. The exam stays open while reconnection is attempted.",
+                "Koneksi terputus. Ujian tetap terbuka saat koneksi dipulihkan."
+            )
+        ExamRuntimeConnectionNoticeKind.AirplaneMode ->
+            tr(
+                "Airplane mode is active. Turn it off to reconnect to the exam.",
+                "Mode pesawat aktif. Nonaktifkan untuk menyambungkan kembali ujian."
+            )
+        ExamRuntimeConnectionNoticeKind.VpnActive ->
+            tr(
+                "A VPN connection was detected. Check the required exam network.",
+                "Koneksi VPN terdeteksi. Periksa jaringan yang diwajibkan untuk ujian."
+            )
+        ExamRuntimeConnectionNoticeKind.CaptivePortal ->
+            tr(
+                "This network needs sign-in before it can reach the exam server.",
+                "Jaringan ini memerlukan login sebelum dapat menjangkau server ujian."
+            )
+        ExamRuntimeConnectionNoticeKind.LimitedNetwork ->
+            tr(
+                "Internet access is limited. The app will keep checking the connection.",
+                "Akses internet terbatas. Aplikasi akan terus memeriksa koneksi."
+            )
+        ExamRuntimeConnectionNoticeKind.UnstableNetwork ->
+            tr(
+                "The connection is unstable. Avoid leaving the exam while it recovers.",
+                "Koneksi tidak stabil. Jangan keluar dari ujian selama koneksi dipulihkan."
+            )
+        ExamRuntimeConnectionNoticeKind.ServerOffline ->
+            tr(
+                "The exam server cannot be reached yet. The app will retry automatically.",
+                "Server ujian belum dapat dijangkau. Aplikasi akan mencoba kembali otomatis."
+            )
+        ExamRuntimeConnectionNoticeKind.ServerUnstable ->
+            tr(
+                "The exam server response is unstable. The current page remains open.",
+                "Respons server ujian tidak stabil. Halaman saat ini tetap terbuka."
+            )
+        ExamRuntimeConnectionNoticeKind.ServerWarning ->
+            tr(
+                "The exam server needs attention. Continue on the current page.",
+                "Server ujian perlu diperiksa. Tetap lanjutkan pada halaman saat ini."
+            )
+    }
+
+    StatusBanner(
+        message = message,
+        modifier = modifier.testTag(ExamRuntimeUiTestTags.WarningBanner),
+        tone = UiStatusTone.Warning,
+        title = tr("Connection warning", "Peringatan koneksi"),
+        icon = UiStatusIcon.Warning
+    )
+}
 
 @Composable
-private fun BatteryInfoPill(
+private fun RuntimeBatteryBadge(
     batteryStatus: ExamBatteryStatus,
-    statusColor: Color,
-    height: Dp,
-    width: Dp,
-    iconSize: Dp,
-    showPercent: Boolean
+    modifier: Modifier = Modifier
 ) {
-    val lowRam = LocalLowRamProfile.current
+    val tokens = ScopedUiTokens.current
     val percent = batteryStatus.levelPercent.coerceIn(0, 100)
-
-    val pillFill = when {
-        batteryStatus.isCharging    -> LockStatusSafeFill
-        percent <= 20               -> LockStatusDangerFill
-        percent <= 40               -> LockStatusWarnFill
-        else                        -> LockSurfaceSoft
+    val tone = when {
+        batteryStatus.isCharging -> UiStatusTone.Success
+        percent <= 40 -> UiStatusTone.Warning
+        else -> UiStatusTone.Neutral
     }
-    val pillBorder = statusColor.copy(alpha = 0.40f)
-
-    val contentDescription = if (batteryStatus.isCharging) {
+    val visual = resolveUiStatusVisual(
+        tone = tone,
+        label = "$percent%",
+        icon = if (percent <= 20) UiStatusIcon.Warning else UiStatusIcon.Info
+    )
+    val description = if (batteryStatus.isCharging) {
         tr("Battery $percent percent, charging", "Baterai $percent persen, sedang diisi")
     } else {
         tr("Battery $percent percent", "Baterai $percent persen")
     }
-
-    // Charging blink animation (disabled on low-RAM)
-    val animateCharging = batteryStatus.isCharging && shouldRenderRuntimeAnimation(lowRam)
-    val chargingAlpha by if (animateCharging) {
-        rememberInfiniteTransition(label = "battery_charge").animateFloat(
-            initialValue = 0.6f,
-            targetValue = 1f,
-            animationSpec = infiniteRepeatable(
-                animation = tween(900, easing = LinearEasing),
-                repeatMode = RepeatMode.Reverse
-            ),
-            label = "battery_blink"
-        )
-    } else {
-        androidx.compose.runtime.remember { androidx.compose.runtime.mutableFloatStateOf(1f) }
-    }
+    val shape = RoundedCornerShape(tokens.radiusPill)
 
     Row(
-        modifier = Modifier
-            .height(height)
-            .width(width)
-            .clip(RoundedCornerShape(UiTokens.RadiusSm))
-            .background(pillFill)
-            .border(1.dp, pillBorder, RoundedCornerShape(UiTokens.RadiusSm))
-            .padding(horizontal = 5.dp),
-        verticalAlignment = Alignment.CenterVertically,
-        horizontalArrangement = Arrangement.Center
+        modifier = modifier
+            .semantics(mergeDescendants = true) {
+                stateDescription = description
+            }
+            .clip(shape)
+            .background(visual.containerColor)
+            .border(1.dp, visual.borderColor.copy(alpha = 0.42f), shape)
+            .heightIn(min = 32.dp)
+            .padding(horizontal = tokens.spaceSmall, vertical = tokens.spaceXSmall),
+        horizontalArrangement = Arrangement.spacedBy(tokens.spaceXSmall),
+        verticalAlignment = Alignment.CenterVertically
     ) {
         Icon(
-            imageVector = batteryStatusIcon(batteryStatus),
-            contentDescription = contentDescription,
-            tint = statusColor,
-            modifier = Modifier
-                .size(iconSize)
-                .graphicsLayer { alpha = chargingAlpha }
+            imageVector = when {
+                batteryStatus.isCharging -> Icons.Rounded.BatteryChargingFull
+                percent <= 20 -> Icons.Rounded.BatteryAlert
+                else -> Icons.Rounded.BatteryFull
+            },
+            contentDescription = null,
+            tint = visual.contentColor,
+            modifier = Modifier.size(16.dp)
         )
-        if (showPercent) {
-            Text(
-                text = "$percent%",
-                color = LockTextPrimary,
-                fontSize = 10.sp,
-                fontWeight = FontWeight.SemiBold,
-                maxLines = 1
-            )
-        }
+        Text(
+            text = "$percent%",
+            color = visual.contentColor,
+            style = AppTextStyles.label,
+            maxLines = 1
+        )
     }
 }
 
-private fun batteryStatusIcon(status: ExamBatteryStatus): ImageVector {
-    return when {
-        status.isCharging          -> Icons.Rounded.BatteryChargingFull
-        status.levelPercent <= 20  -> Icons.Rounded.BatteryAlert
-        else                       -> Icons.Rounded.BatteryFull
+@Composable
+private fun connectivityStateLabel(state: ExamRuntimeConnectivityState): String =
+    when (state) {
+        ExamRuntimeConnectivityState.Online -> tr("Online", "Online")
+        ExamRuntimeConnectivityState.Checking -> tr("Checking", "Memeriksa")
+        ExamRuntimeConnectivityState.Limited -> tr("Limited", "Terbatas")
+        ExamRuntimeConnectivityState.Offline -> tr("Offline", "Offline")
     }
+
+@Composable
+private fun connectionSemanticLabel(
+    networkStatus: NetworkReadinessStatus,
+    serverStatus: ExamServerFooterStatus
+): String {
+    val networkDescription = when (networkStatus.verdict) {
+        NetworkReadinessVerdict.ConnectedStable ->
+            tr("Network connected", "Jaringan terhubung")
+        NetworkReadinessVerdict.Offline ->
+            tr("Network offline", "Jaringan offline")
+        NetworkReadinessVerdict.AirplaneMode ->
+            tr("Airplane mode active", "Mode pesawat aktif")
+        NetworkReadinessVerdict.Unvalidated ->
+            tr("Network is limited", "Jaringan terbatas")
+        NetworkReadinessVerdict.CaptivePortal ->
+            tr("Network sign-in required", "Login jaringan diperlukan")
+        NetworkReadinessVerdict.VpnActive ->
+            tr("VPN active", "VPN aktif")
+        NetworkReadinessVerdict.Unstable ->
+            tr("Network unstable", "Jaringan tidak stabil")
+    }
+    val serverDescription = when (serverStatus) {
+        ExamServerFooterStatus.Checking -> tr("checking exam server", "memeriksa server ujian")
+        ExamServerFooterStatus.Online -> tr("exam server online", "server ujian online")
+        ExamServerFooterStatus.Warning -> tr("exam server warning", "peringatan server ujian")
+        ExamServerFooterStatus.Offline -> tr("exam server offline", "server ujian offline")
+        ExamServerFooterStatus.Unstable -> tr("exam server unstable", "server ujian tidak stabil")
+    }
+    return "$networkDescription, $serverDescription"
 }

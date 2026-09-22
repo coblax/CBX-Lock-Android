@@ -3,7 +3,6 @@
 import android.os.SystemClock
 import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.Arrangement
-import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.PaddingValues
 import androidx.compose.foundation.layout.Row
@@ -11,6 +10,7 @@ import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.navigationBarsPadding
+import androidx.compose.foundation.layout.statusBarsPadding
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.rememberLazyListState
@@ -41,20 +41,20 @@ import com.coblax.examlock.i18n.localized
 import com.coblax.examlock.i18n.tr
 import com.coblax.examlock.runtime.LowRamDispatchers
 import com.coblax.examlock.runtime.requiresBluetoothExamPermission
-import com.coblax.examlock.ui.theme.LockBackground
-import com.coblax.examlock.ui.theme.LockBlueDeep
-import com.coblax.examlock.ui.theme.LockGold
+import com.coblax.examlock.ui.theme.AppColors
+import com.coblax.examlock.ui.theme.UpgradeUiScope
 import com.coblax.examlock.ui.theme.adaptiveScreenPadding
-import com.coblax.examlock.ui.theme.LockIssueText
-import com.coblax.examlock.ui.theme.LockSafeEmphasis
-import com.coblax.examlock.ui.theme.LockWarnBgSoft
+import com.coblax.examlock.ui.theme.currentUiMotionPolicy
 import kotlinx.coroutines.Job
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.withContext
 
-internal val WizardGreen = LockSafeEmphasis
-internal val WizardRed = LockIssueText
+internal val WizardGreen: Color
+    @Composable get() = AppColors.current.safeEmphasis
+
+internal val WizardRed: Color
+    @Composable get() = AppColors.current.issueText
 
 @Composable
 internal fun PreparationWizardScreen(
@@ -68,6 +68,7 @@ internal fun PreparationWizardScreen(
             val uiLanguage = LocalUiLanguage.current
             val context = LocalContext.current
             val lowRamProfile = LocalLowRamProfile.current
+            val motionPolicy = currentUiMotionPolicy()
             var accessibilityUiState by remember(context) {
                 mutableStateOf(initialPreparationAccessibilityState())
             }
@@ -395,12 +396,12 @@ internal fun PreparationWizardScreen(
 
             val startButtonColor = when {
                 !stepPayload.readiness.canStartExam -> WizardRed
-                stepPayload.readiness.hasBypassIndicators -> LockGold
+                stepPayload.readiness.hasBypassIndicators -> AppColors.current.gold
                 else -> WizardGreen
             }
             val startButtonContentColor =
                 if (stepPayload.readiness.hasBypassIndicators && stepPayload.readiness.canStartExam) {
-                    LockBlueDeep
+                    AppColors.current.blueDeep
                 } else {
                     Color.White
                 }
@@ -412,8 +413,8 @@ internal fun PreparationWizardScreen(
             val listState = rememberLazyListState()
 
             // Scroll to top when step changes
-            LaunchedEffect(currentStepIndex) {
-                if (lowRamProfile.disableNonEssentialAnimations) {
+            LaunchedEffect(currentStepIndex, motionPolicy.enabled) {
+                if (!motionPolicy.enabled) {
                     listState.scrollToItem(0)
                 } else {
                     listState.animateScrollToItem(0)
@@ -421,27 +422,34 @@ internal fun PreparationWizardScreen(
             }
 
             val screenPadding = adaptiveScreenPadding()
-            Box(
-                modifier = modifier
-                    .fillMaxSize()
-                    .background(LockBackground)
-            ) {
+            UpgradeUiScope(motionPolicy = motionPolicy) {
+                // Docked bottom bar (see PreparationChecklistContent): a floating bar let
+                // step cards slide underneath and show through the strip below it.
+                Column(
+                    modifier = modifier
+                        .fillMaxSize()
+                        .background(AppColors.current.background)
+                ) {
                 LazyColumn(
                     state = listState,
-                    modifier = Modifier.fillMaxSize(),
+                    modifier = Modifier
+                        .weight(1f)
+                        .fillMaxWidth()
+                        .statusBarsPadding(),
                     contentPadding = PaddingValues(
                         start = screenPadding,
-                        top = 14.dp,
+                        top = 10.dp,
                         end = screenPadding,
-                        bottom = 138.dp
+                        bottom = 10.dp
                     ),
                     horizontalAlignment = Alignment.CenterHorizontally,
-                    verticalArrangement = Arrangement.spacedBy(12.dp)
+                    verticalArrangement = Arrangement.spacedBy(10.dp)
                 ) {
                     // Wizard Header
                     item(key = "wizard_header") {
                         WizardHeader(
                             examTitle = examName.ifBlank { tr("Exam Session", "Sesi Ujian") },
+                            currentStepIndex = currentStepIndex,
                             completedCount = completedCount,
                             totalSteps = totalSteps,
                             overallProgress = overallProgress,
@@ -473,22 +481,7 @@ internal fun PreparationWizardScreen(
                         )
                     }
 
-                    // Current Step Content (the actual section)
-                    item(key = "wizard_step_content_${currentStep.sectionKey}") {
-                        WizardStepSectionContent(
-                            step = stepPayload.currentStep,
-                            state = state,
-                            actions = throttledActions,
-                            text = stepPayload.sectionText,
-                            needsBluetoothPermission = needsBluetoothPermission,
-                            accessibilityInspection = accessibilityInspection,
-                            accessibilityGuardAvailable = accessibilityGuardAvailable,
-                            accessibilityGuardRequired = accessibilityGuardRequired,
-                            accessibilityGuardEnabled = accessibilityGuardEnabled
-                        )
-                    }
-
-                    // Per-step Quick Fix Actions
+                    // Keep the primary problem and its repair actions above technical details.
                     if (stepPayload.quickFixActions.isNotEmpty()) {
                         item(key = "wizard_step_quick_fix") {
                             WizardStepQuickFixCard(
@@ -508,13 +501,32 @@ internal fun PreparationWizardScreen(
                             PreparationNoticeCard(
                                 title = tr("Status", "Status"),
                                 message = feedbackText,
-                                accentColor = LockGold,
-                                backgroundColor = LockWarnBgSoft
+                                accentColor = AppColors.current.gold,
+                                backgroundColor = AppColors.current.warnBgSoft
                             )
                         }
                     }
 
-                    // On final step and all checks passed â†’ Celebration Banner
+                    item(key = "wizard_step_details_${currentStep.sectionKey}") {
+                        WizardStepDetailsCard(
+                            step = currentStep,
+                            issueCount = currentStepState?.issueCount ?: 0
+                        ) {
+                            WizardStepSectionContent(
+                                step = stepPayload.currentStep,
+                                state = state,
+                                actions = throttledActions,
+                                text = stepPayload.sectionText,
+                                needsBluetoothPermission = needsBluetoothPermission,
+                                accessibilityInspection = accessibilityInspection,
+                                accessibilityGuardAvailable = accessibilityGuardAvailable,
+                                accessibilityGuardRequired = accessibilityGuardRequired,
+                                accessibilityGuardEnabled = accessibilityGuardEnabled
+                            )
+                        }
+                    }
+
+                    // Static final readiness summary.
                     if (currentStepIndex == steps.lastIndex && canStartExam) {
                         item(key = "wizard_celebration") {
                             PreparationCelebrationBanner()
@@ -544,14 +556,15 @@ internal fun PreparationWizardScreen(
                             currentStepIndex++
                         }
                     },
+                    onRecheck = throttledActions.session.onRefreshAllSecurityChecks,
                     onStartExam = onStartExam,
                     onBackHome = onBackHome,
                     modifier = Modifier
-                        .align(Alignment.BottomCenter)
                         .fillMaxWidth()
                         .navigationBarsPadding()
-                        .padding(horizontal = 16.dp, vertical = 10.dp)
+                        .padding(start = 8.dp, end = 8.dp, bottom = 8.dp)
                 )
+            }
             }
         }
     }

@@ -821,6 +821,8 @@ internal fun StringBuilder.appendTelegramSectionDetails(details: TelegramSection
                     appendLine("Developer settings raw: ${adbInspection.developerOptionsRawValue}")
                     appendLine("ADB: ${if (adbInspection.adbEnabled) "Aktif" else "Tidak aktif"}")
                     appendLine("ADB raw: ${adbInspection.adbRawValue}")
+                    appendLine("Wireless ADB: ${if (adbInspection.wirelessAdbEnabled) "Aktif" else "Tidak aktif"}")
+                    appendLine("Wireless ADB raw: ${adbInspection.wirelessAdbRawValue}")
                     appendLine("ro.adb.secure: ${adbInspection.adbSecureProperty}")
                     appendLine("ADB integrity hint: ${adbInspection.integrityHintSummary}")
                     appendLine("USB connected: ${if (usbConnected) "Ya" else "Tidak"}")

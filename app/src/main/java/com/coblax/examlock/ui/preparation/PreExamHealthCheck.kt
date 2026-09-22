@@ -5,12 +5,14 @@ import com.coblax.examlock.DeviceCompatibilityProfile
 import com.coblax.examlock.DeviceTimeSecurityStatus
 import com.coblax.examlock.DpcProtectionTier
 import com.coblax.examlock.DpcRuntimeStatus
+import com.coblax.examlock.ExamLockTaskState
 import com.coblax.examlock.FakeLocationRuntimeStatus
 import com.coblax.examlock.GeofenceRuntimeStatus
 import com.coblax.examlock.OverlayRiskResult
 import com.coblax.examlock.WebViewCompatibilityStatus
 import com.coblax.examlock.defaultDpcRuntimeStatus
 import com.coblax.examlock.diagnosticLabel
+import com.coblax.examlock.resolveLockTaskSecurityRequirement
 import com.coblax.examlock.WebViewHealthSeverity
 import com.coblax.examlock.WebViewHealthVerdict
 import com.coblax.examlock.model.ExamBatteryStatus
@@ -90,6 +92,11 @@ internal data class PreExamHealthCheckInput(
     val deviceTimeBypassed: Boolean,
     val batteryStatus: ExamBatteryStatus,
     val dpcRuntimeStatus: DpcRuntimeStatus = defaultDpcRuntimeStatus(),
+    val lockTaskState: ExamLockTaskState = if (screenPinningActive) {
+        ExamLockTaskState.Pinned
+    } else {
+        ExamLockTaskState.None
+    },
     val generatedAtElapsedMs: Long = 0L
 )
 
@@ -117,6 +124,8 @@ internal fun preExamHealthStartBlocker(snapshot: PreExamHealthSnapshot): PreExam
 }
 
 private fun buildScreenPinningHealthItem(input: PreExamHealthCheckInput): PreExamHealthItem {
+    val lockTaskRequirement = resolveLockTaskSecurityRequirement(input.dpcRuntimeStatus.deviceOwner)
+    val lockTaskRequirementSatisfied = input.lockTaskState.satisfies(lockTaskRequirement)
     return when {
         input.screenPinningBypassed -> PreExamHealthItem(
             category = PreExamHealthCategory.ScreenPinning,
@@ -125,11 +134,23 @@ private fun buildScreenPinningHealthItem(input: PreExamHealthCheckInput): PreExa
             detail = "Screen Pinning bypass is active.",
             quickFix = "Use bypass only for approved troubleshooting."
         )
-        input.screenPinningActive -> PreExamHealthItem(
+        input.screenPinningAvailable && !lockTaskRequirementSatisfied && input.dpcRuntimeStatus.deviceOwner ->
+            PreExamHealthItem(
+                category = PreExamHealthCategory.ScreenPinning,
+                verdict = PreExamHealthVerdict.Blocking,
+                title = "Managed Kiosk Mode",
+                detail = "Device Owner requires LOCKED kiosk mode, but the current lock-task state is ${input.lockTaskState.diagnosticLabel}.",
+                quickFix = "Reapply the Device Owner lock-task policy and start lock task again."
+            )
+        lockTaskRequirementSatisfied -> PreExamHealthItem(
             category = PreExamHealthCategory.ScreenPinning,
             verdict = PreExamHealthVerdict.Stable,
             title = "Screen Pinning",
-            detail = "Already active. Start Exam can continue without a repeated Android pinning request."
+            detail = if (input.dpcRuntimeStatus.deviceOwner) {
+                "Managed LOCKED kiosk mode is active."
+            } else {
+                "Screen Pinning is active for this BYOD session; no repeated Android pinning request is needed."
+            }
         )
         !input.screenPinningAvailable &&
             input.accessibilityGuardAvailable &&

@@ -199,6 +199,7 @@ internal object ExamRuntimeHardeningDiagnostics {
     const val OverlayPartialLegacyWarning = "OVERLAY_PARTIAL_LEGACY_WARNING"
     const val StartExamBlockedHealthCheck = "START_EXAM_BLOCKED_HEALTH_CHECK"
     const val StartExamBlockedScreenPinningInactive = "START_EXAM_BLOCKED_SCREEN_PINNING_INACTIVE"
+    const val StartExamBlockedManagedLockTaskNotLocked = "START_EXAM_BLOCKED_MANAGED_LOCK_TASK_NOT_LOCKED"
     const val ScreenRecorderDetected = "SCREEN_RECORDER_DETECTED"
     const val ScreenRecorderCleared = "SCREEN_RECORDER_CLEARED"
     const val DisplayMirrorDetected = "DISPLAY_MIRROR_DETECTED"
@@ -234,6 +235,7 @@ internal object ExamRuntimeHardeningDiagnostics {
     const val PinningRetryReady = "PINNING_RETRY_READY"
     const val DpcStatusResolved = "DPC_STATUS_RESOLVED"
     const val DpcLockTaskAllowlistApplied = "DPC_LOCK_TASK_ALLOWLIST_APPLIED"
+    const val DpcLockTaskUpgradeRequested = "DPC_LOCK_TASK_UPGRADE_REQUESTED"
     const val DpcCreateWindowsRestrictionApplied = "DPC_CREATE_WINDOWS_RESTRICTION_APPLIED"
     const val DpcCreateWindowsRestrictionUnsupported = "DPC_CREATE_WINDOWS_RESTRICTION_UNSUPPORTED"
     const val DpcCreateWindowsRestrictionCleared = "DPC_CREATE_WINDOWS_RESTRICTION_CLEARED"
@@ -277,6 +279,7 @@ internal object ExamRuntimeHardeningDiagnostics {
         OverlayPartialLegacyWarning,
         StartExamBlockedHealthCheck,
         StartExamBlockedScreenPinningInactive,
+        StartExamBlockedManagedLockTaskNotLocked,
         ScreenRecorderDetected,
         ScreenRecorderCleared,
         DisplayMirrorDetected,
@@ -312,6 +315,7 @@ internal object ExamRuntimeHardeningDiagnostics {
         PinningRetryReady,
         DpcStatusResolved,
         DpcLockTaskAllowlistApplied,
+        DpcLockTaskUpgradeRequested,
         DpcCreateWindowsRestrictionApplied,
         DpcCreateWindowsRestrictionUnsupported,
         DpcCreateWindowsRestrictionCleared,

@@ -13,21 +13,13 @@ import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
 import androidx.compose.runtime.Composable
 import androidx.compose.ui.Modifier
-import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.dp
 import com.coblax.examlock.PinningActivationState
 import com.coblax.examlock.i18n.tr
 import com.coblax.examlock.model.NetworkReadinessVerdict
-import com.coblax.examlock.ui.theme.LockBlue
-import com.coblax.examlock.ui.theme.LockBlueDeep
-import com.coblax.examlock.ui.theme.LockGoldDark
-import com.coblax.examlock.ui.theme.LockOnDark
-import com.coblax.examlock.ui.theme.LockOutline
-import com.coblax.examlock.ui.theme.LockDangerBgSoft
-import com.coblax.examlock.ui.theme.LockIssueText
-import com.coblax.examlock.ui.theme.LockWarnBgWarm
+import com.coblax.examlock.ui.theme.AppColors
 import com.coblax.examlock.ui.theme.UiTokens
 
 @Composable
@@ -45,8 +37,8 @@ internal fun PreparationNoticeStack(
                         "CBX Lock is clearing cookies, local storage, and cached WebView data before the exam opens.",
                         "CBX Lock sedang membersihkan cookie, local storage, dan cache WebView sebelum ujian dibuka."
                     ),
-                    accentColor = LockGoldDark,
-                    backgroundColor = LockWarnBgWarm
+                    accentColor = AppColors.current.goldDark,
+                    backgroundColor = AppColors.current.warnBgWarm
                 )
                 Spacer(modifier = Modifier.height(10.dp))
             }
@@ -61,8 +53,8 @@ internal fun PreparationNoticeStack(
                         "Export diagnostics if an admin needs evidence, then press Start Exam Mode again.",
                         "Export diagnostik bila admin membutuhkan bukti, lalu tekan Mulai Ujian lagi."
                     ) + "\n\n" + (webViewHealthItem?.detail ?: ""),
-                    accentColor = LockIssueText,
-                    backgroundColor = LockDangerBgSoft
+                    accentColor = AppColors.current.issueText,
+                    backgroundColor = AppColors.current.dangerBgSoft
                 )
                 Row(
                     modifier = Modifier.fillMaxWidth(),
@@ -73,10 +65,10 @@ internal fun PreparationNoticeStack(
                         modifier = Modifier.weight(1f),
                         shape = RoundedCornerShape(UiTokens.RadiusMd),
                         colors = ButtonDefaults.buttonColors(
-                            containerColor = Color.White,
-                            contentColor = LockBlueDeep
+                            containerColor = AppColors.current.cardBg,
+                            contentColor = AppColors.current.brandText
                         ),
-                        border = BorderStroke(1.dp, LockOutline)
+                        border = BorderStroke(1.dp, AppColors.current.outline)
                     ) {
                         Text(
                             text = tr("Export Diagnostics", "Export Diagnostik"),
@@ -90,8 +82,8 @@ internal fun PreparationNoticeStack(
                         shape = RoundedCornerShape(UiTokens.RadiusMd),
                         enabled = !(isStartingExam || webViewSessionResetInFlight),
                         colors = ButtonDefaults.buttonColors(
-                            containerColor = LockBlue,
-                            contentColor = LockOnDark
+                            containerColor = AppColors.current.blue,
+                            contentColor = AppColors.current.onDark
                         )
                     ) {
                         Text(
@@ -114,7 +106,7 @@ internal fun PreparationNoticeStack(
                 ) {
                     Text(
                         text = tr("Open WebView Settings", "Buka Setelan WebView"),
-                        color = LockBlue,
+                        color = AppColors.current.blue,
                         fontWeight = FontWeight.Bold,
                         textAlign = TextAlign.Center
                     )
@@ -127,23 +119,23 @@ internal fun PreparationNoticeStack(
             if ((pinningPending || pinningRetryReady) && !bypassScreenPinning) {
                 PreparationNoticeCard(
                     title = if (pinningRetryReady) {
-                        tr("Screen Pinning Not Active â€” Try Again", "Screen Pinning Belum Aktif â€” Coba Lagi")
+                        tr("Screen Pinning Not Active - Try Again", "Screen Pinning Belum Aktif - Coba Lagi")
                     } else {
                         tr("Starting Screen Pinning...", "Menjalankan Screen Pinning...")
                     },
                     message = if (pinningRetryReady) {
                         tr(
-                            "â‘  Tap \"Start Screen Pinning\" again  â† you are here\nâ‘¡ When Android shows the dialog â†’ tap \"Got it\" or \"Pin\"\nâ‘¢ Stay on this screen â€” do NOT press Home or Recent",
-                            "â‘  Ketuk \"Start Screen Pinning\" lagi  â† Anda di sini\nâ‘¡ Saat Android menampilkan dialog â†’ ketuk \"Got it\" atau \"Pin\"\nâ‘¢ Tetap di layar ini â€” JANGAN tekan Home atau Recent"
+                            "1. Tap \"Start Screen Pinning\" again (current step).\n2. When Android shows the dialog, tap \"Got it\" or \"Pin\".\n3. Stay on this screen; do not press Home or Recent.",
+                            "1. Ketuk \"Start Screen Pinning\" lagi (langkah saat ini).\n2. Saat Android menampilkan dialog, ketuk \"Got it\" atau \"Pin\".\n3. Tetap di layar ini; jangan tekan Home atau Recent."
                         )
                     } else {
                         screenPinningMessage ?: tr(
-                            "â‘  Android may show a confirmation dialog â†’ tap \"Got it\" or \"Pin\"  â† you are here\nâ‘¡ Stay on this screen â€” do NOT press Home or Recent\nâ‘¢ Wait until Screen Pinning is active",
-                            "â‘  Android mungkin menampilkan dialog konfirmasi â†’ ketuk \"Got it\" atau \"Pin\"  â† Anda di sini\nâ‘¡ Tetap di layar ini â€” JANGAN tekan Home atau Recent\nâ‘¢ Tunggu sampai Screen Pinning aktif"
+                            "1. Android may show a confirmation dialog; tap \"Got it\" or \"Pin\" (current step).\n2. Stay on this screen; do not press Home or Recent.\n3. Wait until Screen Pinning is active.",
+                            "1. Android mungkin menampilkan dialog konfirmasi; ketuk \"Got it\" atau \"Pin\" (langkah saat ini).\n2. Tetap di layar ini; jangan tekan Home atau Recent.\n3. Tunggu sampai Screen Pinning aktif."
                         )
                     },
-                    accentColor = if (pinningRetryReady) LockIssueText else LockGoldDark,
-                    backgroundColor = if (pinningRetryReady) Color(0xFFFFF1F0) else LockWarnBgWarm
+                    accentColor = if (pinningRetryReady) AppColors.current.issueText else AppColors.current.goldDark,
+                    backgroundColor = if (pinningRetryReady) AppColors.current.dangerBgSubtle else AppColors.current.warnBgWarm
                 )
                 Spacer(modifier = Modifier.height(10.dp))
             }
@@ -156,8 +148,8 @@ internal fun PreparationNoticeStack(
                         "CBX Lock will switch to its internal keyboard when the exam starts.",
                         "CBX Lock akan beralih ke keyboard internal saat ujian dimulai."
                     ),
-                    accentColor = LockGoldDark,
-                    backgroundColor = LockWarnBgWarm
+                    accentColor = AppColors.current.goldDark,
+                    backgroundColor = AppColors.current.warnBgWarm
                 )
                 Spacer(modifier = Modifier.height(10.dp))
             }
@@ -169,8 +161,8 @@ internal fun PreparationNoticeStack(
                         "For security, continue the exam on a non-rooted device.",
                         "Demi keamanan, lanjutkan ujian pada perangkat yang tidak di-root."
                     ),
-                    accentColor = LockIssueText,
-                    backgroundColor = LockDangerBgSoft
+                    accentColor = AppColors.current.issueText,
+                    backgroundColor = AppColors.current.dangerBgSoft
                 )
                 Spacer(modifier = Modifier.height(10.dp))
             }
@@ -182,8 +174,8 @@ internal fun PreparationNoticeStack(
                         "SELinux is not enforcing. The exam can continue, but security is reduced.",
                         "SELinux tidak enforcing. Ujian bisa lanjut, namun tingkat keamanan berkurang."
                     ),
-                    accentColor = LockGoldDark,
-                    backgroundColor = LockWarnBgWarm
+                    accentColor = AppColors.current.goldDark,
+                    backgroundColor = AppColors.current.warnBgWarm
                 )
                 Spacer(modifier = Modifier.height(10.dp))
             }
@@ -233,14 +225,14 @@ internal fun PreparationNoticeStack(
                         )
                     },
                     accentColor = if (networkReadinessStatus.verdict == NetworkReadinessVerdict.VpnActive && !bypassVpn) {
-                        LockIssueText
+                        AppColors.current.issueText
                     } else {
-                        LockGoldDark
+                        AppColors.current.goldDark
                     },
                     backgroundColor = if (networkReadinessStatus.verdict == NetworkReadinessVerdict.VpnActive && !bypassVpn) {
-                        LockDangerBgSoft
+                        AppColors.current.dangerBgSoft
                     } else {
-                        LockWarnBgWarm
+                        AppColors.current.warnBgWarm
                     }
                 )
                 Spacer(modifier = Modifier.height(10.dp))

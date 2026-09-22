@@ -21,6 +21,13 @@ internal enum class UiLanguage(val code: String) {
     English("en"),
     Indonesian("id")
 }
+
+internal enum class ThemeMode(val code: String) {
+    System("system"),
+    Light("light"),
+    Dark("dark")
+}
+
 internal enum class DateTimeField {
     Start,
     End
@@ -28,7 +35,10 @@ internal enum class DateTimeField {
 
 internal enum class SecretAdminTab {
     Setup,
-    Security
+    Security,
+    Location,
+    Diagnostics,
+    Overrides
 }
 
 internal enum class CustomQrAdminTab {
@@ -87,6 +97,7 @@ internal data class AdminSettings(
     val bypassApkIntegrity: Boolean = false,
     val apkIntegrityBypassTampered: Boolean = false,
     val showChecklistDetails: Boolean = false,
+    val telegramDiagnosticsEnabled: Boolean = true,
     val bypassMigrationResetNotice: Boolean = false
 ) {
     fun hasAnyBypass(): Boolean {

@@ -6,6 +6,7 @@ import com.coblax.examlock.DeviceTimeSecurityStatus
 import com.coblax.examlock.DeviceTimeSecurityVerdict
 import com.coblax.examlock.DpcProtectionTier
 import com.coblax.examlock.DpcRuntimeStatus
+import com.coblax.examlock.ExamLockTaskState
 import com.coblax.examlock.FakeLocationRuntimeStatus
 import com.coblax.examlock.GeofenceEvaluation
 import com.coblax.examlock.GeofenceRuntimeStatus
@@ -54,6 +55,31 @@ class PreExamHealthCheckTest {
         val pinning = snapshot.items.first { it.category == PreExamHealthCategory.ScreenPinning }
         assertEquals(PreExamHealthVerdict.Stable, pinning.verdict)
         assertTrue(pinning.detail.contains("repeated", ignoreCase = true))
+    }
+
+    @Test
+    fun managedDeviceHealthRequiresLockedInsteadOfPinnedState() {
+        val managedStatus = DpcRuntimeStatus(
+            deviceOwner = true,
+            adminActive = true,
+            lockTaskPermitted = true,
+            createWindowsRestrictionSupported = true,
+            createWindowsRestrictionActive = true,
+            protectionTier = DpcProtectionTier.DpcOverlayRestrictedWithShield
+        )
+        val pinnedInput = defaultInput(
+            screenPinningActive = true,
+            dpcRuntimeStatus = managedStatus
+        )
+
+        val pinned = buildPreExamHealthSnapshot(pinnedInput)
+            .items.first { it.category == PreExamHealthCategory.ScreenPinning }
+        val locked = buildPreExamHealthSnapshot(
+            pinnedInput.copy(lockTaskState = ExamLockTaskState.Locked)
+        ).items.first { it.category == PreExamHealthCategory.ScreenPinning }
+
+        assertEquals(PreExamHealthVerdict.Blocking, pinned.verdict)
+        assertEquals(PreExamHealthVerdict.Stable, locked.verdict)
     }
 
     @Test

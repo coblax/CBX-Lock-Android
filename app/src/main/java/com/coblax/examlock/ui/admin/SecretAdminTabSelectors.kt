@@ -1,7 +1,5 @@
-﻿package com.coblax.examlock.ui.admin
+package com.coblax.examlock.ui.admin
 
-import android.location.Location
-import android.net.Uri
 import androidx.compose.foundation.background
 import androidx.compose.foundation.border
 import androidx.compose.foundation.BorderStroke
@@ -9,24 +7,29 @@ import androidx.compose.foundation.clickable
 import androidx.compose.foundation.interaction.MutableInteractionSource
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
+import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.fillMaxWidth
+import androidx.compose.foundation.layout.heightIn
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.size
-import androidx.compose.foundation.layout.width
+import androidx.compose.foundation.layout.widthIn
+import androidx.compose.foundation.lazy.LazyRow
+import androidx.compose.foundation.lazy.items
+import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
-import androidx.compose.material3.Button
 import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
-import androidx.compose.runtime.getValue
 import androidx.compose.runtime.remember
-import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.semantics.Role
+import androidx.compose.ui.semantics.selected
+import androidx.compose.ui.semantics.semantics
+import androidx.compose.ui.semantics.stateDescription
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.dp
@@ -35,20 +38,8 @@ import androidx.compose.ui.unit.sp
 import com.coblax.examlock.i18n.tr
 import com.coblax.examlock.model.CustomQrAdminTab
 import com.coblax.examlock.model.SecretAdminTab
-import com.coblax.examlock.R
-import com.coblax.examlock.ui.theme.LockBlue
-import com.coblax.examlock.ui.theme.LockOnDark
-import com.coblax.examlock.ui.theme.LockOutline
-import com.coblax.examlock.ui.theme.LockSurface
-import com.coblax.examlock.ui.theme.LockSurfaceSoft
-import com.coblax.examlock.ui.theme.LockTextSecondary
+import com.coblax.examlock.ui.theme.AppColors
 import com.coblax.examlock.ui.theme.UiTokens
-import com.coblax.examlock.ui.theme.LockOutlineStrong
-
-import kotlin.coroutines.resume
-import kotlin.coroutines.resumeWithException
-import kotlin.math.roundToInt
-
 
 @Composable
 internal fun CustomQrAdminTabSelector(
@@ -63,38 +54,84 @@ internal fun CustomQrAdminTabSelector(
 
     Surface(
         modifier = Modifier.fillMaxWidth(),
-        shape = RoundedCornerShape(18.dp),
-        color = LockSurfaceSoft,
-        border = BorderStroke(1.dp, LockOutline)
+        shape = RoundedCornerShape(UiTokens.RadiusMd),
+        color = AppColors.current.surfaceSoft,
+        border = BorderStroke(1.dp, AppColors.current.outline)
     ) {
         Row(
             modifier = Modifier.padding(4.dp),
             horizontalArrangement = Arrangement.spacedBy(4.dp),
             verticalAlignment = Alignment.CenterVertically
         ) {
-            tabs.forEach { (tab, label) ->
+            tabs.forEachIndexed { index, (tab, label) ->
                 val selected = tab == selectedTab
+                val completed = tab.ordinal < selectedTab.ordinal
+                val stepStateDescription = when {
+                    selected -> tr("Current step", "Langkah aktif")
+                    completed -> tr("Completed step", "Langkah selesai")
+                    else -> tr("Upcoming step", "Langkah berikutnya")
+                }
                 Surface(
                     modifier = Modifier
                         .weight(1f)
+                        .heightIn(min = 64.dp)
                         .clip(RoundedCornerShape(UiTokens.RadiusSm))
+                        .semantics {
+                            this.selected = selected
+                            stateDescription = stepStateDescription
+                        }
                         .clickable(
                             interactionSource = remember { MutableInteractionSource() },
                             indication = null,
-                            role = Role.Button,
+                            role = Role.Tab,
                             onClick = { onTabSelected(tab) }
                         ),
                     shape = RoundedCornerShape(UiTokens.RadiusSm),
-                    color = if (selected) LockBlue else Color.Transparent
+                    color = if (selected) AppColors.current.blue else Color.Transparent
                 ) {
-                    Text(
-                        text = label,
-                        color = if (selected) LockOnDark else LockTextSecondary,
-                        fontSize = 14.sp,
-                        fontWeight = FontWeight.Bold,
-                        textAlign = TextAlign.Center,
-                        modifier = Modifier.padding(horizontal = 14.dp, vertical = 13.dp)
-                    )
+                    Column(
+                        modifier = Modifier.padding(horizontal = 4.dp, vertical = 8.dp),
+                        horizontalAlignment = Alignment.CenterHorizontally,
+                        verticalArrangement = Arrangement.spacedBy(4.dp)
+                    ) {
+                        Box(
+                            modifier = Modifier
+                                .size(24.dp)
+                                .clip(CircleShape)
+                                .background(
+                                    when {
+                                        selected -> AppColors.current.onDark.copy(alpha = 0.18f)
+                                        completed -> AppColors.current.statusSafeFill
+                                        else -> AppColors.current.background
+                                    }
+                                ),
+                            contentAlignment = Alignment.Center
+                        ) {
+                            Text(
+                                text = (index + 1).toString(),
+                                color = when {
+                                    selected -> AppColors.current.onDark
+                                    completed -> AppColors.current.statusSafe
+                                    else -> AppColors.current.textMuted
+                                },
+                                fontSize = 12.sp,
+                                fontWeight = FontWeight.ExtraBold
+                            )
+                        }
+                        Text(
+                            text = label,
+                            color = if (selected) {
+                                AppColors.current.onDark
+                            } else {
+                                AppColors.current.textSecondary
+                            },
+                            fontSize = 12.sp,
+                            lineHeight = 14.sp,
+                            fontWeight = FontWeight.Bold,
+                            textAlign = TextAlign.Center,
+                            maxLines = 2
+                        )
+                    }
                 }
             }
         }
@@ -108,30 +145,46 @@ internal fun SecretAdminTabSelector(
 ) {
     val tabs = listOf(
         SecretAdminTab.Setup to tr("Setup", "Setup"),
-        SecretAdminTab.Security to tr("Security", "Security")
+        SecretAdminTab.Security to tr("Security", "Keamanan"),
+        SecretAdminTab.Location to tr("Location", "Lokasi"),
+        SecretAdminTab.Diagnostics to tr("Diagnostics", "Diagnostik"),
+        SecretAdminTab.Overrides to tr("Overrides", "Override")
     )
 
-    Row(
+    LazyRow(
         modifier = Modifier
             .fillMaxWidth()
             .clip(RoundedCornerShape(UiTokens.RadiusSm))
-            .background(LockSurfaceSoft)
-            .border(1.dp, LockOutlineStrong, RoundedCornerShape(UiTokens.RadiusSm))
+            .background(AppColors.current.surfaceSoft)
+            .border(1.dp, AppColors.current.outlineStrong, RoundedCornerShape(UiTokens.RadiusSm))
             .padding(3.dp),
         horizontalArrangement = Arrangement.spacedBy(3.dp),
         verticalAlignment = Alignment.CenterVertically
     ) {
-        tabs.forEach { (tab, label) ->
+        items(
+            items = tabs,
+            key = { (tab, _) -> tab.name }
+        ) { (tab, label) ->
             val selected = tab == selectedTab
+            val tabStateDescription = if (selected) {
+                tr("Selected", "Dipilih")
+            } else {
+                tr("Not selected", "Tidak dipilih")
+            }
             Box(
                 modifier = Modifier
-                    .weight(1f)
+                    .widthIn(min = 96.dp)
+                    .heightIn(min = 48.dp)
                     .clip(RoundedCornerShape(11.dp))
-                    .background(if (selected) LockBlue else Color.Transparent)
+                    .background(if (selected) AppColors.current.blue else Color.Transparent)
+                    .semantics {
+                        this.selected = selected
+                        stateDescription = tabStateDescription
+                    }
                     .clickable(
                         interactionSource = remember { MutableInteractionSource() },
                         indication = null,
-                        role = Role.Button,
+                        role = Role.Tab,
                         onClick = { onTabSelected(tab) }
                     )
                     .padding(horizontal = 14.dp, vertical = 12.dp),
@@ -139,7 +192,7 @@ internal fun SecretAdminTabSelector(
             ) {
                 Text(
                     text = label,
-                    color = if (selected) LockOnDark else LockTextSecondary,
+                    color = if (selected) AppColors.current.onDark else AppColors.current.textSecondary,
                     fontSize = 13.sp,
                     fontWeight = FontWeight.Bold,
                     textAlign = TextAlign.Center

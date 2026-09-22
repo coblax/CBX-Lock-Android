@@ -2,7 +2,9 @@ package com.coblax.examlock.viewmodel
 import com.coblax.examlock.ExamScheduleDefaults
 import com.coblax.examlock.GeofenceShapeType
 import com.coblax.examlock.GeofenceVertex
+import com.coblax.examlock.model.AdminSettings
 import com.coblax.examlock.model.AppScreen
+import com.coblax.examlock.persistence.adminSettingsArePersistenceEquivalent
 import androidx.lifecycle.ViewModel
 import kotlinx.coroutines.flow.MutableSharedFlow
 import kotlinx.coroutines.flow.MutableStateFlow
@@ -13,6 +15,17 @@ import kotlinx.coroutines.flow.asStateFlow
 import kotlinx.coroutines.flow.update
 import java.util.UUID
 
+internal sealed interface AdminApplyState {
+    data object Idle : AdminApplyState
+    data object Applying : AdminApplyState
+    data object Success : AdminApplyState
+    data class Failure(
+        val message: String,
+        val rollbackSucceeded: Boolean? = null
+    ) : AdminApplyState
+    data object ReauthenticationRequired : AdminApplyState
+}
+
 internal data class AdminFlowUiState(
     val currentScreen: AppScreen = AppScreen.Home,
     val showSecretAdmin: Boolean = false,
@@ -22,6 +35,9 @@ internal data class AdminFlowUiState(
     val showAdminPasswordDialog: Boolean = false,
     val adminPasswordInput: String = "",
     val adminPasswordError: String? = null,
+    val persistedAdminSettings: AdminSettings? = null,
+    val draftAdminSettings: AdminSettings? = null,
+    val adminApplyState: AdminApplyState = AdminApplyState.Idle,
     val selectedSecretTab: String = "setup",
     val selectedCustomQrTab: String = "exam",
     val customQrDraft: CustomQrDraftState = CustomQrDraftState(),
@@ -33,7 +49,15 @@ internal data class AdminFlowUiState(
     val directLinkDraftUrl: String = "",
     val infoDialogTitle: String? = null,
     val infoDialogMessage: String? = null
-)
+) {
+    val hasUnsavedAdminSettings: Boolean
+        get() = persistedAdminSettings != null &&
+            draftAdminSettings != null &&
+            !adminSettingsArePersistenceEquivalent(
+                persistedAdminSettings,
+                draftAdminSettings
+            )
+}
 
 internal data class CustomQrDraftState(
     val examUrl: String = "",
@@ -63,6 +87,13 @@ internal sealed interface AdminFlowUiAction {
     data object HideAdminPasswordDialog : AdminFlowUiAction
     data class SetAdminPasswordInput(val value: String) : AdminFlowUiAction
     data class SetAdminPasswordError(val message: String?) : AdminFlowUiAction
+    data class InitializeAdminSettings(val settings: AdminSettings) : AdminFlowUiAction
+    data class UpdateAdminSettingsDraft(val settings: AdminSettings) : AdminFlowUiAction
+    data object RevertAdminSettingsDraft : AdminFlowUiAction
+    data class SetAdminApplyState(val state: AdminApplyState) : AdminFlowUiAction
+    data class CommitAppliedAdminSettings(val settings: AdminSettings) : AdminFlowUiAction
+    data class RefreshPersistedAdminSettings(val settings: AdminSettings) : AdminFlowUiAction
+    data object ClearAdminSettingsDraft : AdminFlowUiAction
     data class SelectSecretTab(val tab: String) : AdminFlowUiAction
     data class SelectCustomQrTab(val tab: String) : AdminFlowUiAction
     data class SetCustomQrDraft(val draft: CustomQrDraftState) : AdminFlowUiAction
@@ -102,7 +133,14 @@ internal class AdminFlowViewModel : ViewModel() {
                 )
             }
             AdminFlowUiAction.CloseSecretAdmin -> _uiState.update {
-                it.copy(currentScreen = AppScreen.Home, showSecretAdmin = false, selectedSecretTab = "setup")
+                it.copy(
+                    currentScreen = AppScreen.Home,
+                    showSecretAdmin = false,
+                    persistedAdminSettings = null,
+                    draftAdminSettings = null,
+                    adminApplyState = AdminApplyState.Idle,
+                    selectedSecretTab = "setup"
+                )
             }
             AdminFlowUiAction.OpenCustomQrAdmin -> _uiState.update {
                 it.copy(
@@ -138,6 +176,49 @@ internal class AdminFlowViewModel : ViewModel() {
             AdminFlowUiAction.HideAdminPasswordDialog -> _uiState.update { it.copy(showAdminPasswordDialog = false) }
             is AdminFlowUiAction.SetAdminPasswordInput -> _uiState.update { it.copy(adminPasswordInput = action.value) }
             is AdminFlowUiAction.SetAdminPasswordError -> _uiState.update { it.copy(adminPasswordError = action.message) }
+            is AdminFlowUiAction.InitializeAdminSettings -> _uiState.update { current ->
+                if (current.hasUnsavedAdminSettings) {
+                    current
+                } else {
+                    current.copy(
+                        persistedAdminSettings = action.settings,
+                        draftAdminSettings = action.settings,
+                        adminApplyState = AdminApplyState.Idle
+                    )
+                }
+            }
+            is AdminFlowUiAction.UpdateAdminSettingsDraft -> _uiState.update {
+                it.copy(
+                    draftAdminSettings = action.settings,
+                    adminApplyState = AdminApplyState.Idle
+                )
+            }
+            AdminFlowUiAction.RevertAdminSettingsDraft -> _uiState.update {
+                it.copy(
+                    draftAdminSettings = it.persistedAdminSettings,
+                    adminApplyState = AdminApplyState.Idle
+                )
+            }
+            is AdminFlowUiAction.SetAdminApplyState -> _uiState.update {
+                it.copy(adminApplyState = action.state)
+            }
+            is AdminFlowUiAction.CommitAppliedAdminSettings -> _uiState.update {
+                it.copy(
+                    persistedAdminSettings = action.settings,
+                    draftAdminSettings = action.settings,
+                    adminApplyState = AdminApplyState.Success
+                )
+            }
+            is AdminFlowUiAction.RefreshPersistedAdminSettings -> _uiState.update {
+                it.copy(persistedAdminSettings = action.settings)
+            }
+            AdminFlowUiAction.ClearAdminSettingsDraft -> _uiState.update {
+                it.copy(
+                    persistedAdminSettings = null,
+                    draftAdminSettings = null,
+                    adminApplyState = AdminApplyState.Idle
+                )
+            }
             is AdminFlowUiAction.SelectSecretTab -> _uiState.update { it.copy(selectedSecretTab = action.tab) }
             is AdminFlowUiAction.SelectCustomQrTab -> _uiState.update { it.copy(selectedCustomQrTab = action.tab) }
             is AdminFlowUiAction.SetCustomQrDraft -> _uiState.update { it.copy(customQrDraft = action.draft) }

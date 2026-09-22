@@ -1,6 +1,7 @@
 package com.coblax.examlock.config
 internal const val UiPreferencesName = "coblax_ui_preferences"
 internal const val UiLanguagePreferenceKey = "ui_language"
+internal const val UiThemeModePreferenceKey = "ui_theme_mode"
 internal const val QrImageReadErrorOpen = "qr_image_open_failed"
 internal const val QrImageReadErrorDecode = "qr_image_decode_failed"
 internal const val DeveloperGithubUrl = "https://github.com/coblax"
@@ -11,6 +12,7 @@ internal const val AdminKeyOfficialApkUrl = "admin_official_apk_url"
 internal const val AdminKeyCustomQrSaveToDirectLinkEnabled =
     "admin_custom_qr_save_to_direct_link_enabled"
 internal const val AdminKeyShowChecklistDetails = "admin_show_checklist_details"
+internal const val AdminKeyTelegramDiagnosticsEnabled = "admin_telegram_diagnostics_enabled"
 internal const val AdminKeyExamUserAgent = "admin_exam_user_agent"
 internal const val AdminKeyLowRamProfileOverride = "admin_low_ram_profile_override"
 internal const val AdminKeyDirectLinkLocationPolicySaved = "admin_fast_exam_location_policy_saved"

@@ -12,7 +12,6 @@ internal enum class WizardStep(
     val sectionKey: String,
     val titleEN: String,
     val titleID: String,
-    val iconEmoji: String,
     val descEN: String,
     val descID: String,
     /** Short label shown beneath step indicator circles on expanded (tablet) layouts. */
@@ -23,7 +22,6 @@ internal enum class WizardStep(
         sectionKey = "checklist_device_setup",
         titleEN = "Device Setup",
         titleID = "Pengaturan Perangkat",
-        iconEmoji = "📱",
         descEN = "Keyboard & Bluetooth settings",
         descID = "Pengaturan keyboard & Bluetooth",
         shortLabelEN = "Setup",
@@ -33,7 +31,6 @@ internal enum class WizardStep(
         sectionKey = "checklist_connectivity",
         titleEN = "Connectivity",
         titleID = "Konektivitas",
-        iconEmoji = "🌐",
         descEN = "Network & VPN checks",
         descID = "Pemeriksaan jaringan & VPN",
         shortLabelEN = "Net",
@@ -43,7 +40,6 @@ internal enum class WizardStep(
         sectionKey = "checklist_device_health",
         titleEN = "Device Health",
         titleID = "Kesehatan Perangkat",
-        iconEmoji = "💊",
         descEN = "WebView & time settings",
         descID = "Pengaturan WebView & waktu",
         shortLabelEN = "Health",
@@ -53,7 +49,6 @@ internal enum class WizardStep(
         sectionKey = "checklist_runtime_interaction",
         titleEN = "Runtime Interaction",
         titleID = "Interaksi Runtime",
-        iconEmoji = "🛡️",
         descEN = "Accessibility & overlay checks",
         descID = "Pemeriksaan aksesibilitas & overlay",
         shortLabelEN = "A11y",
@@ -63,7 +58,6 @@ internal enum class WizardStep(
         sectionKey = "checklist_device_integrity",
         titleEN = "Device Integrity",
         titleID = "Integritas Perangkat",
-        iconEmoji = "🔒",
         descEN = "ADB, root & signature verification",
         descID = "Verifikasi ADB, root & signature",
         shortLabelEN = "Integ.",
@@ -73,7 +67,6 @@ internal enum class WizardStep(
         sectionKey = "checklist_runtime_clipboard",
         titleEN = "Clipboard",
         titleID = "Clipboard",
-        iconEmoji = "📋",
         descEN = "Clipboard monitoring status",
         descID = "Status monitoring clipboard",
         shortLabelEN = "Clip",
@@ -83,7 +76,6 @@ internal enum class WizardStep(
         sectionKey = "checklist_location",
         titleEN = "Location",
         titleID = "Lokasi",
-        iconEmoji = "📍",
         descEN = "Geofence & anti-fake-location",
         descID = "Geofence & anti-lokasi-palsu",
         shortLabelEN = "Loc",
@@ -93,7 +85,6 @@ internal enum class WizardStep(
         sectionKey = "checklist_device_lock",
         titleEN = "Device Lock",
         titleID = "Kunci Perangkat",
-        iconEmoji = "🔐",
         descEN = "Screen pinning & exam guard",
         descID = "Screen pinning & penjaga ujian",
         shortLabelEN = "Lock",
@@ -103,7 +94,6 @@ internal enum class WizardStep(
         sectionKey = "checklist_runtime_static_security",
         titleEN = "Runtime Security",
         titleID = "Keamanan Runtime",
-        iconEmoji = "⚡",
         descEN = "Screen recorder, display mirror, multi-window",
         descID = "Screen recorder, display mirror, multi-window",
         shortLabelEN = "Sec",
@@ -123,6 +113,44 @@ internal data class WizardStepState(
     val isCompleted: Boolean,
     val issueCount: Int
 )
+
+internal enum class WizardPrimaryAction {
+    Next,
+    Start,
+    Starting,
+    Preparing
+}
+
+internal fun resolveWizardPrimaryAction(
+    currentStepIndex: Int,
+    totalSteps: Int,
+    isStartingExam: Boolean,
+    webViewSessionResetInFlight: Boolean
+): WizardPrimaryAction {
+    return when {
+        webViewSessionResetInFlight -> WizardPrimaryAction.Preparing
+        isStartingExam -> WizardPrimaryAction.Starting
+        currentStepIndex == totalSteps - 1 -> WizardPrimaryAction.Start
+        else -> WizardPrimaryAction.Next
+    }
+}
+
+internal fun shouldExpandWizardStepDetails(issueCount: Int): Boolean = issueCount > 0
+
+internal object PreparationWizardUiTestTags {
+    const val Header = "preparation_wizard_header"
+    const val StepIndicator = "preparation_wizard_step_indicator"
+    const val StepSummary = "preparation_wizard_step_summary"
+    const val DetailsCard = "preparation_wizard_details_card"
+    const val DetailsToggle = "preparation_wizard_details_toggle"
+    const val DetailsContent = "preparation_wizard_details_content"
+    const val BottomBar = "preparation_wizard_bottom_bar"
+    const val BackAction = "preparation_wizard_back_action"
+    const val RecheckAction = "preparation_wizard_recheck_action"
+    const val PrimaryAction = "preparation_wizard_primary_action"
+    const val StepHint = "preparation_wizard_step_hint"
+    const val FinalSummary = "preparation_wizard_final_summary"
+}
 
 internal enum class PreparationWizardPayloadBuildMode {
     FullChecklist,

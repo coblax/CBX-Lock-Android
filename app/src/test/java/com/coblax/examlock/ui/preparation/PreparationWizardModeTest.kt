@@ -227,6 +227,60 @@ class PreparationWizardModeTest {
         assertFalse(coverage.showManualFixHint)
     }
 
+    @Test
+    fun intermediateStepAlwaysUsesClearContinueAction() {
+        assertEquals(
+            WizardPrimaryAction.Next,
+            resolveWizardPrimaryAction(
+                currentStepIndex = 3,
+                totalSteps = WizardStep.entries.size,
+                isStartingExam = false,
+                webViewSessionResetInFlight = false
+            )
+        )
+    }
+
+    @Test
+    fun finalStepReflectsStartLifecycle() {
+        val finalIndex = WizardStep.entries.lastIndex
+        val totalSteps = WizardStep.entries.size
+
+        assertEquals(
+            WizardPrimaryAction.Start,
+            resolveWizardPrimaryAction(
+                currentStepIndex = finalIndex,
+                totalSteps = totalSteps,
+                isStartingExam = false,
+                webViewSessionResetInFlight = false
+            )
+        )
+        assertEquals(
+            WizardPrimaryAction.Starting,
+            resolveWizardPrimaryAction(
+                currentStepIndex = finalIndex,
+                totalSteps = totalSteps,
+                isStartingExam = true,
+                webViewSessionResetInFlight = false
+            )
+        )
+        assertEquals(
+            WizardPrimaryAction.Preparing,
+            resolveWizardPrimaryAction(
+                currentStepIndex = finalIndex,
+                totalSteps = totalSteps,
+                isStartingExam = true,
+                webViewSessionResetInFlight = true
+            )
+        )
+    }
+
+    @Test
+    fun checklistDetailsOpenByDefaultOnlyForStepsWithIssues() {
+        assertFalse(shouldExpandWizardStepDetails(issueCount = 0))
+        assertTrue(shouldExpandWizardStepDetails(issueCount = 1))
+        assertTrue(shouldExpandWizardStepDetails(issueCount = 4))
+    }
+
     private fun readiness(): PreparationChecklistReadiness =
         PreparationChecklistReadiness(
             keyboardReady = true,

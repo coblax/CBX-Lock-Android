@@ -8,6 +8,7 @@ import androidx.compose.runtime.rememberUpdatedState
 import com.coblax.examlock.ActivityLockTaskBridge
 import com.coblax.examlock.FatalSecuritySignal
 import com.coblax.examlock.LowRamProfile
+import com.coblax.examlock.LockTaskSecurityRequirement
 import com.coblax.examlock.MainActivity
 import com.coblax.examlock.model.DiagnosticEventLevel
 import com.coblax.examlock.PinningActivationPurpose
@@ -41,6 +42,7 @@ internal fun RuntimeScreenPinningMonitorEffect(
     accessibilityGuardFallbackActive: Boolean,
     exitOnSecurityIssueDialogDismiss: Boolean,
     lockTaskBridge: ActivityLockTaskBridge,
+    lockTaskRequirement: LockTaskSecurityRequirement,
     isIndonesian: Boolean,
     deviceQuirkProfile: ExamRuntimeDeviceQuirkProfile,
     currentScreenPinningMonitorIntervalMillis: () -> Long,
@@ -52,6 +54,7 @@ internal fun RuntimeScreenPinningMonitorEffect(
     val latestLockTaskRequestPending by rememberUpdatedState(lockTaskRequestPending)
     val latestIsIndonesian by rememberUpdatedState(isIndonesian)
     val latestScreenPinningMode by rememberUpdatedState(screenPinningMode)
+    val latestLockTaskRequirement by rememberUpdatedState(lockTaskRequirement)
     val latestFatalSecurityExitPending by rememberUpdatedState(exitOnSecurityIssueDialogDismiss)
     val latestDeviceQuirkProfile by rememberUpdatedState(deviceQuirkProfile)
     val latestRecordAction by rememberUpdatedState(recordAction)
@@ -59,6 +62,7 @@ internal fun RuntimeScreenPinningMonitorEffect(
     LaunchedEffect(
         mainActivity,
         screenPinningMode,
+        lockTaskRequirement,
         examSessionStarted,
         examSessionStartedAtElapsedMs,
         lockTaskRequestPending,
@@ -87,7 +91,8 @@ internal fun RuntimeScreenPinningMonitorEffect(
                 sessionStarted = latestExamSessionStarted,
                 requestPending = latestLockTaskRequestPending,
                 bridge = lockTaskBridge,
-                isIndonesian = latestIsIndonesian
+                isIndonesian = latestIsIndonesian,
+                requirement = latestLockTaskRequirement
             )
             if (fatalSignal != null) {
                 val nowElapsedMs = SystemClock.elapsedRealtime()
@@ -149,6 +154,7 @@ internal fun RuntimeScreenPinningMonitorEffect(
 internal fun RuntimeScreenPinningActivationEffect(
     mainActivity: MainActivity?,
     lockTaskBridge: ActivityLockTaskBridge,
+    lockTaskRequirement: LockTaskSecurityRequirement,
     isIndonesian: Boolean,
     flowUiState: ExamRuntimeFlowUiState,
     adminUiState: ExamRuntimeAdminUiState,
@@ -164,7 +170,7 @@ internal fun RuntimeScreenPinningActivationEffect(
     val examSessionStarted = flowUiState.examSessionStarted.value
     val pinningActivationPurpose = flowUiState.pinningActivationPurpose.value
 
-    LaunchedEffect(lockTaskRequestPending, mainActivity, pinningActivationPurpose) {
+    LaunchedEffect(lockTaskRequestPending, mainActivity, pinningActivationPurpose, lockTaskRequirement) {
         if (lockTaskRequestPending) {
             if (mainActivity == null) {
                 recordAction(
@@ -199,6 +205,7 @@ internal fun RuntimeScreenPinningActivationEffect(
             val screenPinningReport = ScreenPinningEnforcer.requestAndAwaitActivation(
                 bridge = lockTaskBridge,
                 isIndonesian = isIndonesian,
+                requirement = lockTaskRequirement,
                 windowHasFocus = { mainActivity.hasWindowFocus() }
             )
             if (screenPinningReport.dialogLikelyShown) {
@@ -227,7 +234,7 @@ internal fun RuntimeScreenPinningActivationEffect(
                 // Guard against immediate unpin on devices where the system dialog
                 // briefly drops lock task mode after confirmation (Samsung, etc.)
                 delay(500)
-                if (!lockTaskBridge.active()) {
+                if (!lockTaskBridge.satisfies(lockTaskRequirement)) {
                     recordAction(
                         ExamRuntimeHardeningDiagnostics.ScreenPinningTransientLossRecheck,
                         "state=${lockTaskBridge.stateLabel()} | action=post_confirm_reengage",
@@ -235,7 +242,7 @@ internal fun RuntimeScreenPinningActivationEffect(
                     )
                     lockTaskBridge.engage(allowLockTask = true)
                     delay(1_000)
-                    if (!lockTaskBridge.active()) {
+                    if (!lockTaskBridge.satisfies(lockTaskRequirement)) {
                         recordAction(
                             ExamRuntimeHardeningDiagnostics.ScreenPinningTransientLossRecheck,
                             "state=${lockTaskBridge.stateLabel()} | action=post_confirm_reengage_failed",
@@ -357,7 +364,7 @@ internal fun RuntimeScreenPinningActivationEffect(
             }
         } else if (!examSessionStarted) {
             flowUiState.lockTaskRequestPending.value = false
-            if (lockTaskBridge.active()) {
+            if (lockTaskBridge.satisfies(lockTaskRequirement)) {
                 flowUiState.pinningActivationState.value = PinningActivationState.ActiveConfirmed
             } else if (flowUiState.pinningActivationState.value != PinningActivationState.TimeoutRetryReady) {
                 flowUiState.pinningActivationState.value = PinningActivationState.Idle

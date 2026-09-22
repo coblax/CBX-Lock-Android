@@ -1,4 +1,4 @@
-﻿package com.coblax.examlock.ui.dialog
+package com.coblax.examlock.ui.dialog
 
 import android.content.Context
 import android.location.Location
@@ -60,6 +60,7 @@ import com.coblax.examlock.format.formatLocationFixAge
 import com.coblax.examlock.formatCoordinates
 import com.coblax.examlock.GeofenceSecurityStatus
 import com.coblax.examlock.GeofenceSecurityVerdict
+import com.coblax.examlock.ui.LocalTelegramDiagnosticsEnabled
 import com.coblax.examlock.i18n.tr
 import com.coblax.examlock.LocationSpoofConfidenceTier
 import com.coblax.examlock.LocationSpoofSecurityStatus
@@ -72,18 +73,8 @@ import com.coblax.examlock.runtime.buildVpnRuntimeEvidence
 import com.coblax.examlock.runtime.ExternalDisplayInfo
 import com.coblax.examlock.runtime.MultiWindowModeInfo
 import com.coblax.examlock.ui.geofence.summarizeCircleCenters
-import com.coblax.examlock.ui.theme.LockBackground
-import com.coblax.examlock.ui.theme.LockBlue
-import com.coblax.examlock.ui.theme.LockBlueDeep
-import com.coblax.examlock.ui.theme.LockDialogDangerBg
-import com.coblax.examlock.ui.theme.LockDialogDangerIcon
-import com.coblax.examlock.ui.theme.LockGold
-import com.coblax.examlock.ui.theme.LockGoldDark
-import com.coblax.examlock.ui.theme.LockTextMuted
-import com.coblax.examlock.ui.theme.LockTextPrimary
-import com.coblax.examlock.ui.theme.LockTextSecondary
+import com.coblax.examlock.ui.theme.AppColors
 import com.coblax.examlock.ui.theme.UiTokens
-import com.coblax.examlock.ui.theme.LockDangerTint
 
 import java.util.Date
 import java.util.Locale
@@ -107,7 +98,7 @@ internal fun KeyboardViolationDialog(
             dismissOnBackPress = false,
             dismissOnClickOutside = false
         ),
-        containerColor = LockDialogDangerBg,
+        containerColor = AppColors.current.dialogDangerBg,
         title = {
             Row(
                 horizontalArrangement = Arrangement.spacedBy(10.dp),
@@ -115,12 +106,12 @@ internal fun KeyboardViolationDialog(
             ) {
                 Surface(
                     shape = CircleShape,
-                    color = LockDangerTint
+                    color = AppColors.current.dangerTint
                 ) {
                     Icon(
                         imageVector = Icons.Rounded.QrCodeScanner,
                         contentDescription = null,
-                        tint = LockDialogDangerIcon,
+                        tint = AppColors.current.dialogDangerIcon,
                         modifier = Modifier
                             .padding(6.dp)
                             .size(20.dp)
@@ -128,7 +119,7 @@ internal fun KeyboardViolationDialog(
                 }
                 Text(
                     text = tr("Keyboard Not Allowed", "Keyboard Tidak Diizinkan"),
-                    color = LockDialogDangerIcon,
+                    color = AppColors.current.dialogDangerIcon,
                     fontWeight = FontWeight.Bold
                 )
             }
@@ -140,7 +131,7 @@ internal fun KeyboardViolationDialog(
                         "The app detected a non-standard keyboard during the exam session.",
                         "Aplikasi mendeteksi keyboard non-standar saat sesi ujian berjalan."
                     ),
-                    color = LockTextPrimary
+                    color = AppColors.current.textPrimary
                 )
                 Spacer(modifier = Modifier.height(10.dp))
                 Text(
@@ -148,12 +139,12 @@ internal fun KeyboardViolationDialog(
                         "Detected keyboard: ${keyboardLabel.ifBlank { "Unknown" }}",
                         "Keyboard terdeteksi: ${keyboardLabel.ifBlank { "Tidak diketahui" }}"
                     ),
-                    color = LockTextSecondary
+                    color = AppColors.current.textSecondary
                 )
                 Spacer(modifier = Modifier.height(10.dp))
                 Text(
                     text = tr("Keyboard violations: $violationCount", "Jumlah pelanggaran keyboard: $violationCount"),
-                    color = LockDialogDangerIcon,
+                    color = AppColors.current.dialogDangerIcon,
                     fontWeight = FontWeight.Bold
                 )
                 Spacer(modifier = Modifier.height(10.dp))
@@ -162,13 +153,13 @@ internal fun KeyboardViolationDialog(
                         "Please switch back to the device's default keyboard so the exam can continue.",
                         "Silakan kembali ke keyboard bawaan perangkat agar ujian bisa dilanjutkan."
                     ),
-                    color = LockTextSecondary
+                    color = AppColors.current.textSecondary
                 )
             }
         },
         confirmButton = {
             TextButton(onClick = onAcknowledge) {
-                Text(tr("I Understand", "Saya Mengerti"), color = LockBlueDeep)
+                Text(tr("I Understand", "Saya Mengerti"), color = AppColors.current.brandText)
             }
         }
     )
@@ -195,7 +186,7 @@ internal fun ExitExamDialog(
                 onDismiss()
             }
         },
-        containerColor = LockBackground,
+        containerColor = AppColors.current.background,
         title = {
             Row(
                 horizontalArrangement = Arrangement.spacedBy(10.dp),
@@ -203,12 +194,12 @@ internal fun ExitExamDialog(
             ) {
                 Surface(
                     shape = CircleShape,
-                    color = LockTextPrimary.copy(alpha = 0.08f)
+                    color = AppColors.current.textPrimary.copy(alpha = 0.08f)
                 ) {
                     Icon(
                         imageVector = Icons.AutoMirrored.Rounded.Send,
                         contentDescription = null,
-                        tint = LockTextPrimary,
+                        tint = AppColors.current.textPrimary,
                         modifier = Modifier
                             .padding(6.dp)
                             .size(18.dp)
@@ -216,7 +207,7 @@ internal fun ExitExamDialog(
                 }
                 Text(
                     text = tr("Exit Exam Mode", "Keluar Dari Mode Ujian"),
-                    color = LockTextPrimary,
+                    color = AppColors.current.textPrimary,
                     fontWeight = FontWeight.Bold
                 )
             }
@@ -239,7 +230,7 @@ internal fun ExitExamDialog(
                         "Anda akan keluar dari layar ujian dan mode kunci aplikasi akan dimatikan."
                     )
                 },
-                color = LockTextSecondary
+                color = AppColors.current.textSecondary
             )
         },
         confirmButton = {
@@ -248,7 +239,7 @@ internal fun ExitExamDialog(
                     onClick = onForceExit,
                     shape = RoundedCornerShape(UiTokens.RadiusSm),
                     colors = ButtonDefaults.buttonColors(
-                        containerColor = LockDialogDangerIcon,
+                        containerColor = AppColors.current.dialogDangerIcon,
                         contentColor = Color.White
                     )
                 ) {
@@ -263,9 +254,9 @@ internal fun ExitExamDialog(
                         CircularProgressIndicator(
                             modifier = Modifier.size(16.dp),
                             strokeWidth = 2.dp,
-                            color = LockBlueDeep
+                            color = AppColors.current.brandText
                         )
-                        Text(tr("Clearing", "Membersihkan"), color = LockTextSecondary)
+                        Text(tr("Clearing", "Membersihkan"), color = AppColors.current.textSecondary)
                     }
                 }
             } else {
@@ -273,7 +264,7 @@ internal fun ExitExamDialog(
                     onClick = onConfirm,
                     shape = RoundedCornerShape(UiTokens.RadiusSm),
                     colors = ButtonDefaults.buttonColors(
-                        containerColor = LockDialogDangerIcon,
+                        containerColor = AppColors.current.dialogDangerIcon,
                         contentColor = Color.White
                     )
                 ) {
@@ -286,7 +277,7 @@ internal fun ExitExamDialog(
                 onClick = onDismiss,
                 enabled = !isClearingSession || forceExitEnabled
             ) {
-                Text(tr("Cancel", "Batal"), color = LockBlueDeep)
+                Text(tr("Cancel", "Batal"), color = AppColors.current.brandText)
             }
         }
     )
@@ -314,7 +305,7 @@ internal fun OverlayViolationDialog(
             dismissOnBackPress = false,
             dismissOnClickOutside = false
         ),
-        containerColor = LockDialogDangerBg,
+        containerColor = AppColors.current.dialogDangerBg,
         title = {
             Row(
                 horizontalArrangement = Arrangement.spacedBy(10.dp),
@@ -322,12 +313,12 @@ internal fun OverlayViolationDialog(
             ) {
                 Surface(
                     shape = CircleShape,
-                    color = LockDangerTint
+                    color = AppColors.current.dangerTint
                 ) {
                     Icon(
                         imageVector = Icons.Rounded.AdminPanelSettings,
                         contentDescription = null,
-                        tint = LockDialogDangerIcon,
+                        tint = AppColors.current.dialogDangerIcon,
                         modifier = Modifier
                             .padding(6.dp)
                             .size(20.dp)
@@ -335,7 +326,7 @@ internal fun OverlayViolationDialog(
                 }
                 Text(
                     text = tr("Floating App Detected", "Floating App Terdeteksi"),
-                    color = LockDialogDangerIcon,
+                    color = AppColors.current.dialogDangerIcon,
                     fontWeight = FontWeight.Bold
                 )
             }
@@ -347,14 +338,14 @@ internal fun OverlayViolationDialog(
                         "The app detected a floating window or overlay above the exam screen.",
                         "Aplikasi mendeteksi ada jendela melayang atau overlay di atas layar ujian."
                     ),
-                    color = LockTextPrimary
+                    color = AppColors.current.textPrimary
                 )
                 Spacer(modifier = Modifier.height(10.dp))
-                Text(text = reasonText, color = LockTextSecondary)
+                Text(text = reasonText, color = AppColors.current.textSecondary)
                 Spacer(modifier = Modifier.height(10.dp))
                 Text(
                     text = tr("Overlay violations: $violationCount", "Jumlah pelanggaran overlay: $violationCount"),
-                    color = LockDialogDangerIcon,
+                    color = AppColors.current.dialogDangerIcon,
                     fontWeight = FontWeight.Bold
                 )
                 Spacer(modifier = Modifier.height(10.dp))
@@ -363,13 +354,13 @@ internal fun OverlayViolationDialog(
                         "Close the floating app, then continue the exam carefully.",
                         "Tutup floating app lalu lanjutkan ujian dengan hati-hati."
                     ),
-                    color = LockTextSecondary
+                    color = AppColors.current.textSecondary
                 )
             }
         },
         confirmButton = {
             TextButton(onClick = onAcknowledge) {
-                Text(tr("I Understand", "Saya Mengerti"), color = LockBlueDeep)
+                Text(tr("I Understand", "Saya Mengerti"), color = AppColors.current.brandText)
             }
         }
     )
@@ -386,21 +377,21 @@ internal fun OfflineTooLongDialog(
             dismissOnBackPress = false,
             dismissOnClickOutside = false
         ),
-        containerColor = Color(0xFFFFFBF0),
+        containerColor = AppColors.current.warnBgWarm,
         title = {
             Row(
                 horizontalArrangement = Arrangement.spacedBy(10.dp),
                 verticalAlignment = Alignment.CenterVertically
             ) {
-                Surface(shape = CircleShape, color = LockGoldDark.copy(alpha = 0.14f)) {
+                Surface(shape = CircleShape, color = AppColors.current.goldDark.copy(alpha = 0.14f)) {
                     Icon(
                         imageVector = Icons.Rounded.Language,
                         contentDescription = null,
-                        tint = LockGoldDark,
+                        tint = AppColors.current.goldDark,
                         modifier = Modifier.padding(6.dp).size(20.dp)
                     )
                 }
-                Text(text = tr("Connection Lost Too Long", "Koneksi Terputus Terlalu Lama"), color = LockGoldDark, fontWeight = FontWeight.Bold)
+                Text(text = tr("Connection Lost Too Long", "Koneksi Terputus Terlalu Lama"), color = AppColors.current.goldDark, fontWeight = FontWeight.Bold)
             }
         },
         text = {
@@ -410,7 +401,7 @@ internal fun OfflineTooLongDialog(
                         "The exam device has been offline for too long.",
                         "Perangkat ujian sudah offline terlalu lama."
                     ),
-                    color = LockTextPrimary
+                    color = AppColors.current.textPrimary
                 )
                 Spacer(modifier = Modifier.height(10.dp))
                 Text(
@@ -418,7 +409,7 @@ internal fun OfflineTooLongDialog(
                         "Offline duration: $durationText",
                         "Durasi offline: $durationText"
                     ),
-                    color = LockGoldDark,
+                    color = AppColors.current.goldDark,
                     fontWeight = FontWeight.Bold
                 )
                 Spacer(modifier = Modifier.height(10.dp))
@@ -427,13 +418,13 @@ internal fun OfflineTooLongDialog(
                         "Check Wi-Fi or cellular data, then continue the exam once the connection is stable.",
                         "Periksa Wi-Fi atau data seluler, lalu lanjutkan ujian setelah koneksi stabil."
                     ),
-                    color = LockTextSecondary
+                    color = AppColors.current.textSecondary
                 )
             }
         },
         confirmButton = {
             TextButton(onClick = onAcknowledge) {
-                Text(tr("I Understand", "Saya Mengerti"), color = LockBlueDeep)
+                Text(tr("I Understand", "Saya Mengerti"), color = AppColors.current.brandText)
             }
         }
     )
@@ -451,21 +442,21 @@ internal fun NetworkUnstableDialog(
             dismissOnBackPress = false,
             dismissOnClickOutside = false
         ),
-        containerColor = Color(0xFFFFFBF0),
+        containerColor = AppColors.current.warnBgWarm,
         title = {
             Row(
                 horizontalArrangement = Arrangement.spacedBy(10.dp),
                 verticalAlignment = Alignment.CenterVertically
             ) {
-                Surface(shape = CircleShape, color = LockGoldDark.copy(alpha = 0.14f)) {
+                Surface(shape = CircleShape, color = AppColors.current.goldDark.copy(alpha = 0.14f)) {
                     Icon(
                         imageVector = Icons.Rounded.Refresh,
                         contentDescription = null,
-                        tint = LockGoldDark,
+                        tint = AppColors.current.goldDark,
                         modifier = Modifier.padding(6.dp).size(20.dp)
                     )
                 }
-                Text(text = tr("Connection Unstable", "Koneksi Tidak Stabil"), color = LockGoldDark, fontWeight = FontWeight.Bold)
+                Text(text = tr("Connection Unstable", "Koneksi Tidak Stabil"), color = AppColors.current.goldDark, fontWeight = FontWeight.Bold)
             }
         },
         text = {
@@ -475,7 +466,7 @@ internal fun NetworkUnstableDialog(
                         "The exam connection changed several times in a short period.",
                         "Koneksi ujian berubah beberapa kali dalam waktu singkat."
                     ),
-                    color = LockTextPrimary
+                    color = AppColors.current.textPrimary
                 )
                 Spacer(modifier = Modifier.height(10.dp))
                 Text(
@@ -483,7 +474,7 @@ internal fun NetworkUnstableDialog(
                         "Last transport: $transportLabel",
                         "Transport terakhir: $transportLabel"
                     ),
-                    color = LockGoldDark,
+                    color = AppColors.current.goldDark,
                     fontWeight = FontWeight.Bold
                 )
                 Spacer(modifier = Modifier.height(6.dp))
@@ -492,7 +483,7 @@ internal fun NetworkUnstableDialog(
                         "Detected changes: $flapCount",
                         "Jumlah perubahan terdeteksi: $flapCount"
                     ),
-                    color = LockTextPrimary,
+                    color = AppColors.current.textPrimary,
                     fontWeight = FontWeight.SemiBold
                 )
                 Spacer(modifier = Modifier.height(10.dp))
@@ -501,13 +492,13 @@ internal fun NetworkUnstableDialog(
                         "Move to a more stable Wi-Fi or cellular connection if the exam needs internet access.",
                         "Pindah ke koneksi Wi-Fi atau seluler yang lebih stabil jika ujian membutuhkan akses internet."
                     ),
-                    color = LockTextSecondary
+                    color = AppColors.current.textSecondary
                 )
             }
         },
         confirmButton = {
             TextButton(onClick = onAcknowledge) {
-                Text(tr("I Understand", "Saya Mengerti"), color = LockBlueDeep)
+                Text(tr("I Understand", "Saya Mengerti"), color = AppColors.current.brandText)
             }
         }
     )
@@ -529,21 +520,21 @@ internal fun VpnDetectedDialog(
             dismissOnBackPress = false,
             dismissOnClickOutside = false
         ),
-        containerColor = LockDialogDangerBg,
+        containerColor = AppColors.current.dialogDangerBg,
         title = {
             Row(
                 horizontalArrangement = Arrangement.spacedBy(10.dp),
                 verticalAlignment = Alignment.CenterVertically
             ) {
-                Surface(shape = CircleShape, color = LockDangerTint) {
+                Surface(shape = CircleShape, color = AppColors.current.dangerTint) {
                     Icon(
                         imageVector = Icons.Rounded.Language,
                         contentDescription = null,
-                        tint = LockDialogDangerIcon,
+                        tint = AppColors.current.dialogDangerIcon,
                         modifier = Modifier.padding(6.dp).size(20.dp)
                     )
                 }
-                Text(text = tr("VPN Active", "VPN Aktif"), color = LockDialogDangerIcon, fontWeight = FontWeight.Bold)
+                Text(text = tr("VPN Active", "VPN Aktif"), color = AppColors.current.dialogDangerIcon, fontWeight = FontWeight.Bold)
             }
         },
         text = {
@@ -564,7 +555,7 @@ internal fun VpnDetectedDialog(
                         bypassActive = bypassActive,
                         bypassTampered = bypassTampered
                     ),
-                    bodyColor = LockDialogDangerIcon,
+                    bodyColor = AppColors.current.dialogDangerIcon,
                     bodyWeight = FontWeight.SemiBold
                 )
                 Spacer(modifier = Modifier.height(8.dp))
@@ -579,16 +570,18 @@ internal fun VpnDetectedDialog(
         },
         confirmButton = {
             TextButton(onClick = onOpenVpnSettings) {
-                Text(tr("Open VPN Settings", "Buka Setelan VPN"), color = LockBlueDeep)
+                Text(tr("Open VPN Settings", "Buka Setelan VPN"), color = AppColors.current.brandText)
             }
         },
         dismissButton = {
             Column {
                 TextButton(onClick = onRefreshStatus) {
-                    Text(tr("Refresh Status", "Refresh Status"), color = LockBlueDeep)
+                    Text(tr("Refresh Status", "Refresh Status"), color = AppColors.current.brandText)
                 }
-                TextButton(onClick = onSendReport) {
-                    Text(tr("Send Network Report", "Kirim Report Network"), color = LockTextMuted)
+                if (LocalTelegramDiagnosticsEnabled.current) {
+                    TextButton(onClick = onSendReport) {
+                        Text(tr("Send Network Report", "Kirim Report Network"), color = AppColors.current.textMuted)
+                    }
                 }
             }
         }
@@ -668,11 +661,11 @@ internal fun GeofenceViolationDialog(
             dismissOnBackPress = false,
             dismissOnClickOutside = false
         ),
-        containerColor = LockDialogDangerBg,
+        containerColor = AppColors.current.dialogDangerBg,
         title = {
             Text(
                 text = titleText,
-                color = LockDialogDangerIcon,
+                color = AppColors.current.dialogDangerIcon,
                 fontWeight = FontWeight.Bold
             )
         },
@@ -680,7 +673,7 @@ internal fun GeofenceViolationDialog(
             Column(modifier = Modifier.verticalScroll(rememberScrollState())) {
                 Text(
                     text = primaryMessage,
-                    color = LockTextPrimary
+                    color = AppColors.current.textPrimary
                 )
                 Spacer(modifier = Modifier.height(10.dp))
                 Text(
@@ -688,7 +681,7 @@ internal fun GeofenceViolationDialog(
                         "Location security violations: $violationCount",
                         "Jumlah pelanggaran keamanan lokasi: $violationCount"
                     ),
-                    color = LockDialogDangerIcon,
+                    color = AppColors.current.dialogDangerIcon,
                     fontWeight = FontWeight.Bold
                 )
                 Spacer(modifier = Modifier.height(8.dp))
@@ -697,54 +690,54 @@ internal fun GeofenceViolationDialog(
                         "Verdict: ${locationStatus.finalVerdict.diagnosticLabel()}",
                         "Verdict: ${locationStatus.finalVerdict.diagnosticLabel()}"
                     ),
-                    color = LockTextSecondary
+                    color = AppColors.current.textSecondary
                 )
                 Text(
                     text = tr("Current coordinates: $locationText", "Koordinat saat ini: $locationText"),
-                    color = LockTextSecondary
+                    color = AppColors.current.textSecondary
                 )
                 Text(
                     text = tr(
                         "Closest / primary center: $centerText",
                         "Center terdekat / utama: $centerText"
                     ),
-                    color = LockTextSecondary
+                    color = AppColors.current.textSecondary
                 )
                 Text(
                     text = tr(
                         "Circle centers: ${circleCenters.size} | ${summarizeCircleCenters(circleCenters)}",
                         "Center circle: ${circleCenters.size} | ${summarizeCircleCenters(circleCenters)}"
                     ),
-                    color = LockTextSecondary
+                    color = AppColors.current.textSecondary
                 )
                 Text(
                     text = tr("Shared radius: $radiusText", "Radius bersama: $radiusText"),
-                    color = LockTextSecondary
+                    color = AppColors.current.textSecondary
                 )
                 Text(
                     text = tr("Distance from closest center: $distanceText", "Jarak dari center terdekat: $distanceText"),
-                    color = LockTextSecondary
+                    color = AppColors.current.textSecondary
                 )
                 Text(
                     text = tr("Provider / accuracy: $providerText / $accuracyText", "Provider / akurasi: $providerText / $accuracyText"),
-                    color = LockTextSecondary
+                    color = AppColors.current.textSecondary
                 )
                 Text(
                     text = tr("Fix quality / age: $fixQualityText / $fixAgeText", "Kualitas fix / umur: $fixQualityText / $fixAgeText"),
-                    color = LockTextSecondary
+                    color = AppColors.current.textSecondary
                 )
                 Text(
                     text = tr(
                         "Location permission: ${if (evaluation.permissionGranted) "granted" else "missing"} | Precise: $preciseText | Services: ${if (evaluation.locationServicesEnabled) "enabled" else "disabled"}",
                         "Izin lokasi: ${if (evaluation.permissionGranted) "diberikan" else "belum"} | Presisi: $preciseText | Layanan: ${if (evaluation.locationServicesEnabled) "aktif" else "nonaktif"}"
                     ),
-                    color = LockTextSecondary
+                    color = AppColors.current.textSecondary
                 )
             }
         },
         confirmButton = {
             TextButton(onClick = onAcknowledge) {
-                Text(tr("I Understand", "Saya Mengerti"), color = LockBlueDeep)
+                Text(tr("I Understand", "Saya Mengerti"), color = AppColors.current.brandText)
             }
         }
     )
@@ -799,11 +792,11 @@ internal fun FakeLocationViolationDialog(
             dismissOnBackPress = false,
             dismissOnClickOutside = false
         ),
-        containerColor = LockDialogDangerBg,
+        containerColor = AppColors.current.dialogDangerBg,
         title = {
             Text(
                 text = titleText,
-                color = LockDialogDangerIcon,
+                color = AppColors.current.dialogDangerIcon,
                 fontWeight = FontWeight.Bold
             )
         },
@@ -811,7 +804,7 @@ internal fun FakeLocationViolationDialog(
             Column(modifier = Modifier.verticalScroll(rememberScrollState())) {
                 Text(
                     text = primaryMessage,
-                    color = LockTextPrimary
+                    color = AppColors.current.textPrimary
                 )
                 Spacer(modifier = Modifier.height(10.dp))
                 Text(
@@ -819,7 +812,7 @@ internal fun FakeLocationViolationDialog(
                         "Fake-location violations: $violationCount",
                         "Jumlah pelanggaran fake-location: $violationCount"
                     ),
-                    color = LockDialogDangerIcon,
+                    color = AppColors.current.dialogDangerIcon,
                     fontWeight = FontWeight.Bold
                 )
                 Spacer(modifier = Modifier.height(8.dp))
@@ -828,76 +821,76 @@ internal fun FakeLocationViolationDialog(
                         "Verdict: ${fakeLocationStatus.finalVerdict.diagnosticLabel()}",
                         "Verdict: ${fakeLocationStatus.finalVerdict.diagnosticLabel()}"
                     ),
-                    color = LockTextSecondary
+                    color = AppColors.current.textSecondary
                 )
                 Text(
                     text = tr(
                         "Confidence tier: ${fakeLocationStatus.confidenceTier.diagnosticLabel()}",
                         "Confidence tier: ${fakeLocationStatus.confidenceTier.diagnosticLabel()}"
                     ),
-                    color = LockTextSecondary
+                    color = AppColors.current.textSecondary
                 )
                 Text(
                     text = tr(
                         "Fix quality eligible: ${if (fakeLocationStatus.fixQualityEligible) "yes" else "no"} (${fakeLocationStatus.fixQualityStatus.verdict.diagnosticLabel()})",
                         "Fix layak dinilai: ${if (fakeLocationStatus.fixQualityEligible) "ya" else "tidak"} (${fakeLocationStatus.fixQualityStatus.verdict.diagnosticLabel()})"
                     ),
-                    color = LockTextSecondary
+                    color = AppColors.current.textSecondary
                 )
                 Text(
                     text = tr(
                         "Location permission: ${if (fakeLocationStatus.permissionGranted) "yes" else "no"}",
                         "Izin lokasi: ${if (fakeLocationStatus.permissionGranted) "ya" else "tidak"}"
                     ),
-                    color = LockTextSecondary
+                    color = AppColors.current.textSecondary
                 )
                 Text(
                     text = tr(
                         "Location services: ${if (fakeLocationStatus.locationServicesEnabled) "enabled" else "disabled"}",
                         "Layanan lokasi: ${if (fakeLocationStatus.locationServicesEnabled) "aktif" else "nonaktif"}"
                     ),
-                    color = LockTextSecondary
+                    color = AppColors.current.textSecondary
                 )
                 Text(
                     text = tr(
                         "Snapshot available: ${if (fakeLocationStatus.snapshotAvailable) "yes" else "no"}",
                         "Snapshot tersedia: ${if (fakeLocationStatus.snapshotAvailable) "ya" else "tidak"}"
                     ),
-                    color = LockTextSecondary
+                    color = AppColors.current.textSecondary
                 )
                 Text(
                     text = tr(
                         "Mock flag: ${if (fakeLocationStatus.mockLocationDetected) "yes" else "no"}",
                         "Flag mock: ${if (fakeLocationStatus.mockLocationDetected) "ya" else "tidak"}"
                     ),
-                    color = LockTextSecondary
+                    color = AppColors.current.textSecondary
                 )
                 Text(
                     text = tr(
                         "Developer options: ${if (fakeLocationStatus.developerOptionsEnabled) "enabled" else "disabled"}",
                         "Developer options: ${if (fakeLocationStatus.developerOptionsEnabled) "aktif" else "nonaktif"}"
                     ),
-                    color = LockTextSecondary
+                    color = AppColors.current.textSecondary
                 )
                 Text(
                     text = tr(
                         "Suspicious packages: $suspiciousPackages",
                         "Paket mencurigakan: $suspiciousPackages"
                     ),
-                    color = LockTextSecondary
+                    color = AppColors.current.textSecondary
                 )
                 Text(
                     text = tr(
                         "Supporting signals: ${fakeLocationStatus.supportingSignals.map { it.diagnosticLabel() }.joinToString().ifBlank { "-" }}",
                         "Sinyal pendukung: ${fakeLocationStatus.supportingSignals.map { it.diagnosticLabel() }.joinToString().ifBlank { "-" }}"
                     ),
-                    color = LockTextSecondary
+                    color = AppColors.current.textSecondary
                 )
             }
         },
         confirmButton = {
             TextButton(onClick = onAcknowledge) {
-                Text(tr("I Understand", "Saya Mengerti"), color = LockBlueDeep)
+                Text(tr("I Understand", "Saya Mengerti"), color = AppColors.current.brandText)
             }
         }
     )
@@ -916,21 +909,21 @@ internal fun BluetoothViolationDialog(
             dismissOnBackPress = false,
             dismissOnClickOutside = false
         ),
-        containerColor = LockDialogDangerBg,
+        containerColor = AppColors.current.dialogDangerBg,
         title = {
             Row(
                 horizontalArrangement = Arrangement.spacedBy(10.dp),
                 verticalAlignment = Alignment.CenterVertically
             ) {
-                Surface(shape = CircleShape, color = LockDangerTint) {
+                Surface(shape = CircleShape, color = AppColors.current.dangerTint) {
                     Icon(
                         imageVector = Icons.Rounded.BluetoothDisabled,
                         contentDescription = null,
-                        tint = LockDialogDangerIcon,
+                        tint = AppColors.current.dialogDangerIcon,
                         modifier = Modifier.padding(6.dp).size(20.dp)
                     )
                 }
-                Text(text = tr("Bluetooth Is Not Safe", "Bluetooth Tidak Aman"), color = LockDialogDangerIcon, fontWeight = FontWeight.Bold)
+                Text(text = tr("Bluetooth Is Not Safe", "Bluetooth Tidak Aman"), color = AppColors.current.dialogDangerIcon, fontWeight = FontWeight.Bold)
             }
         },
         text = {
@@ -941,24 +934,24 @@ internal fun BluetoothViolationDialog(
                     } else {
                         tr("Bluetooth must be confirmed off before the exam continues.", "Bluetooth perlu dipastikan nonaktif sebelum ujian dilanjutkan.")
                     },
-                    color = LockTextPrimary
+                    color = AppColors.current.textPrimary
                 )
                 Spacer(modifier = Modifier.height(10.dp))
                 Text(
                     text = tr("Bluetooth violations: $violationCount", "Jumlah pelanggaran Bluetooth: $violationCount"),
-                    color = LockDialogDangerIcon,
+                    color = AppColors.current.dialogDangerIcon,
                     fontWeight = FontWeight.Bold
                 )
             }
         },
         confirmButton = {
             TextButton(onClick = onOpenBluetoothSettings) {
-                Text(tr("Open Bluetooth", "Buka Bluetooth"), color = LockBlueDeep)
+                Text(tr("Open Bluetooth", "Buka Bluetooth"), color = AppColors.current.brandText)
             }
         },
         dismissButton = {
             TextButton(onClick = onAcknowledge) {
-                Text(tr("I Understand", "Saya Mengerti"), color = LockTextMuted)
+                Text(tr("I Understand", "Saya Mengerti"), color = AppColors.current.textMuted)
             }
         }
     )
@@ -977,21 +970,21 @@ internal fun ClipboardViolationDialog(
             dismissOnBackPress = false,
             dismissOnClickOutside = false
         ),
-        containerColor = LockDialogDangerBg,
+        containerColor = AppColors.current.dialogDangerBg,
         title = {
             Row(
                 horizontalArrangement = Arrangement.spacedBy(10.dp),
                 verticalAlignment = Alignment.CenterVertically
             ) {
-                Surface(shape = CircleShape, color = LockDangerTint) {
+                Surface(shape = CircleShape, color = AppColors.current.dangerTint) {
                     Icon(
                         imageVector = Icons.AutoMirrored.Rounded.Backspace,
                         contentDescription = null,
-                        tint = LockDialogDangerIcon,
+                        tint = AppColors.current.dialogDangerIcon,
                         modifier = Modifier.padding(6.dp).size(20.dp)
                     )
                 }
-                Text(text = tr("Clipboard Changed", "Clipboard Berubah"), color = LockDialogDangerIcon, fontWeight = FontWeight.Bold)
+                Text(text = tr("Clipboard Changed", "Clipboard Berubah"), color = AppColors.current.dialogDangerIcon, fontWeight = FontWeight.Bold)
             }
         },
         text = {
@@ -1001,12 +994,12 @@ internal fun ClipboardViolationDialog(
                         "The app detected that the device clipboard changed while the exam was running, including after returning to the app.",
                         "Aplikasi mendeteksi clipboard perangkat berubah saat ujian sedang berjalan, termasuk setelah kembali ke aplikasi."
                     ),
-                    color = LockTextPrimary
+                    color = AppColors.current.textPrimary
                 )
                 Spacer(modifier = Modifier.height(10.dp))
                 Text(
                     text = tr("Clipboard violations: $violationCount", "Jumlah pelanggaran clipboard: $violationCount"),
-                    color = LockDialogDangerIcon,
+                    color = AppColors.current.dialogDangerIcon,
                     fontWeight = FontWeight.Bold
                 )
                 Spacer(modifier = Modifier.height(8.dp))
@@ -1015,20 +1008,20 @@ internal fun ClipboardViolationDialog(
                         "Last confirmed change: ${lastConfirmedAt?.ifBlank { "-" } ?: "-"}",
                         "Perubahan terkonfirmasi terakhir: ${lastConfirmedAt?.ifBlank { "-" } ?: "-"}"
                     ),
-                    color = LockTextSecondary
+                    color = AppColors.current.textSecondary
                 )
                 Text(
                     text = tr(
                         "Listener decision: $lastDecision",
                         "Keputusan listener: $lastDecision"
                     ),
-                    color = LockTextSecondary
+                    color = AppColors.current.textSecondary
                 )
             }
         },
         confirmButton = {
             TextButton(onClick = onAcknowledge) {
-                Text(tr("I Understand", "Saya Mengerti"), color = LockBlueDeep)
+                Text(tr("I Understand", "Saya Mengerti"), color = AppColors.current.brandText)
             }
         }
     )
@@ -1038,13 +1031,13 @@ internal fun ClipboardViolationDialog(
 private fun RuntimeDialogSection(
     title: String,
     body: String,
-    bodyColor: Color = LockTextSecondary,
+    bodyColor: Color = AppColors.current.textSecondary,
     bodyWeight: FontWeight? = null
 ) {
     Column {
         Text(
             text = title,
-            color = LockTextPrimary,
+            color = AppColors.current.textPrimary,
             fontWeight = FontWeight.Bold
         )
         Spacer(modifier = Modifier.height(3.dp))
@@ -1073,21 +1066,21 @@ private fun RuntimeStaticSecurityDialog(
             dismissOnBackPress = false,
             dismissOnClickOutside = false
         ),
-        containerColor = LockDialogDangerBg,
+        containerColor = AppColors.current.dialogDangerBg,
         title = {
             Row(
                 horizontalArrangement = Arrangement.spacedBy(10.dp),
                 verticalAlignment = Alignment.CenterVertically
             ) {
-                Surface(shape = CircleShape, color = LockDangerTint) {
+                Surface(shape = CircleShape, color = AppColors.current.dangerTint) {
                     Icon(
                         imageVector = Icons.Rounded.QrCodeScanner,
                         contentDescription = null,
-                        tint = LockDialogDangerIcon,
+                        tint = AppColors.current.dialogDangerIcon,
                         modifier = Modifier.padding(6.dp).size(20.dp)
                     )
                 }
-                Text(text = title, color = LockDialogDangerIcon, fontWeight = FontWeight.Bold)
+                Text(text = title, color = AppColors.current.dialogDangerIcon, fontWeight = FontWeight.Bold)
             }
         },
         text = {
@@ -1095,7 +1088,7 @@ private fun RuntimeStaticSecurityDialog(
                 RuntimeDialogSection(
                     title = tr("Problem", "Masalah"),
                     body = message,
-                    bodyColor = LockTextPrimary
+                    bodyColor = AppColors.current.textPrimary
                 )
                 Spacer(modifier = Modifier.height(8.dp))
                 RuntimeDialogSection(
@@ -1106,24 +1099,26 @@ private fun RuntimeStaticSecurityDialog(
                 RuntimeDialogSection(
                     title = tr("Next Step", "Langkah Berikutnya"),
                     body = nextStep,
-                    bodyColor = LockTextPrimary
+                    bodyColor = AppColors.current.textPrimary
                 )
             }
         },
         confirmButton = {
             if (primaryActionLabel != null && onPrimaryAction != null) {
                 TextButton(onClick = onPrimaryAction) {
-                    Text(primaryActionLabel, color = LockBlueDeep)
+                    Text(primaryActionLabel, color = AppColors.current.brandText)
                 }
             }
         },
         dismissButton = {
             Row(horizontalArrangement = Arrangement.spacedBy(4.dp)) {
                 TextButton(onClick = onRefreshStatus) {
-                    Text(tr("Refresh Status", "Refresh Status"), color = LockBlueDeep)
+                    Text(tr("Refresh Status", "Refresh Status"), color = AppColors.current.brandText)
                 }
-                TextButton(onClick = onSendReport) {
-                    Text(tr("Send Report", "Kirim Report"), color = LockTextMuted)
+                if (LocalTelegramDiagnosticsEnabled.current) {
+                    TextButton(onClick = onSendReport) {
+                        Text(tr("Send Report", "Kirim Report"), color = AppColors.current.textMuted)
+                    }
                 }
             }
         }
@@ -1392,21 +1387,21 @@ internal fun SecurityViolationDialog(
             dismissOnBackPress = false,
             dismissOnClickOutside = false
         ),
-        containerColor = LockDialogDangerBg,
+        containerColor = AppColors.current.dialogDangerBg,
         title = {
             Row(
                 horizontalArrangement = Arrangement.spacedBy(10.dp),
                 verticalAlignment = Alignment.CenterVertically
             ) {
-                Surface(shape = CircleShape, color = LockDialogDangerIcon.copy(alpha = 0.16f)) {
+                Surface(shape = CircleShape, color = AppColors.current.dialogDangerIcon.copy(alpha = 0.16f)) {
                     Icon(
                         imageVector = Icons.Rounded.AdminPanelSettings,
                         contentDescription = null,
-                        tint = LockDialogDangerIcon,
+                        tint = AppColors.current.dialogDangerIcon,
                         modifier = Modifier.padding(8.dp).size(24.dp)
                     )
                 }
-                Text(text = tr("Violation Detected", "Pelanggaran Terdeteksi"), color = LockDialogDangerIcon, fontWeight = FontWeight.Bold)
+                Text(text = tr("Violation Detected", "Pelanggaran Terdeteksi"), color = AppColors.current.dialogDangerIcon, fontWeight = FontWeight.Bold)
             }
         },
         text = {
@@ -1416,12 +1411,12 @@ internal fun SecurityViolationDialog(
                         "The app detected that you left the exam screen or forced the app to lose focus.",
                         "Aplikasi mendeteksi Anda meninggalkan layar ujian atau memaksa aplikasi kehilangan fokus."
                     ),
-                    color = LockTextPrimary
+                    color = AppColors.current.textPrimary
                 )
                 Spacer(modifier = Modifier.height(10.dp))
                 Text(
                     text = tr("Violations: $violationCount", "Jumlah pelanggaran: $violationCount"),
-                    color = LockDialogDangerIcon,
+                    color = AppColors.current.dialogDangerIcon,
                     fontWeight = FontWeight.Bold
                 )
                 Spacer(modifier = Modifier.height(8.dp))
@@ -1430,28 +1425,28 @@ internal fun SecurityViolationDialog(
                         "Fallback guard active: ${if (fallbackGuardActive) "Yes" else "No"}",
                         "Fallback guard aktif: ${if (fallbackGuardActive) "Ya" else "Tidak"}"
                     ),
-                    color = LockTextSecondary
+                    color = AppColors.current.textSecondary
                 )
                 Text(
                     text = tr(
                         "Last trigger: ${lastTrigger?.ifBlank { "-" } ?: "-"}",
                         "Pemicu terakhir: ${lastTrigger?.ifBlank { "-" } ?: "-"}"
                     ),
-                    color = LockTextSecondary
+                    color = AppColors.current.textSecondary
                 )
                 Text(
                     text = tr(
                         "Last detected at: ${lastDetectedAt?.ifBlank { "-" } ?: "-"}",
                         "Terdeteksi terakhir: ${lastDetectedAt?.ifBlank { "-" } ?: "-"}"
                     ),
-                    color = LockTextSecondary
+                    color = AppColors.current.textSecondary
                 )
                 Text(
                     text = tr(
                         "Context: ${lastContext?.ifBlank { "-" } ?: "-"}",
                         "Konteks: ${lastContext?.ifBlank { "-" } ?: "-"}"
                     ),
-                    color = LockTextSecondary
+                    color = AppColors.current.textSecondary
                 )
             }
         },
@@ -1460,7 +1455,7 @@ internal fun SecurityViolationDialog(
                 onClick = onAcknowledge,
                 shape = RoundedCornerShape(UiTokens.RadiusSm),
                 colors = ButtonDefaults.buttonColors(
-                    containerColor = LockDialogDangerIcon,
+                    containerColor = AppColors.current.dialogDangerIcon,
                     contentColor = Color.White
                 )
             ) {

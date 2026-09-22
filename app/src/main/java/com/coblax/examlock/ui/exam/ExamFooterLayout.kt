@@ -4,8 +4,8 @@ import com.coblax.examlock.model.NetworkReadinessStatus
 import com.coblax.examlock.model.NetworkReadinessVerdict
 
 internal enum class ExamFooterLayoutMode {
-    SingleRow,
-    TwoRowCompact,
+    Compact,
+    Regular,
     TabletWide
 }
 
@@ -14,24 +14,12 @@ internal data class ExamFooterLayoutSpec(
     val compact: Boolean,
     val severe: Boolean,
     val horizontalPaddingDp: Int,
-    val verticalPaddingDp: Int,
-    val itemSpacingDp: Int,
     val actionSpacingDp: Int,
-    val buttonSizeDp: Int,
-    val arrowPillWidthDp: Int,
-    val connectivityPillWidthDp: Int,
-    val shieldPillWidthDp: Int,
     val touchTargetDp: Int,
     val iconSizeDp: Int,
-    val arrowIconSizeDp: Int,
-    val minHeightDp: Int,
-    val maxHeightDp: Int,
-    val rowSpacingDp: Int,
+    val railHeightDp: Int,
     val cornerRadiusDp: Int,
-    val tonalElevationDp: Int,
-    val shadowElevationDp: Int,
-    val showBatteryPercent: Boolean,
-    val showConnectivityDot: Boolean
+    val showFullActionLabels: Boolean
 )
 
 internal enum class ExamFooterConnectivityTransport {
@@ -40,33 +28,56 @@ internal enum class ExamFooterConnectivityTransport {
     Unknown
 }
 
+/**
+ * Connectivity is intentionally never rendered as Danger. A disconnected or
+ * unstable transport is disruptive but does not, by itself, prove a blocking
+ * security violation. Blocking states are represented by the security shield
+ * and the existing runtime dialogs.
+ */
 internal enum class ExamFooterConnectivitySeverity {
     Stable,
-    Warning,
-    Danger
+    Info,
+    Warning
+}
+
+internal enum class ExamRuntimeConnectivityState {
+    Online,
+    Checking,
+    Limited,
+    Offline
 }
 
 internal data class ExamFooterConnectivityVisual(
     val transport: ExamFooterConnectivityTransport,
     val severity: ExamFooterConnectivitySeverity,
+    val state: ExamRuntimeConnectivityState,
     val signalLevel: Int,
-    val badgeText: String?,
     val cellularLabel: String?
 )
+
+internal enum class ExamRuntimeConnectionNoticeKind {
+    Offline,
+    AirplaneMode,
+    VpnActive,
+    CaptivePortal,
+    LimitedNetwork,
+    UnstableNetwork,
+    ServerOffline,
+    ServerUnstable,
+    ServerWarning
+}
 
 internal fun calculateExamFooterLayoutSpec(
     maxWidthDp: Int,
     lowRamEnabled: Boolean,
     lowRamSevere: Boolean
 ): ExamFooterLayoutSpec {
-    val tiny = maxWidthDp < 300
-    val twoRow = maxWidthDp < 300
-    val severe = tiny || lowRamSevere
-    val compact = severe || maxWidthDp <= 420 || lowRamEnabled
+    val severe = lowRamSevere || maxWidthDp < 320
+    val compact = severe || lowRamEnabled || maxWidthDp < 480
     val layoutMode = when {
-        twoRow -> ExamFooterLayoutMode.TwoRowCompact
         maxWidthDp >= 600 && !lowRamEnabled -> ExamFooterLayoutMode.TabletWide
-        else -> ExamFooterLayoutMode.SingleRow
+        compact -> ExamFooterLayoutMode.Compact
+        else -> ExamFooterLayoutMode.Regular
     }
 
     return ExamFooterLayoutSpec(
@@ -75,77 +86,23 @@ internal fun calculateExamFooterLayoutSpec(
         severe = severe,
         horizontalPaddingDp = when {
             severe -> 4
+            compact -> 8
+            else -> 12
+        },
+        actionSpacingDp = when {
+            severe -> 4
             compact -> 6
             else -> 8
         },
-        verticalPaddingDp = when {
-            severe -> 4
-            compact -> 5
-            else -> 6
-        },
-        itemSpacingDp = when {
-            severe -> 3
-            compact -> 4
-            else -> 6
-        },
-        actionSpacingDp = when {
-            severe -> 3
-            compact -> 4
-            else -> 6
-        },
-        buttonSizeDp = when {
-            severe -> 34
-            compact -> 36
-            layoutMode == ExamFooterLayoutMode.TabletWide -> 40
-            else -> 38
-        },
-        arrowPillWidthDp = when {
-            severe -> 56
-            compact -> 60
-            else -> 64
-        },
-        connectivityPillWidthDp = when {
-            severe -> 46
-            compact -> 48
-            else -> 50
-        },
-        shieldPillWidthDp = when {
-            severe -> 52
-            compact -> 56
-            else -> 60
-        },
         touchTargetDp = 48,
         iconSizeDp = when {
-            tiny -> 15
-            severe -> 16
-            compact -> 17
-            layoutMode == ExamFooterLayoutMode.TabletWide -> 20
-            else -> 19
+            severe -> 17
+            compact -> 18
+            else -> 20
         },
-        arrowIconSizeDp = when {
-            tiny -> 15
-            severe -> 16
-            compact -> 17
-            layoutMode == ExamFooterLayoutMode.TabletWide -> 19
-            else -> 18
-        },
-        minHeightDp = when {
-            layoutMode == ExamFooterLayoutMode.TwoRowCompact && severe -> 78
-            layoutMode == ExamFooterLayoutMode.TwoRowCompact -> 82
-            layoutMode == ExamFooterLayoutMode.TabletWide -> 52
-            else -> 52
-        },
-        maxHeightDp = when (layoutMode) {
-            ExamFooterLayoutMode.TwoRowCompact -> 88
-            ExamFooterLayoutMode.TabletWide -> 58
-            ExamFooterLayoutMode.SingleRow -> 58
-        },
-        rowSpacingDp = if (severe) 2 else 4,
-        cornerRadiusDp = if (compact) 14 else 16,
-        tonalElevationDp = if (lowRamEnabled) 1 else 4,
-        shadowElevationDp = if (lowRamEnabled) 0 else 6,
-        showBatteryPercent = !tiny && maxWidthDp >= 340,
-        showConnectivityDot = !severe || layoutMode == ExamFooterLayoutMode.TwoRowCompact
+        railHeightDp = 52,
+        cornerRadiusDp = if (compact) 12 else 16,
+        showFullActionLabels = maxWidthDp >= 480 && !lowRamSevere
     )
 }
 
@@ -166,23 +123,40 @@ internal fun resolveExamFooterConnectivityVisual(
             ExamFooterConnectivityTransport.Cellular
         else -> ExamFooterConnectivityTransport.Unknown
     }
-    val severity = when {
-        networkStatus.verdict == NetworkReadinessVerdict.Offline ||
-            networkStatus.verdict == NetworkReadinessVerdict.VpnActive ||
-            networkStatus.verdict == NetworkReadinessVerdict.AirplaneMode -> ExamFooterConnectivitySeverity.Danger
-        networkStatus.verdict == NetworkReadinessVerdict.Unvalidated ||
-            networkStatus.verdict == NetworkReadinessVerdict.CaptivePortal ||
-            networkStatus.verdict == NetworkReadinessVerdict.Unstable -> ExamFooterConnectivitySeverity.Warning
-        else -> ExamFooterConnectivitySeverity.Stable
+
+    val state = when (networkStatus.verdict) {
+        NetworkReadinessVerdict.Offline,
+        NetworkReadinessVerdict.AirplaneMode -> ExamRuntimeConnectivityState.Offline
+        NetworkReadinessVerdict.Unvalidated,
+        NetworkReadinessVerdict.CaptivePortal,
+        NetworkReadinessVerdict.VpnActive,
+        NetworkReadinessVerdict.Unstable -> ExamRuntimeConnectivityState.Limited
+        NetworkReadinessVerdict.ConnectedStable -> when (serverStatus) {
+            ExamServerFooterStatus.Online -> ExamRuntimeConnectivityState.Online
+            ExamServerFooterStatus.Checking -> ExamRuntimeConnectivityState.Checking
+            ExamServerFooterStatus.Warning,
+            ExamServerFooterStatus.Offline,
+            ExamServerFooterStatus.Unstable -> ExamRuntimeConnectivityState.Limited
+        }
+    }
+    val severity = when (state) {
+        ExamRuntimeConnectivityState.Online -> ExamFooterConnectivitySeverity.Stable
+        ExamRuntimeConnectivityState.Checking -> ExamFooterConnectivitySeverity.Info
+        ExamRuntimeConnectivityState.Limited,
+        ExamRuntimeConnectivityState.Offline -> ExamFooterConnectivitySeverity.Warning
     }
     val rawSignalLevel = when (transport) {
         ExamFooterConnectivityTransport.Wifi -> networkStatus.diagnostics.wifi?.signalLevel
         ExamFooterConnectivityTransport.Cellular -> networkStatus.diagnostics.cellular?.signalLevel
         ExamFooterConnectivityTransport.Unknown -> null
     }
-    val signalLevel = when (severity) {
-        ExamFooterConnectivitySeverity.Danger -> 0
-        else -> rawSignalLevel?.coerceIn(0, 4) ?: if (severity == ExamFooterConnectivitySeverity.Stable) 3 else 2
+    val signalLevel = when (state) {
+        ExamRuntimeConnectivityState.Offline -> 0
+        ExamRuntimeConnectivityState.Online ->
+            rawSignalLevel?.coerceIn(0, 4) ?: 3
+        ExamRuntimeConnectivityState.Checking,
+        ExamRuntimeConnectivityState.Limited ->
+            rawSignalLevel?.coerceIn(0, 4) ?: 2
     }
     val cellularLabel = networkStatus.diagnostics.cellular
         ?.networkType
@@ -196,11 +170,33 @@ internal fun resolveExamFooterConnectivityVisual(
                 else -> null
             }
         }
+
     return ExamFooterConnectivityVisual(
         transport = transport,
         severity = severity,
+        state = state,
         signalLevel = signalLevel,
-        badgeText = if (severity == ExamFooterConnectivitySeverity.Warning) "!" else null,
         cellularLabel = cellularLabel
     )
+}
+
+internal fun resolveExamRuntimeConnectionNotice(
+    networkStatus: NetworkReadinessStatus,
+    serverStatus: ExamServerFooterStatus
+): ExamRuntimeConnectionNoticeKind? {
+    return when (networkStatus.verdict) {
+        NetworkReadinessVerdict.Offline -> ExamRuntimeConnectionNoticeKind.Offline
+        NetworkReadinessVerdict.AirplaneMode -> ExamRuntimeConnectionNoticeKind.AirplaneMode
+        NetworkReadinessVerdict.VpnActive -> ExamRuntimeConnectionNoticeKind.VpnActive
+        NetworkReadinessVerdict.CaptivePortal -> ExamRuntimeConnectionNoticeKind.CaptivePortal
+        NetworkReadinessVerdict.Unvalidated -> ExamRuntimeConnectionNoticeKind.LimitedNetwork
+        NetworkReadinessVerdict.Unstable -> ExamRuntimeConnectionNoticeKind.UnstableNetwork
+        NetworkReadinessVerdict.ConnectedStable -> when (serverStatus) {
+            ExamServerFooterStatus.Offline -> ExamRuntimeConnectionNoticeKind.ServerOffline
+            ExamServerFooterStatus.Unstable -> ExamRuntimeConnectionNoticeKind.ServerUnstable
+            ExamServerFooterStatus.Warning -> ExamRuntimeConnectionNoticeKind.ServerWarning
+            ExamServerFooterStatus.Checking,
+            ExamServerFooterStatus.Online -> null
+        }
+    }
 }

@@ -24,10 +24,10 @@ import com.coblax.examlock.model.NetworkReadinessStatus
 import com.coblax.examlock.model.NetworkReadinessUserVerdict
 import com.coblax.examlock.model.NetworkReadinessVerdict
 import com.coblax.examlock.model.WifiDiagnostics
-import kotlinx.coroutines.Dispatchers
-import kotlinx.coroutines.withContext
+import kotlinx.coroutines.CancellationException
+import kotlinx.coroutines.async
+import kotlinx.coroutines.coroutineScope
 import kotlinx.coroutines.withTimeoutOrNull
-import java.net.InetAddress
 import java.net.URI
 import java.util.Locale
 
@@ -378,6 +378,8 @@ internal suspend fun readNetworkReadinessStatusWithProbe(
     timeoutMillis: Long = 3_000L,
     slowThresholdMillis: Long = 1_500L
 ): NetworkReadinessStatus {
+    val connectivityManager = context.getSystemService(ConnectivityManager::class.java)
+    val initialNetwork = connectivityManager?.activeNetwork
     val baseStatus = readNetworkReadinessStatus(context)
     val skipProbeReason =
         if (!baseStatus.examStatus.isConnected ||
@@ -388,39 +390,43 @@ internal suspend fun readNetworkReadinessStatusWithProbe(
         } else {
             null
         }
-    val globalProbeStatus =
-        if (skipProbeReason != null) {
-            NetworkDnsProbeStatus(
-                verdict = NetworkDnsProbeVerdict.Skipped,
-                host = globalProbeHost,
-                error = skipProbeReason.name.lowercase(Locale.US)
-            )
-        } else {
-            probeNetworkDnsStatus(
-                host = globalProbeHost,
-                timeoutMillis = timeoutMillis,
-                slowThresholdMillis = slowThresholdMillis
-            )
+    val (globalProbeStatus, probeStatus) = coroutineScope {
+        val globalProbe = async {
+            if (skipProbeReason != null) {
+                NetworkDnsProbeStatus(
+                    verdict = NetworkDnsProbeVerdict.Skipped,
+                    host = globalProbeHost,
+                    error = skipProbeReason.name.lowercase(Locale.US)
+                )
+            } else {
+                probeNetworkDnsStatus(
+                    host = globalProbeHost,
+                    timeoutMillis = timeoutMillis,
+                    slowThresholdMillis = slowThresholdMillis
+                )
+            }
         }
-    val probeStatus =
-        if (skipProbeReason != null) {
-            NetworkDnsProbeStatus(
-                verdict = NetworkDnsProbeVerdict.Skipped,
-                host = probeHost,
-                error = skipProbeReason.name.lowercase(Locale.US)
-            )
-        } else {
-            probeNetworkDnsStatus(
-                host = probeHost,
-                timeoutMillis = timeoutMillis,
-                slowThresholdMillis = slowThresholdMillis
-            )
+        val examProbe = async {
+            if (skipProbeReason != null) {
+                NetworkDnsProbeStatus(
+                    verdict = NetworkDnsProbeVerdict.Skipped,
+                    host = probeHost,
+                    error = skipProbeReason.name.lowercase(Locale.US)
+                )
+            } else {
+                probeNetworkDnsStatus(
+                    host = probeHost,
+                    timeoutMillis = timeoutMillis,
+                    slowThresholdMillis = slowThresholdMillis
+                )
+            }
         }
-    val userVerdict = resolveNetworkReadinessUserVerdict(
-        verdict = baseStatus.verdict,
-        dnsProbeStatus = probeStatus,
-        globalDnsProbeStatus = globalProbeStatus
-    )
+        globalProbe.await() to examProbe.await()
+    }
+    // Discard stale probe results when Wi-Fi/data changed during resolution.
+    if (initialNetwork != connectivityManager?.activeNetwork) {
+        return readNetworkReadinessStatus(context)
+    }
     // Escalate to Unstable when OS reports connected but DNS probes confirm
     // the connection is not actually functional (both global and exam host fail).
     val effectiveVerdict =
@@ -437,7 +443,9 @@ internal suspend fun readNetworkReadinessStatusWithProbe(
         quickFixReason = if (effectiveVerdict != baseStatus.verdict) "unstable" else baseStatus.quickFixReason,
         dnsProbeStatus = probeStatus,
         globalDnsProbeStatus = globalProbeStatus,
-        userFacingVerdict = userVerdict,
+        userFacingVerdict = resolveNetworkReadinessUserVerdict(
+            effectiveVerdict, probeStatus, globalProbeStatus
+        ),
         userFacingQuickFixText = resolveNetworkReadinessQuickFixText(
             verdict = effectiveVerdict,
             dnsProbeStatus = probeStatus,
@@ -450,15 +458,18 @@ internal suspend fun probeNetworkDnsStatus(
     host: String,
     timeoutMillis: Long = 3_000L,
     slowThresholdMillis: Long = 1_500L,
-    resolver: suspend (String) -> Unit = { targetHost ->
-        withContext(Dispatchers.IO) {
-            InetAddress.getByName(targetHost)
-        }
-    }
+    resolver: suspend (String) -> Unit = { resolveNetworkDnsHost(it) }
 ): NetworkDnsProbeStatus {
-    val startedAt = android.os.SystemClock.elapsedRealtime()
+    val startedAt = System.nanoTime()
     val result = withTimeoutOrNull(timeoutMillis) {
-        runCatching { resolver(host) }
+        try {
+            resolver(host)
+            Result.success(Unit)
+        } catch (cancelled: CancellationException) {
+            throw cancelled
+        } catch (error: Exception) {
+            Result.failure<Unit>(error)
+        }
     } ?: return NetworkDnsProbeStatus(
         verdict = NetworkDnsProbeVerdict.Timeout,
         host = host,
@@ -466,7 +477,7 @@ internal suspend fun probeNetworkDnsStatus(
         latencyBucket = NetworkLatencyBucket.Timeout,
         error = "timeout"
     )
-    val elapsedMs = android.os.SystemClock.elapsedRealtime() - startedAt
+    val elapsedMs = (System.nanoTime() - startedAt) / 1_000_000L
     return result.fold(
         onSuccess = {
             NetworkDnsProbeStatus(

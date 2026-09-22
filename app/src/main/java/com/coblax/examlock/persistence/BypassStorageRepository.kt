@@ -2,6 +2,7 @@
 
 package com.coblax.examlock.persistence
 
+import android.annotation.SuppressLint
 import android.content.Context
 import android.content.SharedPreferences
 import android.util.Log
@@ -102,6 +103,7 @@ internal object BypassStorageRepository {
         return writeAllStatesInternal(context, gateStates, clearMigrationResetNotice)
     }
 
+    @SuppressLint("ApplySharedPref")
     private fun writeAllStatesInternal(
         context: Context,
         gateStates: Map<Int, Boolean>,
@@ -137,17 +139,24 @@ internal object BypassStorageRepository {
         val serializedEnvelope = BypassEnvelopeCodec.encodeEnvelope(
             BypassEnvelope(payload = serializedPayload, mac = mac)
         )
-        securePrefs.edit {
-            putString(BypassEnvelopeKey, serializedEnvelope)
+        val secureCommitted = securePrefs.edit()
+            .putString(BypassEnvelopeKey, serializedEnvelope)
+            .commit()
+        if (!secureCommitted) {
+            Log.e(BypassStorageTag, "Failed to synchronously commit the bypass envelope.")
+            return false
         }
-        adminPrefs.edit {
-            putLong(AdminKeyBypassLastSeenCounter, nextCounter)
-            putInt(AdminKeyBypassBindingSchemeVersion, BypassDeviceBindingSchemeVersion)
-            if (clearMigrationResetNotice) {
-                putBoolean(AdminKeyBypassMigrationResetNotice, false)
-            }
+        val adminEditor = adminPrefs.edit()
+            .putLong(AdminKeyBypassLastSeenCounter, nextCounter)
+            .putInt(AdminKeyBypassBindingSchemeVersion, BypassDeviceBindingSchemeVersion)
+        if (clearMigrationResetNotice) {
+            adminEditor.putBoolean(AdminKeyBypassMigrationResetNotice, false)
         }
-        return true
+        val metadataCommitted = adminEditor.commit()
+        if (!metadataCommitted) {
+            Log.e(BypassStorageTag, "Failed to synchronously commit bypass metadata.")
+        }
+        return metadataCommitted
     }
 
     fun clearMigrationNotice(context: Context) {

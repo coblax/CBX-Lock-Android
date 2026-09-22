@@ -273,20 +273,22 @@ internal fun buildPreparationChecklistDetailText(
         "Checked:\n" +
             "- Settings.Global.DEVELOPMENT_SETTINGS_ENABLED = ${adbInspection.developerOptionsRawValue}\n" +
             "- Settings.Global.ADB_ENABLED = ${adbInspection.adbRawValue}\n" +
+            "- Settings.Global.adb_wifi_enabled = ${adbInspection.wirelessAdbRawValue}\n" +
             "- ro.adb.secure = ${adbInspection.adbSecureProperty}\n" +
             "- Integrity hint = ${adbInspection.integrityHintSummary}\n" +
             "Impact:\n" +
-            "- Start blocked if Developer Mode or ADB enabled\n" +
+            "- Start blocked if Developer Mode, USB ADB, or Wireless ADB enabled\n" +
             "- If enabled during exam -> warning + alarm"
         },
         indonesian = {
         "Dicek:\n" +
             "- Settings.Global.DEVELOPMENT_SETTINGS_ENABLED = ${adbInspection.developerOptionsRawValue}\n" +
             "- Settings.Global.ADB_ENABLED = ${adbInspection.adbRawValue}\n" +
+            "- Settings.Global.adb_wifi_enabled = ${adbInspection.wirelessAdbRawValue}\n" +
             "- ro.adb.secure = ${adbInspection.adbSecureProperty}\n" +
             "- Hint integritas = ${adbInspection.integrityHintSummary}\n" +
             "Dampak:\n" +
-            "- Mulai ujian diblokir jika Developer Mode atau ADB aktif\n" +
+            "- Mulai ujian diblokir jika Developer Mode, USB ADB, atau Wireless ADB aktif\n" +
             "- Jika aktif saat ujian -> peringatan + alarm"
         }
     ) else null

@@ -22,6 +22,9 @@ import com.coblax.examlock.config.VirtualManufacturerTokens
 import com.coblax.examlock.config.VirtualModelTokens
 import com.coblax.examlock.config.VirtualProductTokens
 import com.coblax.examlock.config.VirtualQemuFiles
+import com.coblax.examlock.config.VirtualBoardTokens
+import com.coblax.examlock.config.VirtualPresenceSystemPropertyKeys
+import com.coblax.examlock.config.VirtualValueSystemProperties
 import com.coblax.examlock.inspectAccessibility
 import com.coblax.examlock.model.ClipboardDiagnostics
 import com.coblax.examlock.model.RootDetectionDetails
@@ -361,6 +364,7 @@ internal fun getVirtualEnvironmentDiagnostics(
 
     val appContext = context.applicationContext
     val result = computeVirtualEnvironmentDiagnostics(
+        context = appContext,
         packageInventory = SecurityDetectorCache.readPackageInventory(
             context = appContext,
             forceRefresh = forceRefresh
@@ -410,22 +414,28 @@ internal fun findEmulatorPackagesFromInventory(
         .map { record -> record.packageName }
         .filter { packageName ->
             EmulatorPackagePrefixes.any { prefix ->
-                packageName.startsWith(prefix, ignoreCase = true)
+        packageName.startsWith(prefix, ignoreCase = true)
             }
         }
         .toList()
 }
 
 private fun computeVirtualEnvironmentDiagnostics(
+    context: Context,
     packageInventory: InstalledPackageInventory
 ): VirtualEnvironmentDiagnostics {
     val indicators = mutableListOf<String>()
+    var score = 0
+
+    // --- Build field checks (strong signals, +2 each) ---
+
     val fingerprint = Build.FINGERPRINT.orEmpty()
     if (VirtualFingerprintTokens.any { token ->
             fingerprint.contains(token, ignoreCase = true)
         }
     ) {
         indicators.add("fingerprint:$fingerprint")
+        score += 2
     }
 
     val model = Build.MODEL.orEmpty()
@@ -434,6 +444,7 @@ private fun computeVirtualEnvironmentDiagnostics(
         }
     ) {
         indicators.add("model:$model")
+        score += 2
     }
 
     val manufacturer = Build.MANUFACTURER.orEmpty()
@@ -442,6 +453,7 @@ private fun computeVirtualEnvironmentDiagnostics(
         }
     ) {
         indicators.add("manufacturer:$manufacturer")
+        score += 2
     }
 
     val brand = Build.BRAND.orEmpty()
@@ -450,6 +462,7 @@ private fun computeVirtualEnvironmentDiagnostics(
         device.startsWith("generic", ignoreCase = true)
     ) {
         indicators.add("generic_brand_device:${brand}/${device}")
+        score += 2
     }
 
     val product = Build.PRODUCT.orEmpty()
@@ -458,6 +471,7 @@ private fun computeVirtualEnvironmentDiagnostics(
         }
     ) {
         indicators.add("product:$product")
+        score += 2
     }
 
     val hardware = Build.HARDWARE.orEmpty()
@@ -466,37 +480,122 @@ private fun computeVirtualEnvironmentDiagnostics(
         }
     ) {
         indicators.add("hardware:$hardware")
+        score += 2
     }
+
+    val board = Build.BOARD.orEmpty()
+    if (VirtualBoardTokens.any { token ->
+            board.equals(token, ignoreCase = true)
+        }
+    ) {
+        indicators.add("board:$board")
+        score += 1
+    }
+
+    // --- ABI check (weak signal, +1) ---
 
     val abis = Build.SUPPORTED_ABIS?.toList() ?: emptyList()
     if (abis.any { it.contains("x86", ignoreCase = true) }) {
         indicators.add("abis:${abis.joinToString()}")
+        score += 1
     }
+
+    // --- System properties (strong signal, +2 per match) ---
 
     val qemuProperty = getSystemProperty("ro.kernel.qemu").trim()
     if (qemuProperty == "1") {
         indicators.add("ro.kernel.qemu=1")
+        score += 2
     }
+
+    val suspiciousSystemProperties = mutableListOf<String>()
+    // Emulator-exclusive properties: their mere presence is a signal.
+    for (key in VirtualPresenceSystemPropertyKeys) {
+        val value = getSystemProperty(key).trim()
+        if (value.isNotBlank()) {
+            suspiciousSystemProperties.add("$key=$value")
+        }
+    }
+    // Properties that also exist on real devices: only an emulator-shaped value counts,
+    // so a genuine phone (e.g. Samsung A55) is not flagged just for having them set.
+    for ((key, tokens) in VirtualValueSystemProperties) {
+        val value = getSystemProperty(key).trim()
+        if (value.isNotBlank() && tokens.any { value.contains(it, ignoreCase = true) }) {
+            suspiciousSystemProperties.add("$key=$value")
+        }
+    }
+    if (suspiciousSystemProperties.isNotEmpty()) {
+        indicators.add("sysprops:${suspiciousSystemProperties.joinToString()}")
+        score += 2
+    }
+
+    // --- QEMU / emulator filesystem artifacts (strong signal, +2) ---
 
     val qemuFiles = VirtualQemuFiles.filter { path ->
         runCatching { java.io.File(path).exists() }.getOrDefault(false)
     }
     if (qemuFiles.isNotEmpty()) {
         indicators.add("qemu_files:${qemuFiles.joinToString()}")
+        score += 2
     }
+
+    // --- Emulator packages (strong signal, +2) ---
 
     val emulatorPackages = findEmulatorPackagesFromInventory(packageInventory)
     if (emulatorPackages.isNotEmpty()) {
         indicators.add("packages:${emulatorPackages.joinToString()}")
+        score += 2
     }
 
+    // --- Hardware sensor count (weak signal, +1) ---
+    // Real devices have 10+ sensors; emulators typically report 0-4.
+
+    val sensorCount = runCatching {
+        val sensorManager = context.getSystemService(android.hardware.SensorManager::class.java)
+        sensorManager?.getSensorList(android.hardware.Sensor.TYPE_ALL)?.size ?: 0
+    }.getOrDefault(-1)
+    if (sensorCount in 0..4) {
+        indicators.add("low_sensors:$sensorCount")
+        score += 1
+    }
+
+    // --- Battery presence (weak signal, +1) ---
+    // Emulators often report no battery or STATUS_UNKNOWN.
+
+    val hasBattery = runCatching {
+        val batteryIntent = context.registerReceiver(
+            null,
+            IntentFilter(Intent.ACTION_BATTERY_CHANGED)
+        )
+        val batteryPresent = batteryIntent?.getBooleanExtra(
+            BatteryManager.EXTRA_PRESENT, true
+        ) ?: true
+        val batteryStatus = batteryIntent?.getIntExtra(
+            BatteryManager.EXTRA_STATUS, -1
+        ) ?: -1
+        batteryPresent && batteryStatus != BatteryManager.BATTERY_STATUS_UNKNOWN
+    }.getOrDefault(true)
+    if (!hasBattery) {
+        indicators.add("no_battery")
+        score += 1
+    }
+
+    // --- Detection threshold ---
+    // Score >= 2 triggers detection. Single weak signals (score 1) alone are
+    // not enough to avoid false positives on real x86 Chromebooks or
+    // low-sensor budget devices.
+
     return VirtualEnvironmentDiagnostics(
-        detected = indicators.isNotEmpty(),
+        detected = score >= 2,
         indicators = indicators,
+        score = score,
         qemuProperty = qemuProperty,
         emulatorPackages = emulatorPackages,
         qemuFiles = qemuFiles,
-        abis = abis
+        suspiciousSystemProperties = suspiciousSystemProperties,
+        abis = abis,
+        sensorCount = sensorCount,
+        hasBattery = hasBattery
     )
 }
 
@@ -536,6 +635,7 @@ internal fun isAppDebuggable(context: Context): Boolean {
 }
 
 internal fun getSecurityPatchLevel(): String {
+
     return Build.VERSION.SECURITY_PATCH.takeIf(String::isNotBlank) ?: "-"
 }
 

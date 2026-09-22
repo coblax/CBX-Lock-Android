@@ -99,7 +99,9 @@ object ExamQrCodec {
         val plaintext = payload.serialize().toByteArray(StandardCharsets.UTF_8)
         val packed = NativeSecurityBridge.encryptQrPayload(plaintext) {
             if (!NativeLibraryLoader.isAvailable) {
-                Log.w("ExamQrCodec", "Using Kotlin fallback for QR encryption. Native library unavailable.")
+                runCatching {
+                    Log.w("ExamQrCodec", "Using Kotlin fallback for QR encryption. Native library unavailable.")
+                }
             }
             encryptPayloadKotlin(plaintext)
         }
@@ -121,7 +123,9 @@ object ExamQrCodec {
 
         val decrypted = NativeSecurityBridge.decryptQrPayload(packed) {
             if (!NativeLibraryLoader.isAvailable) {
-                Log.w("ExamQrCodec", "Using Kotlin fallback for QR decryption. Native library unavailable.")
+                runCatching {
+                    Log.w("ExamQrCodec", "Using Kotlin fallback for QR decryption. Native library unavailable.")
+                }
             }
             decryptPayloadKotlin(packed)
         }

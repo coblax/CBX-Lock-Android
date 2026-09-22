@@ -1,6 +1,9 @@
-﻿package com.coblax.examlock.ui.preparation
+package com.coblax.examlock.ui.preparation
 
 import androidx.compose.animation.AnimatedVisibility
+import androidx.compose.animation.animateContentSize
+import androidx.compose.animation.core.FastOutSlowInEasing
+import androidx.compose.animation.core.tween
 import androidx.compose.animation.expandVertically
 import androidx.compose.animation.shrinkVertically
 import androidx.compose.foundation.background
@@ -11,8 +14,15 @@ import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.padding
+import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material3.Text
+import androidx.compose.material3.Icon
+import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.rounded.CheckCircle
+import androidx.compose.material.icons.rounded.ExpandLess
+import androidx.compose.material.icons.rounded.ExpandMore
+import androidx.compose.material.icons.rounded.Warning
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
@@ -26,19 +36,12 @@ import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import com.coblax.examlock.i18n.tr
-import com.coblax.examlock.ui.theme.LockOutline
-import com.coblax.examlock.ui.theme.LockSurfaceSoft
-import com.coblax.examlock.ui.theme.LockTextMuted
-import com.coblax.examlock.ui.theme.LockTextPrimary
-import com.coblax.examlock.ui.theme.LockIssueText
-import com.coblax.examlock.ui.theme.LockSafeEmphasis
+import com.coblax.examlock.ui.theme.AppColors
 import com.coblax.examlock.ui.theme.UiTokens
-import com.coblax.examlock.ui.theme.LockOutlineSubtle
 
 /**
  * Wraps a checklist section with a collapsible header.
- * Sections where [allClear] = true start collapsed and show "âœ… All clear".
- * Sections with issues start expanded and show "âš  N issues".
+ * Clear sections start collapsed; sections with issues start expanded.
  * Tapping the header toggles the section content.
  */
 @Composable
@@ -48,7 +51,7 @@ internal fun CollapsibleChecklistSection(
     content: @Composable () -> Unit
 ) {
     if (health == null) {
-        // No health data â€” just show content as-is
+        // No health data — just show content as-is
         content()
         return
     }
@@ -56,18 +59,24 @@ internal fun CollapsibleChecklistSection(
     var expanded by rememberSaveable(sectionKey) { mutableStateOf(!health.allClear) }
 
     Column(
-        modifier = Modifier.fillMaxWidth()
+        modifier = Modifier
+            .fillMaxWidth()
+            .animateContentSize(
+                animationSpec = tween(250, easing = FastOutSlowInEasing)
+            )
     ) {
         // Section header (clickable toggle)
+        val allClearBg = if (AppColors.current.isDark) AppColors.current.statusSafeFill
+        else Color(0xFFF0F9F4)
         Row(
             modifier = Modifier
                 .fillMaxWidth()
                 .clip(RoundedCornerShape(UiTokens.RadiusMd))
-                .background(if (health.allClear) Color(0xFFF0F9F4) else LockSurfaceSoft)
+                .background(if (health.allClear) allClearBg else AppColors.current.surfaceSoft)
                 .border(
                     1.dp,
-                    if (health.allClear) LockSafeEmphasis.copy(alpha = 0.15f)
-                    else LockOutlineSubtle,
+                    if (health.allClear) AppColors.current.safeEmphasis.copy(alpha = 0.15f)
+                    else AppColors.current.outlineSubtle,
                     RoundedCornerShape(UiTokens.RadiusMd)
                 )
                 .clickable { expanded = !expanded }
@@ -77,7 +86,7 @@ internal fun CollapsibleChecklistSection(
         ) {
             Text(
                 text = health.title,
-                color = LockTextPrimary,
+                color = AppColors.current.textPrimary,
                 fontSize = 12.sp,
                 fontWeight = FontWeight.Bold
             )
@@ -85,25 +94,38 @@ internal fun CollapsibleChecklistSection(
                 horizontalArrangement = Arrangement.spacedBy(6.dp),
                 verticalAlignment = Alignment.CenterVertically
             ) {
+                Icon(
+                    imageVector = if (health.allClear) Icons.Rounded.CheckCircle else Icons.Rounded.Warning,
+                    contentDescription = null,
+                    tint = if (health.allClear) AppColors.current.safeEmphasis else AppColors.current.issueText,
+                    modifier = Modifier.size(16.dp)
+                )
                 if (health.allClear) {
                     Text(
-                        text = tr("âœ… All clear", "âœ… Aman semua"),
-                        color = LockSafeEmphasis,
+                        text = tr("All clear", "Aman semua"),
+                        color = AppColors.current.safeEmphasis,
                         fontSize = 11.sp,
                         fontWeight = FontWeight.SemiBold
                     )
                 } else {
                     Text(
-                        text = "âš  ${health.issueCount} ${tr("issue", "masalah")}${if (health.issueCount > 1) "s" else ""}",
-                        color = LockIssueText,
+                        text = tr(
+                            "${health.issueCount} ${if (health.issueCount == 1) "issue" else "issues"}",
+                            "${health.issueCount} masalah"
+                        ),
+                        color = AppColors.current.issueText,
                         fontSize = 11.sp,
                         fontWeight = FontWeight.SemiBold
                     )
                 }
-                Text(
-                    text = if (expanded) "â–²" else "â–¼",
-                    color = LockTextMuted,
-                    fontSize = 10.sp
+                Icon(
+                    imageVector = if (expanded) Icons.Rounded.ExpandLess else Icons.Rounded.ExpandMore,
+                    contentDescription = tr(
+                        if (expanded) "Collapse section" else "Expand section",
+                        if (expanded) "Tutup bagian" else "Buka bagian"
+                    ),
+                    tint = AppColors.current.textMuted,
+                    modifier = Modifier.size(16.dp)
                 )
             }
         }
@@ -111,8 +133,12 @@ internal fun CollapsibleChecklistSection(
         // Animated content
         AnimatedVisibility(
             visible = expanded,
-            enter = expandVertically(),
-            exit = shrinkVertically()
+            enter = expandVertically(
+                animationSpec = tween(250, easing = FastOutSlowInEasing)
+            ),
+            exit = shrinkVertically(
+                animationSpec = tween(200, easing = FastOutSlowInEasing)
+            )
         ) {
             Column(
                 modifier = Modifier.padding(top = 6.dp)

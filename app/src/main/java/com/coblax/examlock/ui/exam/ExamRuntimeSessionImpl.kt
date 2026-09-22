@@ -94,6 +94,7 @@ import com.coblax.examlock.LocalDeviceCompatibilityProfile
 import com.coblax.examlock.LocalLowRamProfile
 import com.coblax.examlock.LocationPolicySource
 import com.coblax.examlock.LocationSpoofSecurityStatus
+import com.coblax.examlock.LockTaskSecurityRequirement
 import com.coblax.examlock.MainActivity
 import com.coblax.examlock.model.AdminSettings
 import com.coblax.examlock.model.DiagnosticEventLevel
@@ -150,17 +151,19 @@ import com.coblax.examlock.runtime.SecurityDetectorCache
 import com.coblax.examlock.ScreenPinningBypassResolver
 import com.coblax.examlock.ScreenPinningEnforcer
 import com.coblax.examlock.ScreenPinningMode
+import com.coblax.examlock.resolveLockTaskSecurityRequirement
+import com.coblax.examlock.shouldRestartLockTaskForRequirement
 import com.coblax.examlock.shouldSuppressPinningTransitionViolation
 import com.coblax.examlock.SignatureIntegrityResult
 import com.coblax.examlock.SplitLocationSecurityStatus
 import com.coblax.examlock.ui.geofence.effectiveCircleCenters
 import com.coblax.examlock.ui.preparation.PreparationScreenActions
 import com.coblax.examlock.ui.preparation.PreparationScreenState
-import com.coblax.examlock.ui.theme.LockBackground
 import com.coblax.examlock.updateCacheModeForNetworkStability
 import com.coblax.examlock.VpnBypassResolver
 import com.coblax.examlock.VpnBypassState
 import com.coblax.examlock.WebViewCompatibilityStatus
+import com.coblax.examlock.ui.theme.AppColors
 
 import kotlinx.coroutines.CancellationException
 import kotlinx.coroutines.CompletableDeferred
@@ -454,7 +457,7 @@ internal fun ExamRuntimeSessionScreenImpl(
     var fullScreenCustomView by webViewUiState.fullScreenCustomView
     var fullScreenCustomViewCallback by webViewUiState.fullScreenCustomViewCallback
     val fullScreenContainer = webViewUiState.fullScreenContainer
-    fullScreenContainer.setBackgroundColor(LockBackground.toArgb())
+    fullScreenContainer.setBackgroundColor(AppColors.current.background.toArgb())
     var useBuiltInExamKeyboard by flowUiState.useBuiltInExamKeyboard
     var exitSessionClearInFlight by flowUiState.exitSessionClearInFlight
     val exitSessionClearRequestedState = rememberSaveable { mutableStateOf(false) }
@@ -867,12 +870,32 @@ internal fun ExamRuntimeSessionScreenImpl(
         )
     }
     fun applyDpcExamPoliciesForStart(startLockTask: Boolean): Boolean {
-        if (dpcExamPolicyAppliedForSession) {
-            if (startLockTask && dpcRuntimeStatus.deviceOwner && !lockTaskBridge.active()) {
+        fun ensureManagedLockTask(status: DpcRuntimeStatus): Boolean {
+            val managedLockTaskRequired = dpcExamPolicyAppliedForSession || status.deviceOwner
+            val requirement = resolveLockTaskSecurityRequirement(managedLockTaskRequired)
+            if (!startLockTask || !managedLockTaskRequired) {
+                return lockTaskBridge.satisfies(requirement)
+            }
+
+            val currentState = lockTaskBridge.state()
+            if (shouldRestartLockTaskForRequirement(currentState, requirement)) {
+                recordAction(
+                    ExamRuntimeHardeningDiagnostics.DpcLockTaskUpgradeRequested,
+                    "from=${currentState.diagnosticLabel} | required=LOCKED | action=restart_lock_task",
+                    DiagnosticEventLevel.SECURITY
+                )
+                lockTaskBridge.disengage()
+            }
+            if (!lockTaskBridge.satisfies(requirement)) {
                 lockTaskBridge.engage(allowLockTask = true)
             }
+            return lockTaskBridge.satisfies(requirement)
+        }
+
+        if (dpcExamPolicyAppliedForSession) {
+            val requirementSatisfied = ensureManagedLockTask(dpcRuntimeStatus)
             refreshDpcRuntimeStatus()
-            return lockTaskBridge.active()
+            return requirementSatisfied && lockTaskBridge.satisfies(LockTaskSecurityRequirement.Locked)
         }
         val result = ExamDeviceOwnerController.applyExamPolicies(context)
         dpcRuntimeStatus = result.after
@@ -904,11 +927,10 @@ internal fun ExamRuntimeSessionScreenImpl(
                 DiagnosticEventLevel.WARNING
             )
         }
-        if (startLockTask && result.after.deviceOwner && !lockTaskBridge.active()) {
-            lockTaskBridge.engage(allowLockTask = true)
-        }
+        val requirementSatisfied = ensureManagedLockTask(result.after)
         refreshDpcRuntimeStatus()
-        return lockTaskBridge.active()
+        val finalRequirement = resolveLockTaskSecurityRequirement(dpcExamPolicyAppliedForSession)
+        return requirementSatisfied && lockTaskBridge.satisfies(finalRequirement)
     }
     fun clearDpcExamPoliciesForSession(reason: String) {
         val result = ExamDeviceOwnerController.clearCreateWindowsRestrictionIfSessionApplied(
@@ -954,12 +976,21 @@ internal fun ExamRuntimeSessionScreenImpl(
         lastTrustedRuntimeChromeActionElapsedMs = SystemClock.elapsedRealtime()
         lastTrustedRuntimeChromeActionReason = reason
     }
+    var latestServerProbeId by remember { mutableStateOf(0L) }
     suspend fun runExamServerProbe(
         trigger: String,
         markChecking: Boolean = true
     ) {
+        val probeId = ++latestServerProbeId
+        val probeWebView = webViewInstance
+        val probeNavigation = probeWebView?.navigationState
+        val probeRevision = probeNavigation?.revision
+        fun canUpdateStatus(): Boolean =
+            probeId == latestServerProbeId && probeWebView === webViewInstance &&
+                webViewErrorMessage == null &&
+                (probeNavigation == null || probeNavigation.canApplyServerProbe(probeRevision!!))
         val host = safeExamServerHost(payload.examUrl)
-        if (markChecking) {
+        if (markChecking && canUpdateStatus()) {
             examServerStatus = ExamServerFooterStatus.Checking
         }
         recordAction(
@@ -971,10 +1002,12 @@ internal fun ExamRuntimeSessionScreenImpl(
             )
         )
         val result = probeExamServerFooterStatus(payload.examUrl)
-        examServerStatus = if (networkUnstableEpisodeStartedElapsedMs != null) {
-            ExamServerFooterStatus.Unstable
-        } else {
-            result.status
+        if (canUpdateStatus()) {
+            examServerStatus = if (networkUnstableEpisodeStartedElapsedMs != null) {
+                ExamServerFooterStatus.Unstable
+            } else {
+                result.status
+            }
         }
         recordAction(
             code = result.eventCode,
@@ -1100,79 +1133,28 @@ internal fun ExamRuntimeSessionScreenImpl(
         }
     }
 
-    // Tracks elapsed timestamps of recent auto-reload attempts for cooldown enforcement.
-    val autoReloadTimestamps = remember { mutableListOf<Long>() }
-
-    // Auto-reload WebView when network recovers from offline while an error page is displayed.
-    // This eliminates the need for students to manually press "Muat Ulang" after a brief
-    // network hiccup â€” the exam page recovers automatically once connectivity is restored.
-    // Enhanced: also detects about:blank and data:text/html error pages where
-    // webViewErrorMessage may have been cleared, and pre-verifies DNS before reload.
-    // Cooldown: max 3 auto-reloads within a 2-minute window to prevent reload loops
-    // when the network keeps flapping (on-off-on repeatedly).
-    LaunchedEffect(examSessionStarted, networkStatus.isConnected, webViewErrorMessage) {
-        if (!examSessionStarted || !networkStatus.isConnected) {
-            return@LaunchedEffect
-        }
-        // Check both explicit error state AND implicit error pages
-        val currentUrl = webViewInstance?.url.orEmpty()
-        val isOnErrorPage = webViewErrorMessage != null ||
-            currentUrl == "about:blank" ||
-            currentUrl.startsWith("data:text/html")
-        if (!isOnErrorPage) {
-            return@LaunchedEffect
-        }
-        // Wait a stabilization period to ensure the connection is truly back
+    // Recover failed GET navigations only after a real offline -> online transition.
+    // HTTP/SSL failures and form submissions require an explicit user action.
+    var previousNetworkConnected by remember { mutableStateOf(networkStatus.isConnected) }
+    LaunchedEffect(examSessionStarted, networkStatus.isConnected) {
+        val reconnected = !previousNetworkConnected && networkStatus.isConnected
+        previousNetworkConnected = networkStatus.isConnected
+        if (!examSessionStarted || !reconnected) return@LaunchedEffect
+        val webView = webViewInstance ?: return@LaunchedEffect
+        val retryUrl = webView.navigationState.failedUrl ?: return@LaunchedEffect
+        if (!webView.navigationState.canRecoverOnConnection) return@LaunchedEffect
         delay(2_000L)
-        // Double-check: still connected and still in error-like state
-        val stillOnErrorPage = webViewErrorMessage != null ||
-            (webViewInstance?.url.orEmpty().let { it == "about:blank" || it.startsWith("data:text/html") })
-        if (networkStatus.isConnected && stillOnErrorPage) {
-            // --- Cooldown check ---
-            val now = SystemClock.elapsedRealtime()
-            val cooldownWindowMs = 120_000L // 2 minutes
-            val maxAutoReloadsInWindow = 3
-            // Evict entries older than the cooldown window
-            autoReloadTimestamps.removeAll { now - it > cooldownWindowMs }
-            if (autoReloadTimestamps.size >= maxAutoReloadsInWindow) {
-                recordAction(
-                    "WEBVIEW_AUTO_RELOAD_COOLDOWN",
-                    "count=${autoReloadTimestamps.size} in ${cooldownWindowMs / 1000}s window | transport=${networkReadinessStatus.transportLabel}",
-                    DiagnosticEventLevel.WARNING
-                )
-                return@LaunchedEffect
-            }
-            // Pre-verify that the exam host is actually reachable before reload
-            val examHost = runCatching { java.net.URI(payload.examUrl.trim()).host }.getOrNull()
-            val dnsReachable = if (!examHost.isNullOrBlank()) {
-                withContext(Dispatchers.IO) {
-                    runCatching { java.net.InetAddress.getByName(examHost) }.isSuccess
-                }
-            } else {
-                true // Skip check if we can't parse the host
-            }
-            if (!dnsReachable) {
-                recordAction(
-                    "WEBVIEW_AUTO_RELOAD_DNS_FAILED",
-                    "host=$examHost | transport=${networkReadinessStatus.transportLabel}",
-                    DiagnosticEventLevel.WARNING
-                )
-                return@LaunchedEffect
-            }
-            autoReloadTimestamps.add(now)
-            recordAction(
-                "WEBVIEW_AUTO_RELOAD_ON_RECOVERY",
-                "error=${webViewErrorMessage?.take(80)} | url=${currentUrl.take(60)} | transport=${networkReadinessStatus.transportLabel} | reload_count=${autoReloadTimestamps.size}",
-                DiagnosticEventLevel.INFO
-            )
-            webViewErrorMessage = null
-            loadingProgress = 0.05f
-            launchExamServerProbe("network_recovery", true)
-            webViewInstance?.let { webView ->
-                webView.loadExamUrlSafely(payload.examUrl)
-                webView.requestedExamUrl = payload.examUrl
-            }
-        }
+        if (webView !== webViewInstance || !webView.navigationState.canRecoverOnConnection ||
+            webView.navigationState.failedUrl != retryUrl
+        ) return@LaunchedEffect
+        recordAction(
+            "WEBVIEW_AUTO_RELOAD_ON_RECOVERY",
+            "host=${safeExamServerHost(retryUrl)} | transport=${networkReadinessStatus.transportLabel}",
+            DiagnosticEventLevel.INFO
+        )
+        webView.cancelPendingConnectionRetries()
+        webView.loadExamUrlSafely(retryUrl)
+        launchExamServerProbe("network_recovery", true)
     }
 
     // Proactive memory monitoring: periodically check JVM heap usage and
@@ -1195,7 +1177,7 @@ internal fun ExamRuntimeSessionScreenImpl(
                 )
                 // Preemptive: clear in-memory cache to reduce pressure.
                 // Wrapped in runCatching because the WebView may have been destroyed
-                // (renderer gone) but the reference not yet nulled â€” clearCache() would
+                // (renderer gone) but the reference not yet nulled — clearCache() would
                 // throw IllegalStateException and kill this monitoring loop.
                 runCatching { webViewInstance?.clearCache(false) }
             }
@@ -1203,8 +1185,8 @@ internal fun ExamRuntimeSessionScreenImpl(
     }
 
     // Dynamic cache mode switching: adapt WebView caching strategy to real-time
-    // network conditions. Stable network â†’ LOAD_DEFAULT (fresh content from server),
-    // unstable/offline â†’ LOAD_CACHE_ELSE_NETWORK (serve from cache, fall back to net).
+    // network conditions. Stable network → LOAD_DEFAULT (fresh content from server),
+    // unstable/offline → LOAD_CACHE_ELSE_NETWORK (serve from cache, fall back to net).
     LaunchedEffect(
         examSessionStarted,
         networkStatus.isConnected,
@@ -1670,6 +1652,7 @@ internal fun ExamRuntimeSessionScreenImpl(
                     ensureDeviceOwnerLockTaskActive = {
                         applyDpcExamPoliciesForStart(startLockTask = true)
                     },
+                    refreshDpcRuntimeStatus = ::refreshDpcRuntimeStatus,
                     clearAppSwitchSuppression = ::clearAppSwitchSuppression,
                     setAppSwitchSuppression = { reason -> setAppSwitchSuppression(reason) },
                     hideStartExamPreflight = this::hideStartExamPreflight,
@@ -2003,9 +1986,14 @@ internal fun ExamRuntimeSessionScreenImpl(
         stopAlarm = examAlarmController::stop
     )
 
+    val runtimeLockTaskRequirement = resolveLockTaskSecurityRequirement(
+        dpcExamPolicyAppliedForSession || dpcRuntimeStatus.deviceOwner
+    )
+
     RuntimeScreenPinningActivationEffect(
         mainActivity = mainActivity,
         lockTaskBridge = lockTaskBridge,
+        lockTaskRequirement = runtimeLockTaskRequirement,
         isIndonesian = isIndonesian,
         flowUiState = flowUiState,
         adminUiState = adminUiState,
@@ -2027,6 +2015,7 @@ internal fun ExamRuntimeSessionScreenImpl(
         accessibilityGuardFallbackActive = accessibilityGuardFallbackActive,
         exitOnSecurityIssueDialogDismiss = exitOnSecurityIssueDialogDismiss,
         lockTaskBridge = lockTaskBridge,
+        lockTaskRequirement = runtimeLockTaskRequirement,
         isIndonesian = isIndonesian,
         deviceQuirkProfile = deviceQuirkProfile,
         currentScreenPinningMonitorIntervalMillis = ::currentScreenPinningMonitorIntervalMillis,
@@ -2434,7 +2423,14 @@ internal fun ExamRuntimeSessionScreenImpl(
         reloadExamUrlLikeBrowser = {
             webViewInstance?.reloadExamUrlLikeBrowserSafely(payload.examUrl)
         },
-        stopWebViewLoading = { webViewInstance?.stopLoading() },
+        stopWebViewLoading = {
+            webViewInstance?.let { webView ->
+                webView.cancelPendingConnectionRetries()
+                webView.cancelNavigationTimeout()
+                webView.navigationState.fail(webView.url, recoverOnConnection = false)
+                webView.stopLoading()
+            }
+        },
         setLoadingProgress = { loadingProgress = it },
         setWebViewStopRequested = { webViewStopRequested = it },
         setLastExamRefreshDecision = { lastExamRefreshDecision = it },

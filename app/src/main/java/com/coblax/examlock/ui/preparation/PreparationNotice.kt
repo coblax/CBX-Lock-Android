@@ -18,8 +18,7 @@ import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
-import com.coblax.examlock.ui.theme.LockTextPrimary
-import com.coblax.examlock.ui.theme.LockTextSecondary
+import com.coblax.examlock.ui.theme.AppColors
 import com.coblax.examlock.ui.theme.UiTokens
 
 @Composable
@@ -36,7 +35,7 @@ internal fun PreparationNoticeCard(
             .background(backgroundColor)
             .border(1.dp, accentColor.copy(alpha = 0.18f), RoundedCornerShape(UiTokens.RadiusMd))
     ) {
-        // Left accent stripe â€” no animation, safe for API 24 / low-RAM
+        // Left accent stripe — no animation, safe for API 24 / low-RAM
         Box(
             modifier = Modifier
                 .width(4.dp)
@@ -50,14 +49,14 @@ internal fun PreparationNoticeCard(
         ) {
             Text(
                 text = title,
-                color = LockTextPrimary,
+                color = AppColors.current.textPrimary,
                 fontSize = 14.sp,
                 fontWeight = FontWeight.Bold,
                 lineHeight = 19.sp
             )
             Text(
                 text = message,
-                color = LockTextSecondary,
+                color = AppColors.current.textSecondary,
                 fontSize = 12.sp,
                 lineHeight = 17.sp
             )

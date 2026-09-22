@@ -1,4 +1,4 @@
-﻿package com.coblax.examlock.ui.preparation
+package com.coblax.examlock.ui.preparation
 
 import androidx.compose.foundation.background
 import androidx.compose.foundation.border
@@ -29,19 +29,9 @@ import com.coblax.examlock.CompatibilityScore
 import com.coblax.examlock.DeviceSurvivalPolicy
 import com.coblax.examlock.PreviousExamSessionBreadcrumb
 import com.coblax.examlock.i18n.tr
-import com.coblax.examlock.ui.theme.LockBlue
-import com.coblax.examlock.ui.theme.LockGoldDark
-import com.coblax.examlock.ui.theme.LockOutline
-import com.coblax.examlock.ui.theme.LockTextMuted
-import com.coblax.examlock.ui.theme.LockTextPrimary
-import com.coblax.examlock.ui.theme.LockTextSecondary
-import com.coblax.examlock.ui.theme.LockIssueText
-import com.coblax.examlock.ui.theme.LockSafeEmphasis
-import com.coblax.examlock.ui.theme.LockSafeStrong
-import com.coblax.examlock.ui.theme.LockWarnBgWarm
+import com.coblax.examlock.ui.theme.AppColors
 import com.coblax.examlock.ui.theme.UiTokens
 import com.coblax.examlock.ui.theme.flatPill
-import com.coblax.examlock.ui.theme.LockOutlineMedium
 
 @Composable
 internal fun PreExamHealthCheckCard(
@@ -51,16 +41,16 @@ internal fun PreExamHealthCheckCard(
     onFixWebViewProvider: () -> Unit
 ) {
     val accentColor = when {
-        snapshot.blockingCount > 0 -> LockIssueText
-        snapshot.warningCount > 0 -> LockGoldDark
-        else -> LockSafeStrong
+        snapshot.blockingCount > 0 -> AppColors.current.issueText
+        snapshot.warningCount > 0 -> AppColors.current.goldDark
+        else -> AppColors.current.safeStrong
     }
     Column(
         modifier = Modifier
             .fillMaxWidth()
             .clip(RoundedCornerShape(UiTokens.RadiusLg))
             .background(MaterialTheme.colorScheme.surface)
-            .border(1.dp, LockOutlineMedium, RoundedCornerShape(UiTokens.RadiusLg))
+            .border(1.dp, AppColors.current.outlineMedium, RoundedCornerShape(UiTokens.RadiusLg))
             .padding(horizontal = 14.dp, vertical = 14.dp),
         verticalArrangement = Arrangement.spacedBy(10.dp)
     ) {
@@ -72,7 +62,7 @@ internal fun PreExamHealthCheckCard(
             Column(modifier = Modifier.weight(1f)) {
                 Text(
                     text = tr("Pre-Exam Health Check", "Health Check Sebelum Ujian"),
-                    color = LockTextPrimary,
+                    color = AppColors.current.textPrimary,
                     fontSize = 15.sp,
                     fontWeight = FontWeight.Bold
                 )
@@ -81,7 +71,7 @@ internal fun PreExamHealthCheckCard(
                         "Device profile: ${snapshot.compatibilityLabel}",
                         "Profil perangkat: ${snapshot.compatibilityLabel}"
                     ),
-                    color = LockTextSecondary,
+                    color = AppColors.current.textSecondary,
                     fontSize = 11.sp,
                     lineHeight = 15.sp
                 )
@@ -118,19 +108,19 @@ internal fun PreExamHealthCheckCard(
             PreExamHealthCountChip(
                 label = tr("Block", "Blok"),
                 count = snapshot.blockingCount,
-                color = LockIssueText,
+                color = AppColors.current.issueText,
                 modifier = Modifier.weight(1f)
             )
             PreExamHealthCountChip(
                 label = tr("Warn", "Warn"),
                 count = snapshot.warningCount,
-                color = LockGoldDark,
+                color = AppColors.current.goldDark,
                 modifier = Modifier.weight(1f)
             )
             PreExamHealthCountChip(
                 label = tr("Ready", "Siap"),
                 count = snapshot.stableCount,
-                color = LockSafeStrong,
+                color = AppColors.current.safeStrong,
                 modifier = Modifier.weight(1f)
             )
         }
@@ -158,10 +148,10 @@ internal fun DeviceSurvivalPolicyCard(
     onExportDiagnostics: () -> Unit
 ) {
     val accentColor = when (policy.score) {
-        CompatibilityScore.Excellent -> LockSafeStrong
-        CompatibilityScore.Good -> LockSafeEmphasis
-        CompatibilityScore.NeedsSetup -> LockGoldDark
-        CompatibilityScore.NotRecommended -> LockIssueText
+        CompatibilityScore.Excellent -> AppColors.current.safeStrong
+        CompatibilityScore.Good -> AppColors.current.safeEmphasis
+        CompatibilityScore.NeedsSetup -> AppColors.current.goldDark
+        CompatibilityScore.NotRecommended -> AppColors.current.issueText
     }
     Column(
         modifier = Modifier
@@ -180,13 +170,13 @@ internal fun DeviceSurvivalPolicyCard(
             Column(modifier = Modifier.weight(1f)) {
                 Text(
                     text = tr("Device Readiness", "Kesiapan Perangkat"),
-                    color = LockTextPrimary,
+                    color = AppColors.current.textPrimary,
                     fontSize = 15.sp,
                     fontWeight = FontWeight.Bold
                 )
                 Text(
-                    text = "${policy.vendorRiskLabel} â€¢ ${policy.webViewRiskLabel}",
-                    color = LockTextSecondary,
+                    text = "${policy.vendorRiskLabel} / ${policy.webViewRiskLabel}",
+                    color = AppColors.current.textSecondary,
                     fontSize = 11.sp,
                     lineHeight = 15.sp
                 )
@@ -212,13 +202,13 @@ internal fun DeviceSurvivalPolicyCard(
             PreExamHealthCountChip(
                 label = tr("Block", "Blok"),
                 count = policy.healthBlockingCount,
-                color = LockIssueText,
+                color = AppColors.current.issueText,
                 modifier = Modifier.weight(1f)
             )
             PreExamHealthCountChip(
                 label = tr("Warn", "Warn"),
                 count = policy.healthWarningCount,
-                color = LockGoldDark,
+                color = AppColors.current.goldDark,
                 modifier = Modifier.weight(1f)
             )
             Column(
@@ -239,7 +229,7 @@ internal fun DeviceSurvivalPolicyCard(
                 )
                 Text(
                     text = tr("Runtime", "Runtime"),
-                    color = LockTextSecondary,
+                    color = AppColors.current.textSecondary,
                     fontSize = 9.sp,
                     fontWeight = FontWeight.Bold
                 )
@@ -250,20 +240,20 @@ internal fun DeviceSurvivalPolicyCard(
                 modifier = Modifier
                     .fillMaxWidth()
                     .clip(RoundedCornerShape(UiTokens.RadiusSm))
-                    .background(LockWarnBgWarm)
-                    .border(1.dp, LockGoldDark.copy(alpha = 0.15f), RoundedCornerShape(UiTokens.RadiusSm))
+                    .background(AppColors.current.warnBgWarm)
+                    .border(1.dp, AppColors.current.goldDark.copy(alpha = 0.15f), RoundedCornerShape(UiTokens.RadiusSm))
                     .padding(10.dp),
                 verticalArrangement = Arrangement.spacedBy(7.dp)
             ) {
                 Text(
                     text = tr("Previous Session Recovery", "Recovery Sesi Sebelumnya"),
-                    color = LockGoldDark,
+                    color = AppColors.current.goldDark,
                     fontSize = 12.sp,
                     fontWeight = FontWeight.Bold
                 )
                 Text(
                     text = hint,
-                    color = LockTextSecondary,
+                    color = AppColors.current.textSecondary,
                     fontSize = 11.sp,
                     lineHeight = 15.sp
                 )
@@ -301,7 +291,7 @@ private fun PreExamHealthCountChip(
         )
         Text(
             text = label,
-            color = LockTextSecondary,
+            color = AppColors.current.textSecondary,
             fontSize = 9.sp,
             fontWeight = FontWeight.Bold
         )
@@ -314,9 +304,9 @@ private fun PreExamHealthRow(
     onFix: (() -> Unit)? = null
 ) {
     val color = when (item.verdict) {
-        PreExamHealthVerdict.Blocking -> LockIssueText
-        PreExamHealthVerdict.Warning -> LockGoldDark
-        PreExamHealthVerdict.Stable -> LockSafeStrong
+        PreExamHealthVerdict.Blocking -> AppColors.current.issueText
+        PreExamHealthVerdict.Warning -> AppColors.current.goldDark
+        PreExamHealthVerdict.Stable -> AppColors.current.safeStrong
     }
     Row(
         modifier = Modifier.fillMaxWidth(),
@@ -341,7 +331,7 @@ private fun PreExamHealthRow(
             ) {
                 Text(
                     text = item.title,
-                    color = LockTextPrimary,
+                    color = AppColors.current.textPrimary,
                     fontSize = 12.sp,
                     fontWeight = FontWeight.Bold,
                     modifier = Modifier.weight(1f)
@@ -362,14 +352,14 @@ private fun PreExamHealthRow(
             }
             Text(
                 text = item.detail,
-                color = LockTextSecondary,
+                color = AppColors.current.textSecondary,
                 fontSize = 11.sp,
                 lineHeight = 15.sp
             )
             item.quickFix?.takeIf { it.isNotBlank() }?.let { quickFix ->
                 Text(
                     text = quickFix,
-                    color = LockTextMuted,
+                    color = AppColors.current.textMuted,
                     fontSize = 10.sp,
                     lineHeight = 14.sp
                 )
@@ -384,7 +374,7 @@ private fun PreExamHealthRow(
                 ) {
                     Text(
                         text = tr("Fix WebView Provider", "Perbaiki WebView Provider"),
-                        color = LockBlue,
+                        color = AppColors.current.blue,
                         fontSize = 11.sp,
                         fontWeight = FontWeight.Bold
                     )

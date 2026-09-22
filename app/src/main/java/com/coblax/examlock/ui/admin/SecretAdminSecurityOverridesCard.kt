@@ -1,4 +1,4 @@
-﻿package com.coblax.examlock.ui.admin
+package com.coblax.examlock.ui.admin
 
 import android.location.Location
 import android.net.Uri
@@ -14,11 +14,16 @@ import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.shape.RoundedCornerShape
+import androidx.compose.material3.AlertDialog
+import androidx.compose.material3.Button
 import androidx.compose.material3.Surface
 import androidx.compose.material3.Switch
 import androidx.compose.material3.Text
+import androidx.compose.material3.TextButton
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableStateOf
+import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.draw.clip
@@ -31,21 +36,35 @@ import androidx.compose.ui.unit.sp
 import com.coblax.examlock.i18n.tr
 import com.coblax.examlock.model.AdminSettings
 import com.coblax.examlock.R
-import com.coblax.examlock.ui.theme.LockGold
-import com.coblax.examlock.ui.theme.LockGoldDark
-import com.coblax.examlock.ui.theme.LockOutline
-import com.coblax.examlock.ui.theme.LockSurface
-import com.coblax.examlock.ui.theme.LockSurfaceSoft
-import com.coblax.examlock.ui.theme.LockTextPrimary
+import com.coblax.examlock.ui.theme.AppColors
 import com.coblax.examlock.ui.theme.UiTokens
-import com.google.android.gms.tasks.Task
-
-import java.util.Date
-
 import kotlin.coroutines.resume
 import kotlin.coroutines.resumeWithException
 import kotlin.math.roundToInt
 
+internal fun activeSecurityOverrideCount(settings: AdminSettings): Int {
+    return listOf(
+        settings.bypassScreenPinning,
+        settings.bypassBluetooth,
+        settings.bypassAccessibility,
+        settings.bypassAdb,
+        settings.bypassRoot,
+        settings.bypassReverseEngineering,
+        settings.bypassApkIntegrity,
+        settings.bypassVirtualEnvironment,
+        settings.bypassVpn,
+        settings.bypassKeyboardPolicy,
+        settings.bypassClipboard,
+        settings.bypassOverlay,
+        settings.bypassGeofence,
+        settings.bypassFakeLocation,
+        settings.bypassDeviceTime,
+        settings.bypassAppSwitch,
+        settings.bypassScreenRecorder,
+        settings.bypassDisplayMirror,
+        settings.bypassMultiWindow
+    ).count { it }
+}
 
 @Composable
 internal fun SecretAdminSecurityOverridesCard(
@@ -53,11 +72,79 @@ internal fun SecretAdminSecurityOverridesCard(
     overridesActive: Boolean,
     onSettingsChange: (AdminSettings) -> Unit
 ) {
+        var pendingOverrideTitle by remember { mutableStateOf<String?>(null) }
+        var pendingOverrideSettings by remember { mutableStateOf<AdminSettings?>(null) }
+        val activeOverrideCount = remember(settings) {
+            activeSecurityOverrideCount(settings)
+        }
+        val screenPinningTitle = tr("Bypass Screen Pinning", "Bypass Screen Pinning")
+        val bluetoothTitle = tr("Bypass Bluetooth Checks", "Bypass Cek Bluetooth")
+        val accessibilityTitle = tr(
+            "Bypass Accessibility Checks",
+            "Bypass Cek Aksesibilitas"
+        )
+        val adbTitle = tr("Bypass ADB Checks", "Bypass Cek ADB")
+        val rootTitle = tr("Bypass Root Checks", "Bypass Cek Root")
+        val reverseEngineeringTitle = tr(
+            "Bypass Reverse Engineering Checks",
+            "Bypass Cek Reverse Engineering"
+        )
+        val apkIntegrityTitle = tr(
+            "Bypass APK Integrity Checks",
+            "Bypass Cek Integritas APK"
+        )
+        val virtualEnvironmentTitle = tr(
+            "Bypass Virtual Environment",
+            "Bypass Virtual Environment"
+        )
+        val vpnTitle = tr("Bypass VPN Detection", "Bypass Deteksi VPN")
+        val keyboardTitle = tr("Bypass Keyboard Policy", "Bypass Kebijakan Keyboard")
+        val clipboardTitle = tr(
+            "Bypass Clipboard Monitoring",
+            "Bypass Monitoring Clipboard"
+        )
+        val overlayTitle = tr("Bypass Overlay Detection", "Bypass Deteksi Overlay")
+        val geofenceTitle = tr("Bypass Geofence", "Bypass Geofence")
+        val fakeLocationTitle = tr(
+            "Bypass Anti-Fake-Location",
+            "Bypass Anti-Fake-Location"
+        )
+        val deviceTimeTitle = tr("Bypass Device Time", "Bypass Waktu Perangkat")
+        val appSwitchTitle = tr(
+            "Bypass App Switch Alerts",
+            "Bypass Peringatan App Switch"
+        )
+        val screenRecorderTitle = tr(
+            "Bypass Screen Recorder Detection",
+            "Bypass Deteksi Screen Recorder"
+        )
+        val displayMirrorTitle = tr(
+            "Bypass Display Mirror Detection",
+            "Bypass Deteksi Display Mirror"
+        )
+        val multiWindowTitle = tr(
+            "Bypass Multi-Window Detection",
+            "Bypass Deteksi Multi-Window"
+        )
+
+        fun requestOverrideChange(
+            title: String,
+            enabled: Boolean,
+            proposedSettings: AdminSettings
+        ) {
+            if (enabled) {
+                pendingOverrideTitle = title
+                pendingOverrideSettings = proposedSettings
+            } else {
+                onSettingsChange(proposedSettings)
+            }
+        }
+
         Surface(
             modifier = Modifier.fillMaxWidth(),
             shape = RoundedCornerShape(22.dp),
-            color = LockSurfaceSoft,
-            border = BorderStroke(1.dp, LockOutline)
+            color = AppColors.current.surfaceSoft,
+            border = BorderStroke(1.dp, AppColors.current.outline)
         ) {
             Column(
                 modifier = Modifier.padding(horizontal = 16.dp, vertical = 16.dp),
@@ -70,19 +157,22 @@ internal fun SecretAdminSecurityOverridesCard(
                 ) {
                     Text(
                         text = tr("Security Overrides", "Override Keamanan"),
-                        color = LockTextPrimary,
+                        color = AppColors.current.textPrimary,
                         fontSize = 18.sp,
                         fontWeight = FontWeight.Bold
                     )
-                    if (overridesActive) {
+                    if (overridesActive || activeOverrideCount > 0) {
                         Surface(
                             shape = RoundedCornerShape(UiTokens.RadiusPill),
-                            color = LockGold.copy(alpha = 0.18f),
-                            border = BorderStroke(1.dp, LockGold.copy(alpha = 0.45f))
+                            color = AppColors.current.gold.copy(alpha = 0.18f),
+                            border = BorderStroke(1.dp, AppColors.current.gold.copy(alpha = 0.45f))
                         ) {
                             Text(
-                                text = tr("OVERRIDES ACTIVE", "OVERRIDE AKTIF"),
-                                color = LockGoldDark,
+                                text = tr(
+                                    "$activeOverrideCount ACTIVE",
+                                    "$activeOverrideCount AKTIF"
+                                ),
+                                color = AppColors.current.goldDark,
                                 fontSize = 10.sp,
                                 fontWeight = FontWeight.Bold,
                                 modifier = Modifier.padding(horizontal = 10.dp, vertical = 6.dp)
@@ -98,7 +188,13 @@ internal fun SecretAdminSecurityOverridesCard(
                         "Lewati lock-task dan konfirmasi pin."
                     ),
                     checked = settings.bypassScreenPinning,
-                    onCheckedChange = { onSettingsChange(settings.copy(bypassScreenPinning = it)) }
+                    onCheckedChange = {
+                        requestOverrideChange(
+                            screenPinningTitle,
+                            it,
+                            settings.copy(bypassScreenPinning = it)
+                        )
+                    }
                 )
                 AdminToggleRow(
                     title = tr("Bypass Bluetooth Checks", "Bypass Cek Bluetooth"),
@@ -107,7 +203,13 @@ internal fun SecretAdminSecurityOverridesCard(
                         "Abaikan izin dan status Bluetooth."
                     ),
                     checked = settings.bypassBluetooth,
-                    onCheckedChange = { onSettingsChange(settings.copy(bypassBluetooth = it)) }
+                    onCheckedChange = {
+                        requestOverrideChange(
+                            bluetoothTitle,
+                            it,
+                            settings.copy(bypassBluetooth = it)
+                        )
+                    }
                 )
                 AdminToggleRow(
                     title = tr("Bypass Accessibility Checks", "Bypass Cek Aksesibilitas"),
@@ -116,7 +218,13 @@ internal fun SecretAdminSecurityOverridesCard(
                         "Abaikan peringatan dan blokir aksesibilitas."
                     ),
                     checked = settings.bypassAccessibility,
-                    onCheckedChange = { onSettingsChange(settings.copy(bypassAccessibility = it)) }
+                    onCheckedChange = {
+                        requestOverrideChange(
+                            accessibilityTitle,
+                            it,
+                            settings.copy(bypassAccessibility = it)
+                        )
+                    }
                 )
                 AdminToggleRow(
                     title = tr("Bypass ADB Checks", "Bypass Cek ADB"),
@@ -125,7 +233,13 @@ internal fun SecretAdminSecurityOverridesCard(
                         "Abaikan pemeriksaan USB debugging."
                     ),
                     checked = settings.bypassAdb,
-                    onCheckedChange = { onSettingsChange(settings.copy(bypassAdb = it)) }
+                    onCheckedChange = {
+                        requestOverrideChange(
+                            adbTitle,
+                            it,
+                            settings.copy(bypassAdb = it)
+                        )
+                    }
                 )
                 AdminToggleRow(
                     title = tr("Bypass Root Checks", "Bypass Cek Root"),
@@ -134,7 +248,13 @@ internal fun SecretAdminSecurityOverridesCard(
                         "Abaikan deteksi perangkat root."
                     ),
                     checked = settings.bypassRoot,
-                    onCheckedChange = { onSettingsChange(settings.copy(bypassRoot = it)) }
+                    onCheckedChange = {
+                        requestOverrideChange(
+                            rootTitle,
+                            it,
+                            settings.copy(bypassRoot = it)
+                        )
+                    }
                 )
                 AdminToggleRow(
                     title = tr(
@@ -154,7 +274,11 @@ internal fun SecretAdminSecurityOverridesCard(
                     },
                     checked = settings.bypassReverseEngineering && !settings.reverseEngineeringBypassTampered,
                     onCheckedChange = {
-                        onSettingsChange(settings.copy(bypassReverseEngineering = it))
+                        requestOverrideChange(
+                            reverseEngineeringTitle,
+                            it,
+                            settings.copy(bypassReverseEngineering = it)
+                        )
                     }
                 )
                 AdminToggleRow(
@@ -171,7 +295,13 @@ internal fun SecretAdminSecurityOverridesCard(
                         )
                     },
                     checked = settings.bypassApkIntegrity && !settings.apkIntegrityBypassTampered,
-                    onCheckedChange = { onSettingsChange(settings.copy(bypassApkIntegrity = it)) }
+                    onCheckedChange = {
+                        requestOverrideChange(
+                            apkIntegrityTitle,
+                            it,
+                            settings.copy(bypassApkIntegrity = it)
+                        )
+                    }
                 )
                 AdminToggleRow(
                     title = tr("Bypass Virtual Environment", "Bypass Virtual Environment"),
@@ -180,7 +310,13 @@ internal fun SecretAdminSecurityOverridesCard(
                         "Abaikan deteksi emulator/VM."
                     ),
                     checked = settings.bypassVirtualEnvironment,
-                    onCheckedChange = { onSettingsChange(settings.copy(bypassVirtualEnvironment = it)) }
+                    onCheckedChange = {
+                        requestOverrideChange(
+                            virtualEnvironmentTitle,
+                            it,
+                            settings.copy(bypassVirtualEnvironment = it)
+                        )
+                    }
                 )
                 AdminToggleRow(
                     title = tr("Bypass VPN Detection", "Bypass Deteksi VPN"),
@@ -189,7 +325,13 @@ internal fun SecretAdminSecurityOverridesCard(
                         "Izinkan mulai ujian saat VPN aktif hanya untuk troubleshooting resmi."
                     ),
                     checked = settings.bypassVpn,
-                    onCheckedChange = { onSettingsChange(settings.copy(bypassVpn = it)) }
+                    onCheckedChange = {
+                        requestOverrideChange(
+                            vpnTitle,
+                            it,
+                            settings.copy(bypassVpn = it)
+                        )
+                    }
                 )
                 AdminToggleRow(
                     title = tr("Bypass Keyboard Policy", "Bypass Kebijakan Keyboard"),
@@ -198,7 +340,13 @@ internal fun SecretAdminSecurityOverridesCard(
                         "Izinkan keyboard sistem apa pun tanpa fallback."
                     ),
                     checked = settings.bypassKeyboardPolicy,
-                    onCheckedChange = { onSettingsChange(settings.copy(bypassKeyboardPolicy = it)) }
+                    onCheckedChange = {
+                        requestOverrideChange(
+                            keyboardTitle,
+                            it,
+                            settings.copy(bypassKeyboardPolicy = it)
+                        )
+                    }
                 )
                 AdminToggleRow(
                     title = tr("Bypass Clipboard Monitoring", "Bypass Monitoring Clipboard"),
@@ -207,7 +355,13 @@ internal fun SecretAdminSecurityOverridesCard(
                         "Matikan alarm perubahan clipboard."
                     ),
                     checked = settings.bypassClipboard,
-                    onCheckedChange = { onSettingsChange(settings.copy(bypassClipboard = it)) }
+                    onCheckedChange = {
+                        requestOverrideChange(
+                            clipboardTitle,
+                            it,
+                            settings.copy(bypassClipboard = it)
+                        )
+                    }
                 )
                 AdminToggleRow(
                     title = tr("Bypass Overlay Detection", "Bypass Deteksi Overlay"),
@@ -216,7 +370,13 @@ internal fun SecretAdminSecurityOverridesCard(
                         "Abaikan peringatan sentuhan tertutup."
                     ),
                     checked = settings.bypassOverlay,
-                    onCheckedChange = { onSettingsChange(settings.copy(bypassOverlay = it)) }
+                    onCheckedChange = {
+                        requestOverrideChange(
+                            overlayTitle,
+                            it,
+                            settings.copy(bypassOverlay = it)
+                        )
+                    }
                 )
                 AdminToggleRow(
                     title = tr("Bypass Geofence", "Bypass Geofence"),
@@ -225,7 +385,13 @@ internal fun SecretAdminSecurityOverridesCard(
                         "Lewati enforcement posisi area ujian."
                     ),
                     checked = settings.bypassGeofence,
-                    onCheckedChange = { onSettingsChange(settings.copy(bypassGeofence = it)) }
+                    onCheckedChange = {
+                        requestOverrideChange(
+                            geofenceTitle,
+                            it,
+                            settings.copy(bypassGeofence = it)
+                        )
+                    }
                 )
                 AdminToggleRow(
                     title = tr("Bypass Anti-Fake-Location", "Bypass Anti-Fake-Location"),
@@ -234,7 +400,13 @@ internal fun SecretAdminSecurityOverridesCard(
                         "Lewati enforcement mock-location dan fake GPS."
                     ),
                     checked = settings.bypassFakeLocation,
-                    onCheckedChange = { onSettingsChange(settings.copy(bypassFakeLocation = it)) }
+                    onCheckedChange = {
+                        requestOverrideChange(
+                            fakeLocationTitle,
+                            it,
+                            settings.copy(bypassFakeLocation = it)
+                        )
+                    }
                 )
                 AdminToggleRow(
                     title = tr("Bypass Device Time", "Bypass Waktu Perangkat"),
@@ -243,7 +415,13 @@ internal fun SecretAdminSecurityOverridesCard(
                         "Lewati cek tanggal & waktu otomatis, zona waktu otomatis, dan perubahan jam."
                     ),
                     checked = settings.bypassDeviceTime,
-                    onCheckedChange = { onSettingsChange(settings.copy(bypassDeviceTime = it)) }
+                    onCheckedChange = {
+                        requestOverrideChange(
+                            deviceTimeTitle,
+                            it,
+                            settings.copy(bypassDeviceTime = it)
+                        )
+                    }
                 )
                 AdminToggleRow(
                     title = tr("Bypass App Switch Alerts", "Bypass Peringatan App Switch"),
@@ -252,7 +430,13 @@ internal fun SecretAdminSecurityOverridesCard(
                         "Matikan alarm keluar paksa saat pindah aplikasi."
                     ),
                     checked = settings.bypassAppSwitch,
-                    onCheckedChange = { onSettingsChange(settings.copy(bypassAppSwitch = it)) }
+                    onCheckedChange = {
+                        requestOverrideChange(
+                            appSwitchTitle,
+                            it,
+                            settings.copy(bypassAppSwitch = it)
+                        )
+                    }
                 )
                 AdminToggleRow(
                     title = tr("Bypass Screen Recorder Detection", "Bypass Deteksi Screen Recorder"),
@@ -261,7 +445,13 @@ internal fun SecretAdminSecurityOverridesCard(
                         "Lewati deteksi aplikasi screen recorder."
                     ),
                     checked = settings.bypassScreenRecorder,
-                    onCheckedChange = { onSettingsChange(settings.copy(bypassScreenRecorder = it)) }
+                    onCheckedChange = {
+                        requestOverrideChange(
+                            screenRecorderTitle,
+                            it,
+                            settings.copy(bypassScreenRecorder = it)
+                        )
+                    }
                 )
                 AdminToggleRow(
                     title = tr("Bypass Display Mirror Detection", "Bypass Deteksi Display Mirror"),
@@ -270,7 +460,13 @@ internal fun SecretAdminSecurityOverridesCard(
                         "Lewati deteksi display eksternal / screen casting."
                     ),
                     checked = settings.bypassDisplayMirror,
-                    onCheckedChange = { onSettingsChange(settings.copy(bypassDisplayMirror = it)) }
+                    onCheckedChange = {
+                        requestOverrideChange(
+                            displayMirrorTitle,
+                            it,
+                            settings.copy(bypassDisplayMirror = it)
+                        )
+                    }
                 )
                 AdminToggleRow(
                     title = tr("Bypass Multi-Window Detection", "Bypass Deteksi Multi-Window"),
@@ -279,8 +475,56 @@ internal fun SecretAdminSecurityOverridesCard(
                         "Lewati deteksi split-screen dan picture-in-picture."
                     ),
                     checked = settings.bypassMultiWindow,
-                    onCheckedChange = { onSettingsChange(settings.copy(bypassMultiWindow = it)) }
+                    onCheckedChange = {
+                        requestOverrideChange(
+                            multiWindowTitle,
+                            it,
+                            settings.copy(bypassMultiWindow = it)
+                        )
+                    }
                 )
             }
+        }
+
+        val proposedSettings = pendingOverrideSettings
+        if (proposedSettings != null) {
+            AlertDialog(
+                onDismissRequest = {
+                    pendingOverrideTitle = null
+                    pendingOverrideSettings = null
+                },
+                title = {
+                    Text(tr("Enable security override?", "Aktifkan override keamanan?"))
+                },
+                text = {
+                    Text(
+                        text = tr(
+                            "${pendingOverrideTitle.orEmpty()} weakens exam enforcement. Enable it only for approved troubleshooting. Detection remains logged.",
+                            "${pendingOverrideTitle.orEmpty()} melemahkan enforcement ujian. Aktifkan hanya untuk troubleshooting resmi. Deteksi tetap dicatat."
+                        )
+                    )
+                },
+                confirmButton = {
+                    Button(
+                        onClick = {
+                            onSettingsChange(proposedSettings)
+                            pendingOverrideTitle = null
+                            pendingOverrideSettings = null
+                        }
+                    ) {
+                        Text(tr("Enable override", "Aktifkan override"))
+                    }
+                },
+                dismissButton = {
+                    TextButton(
+                        onClick = {
+                            pendingOverrideTitle = null
+                            pendingOverrideSettings = null
+                        }
+                    ) {
+                        Text(tr("Cancel", "Batal"))
+                    }
+                }
+            )
         }
 }

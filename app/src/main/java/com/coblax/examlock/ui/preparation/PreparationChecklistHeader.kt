@@ -1,4 +1,4 @@
-﻿package com.coblax.examlock.ui.preparation
+package com.coblax.examlock.ui.preparation
 
 import androidx.compose.foundation.background
 import androidx.compose.foundation.border
@@ -16,6 +16,7 @@ import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.rounded.Home
+import androidx.compose.material.icons.rounded.Explore
 import androidx.compose.material3.Icon
 import androidx.compose.material3.LinearProgressIndicator
 import androidx.compose.material3.Text
@@ -30,20 +31,9 @@ import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import com.coblax.examlock.i18n.tr
-import com.coblax.examlock.ui.theme.LockBlue
-import com.coblax.examlock.ui.theme.LockBlueDeep
-import com.coblax.examlock.ui.theme.LockBlueSoft
-import com.coblax.examlock.ui.theme.LockOnDark
-import com.coblax.examlock.ui.theme.LockOutline
-import com.coblax.examlock.ui.theme.LockSurfaceSoft
-import com.coblax.examlock.ui.theme.LockTextSecondary
-import com.coblax.examlock.ui.theme.LockGoldAccent
-import com.coblax.examlock.ui.theme.LockIssueText
-import com.coblax.examlock.ui.theme.LockSafeEmphasis
+import com.coblax.examlock.ui.theme.AppColors
 import com.coblax.examlock.ui.theme.UiTokens
 import com.coblax.examlock.ui.theme.flatPill
-import com.coblax.examlock.ui.theme.LockBlueTint
-import com.coblax.examlock.ui.theme.LockOutlineMedium
 
 @Composable
 internal fun PreparationChecklistHeader(
@@ -63,22 +53,22 @@ internal fun PreparationChecklistHeader(
             .fillMaxWidth()
             .clip(shape)
             .background(MaterialTheme.colorScheme.surface)
-            .border(1.dp, LockOutlineMedium, shape)
+            .border(1.dp, AppColors.current.outlineMedium, shape)
     ) {
         Box(
             modifier = Modifier
                 .background(
                     brush = if (severeLowRamPreparation) {
-                        Brush.verticalGradient(listOf(Color.White, Color.White))
+                        Brush.verticalGradient(listOf(AppColors.current.cardBg, AppColors.current.cardBg))
                     } else {
                         Brush.verticalGradient(
-                            0f to LockBlueTint,
-                            0.6f to LockBlueSoft.copy(alpha = 0.03f),
+                            0f to AppColors.current.blueTint,
+                            0.6f to AppColors.current.blueSoft.copy(alpha = 0.03f),
                             1f to Color.Transparent
                         )
                     }
                 )
-                .padding(horizontal = 18.dp, vertical = 16.dp)
+                .padding(horizontal = 14.dp, vertical = 12.dp)
         ) {
             Column {
                 Row(
@@ -90,8 +80,8 @@ internal fun PreparationChecklistHeader(
                     Box(
                         modifier = Modifier
                             .clip(CircleShape)
-                            .background(LockSurfaceSoft)
-                            .border(1.dp, LockOutlineMedium, CircleShape)
+                            .background(AppColors.current.surfaceSoft)
+                            .border(1.dp, AppColors.current.outlineMedium, CircleShape)
                             .clickable(onClick = onBackHome)
                             .padding(8.dp),
                         contentAlignment = Alignment.Center
@@ -99,7 +89,7 @@ internal fun PreparationChecklistHeader(
                         Icon(
                             imageVector = Icons.Rounded.Home,
                             contentDescription = tr("Back to home", "Kembali ke menu utama"),
-                            tint = LockBlueDeep,
+                            tint = AppColors.current.brandText,
                             modifier = Modifier.size(16.dp)
                         )
                     }
@@ -107,12 +97,12 @@ internal fun PreparationChecklistHeader(
                     // Mode badge
                     Box(
                         modifier = Modifier
-                            .flatPill(containerColor = LockBlueDeep)
+                            .flatPill(containerColor = AppColors.current.blueDeep)
                             .padding(horizontal = 10.dp, vertical = 5.dp)
                     ) {
                         Text(
                             text = tr("PREPARATION", "PERSIAPAN"),
-                            color = LockOnDark,
+                            color = AppColors.current.onDark,
                             fontSize = 10.sp,
                             fontWeight = FontWeight.ExtraBold,
                             letterSpacing = 0.8.sp
@@ -124,48 +114,59 @@ internal fun PreparationChecklistHeader(
                     // Wizard mode toggle
                     Box(
                         modifier = Modifier
-                            .flatPill(containerColor = LockSurfaceSoft)
-                            .border(1.dp, LockOutlineMedium, RoundedCornerShape(UiTokens.RadiusPill))
+                            .flatPill(containerColor = AppColors.current.surfaceSoft)
+                            .border(1.dp, AppColors.current.outlineMedium, RoundedCornerShape(UiTokens.RadiusPill))
                             .clickable(onClick = onSwitchToWizard)
                             .padding(horizontal = 10.dp, vertical = 5.dp)
                     ) {
-                        Text(
-                            text = "\uD83E\uDDED " + tr("Wizard", "Wizard"),
-                            color = LockBlueDeep,
-                            fontSize = 10.sp,
-                            fontWeight = FontWeight.Bold
-                        )
+                        Row(
+                            horizontalArrangement = Arrangement.spacedBy(4.dp),
+                            verticalAlignment = Alignment.CenterVertically
+                        ) {
+                            Icon(
+                                imageVector = Icons.Rounded.Explore,
+                                contentDescription = null,
+                                tint = AppColors.current.brandText,
+                                modifier = Modifier.size(14.dp)
+                            )
+                            Text(
+                                text = tr("Wizard", "Wizard"),
+                                color = AppColors.current.brandText,
+                                fontSize = 10.sp,
+                                fontWeight = FontWeight.Bold
+                            )
+                        }
                     }
                 }
 
-                Spacer(modifier = Modifier.height(14.dp))
+                Spacer(modifier = Modifier.height(10.dp))
 
                 Text(
                     text = examTitle,
-                    color = LockBlueDeep,
-                    fontSize = 22.sp,
+                    color = AppColors.current.brandText,
+                    fontSize = 20.sp,
                     fontWeight = FontWeight.Black,
-                    lineHeight = 26.sp
+                    lineHeight = 24.sp
                 )
 
-                Spacer(modifier = Modifier.height(6.dp))
+                Spacer(modifier = Modifier.height(4.dp))
 
                 Text(
                     text = tr(
                         "Quick device & security check before starting.",
                         "Pemeriksaan perangkat & keamanan sebelum mulai."
                     ),
-                    color = LockTextSecondary,
+                    color = AppColors.current.textSecondary,
                     fontSize = 12.sp,
                     lineHeight = 16.sp
                 )
 
-                Spacer(modifier = Modifier.height(8.dp))
+                Spacer(modifier = Modifier.height(6.dp))
 
                 // Progress bar
                 val totalChecks = safeCount + blockingCount
                 val progress = if (totalChecks > 0) safeCount.toFloat() / totalChecks else 1f
-                val progressColor = if (canStartExam) LockSafeEmphasis else if (progress > 0.7f) LockGoldAccent else LockIssueText
+                val progressColor = if (canStartExam) AppColors.current.safeEmphasis else if (progress > 0.7f) AppColors.current.goldAccent else AppColors.current.issueText
                 LinearProgressIndicator(
                     progress = { progress },
                     modifier = Modifier
@@ -180,12 +181,12 @@ internal fun PreparationChecklistHeader(
                         "$safeCount/$totalChecks passed",
                         "$safeCount/$totalChecks lulus"
                     ),
-                    color = LockTextSecondary,
+                    color = AppColors.current.textSecondary,
                     fontSize = 10.sp,
                     fontWeight = FontWeight.SemiBold
                 )
 
-                Spacer(modifier = Modifier.height(12.dp))
+                Spacer(modifier = Modifier.height(10.dp))
 
                 // Readiness summary chips
                 Row(
@@ -195,19 +196,19 @@ internal fun PreparationChecklistHeader(
                     ReadinessChip(
                         count = safeCount,
                         label = tr("Safe", "Aman"),
-                        color = LockSafeEmphasis,
+                        color = AppColors.current.safeEmphasis,
                         modifier = Modifier.weight(1f)
                     )
                     ReadinessChip(
                         count = warningCount,
                         label = tr("Warn", "Warn"),
-                        color = LockGoldAccent,
+                        color = AppColors.current.goldAccent,
                         modifier = Modifier.weight(1f)
                     )
                     ReadinessChip(
                         count = blockingCount,
                         label = tr("Block", "Blok"),
-                        color = LockIssueText,
+                        color = AppColors.current.issueText,
                         modifier = Modifier.weight(1f)
                     )
                 }
@@ -217,26 +218,26 @@ internal fun PreparationChecklistHeader(
                 // Status sentence
                 val statusText = if (canStartExam) {
                     tr(
-                        "âœ… All checks passed â€” ready to start.",
-                        "âœ… Semua pemeriksaan lulus â€” siap mulai."
+                        "All checks passed. Ready to start.",
+                        "Semua pemeriksaan lulus. Siap mulai."
                     )
                 } else if (blockingCount == 1) {
                     firstBlockingReason?.let {
                         tr(
-                            "ðŸ”´ 1 issue must be fixed: $it",
-                            "ðŸ”´ 1 masalah harus diperbaiki: $it"
+                            "1 issue must be fixed: $it",
+                            "1 masalah harus diperbaiki: $it"
                         )
                     } ?: tr(
-                        "ðŸ”´ 1 issue must be fixed before starting.",
-                        "ðŸ”´ 1 masalah harus diperbaiki sebelum mulai."
+                        "1 issue must be fixed before starting.",
+                        "1 masalah harus diperbaiki sebelum mulai."
                     )
                 } else {
                     tr(
-                        "ðŸ”´ $blockingCount issues must be fixed before starting.",
-                        "ðŸ”´ $blockingCount masalah harus diperbaiki sebelum mulai."
+                        "$blockingCount issues must be fixed before starting.",
+                        "$blockingCount masalah harus diperbaiki sebelum mulai."
                     )
                 }
-                val statusColor = if (canStartExam) LockSafeEmphasis else LockIssueText
+                val statusColor = if (canStartExam) AppColors.current.safeEmphasis else AppColors.current.issueText
                 Text(
                     text = statusText,
                     color = statusColor,
@@ -261,18 +262,18 @@ private fun ReadinessChip(
             .clip(RoundedCornerShape(UiTokens.RadiusSm))
             .background(color.copy(alpha = 0.08f))
             .border(1.dp, color.copy(alpha = 0.15f), RoundedCornerShape(UiTokens.RadiusSm))
-            .padding(horizontal = 8.dp, vertical = 7.dp),
+            .padding(horizontal = 8.dp, vertical = 6.dp),
         horizontalAlignment = Alignment.CenterHorizontally
     ) {
         Text(
             text = "$count",
             color = color,
-            fontSize = 15.sp,
+            fontSize = 14.sp,
             fontWeight = FontWeight.ExtraBold
         )
         Text(
             text = label,
-            color = LockTextSecondary,
+            color = AppColors.current.textSecondary,
             fontSize = 9.sp,
             fontWeight = FontWeight.Bold
         )

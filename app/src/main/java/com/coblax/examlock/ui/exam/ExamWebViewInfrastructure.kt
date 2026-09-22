@@ -34,11 +34,11 @@ internal class SecureExamWebView @JvmOverloads constructor(
     private val onObscuredTouchDetected: (ExamOverlayTouchSignal) -> Boolean = { true }
 ) : WebView(context, attrs, defStyleAttr) {
     var requestedExamUrl: String? = null
+    val navigationState = ExamWebViewNavigationState()
     private val pendingConnectionRetryCallbacks = mutableSetOf<Runnable>()
-    // Tracked callback for cache-mode restore after manual reload.
-    // Cancelled on detach/destroy to prevent the callback from firing
-    // on a destroyed WebView (10s memory leak window).
-    private var pendingCacheRestoreCallback: Runnable? = null
+    private var pendingNavigationTimeout: Runnable? = null
+    private var navigationTimeoutDelayMillis = 0L
+    private var lastNavigationProgress = 0
 
     init {
         filterTouchesWhenObscured = true
@@ -83,8 +83,8 @@ internal class SecureExamWebView @JvmOverloads constructor(
                 return@Runnable
             }
             runCatching {
+                navigationState.prepareAutomaticRetry()
                 loadExamUrlSafely(retryUrl)
-                requestedExamUrl = retryUrl
             }
         }
         pendingConnectionRetryCallbacks += callback
@@ -98,26 +98,47 @@ internal class SecureExamWebView @JvmOverloads constructor(
 
     override fun onDetachedFromWindow() {
         cancelPendingConnectionRetries()
-        pendingCacheRestoreCallback?.let(::removeCallbacks)
-        pendingCacheRestoreCallback = null
+        cancelNavigationTimeout()
         super.onDetachedFromWindow()
     }
 
     override fun destroy() {
         cancelPendingConnectionRetries()
-        pendingCacheRestoreCallback?.let(::removeCallbacks)
-        pendingCacheRestoreCallback = null
+        cancelNavigationTimeout()
         super.destroy()
     }
 
-    fun scheduleCacheRestore(delayMillis: Long) {
-        pendingCacheRestoreCallback?.let(::removeCallbacks)
-        val restoreRunnable = Runnable {
-            pendingCacheRestoreCallback = null
-            runCatching { settings.cacheMode = WebSettings.LOAD_CACHE_ELSE_NETWORK }
+    fun scheduleNavigationTimeout(callback: Runnable, delayMillis: Long) {
+        cancelNavigationTimeout()
+        pendingNavigationTimeout = callback
+        navigationTimeoutDelayMillis = delayMillis
+        lastNavigationProgress = 0
+        postDelayed(callback, delayMillis)
+    }
+
+    /**
+     * Restarts the navigation watchdog whenever the load actually advances.
+     *
+     * The watchdog exists to catch a navigation that is not moving at all. Without this
+     * it also fired on a page that was downloading normally but slowly — common on
+     * congested school Wi-Fi with a heavy exam bundle — aborting a working load and
+     * telling the student to check an internet connection that was fine. After this the
+     * timeout means "no progress for N seconds", not "not finished within N seconds".
+     */
+    fun onNavigationProgress(progress: Int) {
+        val callback = pendingNavigationTimeout ?: return
+        if (progress <= lastNavigationProgress || progress >= 100) {
+            return
         }
-        pendingCacheRestoreCallback = restoreRunnable
-        postDelayed(restoreRunnable, delayMillis)
+        lastNavigationProgress = progress
+        removeCallbacks(callback)
+        postDelayed(callback, navigationTimeoutDelayMillis)
+    }
+
+    fun cancelNavigationTimeout() {
+        pendingNavigationTimeout?.let(::removeCallbacks)
+        pendingNavigationTimeout = null
+        lastNavigationProgress = 0
     }
 }
 
@@ -218,10 +239,11 @@ private val BrowserLikeRefreshHeaders = mapOf(
 )
 
 internal fun WebView.reloadExamUrlLikeBrowserSafely(fallbackUrl: String): Boolean {
-    val currentUrl = url?.takeIf { it.isNotBlank() && it != "about:blank" }
+    val currentUrl = url?.takeIf(::isExamWebUrl)
+    val failedUrl = (this as? SecureExamWebView)?.navigationState?.failedUrl
     val requestedUrl = (this as? SecureExamWebView)?.requestedExamUrl
         ?.takeIf { it.isNotBlank() && it != "about:blank" }
-    val targetUrl = currentUrl ?: requestedUrl ?: fallbackUrl
+    val targetUrl = failedUrl ?: currentUrl ?: requestedUrl ?: fallbackUrl
     return runCatching {
         stopLoading()
         // Clear both RAM and disk cache so corrupt/stale entries are flushed.
@@ -230,12 +252,7 @@ internal fun WebView.reloadExamUrlLikeBrowserSafely(fallbackUrl: String): Boolea
         settings.cacheMode = WebSettings.LOAD_DEFAULT
         loadUrl(targetUrl, BrowserLikeRefreshHeaders)
         if (this is SecureExamWebView) {
-            requestedExamUrl = targetUrl
-            // Restore the resilient cache mode after the fresh reload has had time
-            // to complete. Keeping LOAD_DEFAULT permanently makes the WebView
-            // vulnerable to cache-revalidation timeouts on congested school WiFi.
-            // Uses tracked callback that is cancelled on detach/destroy.
-            scheduleCacheRestore(10_000L)
+            cancelPendingConnectionRetries()
         }
         true
     }.getOrDefault(false)

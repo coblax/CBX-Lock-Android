@@ -2,16 +2,19 @@ package com.coblax.examlock.ui.theme
 
 import androidx.compose.foundation.background
 import androidx.compose.foundation.border
+import androidx.compose.foundation.interaction.collectIsPressedAsState
 import androidx.compose.foundation.layout.widthIn
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material3.windowsizeclass.WindowSizeClass
 import androidx.compose.material3.windowsizeclass.WindowWidthSizeClass
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.Immutable
+import androidx.compose.runtime.getValue
 import androidx.compose.runtime.staticCompositionLocalOf
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.graphics.graphicsLayer
 import androidx.compose.ui.unit.Dp
 import androidx.compose.ui.unit.dp
 
@@ -150,9 +153,10 @@ internal fun isMediumOrLarger(): Boolean {
  * uses only `background` + `border` — no `RenderNode` for elevation, no shadow
  * rendering pass. Use this as the default card container across the app.
  */
+@Composable
 internal fun Modifier.flatCard(
-    containerColor: Color = LockCardBg,
-    borderColor: Color = LockOutline,
+    containerColor: Color = AppColors.current.cardBg,
+    borderColor: Color = AppColors.current.outline,
     borderAlpha: Float = UiTokens.BorderAlphaDefault,
     radius: Dp = UiTokens.RadiusCard,
     shape: RoundedCornerShape = RoundedCornerShape(radius)
@@ -168,9 +172,10 @@ internal fun Modifier.flatCard(
  * A flat card with a slightly stronger border for emphasized containers like
  * hero sections and primary action cards.
  */
+@Composable
 internal fun Modifier.flatCardElevated(
-    containerColor: Color = LockCardBg,
-    borderColor: Color = LockOutline,
+    containerColor: Color = AppColors.current.cardBg,
+    borderColor: Color = AppColors.current.outline,
     radius: Dp = UiTokens.RadiusCard,
     shape: RoundedCornerShape = RoundedCornerShape(radius)
 ): Modifier {
@@ -206,6 +211,49 @@ internal fun Modifier.flatPill(
  */
 @Composable
 internal fun Modifier.flatHorizontalDivider(
-    color: Color = LockDivider,
+    color: Color = AppColors.current.divider,
     alpha: Float = 0.6f
 ): Modifier = this.background(color.copy(alpha = alpha))
+
+/**
+ * Adds a subtle press-feedback effect: scales down to [pressedScale] and
+ * dims to [pressedAlpha] while the user is pressing.
+ *
+ * This provides tactile feedback without Material ripple, keeping
+ * the flat, lightweight aesthetic of the app.
+ */
+@Composable
+internal fun Modifier.pressable(
+    interactionSource: androidx.compose.foundation.interaction.MutableInteractionSource,
+    pressedScale: Float = 0.97f,
+    pressedAlpha: Float = 0.85f
+): Modifier {
+    val motionPolicy = currentUiMotionPolicy()
+    if (!motionPolicy.animationsEnabled) {
+        return this
+    }
+    val isPressed by interactionSource.collectIsPressedAsState()
+    val scale by androidx.compose.animation.core.animateFloatAsState(
+        targetValue = if (isPressed) pressedScale else 1f,
+        animationSpec = androidx.compose.animation.core.tween(
+            durationMillis = motionPolicy.pressDurationMillis,
+            easing = androidx.compose.animation.core.FastOutSlowInEasing
+        ),
+        label = "pressScale"
+    )
+    val alpha by androidx.compose.animation.core.animateFloatAsState(
+        targetValue = if (isPressed) pressedAlpha else 1f,
+        animationSpec = androidx.compose.animation.core.tween(
+            durationMillis = motionPolicy.pressDurationMillis,
+            easing = androidx.compose.animation.core.FastOutSlowInEasing
+        ),
+        label = "pressAlpha"
+    )
+    return this.then(
+        Modifier.graphicsLayer {
+            scaleX = scale
+            scaleY = scale
+            this.alpha = alpha
+        }
+    )
+}

@@ -14,6 +14,51 @@ internal enum class ScreenPinningMode {
     fun allowsLockTask(): Boolean = this == Enforced
 }
 
+internal enum class ExamLockTaskState(val diagnosticLabel: String) {
+    None("NONE"),
+    Pinned("PINNED"),
+    Locked("LOCKED"),
+    Unknown("UNKNOWN");
+
+    fun isActive(): Boolean = this == Pinned || this == Locked
+
+    fun satisfies(requirement: LockTaskSecurityRequirement): Boolean {
+        return when (requirement) {
+            LockTaskSecurityRequirement.AnyActive -> isActive()
+            LockTaskSecurityRequirement.Locked -> this == Locked
+        }
+    }
+
+    companion object {
+        fun fromDiagnosticLabel(label: String?): ExamLockTaskState {
+            return when (label?.trim()?.uppercase()) {
+                "NONE" -> None
+                "PINNED" -> Pinned
+                "LOCKED" -> Locked
+                else -> Unknown
+            }
+        }
+    }
+}
+
+internal enum class LockTaskSecurityRequirement {
+    AnyActive,
+    Locked
+}
+
+internal fun resolveLockTaskSecurityRequirement(deviceOwner: Boolean): LockTaskSecurityRequirement {
+    return if (deviceOwner) {
+        LockTaskSecurityRequirement.Locked
+    } else {
+        LockTaskSecurityRequirement.AnyActive
+    }
+}
+
+internal fun shouldRestartLockTaskForRequirement(
+    state: ExamLockTaskState,
+    requirement: LockTaskSecurityRequirement
+): Boolean = state.isActive() && !state.satisfies(requirement)
+
 internal enum class PinningActivationState {
     Idle,
     Requested,
@@ -83,6 +128,10 @@ internal interface LockTaskBridge {
     fun active(): Boolean
 
     fun stateLabel(): String
+
+    fun state(): ExamLockTaskState = ExamLockTaskState.fromDiagnosticLabel(stateLabel())
+
+    fun satisfies(requirement: LockTaskSecurityRequirement): Boolean = state().satisfies(requirement)
 }
 
 internal fun shouldStartExamLockTask(
@@ -154,6 +203,10 @@ internal class ActivityLockTaskBridge(private val activityProvider: () -> MainAc
 
     override fun stateLabel(): String {
         return activityProvider()?.getExamLockTaskStateLabel() ?: "Unknown"
+    }
+
+    override fun state(): ExamLockTaskState {
+        return activityProvider()?.getExamLockTaskState() ?: ExamLockTaskState.Unknown
     }
 }
 
@@ -256,20 +309,21 @@ internal object ScreenPinningEnforcer {
     suspend fun requestAndAwaitActivation(
         bridge: LockTaskBridge,
         isIndonesian: Boolean,
+        requirement: LockTaskSecurityRequirement = LockTaskSecurityRequirement.AnyActive,
         windowHasFocus: () -> Boolean? = { null }
     ): ScreenPinningActivationReport {
-        if (bridge.active()) {
+        if (bridge.satisfies(requirement)) {
             return alreadyActiveReport(bridge)
         }
         val startedAt = SystemClock.elapsedRealtime()
         delay(InitialEngageDelayMillis)
-        if (bridge.active()) {
+        if (bridge.satisfies(requirement)) {
             return alreadyActiveReport(bridge)
         }
         var engageAttemptCount = 0
         if (
             shouldIssueScreenPinningEngageAttempt(
-                lockTaskAlreadyActive = bridge.active(),
+                lockTaskAlreadyActive = bridge.satisfies(requirement),
                 engageAttemptCount = engageAttemptCount,
                 maxEngageAttempts = MaxEngageAttempts
             )
@@ -280,15 +334,15 @@ internal object ScreenPinningEnforcer {
         delay(FeedbackDelayMillis)
 
         var dialogLikelyShown = false
-        if (!bridge.active()) {
+        if (!bridge.satisfies(requirement)) {
             dialogLikelyShown = true
         }
 
         var remainingMillis = ActivationTimeoutMillis - FeedbackDelayMillis
         var dialogFocusLossObserved = runCatching { windowHasFocus() }.getOrNull() == false
         while (remainingMillis >= 0L) {
-            val lockTaskActive = bridge.active()
-            if (lockTaskActive) {
+            val lockTaskRequirementSatisfied = bridge.satisfies(requirement)
+            if (lockTaskRequirementSatisfied) {
                 return ScreenPinningActivationReport(
                     active = true,
                     afterState = bridge.stateLabel(),
@@ -309,7 +363,7 @@ internal object ScreenPinningEnforcer {
                     dialogLikelyShown = dialogLikelyShown,
                     dialogFocusLossObserved = dialogFocusLossObserved,
                     windowHasFocus = currentWindowHasFocus,
-                    lockTaskActive = lockTaskActive
+                    lockTaskActive = lockTaskRequirementSatisfied
                 )
             ) {
                 return ScreenPinningActivationReport(
@@ -439,14 +493,21 @@ internal object ScreenPinningMonitor {
         sessionStarted: Boolean,
         requestPending: Boolean,
         bridge: LockTaskBridge?,
-        isIndonesian: Boolean
+        isIndonesian: Boolean,
+        requirement: LockTaskSecurityRequirement = LockTaskSecurityRequirement.AnyActive
     ): FatalSecuritySignal? {
         if (mode != ScreenPinningMode.Enforced || !sessionStarted || requestPending || bridge == null) {
             return null
         }
 
-        return if (bridge.active()) {
-            null
+        if (bridge.satisfies(requirement)) {
+            return null
+        }
+        return if (requirement == LockTaskSecurityRequirement.Locked && bridge.state().isActive()) {
+            FatalSecurityController.managedLockTaskDowngraded(
+                isIndonesian = isIndonesian,
+                stateLabel = bridge.stateLabel()
+            )
         } else {
             FatalSecurityController.lockTaskLost(
                 isIndonesian = isIndonesian,
@@ -457,6 +518,23 @@ internal object ScreenPinningMonitor {
 }
 
 internal object FatalSecurityController {
+    fun managedLockTaskDowngraded(isIndonesian: Boolean, stateLabel: String): FatalSecuritySignal {
+        return FatalSecuritySignal(
+            eventCode = ScreenPinningSignals.eventLostDuringExam(),
+            details = "managed_lock_task_downgraded | required=LOCKED | state=$stateLabel",
+            title = if (isIndonesian) {
+                "Mode Kiosk Terkelola Terlepas"
+            } else {
+                "Managed Kiosk Mode Lost"
+            },
+            message = if (isIndonesian) {
+                "Mode lock-task turun dari LOCKED saat ujian berjalan. Sesi dihentikan untuk mencegah perpindahan aplikasi dan harus dimulai ulang oleh administrator."
+            } else {
+                "Lock task dropped below LOCKED while the exam was running. The session was terminated to prevent app switching and must be restarted by an administrator."
+            }
+        )
+    }
+
     fun lockTaskLost(isIndonesian: Boolean, stateLabel: String): FatalSecuritySignal {
         return FatalSecuritySignal(
             eventCode = ScreenPinningSignals.eventLostDuringExam(),

@@ -1,4 +1,4 @@
-﻿package com.coblax.examlock.ui.preparation
+package com.coblax.examlock.ui.preparation
 
 import androidx.compose.foundation.background
 import androidx.compose.foundation.border
@@ -16,6 +16,7 @@ import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.width
+import androidx.compose.foundation.layout.widthIn
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.automirrored.rounded.Send
@@ -38,27 +39,17 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.semantics.Role
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextAlign
+import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 
 import com.coblax.examlock.i18n.tr
 import com.coblax.examlock.LocalLowRamProfile
-import com.coblax.examlock.ui.theme.LockBlue
-import com.coblax.examlock.ui.theme.LockBlueDeep
-import com.coblax.examlock.ui.theme.LockGold
-import com.coblax.examlock.ui.theme.LockGoldDark
-import com.coblax.examlock.ui.theme.LockOnDark
-import com.coblax.examlock.ui.theme.LockOutline
-import com.coblax.examlock.ui.theme.LockTelegramBlue
-import com.coblax.examlock.ui.theme.LockTelegramDisabled
-import com.coblax.examlock.ui.theme.LockTextMuted
-import com.coblax.examlock.ui.theme.LockTextPrimary
-import com.coblax.examlock.ui.theme.LockTextSecondary
-import com.coblax.examlock.ui.theme.LockIssueText
-import com.coblax.examlock.ui.theme.LockSafeEmphasis
+import com.coblax.examlock.ui.LocalTelegramDiagnosticsEnabled
+import com.coblax.examlock.ui.theme.AppColors
+import com.coblax.examlock.ui.theme.ExamLockColorPalette
 import com.coblax.examlock.ui.theme.UiTokens
 import com.coblax.examlock.ui.theme.flatPill
-import com.coblax.examlock.ui.theme.LockOutlineMedium
 
 import java.util.Locale
 
@@ -85,23 +76,29 @@ private val neutralPreparationStatuses = setOf(
     "bypassed", "bypass", "policy off", "policy nonaktif", "disabled", "nonaktif"
 )
 
+@Composable
 internal fun preparationStatusAccentColor(status: String): Color {
+    return preparationStatusAccentColor(status, AppColors.current)
+}
+
+internal fun preparationStatusAccentColor(status: String, colors: ExamLockColorPalette): Color {
     val normalizedStatus = status.trim().lowercase(Locale.US)
     return when (normalizedStatus) {
-        in stablePreparationStatuses -> LockSafeEmphasis
-        in warningPreparationStatuses -> LockGoldDark
-        in neutralPreparationStatuses -> Color(0xFF5C6B7A)
-        else -> LockIssueText
+        in stablePreparationStatuses -> colors.safeEmphasis
+        in warningPreparationStatuses -> colors.goldDark
+        in neutralPreparationStatuses -> colors.textSecondary
+        else -> colors.issueText
     }
 }
 
+@Composable
 internal fun preparationStatusBadgeBackground(status: String): Color {
     val normalizedStatus = status.trim().lowercase(Locale.US)
     return when (normalizedStatus) {
-        in stablePreparationStatuses -> Color(0xFFE8F6EE)
-        in warningPreparationStatuses -> LockGold.copy(alpha = 0.18f)
-        in neutralPreparationStatuses -> Color(0xFFE9EEF3)
-        else -> Color(0xFFFFEAEA)
+        in stablePreparationStatuses -> AppColors.current.statusSafeFill
+        in warningPreparationStatuses -> AppColors.current.gold.copy(alpha = 0.18f)
+        in neutralPreparationStatuses -> AppColors.current.surfaceSoft
+        else -> AppColors.current.statusDangerFill
     }
 }
 
@@ -124,10 +121,10 @@ internal fun PreparationAssistButton(
         enabled = enabled,
         shape = RoundedCornerShape(18.dp),
         colors = ButtonDefaults.buttonColors(
-            containerColor = if (filled) LockBlue else Color.White,
-            contentColor = if (filled) LockOnDark else LockBlueDeep
+            containerColor = if (filled) AppColors.current.blue else AppColors.current.cardBg,
+            contentColor = if (filled) AppColors.current.onDark else AppColors.current.brandText
         ),
-        border = if (filled) null else BorderStroke(1.dp, LockOutline)
+        border = if (filled) null else BorderStroke(1.dp, AppColors.current.outline)
     ) {
         Row(
             modifier = Modifier.fillMaxWidth(),
@@ -138,7 +135,7 @@ internal fun PreparationAssistButton(
                 CircularProgressIndicator(
                     modifier = Modifier.size(14.dp),
                     strokeWidth = 2.dp,
-                    color = if (filled) LockOnDark else LockBlueDeep
+                    color = if (filled) AppColors.current.onDark else AppColors.current.brandText
                 )
                 Spacer(modifier = Modifier.width(8.dp))
             }
@@ -172,7 +169,7 @@ internal fun SecurityChecklistItem(
     onSendTelegram: () -> Unit,
     isSending: Boolean,
     sendEnabled: Boolean,
-    showSendButton: Boolean = true
+    showSendButton: Boolean = LocalTelegramDiagnosticsEnabled.current
 ) {
     val accentColor = preparationStatusAccentColor(status)
     val badgeBackground = preparationStatusBadgeBackground(status)
@@ -183,13 +180,13 @@ internal fun SecurityChecklistItem(
             .clip(RoundedCornerShape(UiTokens.RadiusMd))
             .background(MaterialTheme.colorScheme.surface)
             .border(1.dp, accentColor.copy(alpha = 0.14f), RoundedCornerShape(UiTokens.RadiusMd))
-            .padding(horizontal = 12.dp, vertical = 10.dp),
-        horizontalArrangement = Arrangement.spacedBy(10.dp),
+            .padding(horizontal = 10.dp, vertical = 8.dp),
+        horizontalArrangement = Arrangement.spacedBy(8.dp),
         verticalAlignment = Alignment.CenterVertically
     ) {
         if (showSendButton) {
             val sendButtonColor =
-                if (sendEnabled || isSending) LockTelegramBlue else LockTelegramDisabled
+                if (sendEnabled || isSending) AppColors.current.telegramBlue else AppColors.current.telegramDisabled
             Box(
                 modifier = Modifier
                     .size(26.dp)
@@ -237,17 +234,19 @@ internal fun SecurityChecklistItem(
         ) {
             Text(
                 text = title,
-                color = LockTextPrimary,
+                color = AppColors.current.textPrimary,
                 fontSize = 13.sp,
                 fontWeight = FontWeight.Bold
             )
             Spacer(modifier = Modifier.height(2.dp))
             Text(
                 text = value,
-                color = LockTextSecondary,
+                color = AppColors.current.textSecondary,
                 fontSize = 11.sp,
                 lineHeight = 15.sp,
-                maxLines = 3
+                maxLines = 3,
+                // Without this the clipped line just stops mid-word and reads as a bug.
+                overflow = TextOverflow.Ellipsis
             )
             if (!meta.isNullOrBlank()) {
                 Spacer(modifier = Modifier.height(2.dp))
@@ -256,22 +255,26 @@ internal fun SecurityChecklistItem(
                     color = metaColor ?: accentColor,
                     fontSize = 10.sp,
                     lineHeight = 14.sp,
-                    maxLines = 4
+                    maxLines = 4,
+                    overflow = TextOverflow.Ellipsis
                 )
             }
             if (!detail.isNullOrBlank()) {
                 Spacer(modifier = Modifier.height(3.dp))
                 Text(
                     text = detail,
-                    color = LockTextMuted,
+                    color = AppColors.current.textMuted,
                     fontSize = 10.sp,
                     lineHeight = 14.sp
                 )
             }
         }
 
+        // Capped so a long status ("Permission needed") cannot starve the text column
+        // next to it; it wraps to a second line instead.
         Box(
             modifier = Modifier
+                .widthIn(max = 96.dp)
                 .flatPill(containerColor = badgeBackground)
                 .padding(horizontal = 8.dp, vertical = 4.dp)
         ) {
@@ -279,7 +282,11 @@ internal fun SecurityChecklistItem(
                 text = status,
                 color = accentColor,
                 fontSize = 10.sp,
-                fontWeight = FontWeight.ExtraBold
+                lineHeight = 13.sp,
+                fontWeight = FontWeight.ExtraBold,
+                textAlign = TextAlign.Center,
+                maxLines = 2,
+                overflow = TextOverflow.Ellipsis
             )
         }
     }
@@ -295,8 +302,8 @@ internal fun PreparationSummaryChip(
     Column(
         modifier = modifier
             .clip(RoundedCornerShape(18.dp))
-            .background(Color.White.copy(alpha = 0.88f))
-            .border(1.dp, LockOutlineMedium, RoundedCornerShape(18.dp))
+            .background(AppColors.current.cardBg.copy(alpha = 0.88f))
+            .border(1.dp, AppColors.current.outlineMedium, RoundedCornerShape(18.dp))
             .padding(horizontal = 10.dp, vertical = 8.dp),
         verticalArrangement = Arrangement.spacedBy(4.dp)
     ) {
@@ -312,7 +319,7 @@ internal fun PreparationSummaryChip(
             )
             Text(
                 text = label.uppercase(Locale.US),
-                color = LockTextMuted,
+                color = AppColors.current.textMuted,
                 fontSize = 9.sp,
                 fontWeight = FontWeight.Bold,
                 letterSpacing = 0.6.sp
@@ -320,7 +327,7 @@ internal fun PreparationSummaryChip(
         }
         Text(
             text = value,
-            color = LockTextPrimary,
+            color = AppColors.current.textPrimary,
             fontSize = 13.sp,
             fontWeight = FontWeight.ExtraBold,
             lineHeight = 16.sp
@@ -338,7 +345,7 @@ internal fun CompactPrepActionButton(
         onClick = onClick,
         modifier = Modifier
             .width(76.dp)
-            .height(52.dp),
+            .heightIn(min = 48.dp),
         shape = RoundedCornerShape(18.dp),
         colors = ButtonDefaults.buttonColors(
             containerColor = Color.White.copy(alpha = 0.20f),
@@ -381,14 +388,14 @@ internal fun PreparationFloatingActionBar(
     Column(
         modifier = modifier
             .clip(RoundedCornerShape(UiTokens.RadiusLg))
-            .background(LockBlueDeep)
-            .border(1.dp, LockBlueDeep.copy(alpha = 0.85f), RoundedCornerShape(UiTokens.RadiusLg))
+            .background(AppColors.current.blueDeep)
+            .border(1.dp, AppColors.current.blueDeep.copy(alpha = 0.85f), RoundedCornerShape(UiTokens.RadiusLg))
             .fillMaxWidth()
     ) {
         Row(
             modifier = Modifier
                 .fillMaxWidth()
-                .padding(horizontal = 6.dp, vertical = 6.dp),
+                .padding(horizontal = 6.dp, vertical = 5.dp),
             horizontalArrangement = Arrangement.spacedBy(6.dp),
             verticalAlignment = Alignment.CenterVertically
         ) {
@@ -413,7 +420,7 @@ internal fun PreparationFloatingActionBar(
                 onClick = onStartExam,
                 modifier = Modifier
                     .weight(1f)
-                    .height(54.dp)
+                    .heightIn(min = 50.dp)
                     .then(buttonBg),
                 shape = RoundedCornerShape(18.dp),
                 enabled = startEnabled,
@@ -435,6 +442,7 @@ internal fun PreparationFloatingActionBar(
                     fontWeight = FontWeight.ExtraBold,
                     fontSize = 15.sp,
                     textAlign = TextAlign.Center,
+                    maxLines = 2,
                     modifier = Modifier.fillMaxWidth()
                 )
             }
@@ -446,7 +454,7 @@ internal fun PreparationFloatingActionBar(
         }
         if (!canStartExam && !blockingReason.isNullOrBlank()) {
             Text(
-                text = "âš  $blockingReason",
+                text = blockingReason,
                 color = Color.White.copy(alpha = 0.85f),
                 fontSize = 11.sp,
                 fontWeight = FontWeight.SemiBold,

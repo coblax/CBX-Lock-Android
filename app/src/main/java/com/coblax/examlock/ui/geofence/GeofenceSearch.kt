@@ -1,4 +1,4 @@
-﻿package com.coblax.examlock.ui.geofence
+package com.coblax.examlock.ui.geofence
 
 import android.app.Application
 import android.content.Context
@@ -46,17 +46,8 @@ import androidx.compose.ui.unit.sp
 import androidx.core.content.edit
 
 import com.coblax.examlock.i18n.tr
-import com.coblax.examlock.ui.theme.LockBlue
-import com.coblax.examlock.ui.theme.LockOnDark
-import com.coblax.examlock.ui.theme.LockOutline
-import com.coblax.examlock.ui.theme.LockSurface
-import com.coblax.examlock.ui.theme.LockSurfaceSoft
-import com.coblax.examlock.ui.theme.LockTextMuted
-import com.coblax.examlock.ui.theme.LockTextPrimary
-import com.coblax.examlock.ui.theme.LockTextSecondary
-import com.coblax.examlock.ui.theme.LockDialogDangerIcon
+import com.coblax.examlock.ui.theme.AppColors
 import com.coblax.examlock.ui.theme.UiTokens
-import com.coblax.examlock.ui.theme.LockOutlineStrong
 import com.google.android.gms.common.api.ApiException
 import com.google.android.gms.maps.GoogleMap
 import com.google.android.gms.maps.MapsInitializer
@@ -378,15 +369,15 @@ internal fun InlineMapSearchBar(
             modifier = Modifier
                 .weight(1f)
                 .clip(RoundedCornerShape(UiTokens.RadiusSm))
-                .background(LockSurfaceSoft)
-                .border(1.dp, LockOutlineStrong, RoundedCornerShape(UiTokens.RadiusSm))
+                .background(AppColors.current.surfaceSoft)
+                .border(1.dp, AppColors.current.outlineStrong, RoundedCornerShape(UiTokens.RadiusSm))
         ) {
             BasicTextField(
                 value = query,
                 onValueChange = onQueryChange,
                 singleLine = true,
                 textStyle = TextStyle(
-                    color = LockTextPrimary,
+                    color = AppColors.current.textPrimary,
                     fontSize = 12.sp,
                     fontWeight = FontWeight.Medium
                 ),
@@ -398,7 +389,7 @@ internal fun InlineMapSearchBar(
                         if (query.isBlank()) {
                             Text(
                                 text = tr("Search location...", "Cari lokasi..."),
-                                color = LockTextMuted,
+                                color = AppColors.current.textMuted,
                                 fontSize = 12.sp
                             )
                         }
@@ -411,8 +402,8 @@ internal fun InlineMapSearchBar(
             onClick = onSearch,
             modifier = Modifier.height(38.dp),
             colors = ButtonDefaults.buttonColors(
-                containerColor = LockBlue,
-                contentColor = LockOnDark
+                containerColor = AppColors.current.blue,
+                contentColor = AppColors.current.onDark
             ),
             shape = RoundedCornerShape(UiTokens.RadiusSm),
             contentPadding = ButtonDefaults.ContentPadding
@@ -421,7 +412,7 @@ internal fun InlineMapSearchBar(
                 CircularProgressIndicator(
                     modifier = Modifier.size(14.dp),
                     strokeWidth = 2.dp,
-                    color = LockOnDark
+                    color = AppColors.current.onDark
                 )
             } else {
                 Text(
@@ -449,7 +440,7 @@ internal fun InlineMapSearchResults(
             .heightIn(max = 180.dp)
             .clip(RoundedCornerShape(UiTokens.RadiusSm))
             .background(MaterialTheme.colorScheme.surface)
-            .border(1.dp, LockOutlineStrong, RoundedCornerShape(UiTokens.RadiusSm))
+            .border(1.dp, AppColors.current.outlineStrong, RoundedCornerShape(UiTokens.RadiusSm))
     ) {
         Column(
             modifier = Modifier
@@ -460,7 +451,7 @@ internal fun InlineMapSearchResults(
             error?.takeIf { it.isNotBlank() }?.let { message ->
                 Text(
                     text = message,
-                    color = LockDialogDangerIcon,
+                    color = AppColors.current.dialogDangerIcon,
                     fontSize = 11.sp,
                     lineHeight = 14.sp,
                     modifier = Modifier.padding(horizontal = 10.dp, vertical = 8.dp)
@@ -476,7 +467,7 @@ internal fun InlineMapSearchResults(
                 ) {
                     Text(
                         text = result.title,
-                        color = LockTextPrimary,
+                        color = AppColors.current.textPrimary,
                         fontSize = 12.sp,
                         fontWeight = FontWeight.SemiBold,
                         maxLines = 1
@@ -484,7 +475,7 @@ internal fun InlineMapSearchResults(
                     if (result.subtitle.isNotBlank()) {
                         Text(
                             text = result.subtitle,
-                            color = LockTextSecondary,
+                            color = AppColors.current.textSecondary,
                             fontSize = 10.sp,
                             lineHeight = 13.sp,
                             maxLines = 2
@@ -496,7 +487,7 @@ internal fun InlineMapSearchResults(
                         modifier = Modifier
                             .fillMaxWidth()
                             .height(1.dp)
-                            .background(LockOutline.copy(alpha = 0.35f))
+                            .background(AppColors.current.outline.copy(alpha = 0.35f))
                     )
                 }
             }

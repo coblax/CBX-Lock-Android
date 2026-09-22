@@ -23,9 +23,11 @@ import com.coblax.examlock.config.FastExamName
 import com.coblax.examlock.config.SecretTapWindowMs
 import com.coblax.examlock.currentDeviceCompatibilityProfile
 import com.coblax.examlock.i18n.LocalUiLanguage
+import com.coblax.examlock.model.ThemeMode
 import com.coblax.examlock.persistence.HomeAdminSettings
 import com.coblax.examlock.persistence.readHomeAdminSettings
 import com.coblax.examlock.persistence.readSavedUiLanguage
+import com.coblax.examlock.persistence.saveThemeMode
 import com.coblax.examlock.persistence.saveUiLanguage
 import com.coblax.examlock.resolveDetectedLowRamProfile
 import com.coblax.examlock.resolveLowRamProfile
@@ -36,6 +38,7 @@ import com.coblax.examlock.ui.admin.ExamLockLowRamHomeScreen
 import com.coblax.examlock.ui.admin.PublicPerformanceProfileDialog
 import com.coblax.examlock.ui.exam.ExamRuntimeHardeningDiagnostics
 import com.coblax.examlock.ui.exam.ExamRuntimeHardeningLogTag
+import com.coblax.examlock.ui.theme.COBLAXEXAMLOCKTheme
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.withContext
@@ -59,7 +62,8 @@ internal fun applyLowRamRuntimeDetectorBudget(lowRamProfile: LowRamProfile) {
 @Composable
 internal fun AppContent(
     initialHomeActionRaw: String? = null,
-    initialLowRamProfile: LowRamProfile? = null
+    initialLowRamProfile: LowRamProfile? = null,
+    initialThemeMode: ThemeMode = ThemeMode.System
 ) {
     val context = LocalContext.current
     val detectedLowRamProfile = remember(context) {
@@ -77,6 +81,8 @@ internal fun AppContent(
     val initialUiLanguage = remember { context.readSavedUiLanguage() }
     var shellUiLanguage by rememberSaveable { mutableStateOf(initialUiLanguage) }
     var persistedShellUiLanguage by remember { mutableStateOf(initialUiLanguage) }
+    var shellThemeMode by rememberSaveable { mutableStateOf(initialThemeMode) }
+    var persistedShellThemeMode by remember { mutableStateOf(initialThemeMode) }
     var shellHomeSettings by remember { mutableStateOf(HomeAdminSettings()) }
     var shellShowDeferredChrome by rememberSaveable { mutableStateOf(false) }
     var shellSecretTapCount by rememberSaveable { mutableStateOf(0) }
@@ -91,6 +97,14 @@ internal fun AppContent(
         runCatching { PendingHomeAction.valueOf(raw) }.getOrNull()
     }
 
+    // Persist theme mode changes
+    LaunchedEffect(shellThemeMode) {
+        if (shellThemeMode != persistedShellThemeMode) {
+            context.saveThemeMode(shellThemeMode)
+            persistedShellThemeMode = shellThemeMode
+        }
+    }
+
     remember {
         val startupMode = when {
             startRuntimeInitially -> "shell=runtime action=${initialHomeActionRaw.orEmpty()} low_ram=${lowRamProfile.enabled} severe=${lowRamProfile.severe}"
@@ -100,117 +114,123 @@ internal fun AppContent(
         true
     }
 
-    if (lowRamProfile.deferHeavyUi && !startRuntime) {
-        remember {
-            StartupTrace.mark("home_compose_start", "shell=survival")
-            true
-        }
-        LaunchedEffect(context) {
-            withFrameNanos { }
-            shellHomeSettings = withContext(Dispatchers.IO) {
-                context.readHomeAdminSettings()
+    COBLAXEXAMLOCKTheme(themeMode = shellThemeMode) {
+        if (lowRamProfile.deferHeavyUi && !startRuntime) {
+            remember {
+                StartupTrace.mark("home_compose_start", "shell=survival")
+                true
             }
-            StartupTrace.mark(
-                "home_settings_loaded",
-                "shell=survival | direct_link_label=${
-                    shellHomeSettings.fastExamLabel.trim().ifBlank { FastExamName }
-                }"
-            )
-            delay(900)
-            shellShowDeferredChrome = true
-            StartupTrace.mark("home_deferred_chrome_shown", "mode=survival")
-        }
-        LaunchedEffect(shellUiLanguage) {
-            if (shellUiLanguage != persistedShellUiLanguage) {
-                context.saveUiLanguage(shellUiLanguage)
-                persistedShellUiLanguage = shellUiLanguage
+            LaunchedEffect(context) {
+                withFrameNanos { }
+                shellHomeSettings = withContext(Dispatchers.IO) {
+                    context.readHomeAdminSettings()
+                }
+                StartupTrace.mark(
+                    "home_settings_loaded",
+                    "shell=survival | direct_link_label=${
+                        shellHomeSettings.fastExamLabel.trim().ifBlank { FastExamName }
+                    }"
+                )
+                delay(900)
+                shellShowDeferredChrome = true
+                StartupTrace.mark("home_deferred_chrome_shown", "mode=survival")
             }
-        }
-        LaunchedEffect(deviceCompatibilityProfile) {
-            Log.i(
-                ExamRuntimeHardeningLogTag,
-                "code=${ExamRuntimeHardeningDiagnostics.DeviceCompatProfileResolved} " +
-                    "level=INFO details=${deviceCompatibilityProfile.diagnosticSummary()} | shell=survival"
-            )
-        }
-        DisposableEffect(lowRamProfile) {
-            val listener: (Int) -> Unit = { level ->
-                if (MemoryPressureCoordinator.shouldReleaseUiBitmaps(level)) {
-                    shellShowDeferredChrome = false
-                    Log.i("HomeMemory", "trim=$level action=hide_survival_home_chrome")
+            LaunchedEffect(shellUiLanguage) {
+                if (shellUiLanguage != persistedShellUiLanguage) {
+                    context.saveUiLanguage(shellUiLanguage)
+                    persistedShellUiLanguage = shellUiLanguage
                 }
             }
-            MemoryPressureCoordinator.addListener(listener)
-            onDispose {
-                MemoryPressureCoordinator.removeListener(listener)
-            }
-        }
-        CompositionLocalProvider(
-            LocalUiLanguage provides shellUiLanguage,
-            LocalLowRamProfile provides lowRamProfile,
-            LocalDeviceCompatibilityProfile provides deviceCompatibilityProfile
-        ) {
-            ExamLockLowRamHomeScreen(
-                uiLanguage = shellUiLanguage,
-                onUiLanguageChange = { shellUiLanguage = it },
-                onScanExam = {
-                    pendingHomeActionRaw = PendingHomeAction.ScanExam.name
-                    startRuntime = true
-                },
-                onOpenAdmin = {
-                    pendingHomeActionRaw = PendingHomeAction.CustomQrAdmin.name
-                    startRuntime = true
-                },
-                onOpenFastExam = {
-                    pendingHomeActionRaw = PendingHomeAction.DirectLink.name
-                    startRuntime = true
-                },
-                directLinkLabel = shellHomeSettings.fastExamLabel.trim().ifBlank { FastExamName },
-                onSecretTap = {
-                    val now = SystemClock.elapsedRealtime()
-                    if (now - shellLastSecretTapAt > SecretTapWindowMs) {
-                        shellSecretTapCount = 0
-                    }
-                    shellLastSecretTapAt = now
-                    shellSecretTapCount += 1
-                    if (shellSecretTapCount >= ShellSecretTapRequiredCount) {
-                        shellSecretTapCount = 0
-                        pendingHomeActionRaw = PendingHomeAction.SecretAdmin.name
-                        startRuntime = true
-                    }
-                },
-                onOpenPerformanceProfile = { showPerformanceProfileDialog = true },
-                showDeferredChrome = shellShowDeferredChrome
-            )
-
-            if (showPerformanceProfileDialog) {
-                PublicPerformanceProfileDialog(
-                    selectedOverride = lowRamProfile.lowRamOverride,
-                    detectedProfile = detectedLowRamProfile,
-                    effectiveProfile = lowRamProfile,
-                    onOverrideChange = { override ->
-                        saveLowRamProfileOverride(context, override)
-                        val updatedProfile = applyLowRamProfileOverride(
-                            detectedProfile = detectedLowRamProfile,
-                            override = override
-                        )
-                        lowRamProfile = updatedProfile
-                        applyLowRamRuntimeDetectorBudget(updatedProfile)
-                    },
-                    onDismiss = { showPerformanceProfileDialog = false }
+            LaunchedEffect(deviceCompatibilityProfile) {
+                Log.i(
+                    ExamRuntimeHardeningLogTag,
+                    "code=${ExamRuntimeHardeningDiagnostics.DeviceCompatProfileResolved} " +
+                        "level=INFO details=${deviceCompatibilityProfile.diagnosticSummary()} | shell=survival"
                 )
             }
-        }
-        return
-    }
+            DisposableEffect(lowRamProfile) {
+                val listener: (Int) -> Unit = { level ->
+                    if (MemoryPressureCoordinator.shouldReleaseUiBitmaps(level)) {
+                        shellShowDeferredChrome = false
+                        Log.i("HomeMemory", "trim=$level action=hide_survival_home_chrome")
+                    }
+                }
+                MemoryPressureCoordinator.addListener(listener)
+                onDispose {
+                    MemoryPressureCoordinator.removeListener(listener)
+                }
+            }
+            CompositionLocalProvider(
+                LocalUiLanguage provides shellUiLanguage,
+                LocalLowRamProfile provides lowRamProfile,
+                LocalDeviceCompatibilityProfile provides deviceCompatibilityProfile
+            ) {
+                ExamLockLowRamHomeScreen(
+                    uiLanguage = shellUiLanguage,
+                    onUiLanguageChange = { shellUiLanguage = it },
+                    themeMode = shellThemeMode,
+                    onThemeModeChange = { shellThemeMode = it },
+                    onScanExam = {
+                        pendingHomeActionRaw = PendingHomeAction.ScanExam.name
+                        startRuntime = true
+                    },
+                    onOpenAdmin = {
+                        pendingHomeActionRaw = PendingHomeAction.CustomQrAdmin.name
+                        startRuntime = true
+                    },
+                    onOpenFastExam = {
+                        pendingHomeActionRaw = PendingHomeAction.DirectLink.name
+                        startRuntime = true
+                    },
+                    directLinkLabel = shellHomeSettings.fastExamLabel.trim().ifBlank { FastExamName },
+                    onSecretTap = {
+                        val now = SystemClock.elapsedRealtime()
+                        if (now - shellLastSecretTapAt > SecretTapWindowMs) {
+                            shellSecretTapCount = 0
+                        }
+                        shellLastSecretTapAt = now
+                        shellSecretTapCount += 1
+                        if (shellSecretTapCount >= ShellSecretTapRequiredCount) {
+                            shellSecretTapCount = 0
+                            pendingHomeActionRaw = PendingHomeAction.SecretAdmin.name
+                            startRuntime = true
+                        }
+                    },
+                    onOpenPerformanceProfile = { showPerformanceProfileDialog = true },
+                    showDeferredChrome = shellShowDeferredChrome
+                )
 
-    AppHostRuntimeContent(
-        initialUiLanguageOverride = shellUiLanguage,
-        initialHomeAdminSettings = shellHomeSettings,
-        initialLowRamProfile = lowRamProfile,
-        initialHomeAction = pendingHomeAction,
-        onInitialHomeActionConsumed = { pendingHomeActionRaw = null }
-    )
+                if (showPerformanceProfileDialog) {
+                    PublicPerformanceProfileDialog(
+                        selectedOverride = lowRamProfile.lowRamOverride,
+                        detectedProfile = detectedLowRamProfile,
+                        effectiveProfile = lowRamProfile,
+                        onOverrideChange = { override ->
+                            saveLowRamProfileOverride(context, override)
+                            val updatedProfile = applyLowRamProfileOverride(
+                                detectedProfile = detectedLowRamProfile,
+                                override = override
+                            )
+                            lowRamProfile = updatedProfile
+                            applyLowRamRuntimeDetectorBudget(updatedProfile)
+                        },
+                        onDismiss = { showPerformanceProfileDialog = false }
+                    )
+                }
+            }
+            return@COBLAXEXAMLOCKTheme
+        }
+
+        AppHostRuntimeContent(
+            initialUiLanguageOverride = shellUiLanguage,
+            initialThemeModeOverride = shellThemeMode,
+            onThemeModeChange = { shellThemeMode = it },
+            initialHomeAdminSettings = shellHomeSettings,
+            initialLowRamProfile = lowRamProfile,
+            initialHomeAction = pendingHomeAction,
+            onInitialHomeActionConsumed = { pendingHomeActionRaw = null }
+        )
+    }
 }
 
 private const val ShellSecretTapRequiredCount = 4

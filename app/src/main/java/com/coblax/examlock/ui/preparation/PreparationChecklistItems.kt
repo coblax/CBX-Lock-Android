@@ -1,4 +1,4 @@
-﻿package com.coblax.examlock.ui.preparation
+package com.coblax.examlock.ui.preparation
 
 import android.util.Log
 import androidx.compose.foundation.BorderStroke
@@ -41,14 +41,8 @@ import com.coblax.examlock.accessibilityServiceFriendlySummary
 import com.coblax.examlock.diagnosticLabel
 import com.coblax.examlock.i18n.tr
 import com.coblax.examlock.model.DiagnosticSection
-import com.coblax.examlock.ui.theme.LockOutline
-import com.coblax.examlock.ui.theme.LockSurfaceSoft
-import com.coblax.examlock.ui.theme.LockTextMuted
-import com.coblax.examlock.ui.theme.LockTextPrimary
-import com.coblax.examlock.ui.theme.LockTextSecondary
+import com.coblax.examlock.ui.theme.AppColors
 import com.coblax.examlock.ui.theme.UiTokens
-import com.coblax.examlock.ui.theme.LockOutlineMedium
-import com.coblax.examlock.ui.theme.LockOutlineSubtle
 
 private const val PreparationRecomposeTag = "PreparationRecompose"
 
@@ -72,10 +66,10 @@ private fun PreparationChecklistSectionSurface(
         modifier = modifier
             .fillMaxWidth()
             .clip(RoundedCornerShape(22.dp))
-            .background(LockSurfaceSoft)
-            .border(1.dp, LockOutlineSubtle, RoundedCornerShape(22.dp))
-            .padding(horizontal = 14.dp, vertical = 14.dp),
-        verticalArrangement = Arrangement.spacedBy(10.dp),
+            .background(AppColors.current.surfaceSoft)
+            .border(1.dp, AppColors.current.outlineSubtle, RoundedCornerShape(22.dp))
+            .padding(horizontal = 12.dp, vertical = 10.dp),
+        verticalArrangement = Arrangement.spacedBy(8.dp),
         content = content
     )
 }
@@ -101,13 +95,13 @@ internal fun PreparationChecklistIntroItem(
             ) {
                 Text(
                     text = checklistTitle,
-                    color = LockTextPrimary,
-                    fontSize = 17.sp,
+                    color = AppColors.current.textPrimary,
+                    fontSize = 15.sp,
                     fontWeight = FontWeight.Bold
                 )
                 Text(
                     text = checklistSubtitle,
-                    color = LockTextSecondary,
+                    color = AppColors.current.textSecondary,
                     fontSize = 11.sp,
                     lineHeight = 15.sp
                 )
@@ -119,12 +113,12 @@ internal fun PreparationChecklistIntroItem(
                 .fillMaxWidth()
                 .clip(RoundedCornerShape(UiTokens.RadiusMd))
                 .background(MaterialTheme.colorScheme.surface)
-                .border(1.dp, LockOutlineMedium, RoundedCornerShape(UiTokens.RadiusMd))
-                .padding(horizontal = 12.dp, vertical = 10.dp)
+                .border(1.dp, AppColors.current.outlineMedium, RoundedCornerShape(UiTokens.RadiusMd))
+                .padding(horizontal = 10.dp, vertical = 8.dp)
         ) {
             Text(
                 text = telegramHelperText,
-                color = LockTextMuted,
+                color = AppColors.current.textMuted,
                 fontSize = 10.sp,
                 lineHeight = 14.sp
             )
@@ -394,7 +388,10 @@ internal fun PreparationDeviceIntegritySection(
                     tr("Developer mode and USB debugging are enabled", "Mode developer dan USB debugging aktif")
                 device.adbInspection.developerOptionsEnabled ->
                     tr("Developer mode is enabled", "Mode developer aktif")
+                device.adbInspection.adbEnabled && device.adbInspection.wirelessAdbEnabled ->
+                    tr("USB debugging and wireless debugging are enabled", "USB debugging dan wireless debugging aktif")
                 device.adbInspection.adbEnabled -> tr("USB debugging is enabled", "USB debugging aktif")
+                device.adbInspection.wirelessAdbEnabled -> tr("Wireless debugging is enabled", "Wireless debugging aktif")
                 device.adbInspection.insecureSystemProperty -> tr(
                     "ADB security property is unsafe",
                     "Properti keamanan ADB tidak aman"

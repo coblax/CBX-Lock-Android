@@ -1,4 +1,4 @@
-﻿package com.coblax.examlock.ui.geofence
+package com.coblax.examlock.ui.geofence
 
 import android.annotation.SuppressLint
 import android.app.Activity
@@ -71,20 +71,7 @@ import com.coblax.examlock.runtime.hasFineLocationPermission
 import com.coblax.examlock.runtime.isLocationServicesEnabled
 import com.coblax.examlock.SecureStrings
 import com.coblax.examlock.ui.admin.StatusBanner
-import com.coblax.examlock.ui.theme.LockBackground
-import com.coblax.examlock.ui.theme.LockBlue
-import com.coblax.examlock.ui.theme.LockBlueDeep
-import com.coblax.examlock.ui.theme.LockGold
-import com.coblax.examlock.ui.theme.LockOnDark
-import com.coblax.examlock.ui.theme.LockOutline
-import com.coblax.examlock.ui.theme.LockSurface
-import com.coblax.examlock.ui.theme.LockSurfaceSoft
-import com.coblax.examlock.ui.theme.LockTextPrimary
-import com.coblax.examlock.ui.theme.LockTextSecondary
-import com.coblax.examlock.ui.theme.LockDangerBgSoft
-import com.coblax.examlock.ui.theme.LockDialogDangerIcon
-import com.coblax.examlock.ui.theme.LockBlueFill
-import com.coblax.examlock.ui.theme.LockOutlineSubtle
+import com.coblax.examlock.ui.theme.AppColors
 import com.google.android.gms.maps.CameraUpdateFactory
 import com.google.android.gms.maps.GoogleMap
 import com.google.android.gms.maps.MapView
@@ -436,7 +423,7 @@ internal fun CircleGeofenceEditorScreen(
     Column(
         modifier = Modifier
             .fillMaxSize()
-            .background(LockBackground)
+            .background(AppColors.current.background)
             .statusBarsPadding()
             .navigationBarsPadding()
     ) {
@@ -444,7 +431,7 @@ internal fun CircleGeofenceEditorScreen(
             modifier = Modifier
                 .clip(RoundedCornerShape(bottomStart = 14.dp, bottomEnd = 14.dp))
                 .background(MaterialTheme.colorScheme.surface)
-                .border(1.dp, LockOutlineSubtle, RoundedCornerShape(bottomStart = 14.dp, bottomEnd = 14.dp))
+                .border(1.dp, AppColors.current.outlineSubtle, RoundedCornerShape(bottomStart = 14.dp, bottomEnd = 14.dp))
         ) {
             Column(
                 modifier = Modifier
@@ -495,7 +482,7 @@ internal fun CircleGeofenceEditorScreen(
                         }
                         Text(
                             text = tr(targetText, targetText),
-                            color = LockTextSecondary,
+                            color = AppColors.current.textSecondary,
                             fontSize = 10.sp,
                             lineHeight = 12.sp,
                             maxLines = 2
@@ -511,7 +498,7 @@ internal fun CircleGeofenceEditorScreen(
                         Column(modifier = Modifier.weight(1f)) {
                             Text(
                                 text = tr("Manual circle geofence", "Input manual geofence lingkaran"),
-                                color = LockTextPrimary,
+                                color = AppColors.current.textPrimary,
                                 fontSize = 14.sp,
                                 fontWeight = FontWeight.Bold
                             )
@@ -520,7 +507,7 @@ internal fun CircleGeofenceEditorScreen(
                                     "Edit coordinates and radius first; open the map only when needed.",
                                     "Edit koordinat dan radius dulu; buka map hanya saat dibutuhkan."
                                 ),
-                                color = LockTextSecondary,
+                                color = AppColors.current.textSecondary,
                                 fontSize = 10.sp,
                                 lineHeight = 12.sp
                             )
@@ -542,7 +529,7 @@ internal fun CircleGeofenceEditorScreen(
                     modifier = Modifier
                         .clip(RoundedCornerShape(18.dp))
                         .background(MaterialTheme.colorScheme.surface)
-                        .border(1.dp, LockOutline.copy(alpha = 0.8f), RoundedCornerShape(18.dp))
+                        .border(1.dp, AppColors.current.outline.copy(alpha = 0.8f), RoundedCornerShape(18.dp))
                 ) {
                     Column(
                         modifier = Modifier.padding(16.dp),
@@ -551,7 +538,7 @@ internal fun CircleGeofenceEditorScreen(
                     ) {
                         Text(
                             text = tr("Map is paused", "Map dijeda"),
-                            color = LockTextPrimary,
+                            color = AppColors.current.textPrimary,
                             fontSize = 16.sp,
                             fontWeight = FontWeight.Bold
                         )
@@ -560,7 +547,7 @@ internal fun CircleGeofenceEditorScreen(
                                 "This saves memory on low-RAM devices. Manual coordinates below save the same policy.",
                                 "Ini menghemat memori di perangkat low-RAM. Koordinat manual di bawah tetap menyimpan policy yang sama."
                             ),
-                            color = LockTextSecondary,
+                            color = AppColors.current.textSecondary,
                             fontSize = 12.sp,
                             lineHeight = 16.sp,
                             textAlign = TextAlign.Center
@@ -574,8 +561,8 @@ internal fun CircleGeofenceEditorScreen(
                                 modifier = Modifier.weight(1f),
                                 enabled = mapsReady && !lowRamProfile.ultra,
                                 colors = ButtonDefaults.buttonColors(
-                                    containerColor = LockBlue,
-                                    contentColor = LockOnDark
+                                    containerColor = AppColors.current.blue,
+                                    contentColor = AppColors.current.onDark
                                 )
                             ) {
                                 Text(
@@ -595,10 +582,10 @@ internal fun CircleGeofenceEditorScreen(
                                 },
                                 modifier = Modifier.weight(1f),
                                 colors = ButtonDefaults.buttonColors(
-                                    containerColor = LockSurfaceSoft,
-                                    contentColor = LockTextPrimary
+                                    containerColor = AppColors.current.surfaceSoft,
+                                    contentColor = AppColors.current.textPrimary
                                 ),
-                                border = BorderStroke(1.dp, LockOutline.copy(alpha = 0.8f))
+                                border = BorderStroke(1.dp, AppColors.current.outline.copy(alpha = 0.8f))
                             ) {
                                 Text(tr("Use Current", "Pakai Lokasi"), fontWeight = FontWeight.Bold)
                             }
@@ -690,6 +677,8 @@ internal fun CircleGeofenceEditorScreen(
             googleMap?.mapType = mapTypeSelection.googleMapType
         }
 
+        val mapStrokeColor = AppColors.current.blue.toArgb()
+        val mapFillColor = AppColors.current.blueFill.toArgb()
         LaunchedEffect(googleMap, draftCenters, draftRadiusMeters, selectedIndex, searchedLatLng, selectedSearchResult, precisePermissionGranted) {
             val map = googleMap ?: return@LaunchedEffect
             // Debounce rapid updates (e.g. typing radius/coordinates) to avoid excessive map redraws
@@ -729,8 +718,8 @@ internal fun CircleGeofenceEditorScreen(
                         CircleOptions()
                             .center(latLng)
                             .radius(radius)
-                            .strokeColor(LockBlue.toArgb())
-                            .fillColor(LockBlueFill.toArgb())
+                            .strokeColor(mapStrokeColor)
+                            .fillColor(mapFillColor)
                             .strokeWidth(4f)
                     )
                 }
@@ -748,7 +737,7 @@ internal fun CircleGeofenceEditorScreen(
             modifier = Modifier
                 .clip(RoundedCornerShape(topStart = 14.dp, topEnd = 14.dp))
                 .background(MaterialTheme.colorScheme.surface)
-                .border(1.dp, LockOutlineSubtle, RoundedCornerShape(topStart = 14.dp, topEnd = 14.dp))
+                .border(1.dp, AppColors.current.outlineSubtle, RoundedCornerShape(topStart = 14.dp, topEnd = 14.dp))
         ) {
             Column(
                 modifier = Modifier
@@ -764,11 +753,11 @@ internal fun CircleGeofenceEditorScreen(
                         CircularProgressIndicator(
                             modifier = Modifier.size(18.dp),
                             strokeWidth = 2.dp,
-                            color = LockBlue
+                            color = AppColors.current.blue
                         )
                         Text(
                             text = tr("Resolving current location...", "Mencari lokasi saat ini..."),
-                            color = LockTextSecondary,
+                            color = AppColors.current.textSecondary,
                             fontSize = 12.sp
                         )
                     }
@@ -781,9 +770,9 @@ internal fun CircleGeofenceEditorScreen(
                     Text(
                         text = message,
                         color = if (!requestingLocation) {
-                            LockDialogDangerIcon
+                            AppColors.current.dialogDangerIcon
                         } else {
-                            LockBlueDeep
+                            AppColors.current.blueDeep
                         },
                         fontSize = 10.sp,
                         lineHeight = 12.sp
@@ -839,8 +828,8 @@ internal fun CircleGeofenceEditorScreen(
                             .height(34.dp),
                         enabled = draftCenters.size < 5,
                         colors = ButtonDefaults.buttonColors(
-                            containerColor = LockBlue,
-                            contentColor = LockOnDark
+                            containerColor = AppColors.current.blue,
+                            contentColor = AppColors.current.onDark
                         ),
                         contentPadding = ButtonDefaults.ContentPadding
                     ) {
@@ -872,8 +861,8 @@ internal fun CircleGeofenceEditorScreen(
                             .height(34.dp),
                         enabled = draftCenters.isNotEmpty(),
                         colors = ButtonDefaults.buttonColors(
-                            containerColor = LockSurfaceSoft,
-                            contentColor = LockTextPrimary
+                            containerColor = AppColors.current.surfaceSoft,
+                            contentColor = AppColors.current.textPrimary
                         )
                     ) {
                         Text(
@@ -893,8 +882,8 @@ internal fun CircleGeofenceEditorScreen(
                             .weight(1f)
                             .height(34.dp),
                         colors = ButtonDefaults.buttonColors(
-                            containerColor = LockDangerBgSoft,
-                            contentColor = LockDialogDangerIcon
+                            containerColor = AppColors.current.dangerBgSoft,
+                            contentColor = AppColors.current.dialogDangerIcon
                         )
                     ) {
                         Text(
@@ -923,8 +912,8 @@ internal fun CircleGeofenceEditorScreen(
                             .height(34.dp),
                         enabled = draftCenters.isNotEmpty() && draftRadiusMeters.trim().toDoubleOrNull()?.let { it > 0.0 } == true,
                         colors = ButtonDefaults.buttonColors(
-                            containerColor = LockGold,
-                            contentColor = LockTextPrimary
+                            containerColor = AppColors.current.gold,
+                            contentColor = AppColors.current.textPrimary
                         )
                     ) {
                         Text(

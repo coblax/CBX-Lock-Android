@@ -1,4 +1,4 @@
-﻿package com.coblax.examlock.ui.geofence
+package com.coblax.examlock.ui.geofence
 
 import android.content.Context
 import android.graphics.Bitmap
@@ -63,18 +63,7 @@ import com.coblax.examlock.runtime.hasFineLocationPermission
 import com.coblax.examlock.runtime.isLocationServicesEnabled
 import com.coblax.examlock.SecureStrings
 import com.coblax.examlock.ui.admin.StatusBanner
-import com.coblax.examlock.ui.theme.LockBackground
-import com.coblax.examlock.ui.theme.LockBlue
-import com.coblax.examlock.ui.theme.LockGold
-import com.coblax.examlock.ui.theme.LockOnDark
-import com.coblax.examlock.ui.theme.LockOutline
-import com.coblax.examlock.ui.theme.LockSurface
-import com.coblax.examlock.ui.theme.LockSurfaceSoft
-import com.coblax.examlock.ui.theme.LockTextPrimary
-import com.coblax.examlock.ui.theme.LockTextSecondary
-import com.coblax.examlock.ui.theme.LockDangerBgSoft
-import com.coblax.examlock.ui.theme.LockDialogDangerIcon
-import com.coblax.examlock.ui.theme.LockOutlineSubtle
+import com.coblax.examlock.ui.theme.AppColors
 import com.coblax.examlock.validatePolygonVertices
 import com.google.android.gms.maps.CameraUpdateFactory
 import com.google.android.gms.maps.GoogleMap
@@ -295,7 +284,7 @@ internal fun PolygonGeofenceEditor(
     Column(
         modifier = Modifier
             .fillMaxSize()
-            .background(LockBackground)
+            .background(AppColors.current.background)
             .statusBarsPadding()
             .navigationBarsPadding()
     ) {
@@ -303,7 +292,7 @@ internal fun PolygonGeofenceEditor(
             modifier = Modifier
                 .clip(RoundedCornerShape(bottomStart = 14.dp, bottomEnd = 14.dp))
                 .background(MaterialTheme.colorScheme.surface)
-                .border(1.dp, LockOutlineSubtle, RoundedCornerShape(bottomStart = 14.dp, bottomEnd = 14.dp))
+                .border(1.dp, AppColors.current.outlineSubtle, RoundedCornerShape(bottomStart = 14.dp, bottomEnd = 14.dp))
         ) {
             Column(
                 modifier = Modifier
@@ -354,7 +343,7 @@ internal fun PolygonGeofenceEditor(
                         }
                         Text(
                             text = tr(targetText, targetText),
-                            color = LockTextSecondary,
+                            color = AppColors.current.textSecondary,
                             fontSize = 10.sp,
                             lineHeight = 12.sp,
                             maxLines = 2
@@ -370,7 +359,7 @@ internal fun PolygonGeofenceEditor(
                         Column(modifier = Modifier.weight(1f)) {
                             Text(
                                 text = tr("Manual polygon geofence", "Input manual geofence polygon"),
-                                color = LockTextPrimary,
+                                color = AppColors.current.textPrimary,
                                 fontSize = 14.sp,
                                 fontWeight = FontWeight.Bold
                             )
@@ -379,7 +368,7 @@ internal fun PolygonGeofenceEditor(
                                     "Add and edit boundary points first; open the map only when needed.",
                                     "Tambah dan edit titik batas dulu; buka map hanya saat dibutuhkan."
                                 ),
-                                color = LockTextSecondary,
+                                color = AppColors.current.textSecondary,
                                 fontSize = 10.sp,
                                 lineHeight = 12.sp
                             )
@@ -401,7 +390,7 @@ internal fun PolygonGeofenceEditor(
                     modifier = Modifier
                         .clip(RoundedCornerShape(18.dp))
                         .background(MaterialTheme.colorScheme.surface)
-                        .border(1.dp, LockOutline.copy(alpha = 0.8f), RoundedCornerShape(18.dp))
+                        .border(1.dp, AppColors.current.outline.copy(alpha = 0.8f), RoundedCornerShape(18.dp))
                 ) {
                     Column(
                         modifier = Modifier.padding(16.dp),
@@ -410,7 +399,7 @@ internal fun PolygonGeofenceEditor(
                     ) {
                         Text(
                             text = tr("Map is paused", "Map dijeda"),
-                            color = LockTextPrimary,
+                            color = AppColors.current.textPrimary,
                             fontSize = 16.sp,
                             fontWeight = FontWeight.Bold
                         )
@@ -419,7 +408,7 @@ internal fun PolygonGeofenceEditor(
                                 "This saves memory on low-RAM devices. Manual points below save the same policy.",
                                 "Ini menghemat memori di perangkat low-RAM. Titik manual di bawah tetap menyimpan policy yang sama."
                             ),
-                            color = LockTextSecondary,
+                            color = AppColors.current.textSecondary,
                             fontSize = 12.sp,
                             lineHeight = 16.sp,
                             textAlign = TextAlign.Center
@@ -428,8 +417,8 @@ internal fun PolygonGeofenceEditor(
                             onClick = { mapVisible = true },
                             enabled = mapsReady && !lowRamProfile.ultra,
                             colors = ButtonDefaults.buttonColors(
-                                containerColor = LockBlue,
-                                contentColor = LockOnDark
+                                containerColor = AppColors.current.blue,
+                                contentColor = AppColors.current.onDark
                             )
                         ) {
                             Text(
@@ -535,6 +524,8 @@ internal fun PolygonGeofenceEditor(
             map.animateCamera(CameraUpdateFactory.newLatLngZoom(target, 18f))
         }
 
+        val polyStrokeColor = AppColors.current.blue.toArgb()
+        val polyFillColor = AppColors.current.blue.copy(alpha = 0.18f).toArgb()
         LaunchedEffect(googleMap, draftVertices, searchedLatLng, selectedSearchResult) {
             val map = googleMap ?: return@LaunchedEffect
             // Debounce rapid updates (e.g. typing coordinates) to avoid excessive map redraws
@@ -565,8 +556,8 @@ internal fun PolygonGeofenceEditor(
                     map.addPolygon(
                         PolygonOptions()
                             .addAll(points)
-                            .strokeColor(LockBlue.toArgb())
-                            .fillColor(LockBlue.copy(alpha = 0.18f).toArgb())
+                            .strokeColor(polyStrokeColor)
+                            .fillColor(polyFillColor)
                             .strokeWidth(5f)
                     )
                 }
@@ -574,7 +565,7 @@ internal fun PolygonGeofenceEditor(
                     map.addPolyline(
                         PolylineOptions()
                             .addAll(points)
-                            .color(LockBlue.toArgb())
+                            .color(polyStrokeColor)
                             .width(5f)
                     )
                 }
@@ -592,7 +583,7 @@ internal fun PolygonGeofenceEditor(
             modifier = Modifier
                 .clip(RoundedCornerShape(topStart = 14.dp, topEnd = 14.dp))
                 .background(MaterialTheme.colorScheme.surface)
-                .border(1.dp, LockOutlineSubtle, RoundedCornerShape(topStart = 14.dp, topEnd = 14.dp))
+                .border(1.dp, AppColors.current.outlineSubtle, RoundedCornerShape(topStart = 14.dp, topEnd = 14.dp))
         ) {
             Column(
                 modifier = Modifier
@@ -605,7 +596,7 @@ internal fun PolygonGeofenceEditor(
                         "Tap map to add polygon boundary points.",
                         "Tap map untuk menambah titik batas polygon."
                     ),
-                    color = LockTextSecondary,
+                    color = AppColors.current.textSecondary,
                     fontSize = 10.sp,
                     lineHeight = 12.sp,
                     maxLines = 2
@@ -654,8 +645,8 @@ internal fun PolygonGeofenceEditor(
                             .height(34.dp),
                         enabled = draftVertices.size < 50,
                         colors = ButtonDefaults.buttonColors(
-                            containerColor = LockBlue,
-                            contentColor = LockOnDark
+                            containerColor = AppColors.current.blue,
+                            contentColor = AppColors.current.onDark
                         ),
                         contentPadding = ButtonDefaults.ContentPadding
                     ) {
@@ -676,8 +667,8 @@ internal fun PolygonGeofenceEditor(
                             .height(34.dp),
                         enabled = draftVertices.isNotEmpty(),
                         colors = ButtonDefaults.buttonColors(
-                            containerColor = LockSurfaceSoft,
-                            contentColor = LockTextPrimary
+                            containerColor = AppColors.current.surfaceSoft,
+                            contentColor = AppColors.current.textPrimary
                         )
                     ) {
                         Text(
@@ -697,8 +688,8 @@ internal fun PolygonGeofenceEditor(
                             .height(34.dp),
                         enabled = draftVertices.isNotEmpty(),
                         colors = ButtonDefaults.buttonColors(
-                            containerColor = LockDangerBgSoft,
-                            contentColor = LockDialogDangerIcon
+                            containerColor = AppColors.current.dangerBgSoft,
+                            contentColor = AppColors.current.dialogDangerIcon
                         )
                     ) {
                         Text(
@@ -728,8 +719,8 @@ internal fun PolygonGeofenceEditor(
                             .height(34.dp),
                         enabled = draftVertices.size >= 3,
                         colors = ButtonDefaults.buttonColors(
-                            containerColor = LockGold,
-                            contentColor = LockTextPrimary
+                            containerColor = AppColors.current.gold,
+                            contentColor = AppColors.current.textPrimary
                         )
                     ) {
                         Text(
@@ -743,8 +734,8 @@ internal fun PolygonGeofenceEditor(
 
                 saveValidationError?.let { errorMsg ->
                     Text(
-                        text = "âš  $errorMsg",
-                        color = LockDialogDangerIcon,
+                        text = errorMsg,
+                        color = AppColors.current.dialogDangerIcon,
                         fontSize = 10.sp,
                         lineHeight = 13.sp
                     )

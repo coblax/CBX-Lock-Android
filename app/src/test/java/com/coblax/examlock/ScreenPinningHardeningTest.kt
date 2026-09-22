@@ -162,6 +162,60 @@ class ScreenPinningHardeningTest {
         assertEquals(0, bridge.engageCount)
     }
 
+    @Test
+    fun byodAcceptsPinnedButManagedDeviceRequiresLockedState() {
+        assertEquals(
+            LockTaskSecurityRequirement.AnyActive,
+            resolveLockTaskSecurityRequirement(deviceOwner = false)
+        )
+        assertEquals(
+            LockTaskSecurityRequirement.Locked,
+            resolveLockTaskSecurityRequirement(deviceOwner = true)
+        )
+        assertTrue(ExamLockTaskState.Pinned.satisfies(LockTaskSecurityRequirement.AnyActive))
+        assertFalse(ExamLockTaskState.Pinned.satisfies(LockTaskSecurityRequirement.Locked))
+        assertTrue(ExamLockTaskState.Locked.satisfies(LockTaskSecurityRequirement.Locked))
+    }
+
+    @Test
+    fun managedPinnedStateMustRestartToUpgradeToLocked() {
+        assertTrue(
+            shouldRestartLockTaskForRequirement(
+                state = ExamLockTaskState.Pinned,
+                requirement = LockTaskSecurityRequirement.Locked
+            )
+        )
+        assertFalse(
+            shouldRestartLockTaskForRequirement(
+                state = ExamLockTaskState.Locked,
+                requirement = LockTaskSecurityRequirement.Locked
+            )
+        )
+        assertFalse(
+            shouldRestartLockTaskForRequirement(
+                state = ExamLockTaskState.Pinned,
+                requirement = LockTaskSecurityRequirement.AnyActive
+            )
+        )
+    }
+
+    @Test
+    fun runtimeMonitorTreatsManagedPinnedDowngradeAsFatal() {
+        val bridge = FakeLockTaskBridge(active = true, stateLabel = "PINNED")
+
+        val signal = ScreenPinningMonitor.detectViolation(
+            mode = ScreenPinningMode.Enforced,
+            sessionStarted = true,
+            requestPending = false,
+            bridge = bridge,
+            isIndonesian = false,
+            requirement = LockTaskSecurityRequirement.Locked
+        )
+
+        assertEquals("Managed Kiosk Mode Lost", signal?.title)
+        assertTrue(signal?.details?.contains("required=LOCKED") == true)
+    }
+
     private class FakeLockTaskBridge(
         private var active: Boolean,
         private val stateLabel: String

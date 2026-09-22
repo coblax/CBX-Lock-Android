@@ -8,41 +8,49 @@ import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
-import androidx.compose.foundation.layout.Row
+import androidx.compose.foundation.layout.PaddingValues
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
+import androidx.compose.foundation.layout.sizeIn
+import androidx.compose.foundation.lazy.LazyRow
+import androidx.compose.foundation.lazy.rememberLazyListState
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.rounded.CheckCircle
+import androidx.compose.material.icons.rounded.ErrorOutline
 import androidx.compose.material3.Icon
-import androidx.compose.material3.Text
 import androidx.compose.material3.MaterialTheme
+import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.platform.testTag
+import androidx.compose.ui.semantics.Role
+import androidx.compose.ui.semantics.contentDescription
+import androidx.compose.ui.semantics.role
+import androidx.compose.ui.semantics.selected
+import androidx.compose.ui.semantics.semantics
+import androidx.compose.ui.semantics.stateDescription
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
-import com.coblax.examlock.LocalLowRamProfile
 import com.coblax.examlock.i18n.tr
 import com.coblax.examlock.model.UiLanguage
 import com.coblax.examlock.i18n.LocalUiLanguage
-import com.coblax.examlock.ui.theme.LockBlue
-import com.coblax.examlock.ui.theme.LockOutline
-import com.coblax.examlock.ui.theme.LockSurfaceSoft
-import com.coblax.examlock.ui.theme.LockTextMuted
+import com.coblax.examlock.ui.theme.AppColors
+import com.coblax.examlock.ui.theme.ScopedUiTokens
+import com.coblax.examlock.ui.theme.currentUiMotionPolicy
 import com.coblax.examlock.ui.theme.isExpandedLayout
-import com.coblax.examlock.ui.theme.UiTokens
-import com.coblax.examlock.ui.theme.LockOutlineSubtle
 
-// â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
+// ──────────────────────────────────────────────────────────────
 // Step Indicator (numbered circles)
-// â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
+// ──────────────────────────────────────────────────────────────
 
 /**
  * Horizontal row of numbered step circles. On expanded (tablet) layouts the
@@ -56,69 +64,110 @@ internal fun WizardStepIndicator(
     currentStepIndex: Int,
     onStepClick: (Int) -> Unit
 ) {
-    val reduceMotion = LocalLowRamProfile.current.disableNonEssentialAnimations
+    val motionPolicy = currentUiMotionPolicy()
+    val tokens = ScopedUiTokens.current
     val expanded = isExpandedLayout()
     val circleSize = if (expanded) 36.dp else 30.dp
     val iconSize = if (expanded) 18.dp else 16.dp
     val fontSize = if (expanded) 12.sp else 11.sp
     val uiLanguage = LocalUiLanguage.current
+    val listState = rememberLazyListState()
 
-    Row(
+    LaunchedEffect(currentStepIndex, motionPolicy.enabled) {
+        if (!motionPolicy.enabled) {
+            listState.scrollToItem(currentStepIndex.coerceAtLeast(0))
+        } else {
+            listState.animateScrollToItem(currentStepIndex.coerceAtLeast(0))
+        }
+    }
+
+    LazyRow(
+        state = listState,
         modifier = Modifier
             .fillMaxWidth()
-            .clip(RoundedCornerShape(UiTokens.RadiusMd))
+            .testTag(PreparationWizardUiTestTags.StepIndicator)
+            .clip(RoundedCornerShape(tokens.radiusMedium))
             .background(MaterialTheme.colorScheme.surface)
-            .border(1.dp, LockOutlineSubtle, RoundedCornerShape(UiTokens.RadiusMd))
-            .padding(horizontal = 8.dp, vertical = 10.dp),
-        horizontalArrangement = Arrangement.SpaceEvenly,
+            .border(1.dp, AppColors.current.outlineSubtle, RoundedCornerShape(tokens.radiusMedium)),
+        contentPadding = PaddingValues(horizontal = 8.dp, vertical = 6.dp),
+        horizontalArrangement = Arrangement.spacedBy(4.dp),
         verticalAlignment = Alignment.CenterVertically
     ) {
-        steps.forEachIndexed { index, step ->
+        items(
+            count = steps.size,
+            key = { index -> steps[index].sectionKey }
+        ) { index ->
+            val step = steps[index]
             val stepState = stepStates.getOrNull(index)
             val isCompleted = stepState?.isCompleted ?: false
+            val hasIssue = (stepState?.issueCount ?: 0) > 0
             val isCurrent = index == currentStepIndex
 
             val targetBgColor = when {
                 isCurrent && isCompleted -> WizardGreen
-                isCurrent -> LockBlue
+                isCurrent && hasIssue -> WizardRed
+                isCurrent -> AppColors.current.blue
                 isCompleted -> WizardGreen.copy(alpha = 0.15f)
-                else -> LockSurfaceSoft
+                hasIssue -> AppColors.current.statusDangerFill
+                else -> AppColors.current.surfaceSoft
             }
-            val bgColor = if (reduceMotion) {
+            val bgColor = if (!motionPolicy.enabled) {
                 targetBgColor
             } else {
                 animateColorAsState(
                     targetValue = targetBgColor,
-                    animationSpec = tween(300),
+                    animationSpec = tween(motionPolicy.contentDurationMillis),
                     label = "step_bg_$index"
                 ).value
             }
             val targetTextColor = when {
                 isCurrent -> Color.White
                 isCompleted -> WizardGreen
-                else -> LockTextMuted
+                hasIssue -> WizardRed
+                else -> AppColors.current.textMuted
             }
-            val textColor = if (reduceMotion) {
+            val textColor = if (!motionPolicy.enabled) {
                 targetTextColor
             } else {
                 animateColorAsState(
                     targetValue = targetTextColor,
-                    animationSpec = tween(300),
+                    animationSpec = tween(motionPolicy.contentDurationMillis),
                     label = "step_text_$index"
                 ).value
             }
             val borderColor = when {
                 isCurrent -> Color.Transparent
                 isCompleted -> WizardGreen.copy(alpha = 0.25f)
-                else -> LockOutline.copy(alpha = 0.40f)
+                hasIssue -> WizardRed.copy(alpha = 0.35f)
+                else -> AppColors.current.outline.copy(alpha = 0.40f)
             }
+            val statusDescription = when {
+                isCompleted -> tr("Complete", "Selesai")
+                hasIssue -> tr(
+                    "${stepState?.issueCount ?: 0} issues",
+                    "${stepState?.issueCount ?: 0} masalah"
+                )
+                else -> tr("Checking", "Memeriksa")
+            }
+            val stepDescription = tr(
+                "Step ${index + 1} of ${steps.size}: ${step.title(uiLanguage)}, $statusDescription",
+                "Langkah ${index + 1} dari ${steps.size}: ${step.title(uiLanguage)}, $statusDescription"
+            )
+            val interactiveModifier = Modifier
+                .sizeIn(minWidth = tokens.touchTarget, minHeight = tokens.touchTarget)
+                .semantics {
+                    role = Role.Tab
+                    selected = isCurrent
+                    stateDescription = statusDescription
+                    contentDescription = stepDescription
+                }
+                .clickable(role = Role.Tab) { onStepClick(index) }
 
             if (expanded) {
-                // Tablet: circle + short label
                 Column(
                     horizontalAlignment = Alignment.CenterHorizontally,
                     verticalArrangement = Arrangement.spacedBy(3.dp),
-                    modifier = Modifier.clickable { onStepClick(index) }
+                    modifier = interactiveModifier.padding(horizontal = 3.dp)
                 ) {
                     Box(
                         modifier = Modifier
@@ -135,6 +184,13 @@ internal fun WizardStepIndicator(
                                 tint = textColor,
                                 modifier = Modifier.size(iconSize)
                             )
+                        } else if (hasIssue && !isCurrent) {
+                            Icon(
+                                imageVector = Icons.Rounded.ErrorOutline,
+                                contentDescription = null,
+                                tint = textColor,
+                                modifier = Modifier.size(iconSize)
+                            )
                         } else {
                             Text(
                                 text = "${index + 1}",
@@ -146,7 +202,7 @@ internal fun WizardStepIndicator(
                     }
                     Text(
                         text = step.shortLabel(uiLanguage),
-                        color = if (isCurrent) LockBlue else LockTextMuted,
+                        color = if (isCurrent) AppColors.current.blue else AppColors.current.textMuted,
                         fontSize = 8.sp,
                         fontWeight = if (isCurrent) FontWeight.Bold else FontWeight.Medium,
                         maxLines = 1,
@@ -154,30 +210,38 @@ internal fun WizardStepIndicator(
                     )
                 }
             } else {
-                // Phone: circle only
                 Box(
-                    modifier = Modifier
-                        .size(circleSize)
-                        .clip(CircleShape)
-                        .background(bgColor)
-                        .border(1.dp, borderColor, CircleShape)
-                        .clickable { onStepClick(index) },
+                    modifier = interactiveModifier,
                     contentAlignment = Alignment.Center
                 ) {
-                    if (isCompleted && !isCurrent) {
-                        Icon(
-                            imageVector = Icons.Rounded.CheckCircle,
-                            contentDescription = null,
-                            tint = textColor,
-                            modifier = Modifier.size(iconSize)
-                        )
-                    } else {
-                        Text(
-                            text = "${index + 1}",
-                            color = textColor,
-                            fontSize = fontSize,
-                            fontWeight = FontWeight.ExtraBold
-                        )
+                    Box(
+                        modifier = Modifier
+                            .size(circleSize)
+                            .clip(CircleShape)
+                            .background(bgColor)
+                            .border(1.dp, borderColor, CircleShape),
+                        contentAlignment = Alignment.Center
+                    ) {
+                        when {
+                            isCompleted && !isCurrent -> Icon(
+                                imageVector = Icons.Rounded.CheckCircle,
+                                contentDescription = null,
+                                tint = textColor,
+                                modifier = Modifier.size(iconSize)
+                            )
+                            hasIssue && !isCurrent -> Icon(
+                                imageVector = Icons.Rounded.ErrorOutline,
+                                contentDescription = null,
+                                tint = textColor,
+                                modifier = Modifier.size(iconSize)
+                            )
+                            else -> Text(
+                                text = "${index + 1}",
+                                color = textColor,
+                                fontSize = fontSize,
+                                fontWeight = FontWeight.ExtraBold
+                            )
+                        }
                     }
                 }
             }

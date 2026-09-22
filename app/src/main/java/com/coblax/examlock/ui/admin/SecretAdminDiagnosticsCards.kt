@@ -1,4 +1,4 @@
-﻿package com.coblax.examlock.ui.admin
+package com.coblax.examlock.ui.admin
 
 import android.app.Activity
 import android.app.ActivityManager
@@ -41,28 +41,16 @@ import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import androidx.webkit.WebViewCompat
 
+
 import com.coblax.examlock.DeviceCompatibilityProfile
 import com.coblax.examlock.DeviceSurvivalPolicy
 import com.coblax.examlock.i18n.tr
 import com.coblax.examlock.model.DiagnosticSection
 import com.coblax.examlock.R
-import com.coblax.examlock.ui.theme.LockBlue
-import com.coblax.examlock.ui.theme.LockGold
-import com.coblax.examlock.ui.theme.LockGoldDark
-import com.coblax.examlock.ui.theme.LockOnDark
-import com.coblax.examlock.ui.theme.LockOutline
-import com.coblax.examlock.ui.theme.LockSurface
-import com.coblax.examlock.ui.theme.LockSurfaceSoft
-import com.coblax.examlock.ui.theme.LockTextMuted
-import com.coblax.examlock.ui.theme.LockTextPrimary
-import com.coblax.examlock.ui.theme.LockTextSecondary
-import com.coblax.examlock.ui.theme.LockDialogDangerIcon
-import com.coblax.examlock.ui.theme.LockSafeEmphasis
+import com.coblax.examlock.ui.theme.AppColors
 import com.coblax.examlock.WebViewCompatibilityStatus
 import com.coblax.examlock.WebViewHealthSeverity
 import com.coblax.examlock.ui.theme.UiTokens
-import com.google.android.gms.tasks.Task
-
 import kotlin.coroutines.resume
 import kotlin.coroutines.resumeWithException
 import kotlin.math.roundToInt
@@ -99,7 +87,7 @@ internal fun AdminReadinessSummaryCard(
     Surface(
         modifier = Modifier.fillMaxWidth(),
         shape = RoundedCornerShape(22.dp),
-        color = Color.White,
+        color = AppColors.current.cardBg,
         border = BorderStroke(1.dp, statusColor.copy(alpha = 0.24f)),
         tonalElevation = 0.dp,
         shadowElevation = 0.dp
@@ -116,13 +104,13 @@ internal fun AdminReadinessSummaryCard(
                 Column(modifier = Modifier.weight(1f)) {
                     Text(
                         text = tr("Device Readiness", "Kesiapan Perangkat"),
-                        color = LockTextPrimary,
+                        color = AppColors.current.textPrimary,
                         fontSize = 18.sp,
                         fontWeight = FontWeight.Bold
                     )
                     Text(
                         text = summary.detail,
-                        color = LockTextSecondary,
+                        color = AppColors.current.textSecondary,
                         fontSize = 12.sp,
                         lineHeight = 16.sp
                     )
@@ -168,9 +156,9 @@ internal fun AdminReadinessSummaryCard(
                     shape = RoundedCornerShape(UiTokens.RadiusMd),
                     colors = ButtonDefaults.buttonColors(
                         containerColor = statusColor,
-                        contentColor = LockOnDark,
+                        contentColor = AppColors.current.onDark,
                         disabledContainerColor = statusColor.copy(alpha = 0.42f),
-                        disabledContentColor = LockOnDark.copy(alpha = 0.75f)
+                        disabledContentColor = AppColors.current.onDark.copy(alpha = 0.75f)
                     ),
                     modifier = Modifier.weight(1f)
                 ) {
@@ -178,7 +166,7 @@ internal fun AdminReadinessSummaryCard(
                         CircularProgressIndicator(
                             modifier = Modifier.size(16.dp),
                             strokeWidth = 2.dp,
-                            color = LockOnDark
+                            color = AppColors.current.onDark
                         )
                     } else {
                         Text(
@@ -195,7 +183,7 @@ internal fun AdminReadinessSummaryCard(
                     ) {
                         Text(
                             text = tr("Run Check", "Cek Ulang"),
-                            color = LockBlue,
+                            color = AppColors.current.blue,
                             fontWeight = FontWeight.Bold
                         )
                     }
@@ -206,7 +194,7 @@ internal fun AdminReadinessSummaryCard(
                 ) {
                     Text(
                         text = tr("Details", "Detail"),
-                        color = LockBlue,
+                        color = AppColors.current.blue,
                         fontWeight = FontWeight.Bold
                     )
                 }
@@ -234,8 +222,8 @@ internal fun AdminAdvancedDiagnosticsCard(
     Surface(
         modifier = Modifier.fillMaxWidth(),
         shape = RoundedCornerShape(22.dp),
-        color = LockSurfaceSoft,
-        border = BorderStroke(1.dp, LockOutline)
+        color = AppColors.current.surfaceSoft,
+        border = BorderStroke(1.dp, AppColors.current.outline)
     ) {
         Column(
             modifier = Modifier.padding(horizontal = 16.dp, vertical = 16.dp),
@@ -249,7 +237,7 @@ internal fun AdminAdvancedDiagnosticsCard(
                 Column(modifier = Modifier.weight(1f)) {
                     Text(
                         text = tr("Advanced Diagnostics", "Diagnostik Lanjutan"),
-                        color = LockTextPrimary,
+                        color = AppColors.current.textPrimary,
                         fontSize = 18.sp,
                         fontWeight = FontWeight.Bold
                     )
@@ -258,7 +246,7 @@ internal fun AdminAdvancedDiagnosticsCard(
                             "Technical details are hidden until needed.",
                             "Detail teknis disembunyikan sampai dibutuhkan."
                         ),
-                        color = LockTextSecondary,
+                        color = AppColors.current.textSecondary,
                         fontSize = 12.sp,
                         lineHeight = 16.sp
                     )
@@ -266,7 +254,7 @@ internal fun AdminAdvancedDiagnosticsCard(
                 TextButton(onClick = onToggleExpanded) {
                     Text(
                         text = if (expanded) tr("Hide", "Tutup") else tr("Open", "Buka"),
-                        color = LockBlue,
+                        color = AppColors.current.blue,
                         fontWeight = FontWeight.Bold
                     )
                 }
@@ -278,7 +266,7 @@ internal fun AdminAdvancedDiagnosticsCard(
                         "Open only for troubleshooting.",
                         "Buka hanya saat troubleshooting."
                     ),
-                    color = LockTextMuted,
+                    color = AppColors.current.textMuted,
                     fontSize = 11.sp,
                     lineHeight = 15.sp
                 )
@@ -299,7 +287,7 @@ internal fun AdminAdvancedDiagnosticsCard(
             webViewStatus.quickFix?.takeIf { it.isNotBlank() }?.let { quickFix ->
                 Text(
                     text = quickFix,
-                    color = LockTextSecondary,
+                    color = AppColors.current.textSecondary,
                     fontSize = 12.sp,
                     lineHeight = 16.sp
                 )
@@ -312,13 +300,13 @@ internal fun AdminAdvancedDiagnosticsCard(
                     onClick = onRefreshWebView,
                     modifier = Modifier.weight(1f)
                 ) {
-                    Text(tr("Refresh", "Refresh"), color = LockBlue, fontWeight = FontWeight.Bold)
+                    Text(tr("Refresh", "Refresh"), color = AppColors.current.blue, fontWeight = FontWeight.Bold)
                 }
                 TextButton(
                     onClick = onOpenWebViewSettings,
                     modifier = Modifier.weight(1f)
                 ) {
-                    Text(tr("Open Settings", "Buka Setelan"), color = LockBlue, fontWeight = FontWeight.Bold)
+                    Text(tr("Open Settings", "Buka Setelan"), color = AppColors.current.blue, fontWeight = FontWeight.Bold)
                 }
             }
 
@@ -343,13 +331,13 @@ internal fun AdminAdvancedDiagnosticsCard(
                 Column(verticalArrangement = Arrangement.spacedBy(3.dp)) {
                     Text(
                         text = item.title,
-                        color = LockTextPrimary,
+                        color = AppColors.current.textPrimary,
                         fontSize = 13.sp,
                         fontWeight = FontWeight.Bold
                     )
                     Text(
                         text = item.detail,
-                        color = LockTextSecondary,
+                        color = AppColors.current.textSecondary,
                         fontSize = 12.sp,
                         lineHeight = 16.sp
                     )
@@ -363,19 +351,19 @@ internal fun AdminAdvancedDiagnosticsCard(
                     onClick = onOpenBatterySettings,
                     modifier = Modifier.weight(1f)
                 ) {
-                    Text(tr("Battery", "Baterai"), color = LockBlue)
+                    Text(tr("Battery", "Baterai"), color = AppColors.current.blue)
                 }
                 TextButton(
                     onClick = onOpenLocationSettings,
                     modifier = Modifier.weight(1f)
                 ) {
-                    Text(tr("Location", "Lokasi"), color = LockBlue)
+                    Text(tr("Location", "Lokasi"), color = AppColors.current.blue)
                 }
                 TextButton(
                     onClick = onOpenOverlaySettings,
                     modifier = Modifier.weight(1f)
                 ) {
-                    Text(tr("Floating Apps", "Floating App"), color = LockBlue)
+                    Text(tr("Floating Apps", "Floating App"), color = AppColors.current.blue)
                 }
             }
             TextButton(
@@ -384,7 +372,7 @@ internal fun AdminAdvancedDiagnosticsCard(
             ) {
                 Text(
                     text = tr("Open App Settings", "Buka Setelan Aplikasi"),
-                    color = LockBlue,
+                    color = AppColors.current.blue,
                     fontWeight = FontWeight.Bold
                 )
             }
@@ -396,7 +384,7 @@ internal fun AdminAdvancedDiagnosticsCard(
 private fun AdminDiagnosticSectionTitle(text: String) {
     Text(
         text = text,
-        color = LockTextPrimary,
+        color = AppColors.current.textPrimary,
         fontSize = 14.sp,
         fontWeight = FontWeight.ExtraBold
     )
@@ -408,16 +396,17 @@ private fun AdminDiagnosticDivider() {
         modifier = Modifier
             .fillMaxWidth()
             .height(1.dp)
-            .background(LockOutline.copy(alpha = 0.8f))
+            .background(AppColors.current.outline.copy(alpha = 0.8f))
     )
 }
 
+@Composable
 private fun adminReadinessVerdictColor(verdict: AdminReadinessVerdict): Color {
     return when (verdict) {
-        AdminReadinessVerdict.NotRun -> LockBlue
-        AdminReadinessVerdict.Ready -> LockSafeEmphasis
-        AdminReadinessVerdict.NeedsSetup -> LockGoldDark
-        AdminReadinessVerdict.Blocked -> LockDialogDangerIcon
+        AdminReadinessVerdict.NotRun -> AppColors.current.blue
+        AdminReadinessVerdict.Ready -> AppColors.current.safeEmphasis
+        AdminReadinessVerdict.NeedsSetup -> AppColors.current.goldDark
+        AdminReadinessVerdict.Blocked -> AppColors.current.dialogDangerIcon
     }
 }
 
@@ -433,13 +422,13 @@ private fun AdminHealthLine(
     ) {
         Text(
             text = label,
-            color = LockTextMuted,
+            color = AppColors.current.textMuted,
             fontSize = 12.sp,
             modifier = Modifier.weight(0.42f)
         )
         Text(
             text = value.ifBlank { "-" },
-            color = LockTextPrimary,
+            color = AppColors.current.textPrimary,
             fontSize = 12.sp,
             fontWeight = FontWeight.SemiBold,
             textAlign = TextAlign.End,
@@ -459,7 +448,7 @@ private fun FieldReadinessReportCard(
                 "No field test yet. Run it on the actual device before exam day.",
                 "Belum ada field test. Jalankan di perangkat asli sebelum hari ujian."
             ),
-            color = LockTextSecondary,
+            color = AppColors.current.textSecondary,
             fontSize = 12.sp,
             lineHeight = 16.sp
         )
@@ -475,25 +464,25 @@ private fun FieldReadinessReportCard(
         Column(modifier = Modifier.weight(1f)) {
             Text(
                 text = tr("Last result", "Hasil terakhir"),
-                color = LockTextMuted,
+                color = AppColors.current.textMuted,
                 fontSize = 11.sp,
                 fontWeight = FontWeight.SemiBold
             )
             Text(
                 text = "ready=${report.readyCount} warning=${report.warningCount} blocked=${report.blockedCount}",
-                color = LockTextSecondary,
+                color = AppColors.current.textSecondary,
                 fontSize = 12.sp,
                 lineHeight = 16.sp
             )
             Text(
                 text = "score=${survivalPolicy.score.name} runtime=${survivalPolicy.runtimeTier.name}",
-                color = LockTextMuted,
+                color = AppColors.current.textMuted,
                 fontSize = 11.sp,
                 lineHeight = 15.sp
             )
             Text(
                 text = survivalPolicy.webViewRiskLabel,
-                color = LockTextMuted,
+                color = AppColors.current.textMuted,
                 fontSize = 10.sp,
                 lineHeight = 14.sp
             )
@@ -531,13 +520,13 @@ private fun FieldReadinessReportCard(
                 Column(modifier = Modifier.weight(1f)) {
                     Text(
                         text = item.title,
-                        color = LockTextPrimary,
+                        color = AppColors.current.textPrimary,
                         fontSize = 12.sp,
                         fontWeight = FontWeight.Bold
                     )
                     Text(
                         text = item.detail,
-                        color = LockTextSecondary,
+                        color = AppColors.current.textSecondary,
                         fontSize = 11.sp,
                         lineHeight = 15.sp
                     )
@@ -556,11 +545,12 @@ private fun FieldReadinessReportCard(
     }
 }
 
+@Composable
 private fun fieldReadinessVerdictColor(verdict: FieldReadinessVerdict): Color {
     return when (verdict) {
-        FieldReadinessVerdict.Ready -> LockSafeEmphasis
-        FieldReadinessVerdict.Warning -> LockGoldDark
-        FieldReadinessVerdict.Blocked -> LockDialogDangerIcon
+        FieldReadinessVerdict.Ready -> AppColors.current.safeEmphasis
+        FieldReadinessVerdict.Warning -> AppColors.current.goldDark
+        FieldReadinessVerdict.Blocked -> AppColors.current.dialogDangerIcon
     }
 }
 

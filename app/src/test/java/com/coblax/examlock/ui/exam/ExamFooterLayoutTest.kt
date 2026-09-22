@@ -14,98 +14,52 @@ import org.junit.Test
 
 class ExamFooterLayoutTest {
     @Test
-    fun normalWidthUsesRegularFooter() {
-        val spec = calculateExamFooterLayoutSpec(
-            maxWidthDp = 430,
-            lowRamEnabled = false,
-            lowRamSevere = false
-        )
-
-        assertFalse(spec.compact)
-        assertFalse(spec.severe)
-        assertEquals(ExamFooterLayoutMode.SingleRow, spec.layoutMode)
-        assertEquals(38, spec.buttonSizeDp)
-        assertEquals(64, spec.arrowPillWidthDp)
-        assertEquals(50, spec.connectivityPillWidthDp)
-        assertEquals(60, spec.shieldPillWidthDp)
-        assertEquals(48, spec.touchTargetDp)
-        assertEquals(52, spec.minHeightDp)
-        assertTrue(spec.showBatteryPercent)
-        assertTrue(spec.showConnectivityDot)
-        assertEquals(6, spec.shadowElevationDp)
-    }
-
-    @Test
-    fun narrowPhoneWidthKeepsSingleRowWithActionsVisible() {
-        val spec = calculateExamFooterLayoutSpec(
-            maxWidthDp = 360,
-            lowRamEnabled = false,
-            lowRamSevere = false
-        )
-
-        assertTrue(spec.compact)
-        assertFalse(spec.severe)
-        assertEquals(ExamFooterLayoutMode.SingleRow, spec.layoutMode)
-        assertEquals(36, spec.buttonSizeDp)
-        assertEquals(52, spec.minHeightDp)
-        assertEquals(58, spec.maxHeightDp)
-        assertTrue(spec.showBatteryPercent)
-        assertTrue(spec.showConnectivityDot)
-    }
-
-    @Test
-    fun severeLowRamStillUsesSingleRowOnPhoneWidth() {
-        val spec = calculateExamFooterLayoutSpec(
-            maxWidthDp = 720,
-            lowRamEnabled = true,
-            lowRamSevere = true
-        )
-
-        assertTrue(spec.compact)
-        assertTrue(spec.severe)
-        assertEquals(ExamFooterLayoutMode.SingleRow, spec.layoutMode)
-        assertEquals(34, spec.buttonSizeDp)
-        assertEquals(56, spec.arrowPillWidthDp)
-        assertEquals(52, spec.minHeightDp)
-        assertTrue(spec.showBatteryPercent)
-        assertFalse(spec.showConnectivityDot)
-        assertEquals(0, spec.shadowElevationDp)
-    }
-
-    @Test
-    fun smallPhoneWidthStillKeepsRefreshAndHomeOnSingleRow() {
+    fun compactPhoneKeepsAllActionsAtAccessibleHeight() {
         val spec = calculateExamFooterLayoutSpec(
             maxWidthDp = 320,
-            lowRamEnabled = true,
-            lowRamSevere = true
-        )
-
-        assertTrue(spec.compact)
-        assertTrue(spec.severe)
-        assertEquals(ExamFooterLayoutMode.SingleRow, spec.layoutMode)
-        assertEquals(34, spec.buttonSizeDp)
-        assertEquals(56, spec.arrowPillWidthDp)
-        assertFalse(spec.showConnectivityDot)
-        assertFalse(spec.showBatteryPercent)
-    }
-
-    @Test
-    fun tinyScreenDoesNotShrinkBelowReadableIconSize() {
-        val spec = calculateExamFooterLayoutSpec(
-            maxWidthDp = 280,
             lowRamEnabled = false,
             lowRamSevere = false
         )
 
-        assertTrue(spec.severe)
-        assertEquals(ExamFooterLayoutMode.TwoRowCompact, spec.layoutMode)
-        assertEquals(34, spec.buttonSizeDp)
-        assertEquals(15, spec.iconSizeDp)
-        assertEquals(15, spec.arrowIconSizeDp)
+        assertEquals(ExamFooterLayoutMode.Compact, spec.layoutMode)
+        assertTrue(spec.compact)
+        assertFalse(spec.severe)
+        assertEquals(48, spec.touchTargetDp)
+        assertEquals(52, spec.railHeightDp)
+        assertFalse(spec.showFullActionLabels)
     }
 
     @Test
-    fun wideTabletUsesTabletWideFooter() {
+    fun severeLowRamDoesNotShrinkTouchTargets() {
+        val spec = calculateExamFooterLayoutSpec(
+            maxWidthDp = 360,
+            lowRamEnabled = true,
+            lowRamSevere = true
+        )
+
+        assertEquals(ExamFooterLayoutMode.Compact, spec.layoutMode)
+        assertTrue(spec.compact)
+        assertTrue(spec.severe)
+        assertEquals(48, spec.touchTargetDp)
+        assertEquals(52, spec.railHeightDp)
+        assertEquals(17, spec.iconSizeDp)
+    }
+
+    @Test
+    fun mediumPhoneUsesFullActionLabels() {
+        val spec = calculateExamFooterLayoutSpec(
+            maxWidthDp = 480,
+            lowRamEnabled = false,
+            lowRamSevere = false
+        )
+
+        assertEquals(ExamFooterLayoutMode.Regular, spec.layoutMode)
+        assertFalse(spec.compact)
+        assertTrue(spec.showFullActionLabels)
+    }
+
+    @Test
+    fun wideTabletUsesWideActionRail() {
         val spec = calculateExamFooterLayoutSpec(
             maxWidthDp = 720,
             lowRamEnabled = false,
@@ -114,41 +68,110 @@ class ExamFooterLayoutTest {
 
         assertEquals(ExamFooterLayoutMode.TabletWide, spec.layoutMode)
         assertFalse(spec.compact)
-        assertEquals(40, spec.buttonSizeDp)
-        assertEquals(52, spec.minHeightDp)
-        assertTrue(spec.showBatteryPercent)
+        assertEquals(20, spec.iconSizeDp)
+        assertTrue(spec.showFullActionLabels)
     }
 
     @Test
-    fun wifiStableUsesWifiSignalLevel() {
+    fun wifiStableAndServerOnlineResolveOnline() {
         val visual = resolveExamFooterConnectivityVisual(
             networkStatus = networkStatus(
                 transports = listOf("wifi"),
                 transportLabel = "Wi-Fi",
-                wifi = WifiDiagnostics(
-                    ssid = "School",
-                    bssid = "00:00:00:00:00:00",
-                    rssiDbm = -45,
-                    signalLevel = 4,
-                    linkSpeedMbps = 150,
-                    frequencyMHz = 5200,
-                    bandLabel = "5 GHz",
-                    hiddenSsid = false,
-                    locationPermissionGranted = true,
-                    locationServicesEnabled = true
-                )
+                wifi = wifi(signalLevel = 4)
             ),
             serverStatus = ExamServerFooterStatus.Online
         )
 
         assertEquals(ExamFooterConnectivityTransport.Wifi, visual.transport)
         assertEquals(ExamFooterConnectivitySeverity.Stable, visual.severity)
+        assertEquals(ExamRuntimeConnectivityState.Online, visual.state)
         assertEquals(4, visual.signalLevel)
-        assertNull(visual.badgeText)
+        assertNull(resolveExamRuntimeConnectionNotice(networkStatus(), ExamServerFooterStatus.Online))
     }
 
     @Test
-    fun cellularUnstableUsesCellularLabelAndWarningBadge() {
+    fun serverCheckingUsesInformationalStateWithoutBanner() {
+        val status = networkStatus()
+        val visual = resolveExamFooterConnectivityVisual(
+            networkStatus = status,
+            serverStatus = ExamServerFooterStatus.Checking
+        )
+
+        assertEquals(ExamFooterConnectivitySeverity.Info, visual.severity)
+        assertEquals(ExamRuntimeConnectivityState.Checking, visual.state)
+        assertNull(resolveExamRuntimeConnectionNotice(status, ExamServerFooterStatus.Checking))
+    }
+
+    @Test
+    fun offlineConnectivityIsWarningRatherThanSecurityDanger() {
+        val status = networkStatus(
+            verdict = NetworkReadinessVerdict.Offline,
+            transports = emptyList(),
+            transportLabel = ""
+        )
+        val visual = resolveExamFooterConnectivityVisual(
+            networkStatus = status,
+            serverStatus = ExamServerFooterStatus.Online
+        )
+
+        assertEquals(ExamFooterConnectivitySeverity.Warning, visual.severity)
+        assertEquals(ExamRuntimeConnectivityState.Offline, visual.state)
+        assertEquals(0, visual.signalLevel)
+        assertEquals(
+            ExamRuntimeConnectionNoticeKind.Offline,
+            resolveExamRuntimeConnectionNotice(status, ExamServerFooterStatus.Online)
+        )
+    }
+
+    @Test
+    fun vpnUsesWarningPresentationWhileShieldOwnsBlockingState() {
+        val status = networkStatus(
+            verdict = NetworkReadinessVerdict.VpnActive,
+            transports = listOf("wifi", "vpn"),
+            transportLabel = "Wi-Fi + VPN"
+        )
+        val visual = resolveExamFooterConnectivityVisual(
+            networkStatus = status,
+            serverStatus = ExamServerFooterStatus.Online
+        )
+
+        assertEquals(ExamFooterConnectivitySeverity.Warning, visual.severity)
+        assertEquals(ExamRuntimeConnectivityState.Limited, visual.state)
+        assertEquals(
+            ExamRuntimeConnectionNoticeKind.VpnActive,
+            resolveExamRuntimeConnectionNotice(status, ExamServerFooterStatus.Online)
+        )
+    }
+
+    @Test
+    fun serverOfflineProducesNonBlockingWarningNotice() {
+        val status = networkStatus()
+        val visual = resolveExamFooterConnectivityVisual(
+            networkStatus = status,
+            serverStatus = ExamServerFooterStatus.Offline
+        )
+
+        assertEquals(ExamFooterConnectivitySeverity.Warning, visual.severity)
+        assertEquals(ExamRuntimeConnectivityState.Limited, visual.state)
+        assertEquals(
+            ExamRuntimeConnectionNoticeKind.ServerOffline,
+            resolveExamRuntimeConnectionNotice(status, ExamServerFooterStatus.Offline)
+        )
+    }
+
+    @Test
+    fun networkIssueTakesPriorityOverServerIssue() {
+        val status = networkStatus(verdict = NetworkReadinessVerdict.CaptivePortal)
+
+        assertEquals(
+            ExamRuntimeConnectionNoticeKind.CaptivePortal,
+            resolveExamRuntimeConnectionNotice(status, ExamServerFooterStatus.Offline)
+        )
+    }
+
+    @Test
+    fun cellularUnstableRetainsTransportLabelAndSignalLevel() {
         val visual = resolveExamFooterConnectivityVisual(
             networkStatus = networkStatus(
                 verdict = NetworkReadinessVerdict.Unstable,
@@ -169,72 +192,22 @@ class ExamFooterLayoutTest {
         assertEquals(ExamFooterConnectivityTransport.Cellular, visual.transport)
         assertEquals(ExamFooterConnectivitySeverity.Warning, visual.severity)
         assertEquals(2, visual.signalLevel)
-        assertEquals("!", visual.badgeText)
         assertEquals("4G", visual.cellularLabel)
     }
 
-    @Test
-    fun offlineIsDangerEvenWithUnknownTransport() {
-        val visual = resolveExamFooterConnectivityVisual(
-            networkStatus = networkStatus(
-                verdict = NetworkReadinessVerdict.Offline,
-                transports = emptyList(),
-                transportLabel = ""
-            ),
-            serverStatus = ExamServerFooterStatus.Online
+    private fun wifi(signalLevel: Int): WifiDiagnostics =
+        WifiDiagnostics(
+            ssid = "School",
+            bssid = "00:00:00:00:00:00",
+            rssiDbm = -45,
+            signalLevel = signalLevel,
+            linkSpeedMbps = 150,
+            frequencyMHz = 5200,
+            bandLabel = "5 GHz",
+            hiddenSsid = false,
+            locationPermissionGranted = true,
+            locationServicesEnabled = true
         )
-
-        assertEquals(ExamFooterConnectivityTransport.Unknown, visual.transport)
-        assertEquals(ExamFooterConnectivitySeverity.Danger, visual.severity)
-        assertEquals(0, visual.signalLevel)
-        assertNull(visual.badgeText)
-    }
-
-    @Test
-    fun captivePortalIsWarningForWifi() {
-        val visual = resolveExamFooterConnectivityVisual(
-            networkStatus = networkStatus(
-                verdict = NetworkReadinessVerdict.CaptivePortal,
-                transports = listOf("wifi"),
-                transportLabel = "Wi-Fi"
-            ),
-            serverStatus = ExamServerFooterStatus.Online
-        )
-
-        assertEquals(ExamFooterConnectivityTransport.Wifi, visual.transport)
-        assertEquals(ExamFooterConnectivitySeverity.Warning, visual.severity)
-        assertEquals("!", visual.badgeText)
-    }
-
-    @Test
-    fun vpnActiveIsDangerForFooterConnectivity() {
-        val visual = resolveExamFooterConnectivityVisual(
-            networkStatus = networkStatus(
-                verdict = NetworkReadinessVerdict.VpnActive,
-                transports = listOf("wifi", "vpn"),
-                transportLabel = "Wi-Fi + VPN"
-            ),
-            serverStatus = ExamServerFooterStatus.Online
-        )
-
-        assertEquals(ExamFooterConnectivitySeverity.Danger, visual.severity)
-        assertNull(visual.badgeText)
-    }
-
-    @Test
-    fun unknownStableTransportFallsBackWithoutCrash() {
-        val visual = resolveExamFooterConnectivityVisual(
-            networkStatus = networkStatus(
-                transports = emptyList(),
-                transportLabel = ""
-            ),
-            serverStatus = ExamServerFooterStatus.Online
-        )
-
-        assertEquals(ExamFooterConnectivityTransport.Unknown, visual.transport)
-        assertEquals(ExamFooterConnectivitySeverity.Stable, visual.severity)
-        assertEquals(3, visual.signalLevel)
-    }
 
     private fun networkStatus(
         verdict: NetworkReadinessVerdict = NetworkReadinessVerdict.ConnectedStable,

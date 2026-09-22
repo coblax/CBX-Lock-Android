@@ -1,5 +1,6 @@
 package com.coblax.examlock
 
+import android.os.Build
 import com.coblax.examlock.model.RootDetectionDetails
 import com.coblax.examlock.model.RootIndicatorType
 import com.coblax.examlock.runtime.buildRootIndicatorLabel
@@ -29,12 +30,14 @@ internal object AdbBypassResolver {
 internal data class AdbInspection(
     val developerOptionsEnabled: Boolean,
     val adbEnabled: Boolean,
+    val wirelessAdbEnabled: Boolean,
     val developerOptionsRawValue: String,
     val adbRawValue: String,
+    val wirelessAdbRawValue: String,
     val adbSecureProperty: String
 ) {
     val blocking: Boolean
-        get() = developerOptionsEnabled || adbEnabled
+        get() = developerOptionsEnabled || adbEnabled || wirelessAdbEnabled
 
     val insecureSystemProperty: Boolean
         get() = adbSecureProperty == "0"
@@ -46,14 +49,33 @@ internal data class AdbInspection(
 internal fun inspectAdb(context: android.content.Context): AdbInspection {
     val developerOptionsRawValue = getDeveloperOptionsRawValue(context)
     val adbRawValue = getAdbRawValue(context)
+    val wirelessAdbRawValue = getWirelessAdbRawValue(context)
     val adbSecureProperty = readSystemProperty("ro.adb.secure").ifBlank { "-" }
     return AdbInspection(
         developerOptionsEnabled = developerOptionsRawValue == "1",
         adbEnabled = adbRawValue == "1",
+        wirelessAdbEnabled = wirelessAdbRawValue == "1",
         developerOptionsRawValue = developerOptionsRawValue,
         adbRawValue = adbRawValue,
+        wirelessAdbRawValue = wirelessAdbRawValue,
         adbSecureProperty = adbSecureProperty
     )
+}
+
+/**
+ * Reads the wireless ADB (ADB over Wi-Fi) setting.
+ * Available on Android 11+ (API 30) as `adb_wifi_enabled`.
+ * Returns the raw string value ("0", "1", or "-" if unavailable).
+ */
+private fun getWirelessAdbRawValue(context: android.content.Context): String {
+    if (Build.VERSION.SDK_INT < Build.VERSION_CODES.R) return "-"
+    return runCatching {
+        android.provider.Settings.Global.getInt(
+            context.contentResolver,
+            "adb_wifi_enabled",
+            -1
+        ).toString()
+    }.getOrDefault("-")
 }
 
 internal enum class RootBypassState {
