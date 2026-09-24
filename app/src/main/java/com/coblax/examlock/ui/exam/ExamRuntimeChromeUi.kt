@@ -49,7 +49,11 @@ private fun ExamRuntimeChromeContent(
 ) {
     val tokens = ScopedUiTokens.current
     val pageLoading = state.loadingProgress >= 0f && state.loadingProgress < 1f
-    val showRuntimeChrome = state.examSessionStarted && !state.hasFullscreenCustomView
+    // Stays up during a fullscreen custom view too, which is drawn between the bars.
+    // The app's own fullscreen hook puts the whole exam page into fullscreen on the
+    // first tap of every page, so hiding the bars here took away exit, reload and the
+    // built-in keyboard mid-exam, seemingly at random.
+    val showRuntimeChrome = state.examSessionStarted
     val connectionNotice = resolveExamRuntimeConnectionNotice(
         networkStatus = state.networkStatus,
         serverStatus = state.serverStatus
@@ -137,7 +141,7 @@ private fun ExamRuntimeChromeContent(
         }
 
         if (showRuntimeChrome) {
-            // Owns the navigation-bar inset, so a fullscreen video still reaches the edge.
+            // Owns the navigation-bar inset (zero in lock mode, where system bars are hidden).
             ExamRuntimeFooter(
                 showArrowControls = state.showSideArrowControls,
                 isRefreshing = pageLoading,

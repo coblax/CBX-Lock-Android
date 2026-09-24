@@ -160,16 +160,21 @@ class ExamRuntimeChromeUiTest {
     }
 
     @Test
-    fun customFullscreenHidesHeaderFooterKeyboardAndBanner() {
+    fun pageFullscreenKeepsHeaderFooterKeyboardAndBanner() {
+        // The app's fullscreen hook puts the exam page itself into fullscreen on the first
+        // tap; the controls must survive that, or the student loses exit, reload and the
+        // built-in keyboard mid-exam.
+        var refreshCount = 0
         composeRule.setContent {
             COBLAXEXAMLOCKTheme(themeMode = ThemeMode.Light) {
                 ExamRuntimeChrome(
                     state = chromeState(
                         hasFullscreenCustomView = true,
                         useBuiltInExamKeyboard = true,
-                        showBuiltInExamKeyboard = true
+                        showBuiltInExamKeyboard = true,
+                        networkStatus = networkStatus(NetworkReadinessVerdict.Unstable)
                     ),
-                    actions = chromeActions(),
+                    actions = chromeActions(onRefresh = { refreshCount += 1 }),
                     webViewLayer = {
                         Box(Modifier.fillMaxSize().testTag(WebViewTag))
                     },
@@ -181,10 +186,15 @@ class ExamRuntimeChromeUiTest {
         }
 
         composeRule.onNodeWithTag(FullscreenTag).assertIsDisplayed()
-        composeRule.onNodeWithTag(ExamRuntimeUiTestTags.Header).assertDoesNotExist()
-        composeRule.onNodeWithTag(ExamRuntimeUiTestTags.WarningBanner).assertDoesNotExist()
-        composeRule.onNodeWithTag(ExamRuntimeUiTestTags.KeyboardPanel).assertDoesNotExist()
-        composeRule.onNodeWithTag(ExamRuntimeUiTestTags.Footer).assertDoesNotExist()
+        composeRule.onNodeWithTag(ExamRuntimeUiTestTags.Header).assertIsDisplayed()
+        composeRule.onNodeWithTag(ExamRuntimeUiTestTags.WarningBanner).assertIsDisplayed()
+        composeRule.onNodeWithTag(ExamRuntimeUiTestTags.KeyboardPanel).assertIsDisplayed()
+        composeRule.onNodeWithTag(ExamRuntimeUiTestTags.Footer).assertIsDisplayed()
+        composeRule.onNodeWithTag(ExamRuntimeUiTestTags.ExitAction).assertIsDisplayed()
+        composeRule.onNodeWithTag(ExamRuntimeUiTestTags.RefreshAction)
+            .assertIsDisplayed()
+            .performClick()
+        composeRule.runOnIdle { assertEquals(1, refreshCount) }
     }
 
     private fun chromeState(
