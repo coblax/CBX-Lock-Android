@@ -43,6 +43,8 @@ internal class ExamRuntimeSecurityUiState(
     val keyboardViolationCount: MutableIntState,
     val showKeyboardViolationDialog: MutableState<Boolean>,
     val overlayViolationCount: MutableIntState,
+    /** Violations up to this count were handled in preparation; only newer ones block. */
+    val overlayViolationAcknowledgedCount: MutableIntState,
     val showOverlayViolationDialog: MutableState<Boolean>,
     val overlayShieldRequested: MutableState<Boolean>,
     val overlayShieldLastApplySucceeded: MutableState<Boolean?>,
@@ -113,6 +115,7 @@ internal fun rememberExamRuntimeSecurityUiState(
     val keyboardViolationCount = rememberSaveable { mutableIntStateOf(0) }
     val showKeyboardViolationDialog = rememberSaveable { mutableStateOf(false) }
     val overlayViolationCount = rememberSaveable { mutableIntStateOf(0) }
+    val overlayViolationAcknowledgedCount = rememberSaveable { mutableIntStateOf(0) }
     val showOverlayViolationDialog = rememberSaveable { mutableStateOf(false) }
     val overlayShieldRequested = rememberSaveable { mutableStateOf(false) }
     val overlayShieldLastApplySucceeded = rememberSaveable { mutableStateOf<Boolean?>(null) }
@@ -259,6 +262,7 @@ internal fun rememberExamRuntimeSecurityUiState(
         keyboardViolationCount = keyboardViolationCount,
         showKeyboardViolationDialog = showKeyboardViolationDialog,
         overlayViolationCount = overlayViolationCount,
+        overlayViolationAcknowledgedCount = overlayViolationAcknowledgedCount,
         showOverlayViolationDialog = showOverlayViolationDialog,
         overlayShieldRequested = overlayShieldRequested,
         overlayShieldLastApplySucceeded = overlayShieldLastApplySucceeded,

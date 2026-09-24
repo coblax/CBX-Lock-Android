@@ -9,6 +9,7 @@ import com.coblax.examlock.DeviceTimeBypassState
 import com.coblax.examlock.DeviceTimeSecurityStatus
 import com.coblax.examlock.DpcRuntimeStatus
 import com.coblax.examlock.ExamQrPayload
+import com.coblax.examlock.ExamScheduleValidator
 import com.coblax.examlock.FakeLocationBypassState
 import com.coblax.examlock.FakeLocationRuntimeStatus
 import com.coblax.examlock.GeofenceBypassState
@@ -104,7 +105,9 @@ internal fun buildPreparationStateForSession(
             screenPinningMessage = flowUiState.screenPinningMessage.value,
             webViewSessionResetInFlight = flowUiState.webViewSessionResetInFlight.value,
             webViewSessionResetError = flowUiState.webViewSessionResetError.value,
-            showChecklistDetails = adminSettings.showChecklistDetails
+            showChecklistDetails = adminSettings.showChecklistDetails,
+            examEndsAtMillis = ExamScheduleValidator.scheduleEndMillis(payload),
+            examEndDateTime = payload.endDateTime
         ),
         network = PreparationNetworkState(
             networkReadinessStatus = networkReadinessStatus,

@@ -193,6 +193,8 @@ private fun buildOverlayHealthItem(input: PreExamHealthCheckInput): PreExamHealt
     val shieldApplyFailed = input.overlayRiskResult.shieldStatus.supported &&
         input.overlayRiskResult.shieldStatus.requested &&
         input.overlayRiskResult.shieldStatus.lastApplySucceeded == false
+    // Blocking causes come before any warning: the first match wins, and a warning listed
+    // earlier used to let a riskier phone through while a clean one was refused.
     return when {
         input.overlayBypassed || input.overlayRiskResult.bypassed -> PreExamHealthItem(
             category = PreExamHealthCategory.FloatingAppOverlay,
@@ -208,6 +210,13 @@ private fun buildOverlayHealthItem(input: PreExamHealthCheckInput): PreExamHealt
             detail = "Confirmed overlay interaction was detected.$compatibilityDetail$protectionDetail",
             quickFix = "Close chat heads, sidebars, screen filters, and apps that appear on top."
         )
+        shieldApplyFailed -> PreExamHealthItem(
+            category = PreExamHealthCategory.FloatingAppOverlay,
+            verdict = PreExamHealthVerdict.Blocking,
+            title = "Floating App / Overlay",
+            detail = "Android overlay shield is supported but failed to apply. Floating apps can still appear.$compatibilityDetail$protectionDetail",
+            quickFix = "Update/reinstall the official APK with overlay shield support, refresh preparation, or use Device Owner mode for managed devices."
+        )
         input.overlayRiskResult.heuristicRisk ||
             input.overlayRiskResult.riskyAccessibilityPackages.isNotEmpty() -> PreExamHealthItem(
             category = PreExamHealthCategory.FloatingAppOverlay,
@@ -216,13 +225,6 @@ private fun buildOverlayHealthItem(input: PreExamHealthCheckInput): PreExamHealt
             detail = "A possible floating-app risk is present.$compatibilityDetail$protectionDetail",
             quickFix = "Review accessibility and overlay permissions before starting."
         )
-        shieldApplyFailed -> PreExamHealthItem(
-            category = PreExamHealthCategory.FloatingAppOverlay,
-            verdict = PreExamHealthVerdict.Blocking,
-            title = "Floating App / Overlay",
-            detail = "Android overlay shield is supported but failed to apply. Floating apps can still appear.$compatibilityDetail$protectionDetail",
-            quickFix = "Update/reinstall the official APK with overlay shield support, refresh preparation, or use Device Owner mode for managed devices."
-        )
         dpcStatus.protectionTier == DpcProtectionTier.LegacyDpcAndroid7 -> PreExamHealthItem(
             category = PreExamHealthCategory.FloatingAppOverlay,
             verdict = PreExamHealthVerdict.Warning,
@@ -230,13 +232,16 @@ private fun buildOverlayHealthItem(input: PreExamHealthCheckInput): PreExamHealt
             detail = "Device Owner mode is available, but this Android version cannot use DISALLOW_CREATE_WINDOWS. Lock Task is allowed with legacy limitation.$compatibilityDetail$protectionDetail",
             quickFix = "Use school-managed Device Owner enrollment for high-stakes exams and keep known floating apps disabled."
         )
+        // Warning, not Blocking: most students sit exams on their own Android 7-11 phones.
+        // Floating apps cannot be hidden there, but touches through an overlay are still
+        // detected, and screen pinning plus the accessibility checks still apply.
         dpcStatus.protectionTier == DpcProtectionTier.None &&
             !input.overlayRiskResult.shieldStatus.supported -> PreExamHealthItem(
             category = PreExamHealthCategory.FloatingAppOverlay,
-            verdict = PreExamHealthVerdict.Blocking,
+            verdict = PreExamHealthVerdict.Warning,
             title = "Floating App / Overlay",
-            detail = "Legacy Android normal APK cannot block floating apps. This mode is not safe for high-stakes exams.$compatibilityDetail$protectionDetail",
-            quickFix = "Enroll school devices as Device Owner, or use Android 12+ for overlay shield support."
+            detail = "Legacy Android normal APK cannot hide floating apps before Android 12; they are detected, not blocked.$compatibilityDetail$protectionDetail",
+            quickFix = "Close chat heads and floating windows before the exam. For high-stakes exams use Android 12+ or school-managed Device Owner devices."
         )
         else -> PreExamHealthItem(
             category = PreExamHealthCategory.FloatingAppOverlay,

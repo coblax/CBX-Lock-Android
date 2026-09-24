@@ -210,13 +210,13 @@ internal fun buildPreparationQuickFixActions(
                 }
                 if (showAdbFix) {
                     addQuickFix(
-                        text = t("Turn Off USB Debugging", "Matikan USB Debugging"),
-                        reason = t("USB Debugging allows external access to exam data.", "USB Debugging memungkinkan akses eksternal ke data ujian."),
+                        text = t("Turn Off Developer Options", "Matikan Opsi Pengembang"),
+                        reason = t("Developer options and USB debugging allow external access to exam data.", "Opsi pengembang dan USB debugging memungkinkan akses eksternal ke data ujian."),
                         severity = QuickFixSeverity.Blocking,
                         target = QuickFixTarget.All,
                         priority = 20,
                         section = PreparationSection.DeviceIntegrity,
-                        fieldText = t("Turn Off USB Debugging", "Matikan USB Debugging"),
+                        fieldText = t("Turn Off Developer Options", "Matikan Opsi Pengembang"),
                         opensExternalSettings = true,
                         onClick = onOpenDeveloperOptionsSettings
                     )
@@ -259,7 +259,9 @@ internal fun buildPreparationQuickFixActions(
                             "SELinux is permissive — contact your administrator",
                             "SELinux permissive — hubungi administrator Anda"
                         ),
-                        severity = QuickFixSeverity.Blocking,
+                        // Warning, like the issue it belongs to: rootReady does not depend on
+                        // SELinux, and a Blocking action here deferred Screen Pinning forever.
+                        severity = QuickFixSeverity.Warning,
                         target = QuickFixTarget.All,
                         priority = 26,
                         section = PreparationSection.DeviceIntegrity,
@@ -431,10 +433,15 @@ internal fun buildPreparationQuickFixActions(
                 }
 
                 val networkPrimaryIsRefresh = networkReadinessStatus.verdict == NetworkReadinessVerdict.Unstable
+                // Offline and airplane mode stop Start Exam, so their fixes are Blocking: Screen
+                // Pinning must wait, because Settings cannot be opened once the screen is pinned.
+                val networkUnreachable = networkReadinessStatus.verdict == NetworkReadinessVerdict.Offline ||
+                    networkReadinessStatus.verdict == NetworkReadinessVerdict.AirplaneMode
+                val networkFixSeverity = if (networkUnreachable) QuickFixSeverity.Blocking else QuickFixSeverity.Warning
                 if (showNetworkAirplaneModeSettingsFix) {
                     addQuickFix(
                         text = t("Turn Off Airplane Mode", "Matikan Mode Pesawat"),
-                        severity = QuickFixSeverity.Warning,
+                        severity = networkFixSeverity,
                         target = QuickFixTarget.Network,
                         priority = 70,
                         section = PreparationSection.Connectivity,
@@ -462,7 +469,7 @@ internal fun buildPreparationQuickFixActions(
                         } else {
                             t("Refresh Network Status", "Refresh Status Network")
                         },
-                        severity = QuickFixSeverity.Warning,
+                        severity = networkFixSeverity,
                         target = QuickFixTarget.Network,
                         priority = 70,
                         section = PreparationSection.Connectivity,
@@ -478,7 +485,7 @@ internal fun buildPreparationQuickFixActions(
                 } else if (showNetworkInternetSettingsFix) {
                     addQuickFix(
                         text = t("Open Internet Settings", "Buka Setelan Internet"),
-                        severity = QuickFixSeverity.Warning,
+                        severity = networkFixSeverity,
                         target = QuickFixTarget.Network,
                         priority = 70,
                         section = PreparationSection.Connectivity,
@@ -490,7 +497,7 @@ internal fun buildPreparationQuickFixActions(
                 if (showNetworkWifiSettingsFix && !showNetworkAirplaneModeSettingsFix) {
                     addQuickFix(
                         text = t("Open Wi-Fi Settings", "Buka Setelan Wi-Fi"),
-                        severity = QuickFixSeverity.Warning,
+                        severity = networkFixSeverity,
                         target = QuickFixTarget.Network,
                         priority = 75,
                         section = PreparationSection.Connectivity,
@@ -502,7 +509,7 @@ internal fun buildPreparationQuickFixActions(
                 if (showNetworkCellularSettingsFix && !showNetworkAirplaneModeSettingsFix) {
                     addQuickFix(
                         text = t("Open Cellular Settings", "Buka Setelan Seluler"),
-                        severity = QuickFixSeverity.Warning,
+                        severity = networkFixSeverity,
                         target = QuickFixTarget.Network,
                         priority = 76,
                         section = PreparationSection.Connectivity,
@@ -518,7 +525,7 @@ internal fun buildPreparationQuickFixActions(
                         } else {
                             t("Refresh Network Status", "Refresh Status Network")
                         },
-                        severity = QuickFixSeverity.Warning,
+                        severity = networkFixSeverity,
                         target = QuickFixTarget.Network,
                         priority = 80,
                         section = PreparationSection.Connectivity,
@@ -581,18 +588,20 @@ internal fun buildPreparationQuickFixActions(
                 }
                 if (screenRecorderPackages.isNotEmpty() && !bypassScreenRecorder) {
                     addQuickFix(
-                        text = t("Open App Settings", "Buka Setelan App"),
+                        code = "screen_recorder_settings",
+                        text = t("Open Recorder App Settings", "Buka Setelan Aplikasi Perekam"),
                         severity = QuickFixSeverity.Blocking,
                         target = QuickFixTarget.ScreenRecorder,
                         priority = 50,
                         section = PreparationSection.RuntimeSecurity,
-                        fieldText = t("Close Screen Recorder", "Tutup Perekam Layar"),
+                        fieldText = t("Remove or Disable Recorder", "Hapus/Nonaktifkan Perekam"),
                         opensExternalSettings = true,
                         onClick = onOpenAppSettings
                     )
                 }
                 if (externalDisplayDetected && !bypassDisplayMirror) {
                     addQuickFix(
+                        code = "display_mirror_settings",
                         text = t("Open Cast Settings", "Buka Setelan Cast"),
                         severity = QuickFixSeverity.Blocking,
                         target = QuickFixTarget.DisplayMirror,
@@ -605,6 +614,7 @@ internal fun buildPreparationQuickFixActions(
                 }
                 if (multiWindowDetected && !bypassMultiWindow) {
                     addQuickFix(
+                        code = "multi_window_refresh",
                         text = t("Refresh Status", "Refresh Status"),
                         severity = QuickFixSeverity.Blocking,
                         target = QuickFixTarget.MultiWindow,
@@ -612,6 +622,37 @@ internal fun buildPreparationQuickFixActions(
                         section = PreparationSection.RuntimeSecurity,
                         fieldText = t("Exit Split Screen", "Keluar Split Screen"),
                         onClick = onRefreshStatus
+                    )
+                }
+                // A touch through a floating app was recorded. It used to block with no
+                // button and no way to clear it; now the student can close the app and say so.
+                if (!bypassOverlay && overlayRiskResult.confirmedInteractionDetected) {
+                    addQuickFix(
+                        code = "overlay_permission_settings",
+                        text = t("Review Apps Shown Over Others", "Tinjau Aplikasi yang Tampil di Atas"),
+                        reason = t(
+                            "Chat bubbles and floating windows can cover the exam.",
+                            "Bubble chat dan jendela melayang bisa menutupi ujian."
+                        ),
+                        severity = QuickFixSeverity.Blocking,
+                        target = QuickFixTarget.All,
+                        priority = 38,
+                        section = PreparationSection.RuntimeInteraction,
+                        fieldText = t("Close Floating Apps", "Tutup Aplikasi Melayang"),
+                        opensExternalSettings = true,
+                        onClick = onOpenOverlaySettings
+                    )
+                    addQuickFix(
+                        code = "overlay_violation_acknowledged",
+                        text = t("I Closed It, Check Again", "Sudah Ditutup, Cek Ulang"),
+                        severity = QuickFixSeverity.Blocking,
+                        target = null,
+                        // First: on ultra low-RAM only one button per category is drawn,
+                        // and this is the one that actually clears the block.
+                        priority = 37,
+                        section = PreparationSection.RuntimeInteraction,
+                        fieldText = t("Closed, Check Again", "Sudah Ditutup, Cek Ulang"),
+                        onClick = onAcknowledgeOverlayViolation
                     )
                 }
                 if (showOverlayAccessibilityFix) {

@@ -5,6 +5,21 @@ import org.junit.Assert.assertEquals
 import org.junit.Test
 
 class ExamScheduleValidatorTest {
+    /** Preparation uses this to say the exam has ended before Start Exam refuses. */
+    @Test
+    fun scheduleEndMillisReadsTheEndOrNothing() {
+        val payload = ExamQrPayload(
+            examUrl = "https://example.com",
+            examName = "Simulasi",
+            startDateTime = "10/03/2026 07:00",
+            endDateTime = "10/03/2026 09:00",
+            issuedAt = millisOf(10, 3, 2026, 6, 0)
+        )
+
+        assertEquals(millisOf(10, 3, 2026, 9, 0), ExamScheduleValidator.scheduleEndMillis(payload))
+        assertEquals(null, ExamScheduleValidator.scheduleEndMillis(payload.copy(endDateTime = "")))
+    }
+
     @Test
     fun validWhenCurrentTimeInsideExamWindow() {
         val payload = ExamQrPayload(

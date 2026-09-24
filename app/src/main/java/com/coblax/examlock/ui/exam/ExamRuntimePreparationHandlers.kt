@@ -3,6 +3,7 @@
 import android.app.Activity
 import android.content.Context
 import android.content.Intent
+import android.net.Uri
 import android.Manifest
 import android.os.SystemClock
 import android.provider.Settings
@@ -18,6 +19,7 @@ import com.coblax.examlock.FakeLocationRuntimeStatus
 import com.coblax.examlock.GeofenceRuntimeStatus
 import com.coblax.examlock.i18n.localized
 import com.coblax.examlock.isExamGuardAccessibilityEnabled
+import com.coblax.examlock.launchFirstPlatformIntentSafely
 import com.coblax.examlock.LowRamProfile
 import com.coblax.examlock.model.AdminSettings
 import com.coblax.examlock.model.DiagnosticEvent
@@ -598,23 +600,37 @@ internal class ExamRuntimePreparationActionOps(
     }
 
     fun handleOpenAppSettings() {
-        runtimeDiagnosticsOps.recordAction(code = "APP_SETTINGS_OPENED", details = "quick_fix=screen_recorder")
-        runCatching {
-            context.startActivity(
-                Intent(Settings.ACTION_APPLICATION_SETTINGS)
-                    .addFlags(Intent.FLAG_ACTIVITY_NEW_TASK)
+        // The recorder's own page has Uninstall/Disable; the plain app list made the
+        // student hunt for it. Each step falls back so the tap never does nothing.
+        val recorderPackage = securityUiState.screenRecorderPackages.value.firstOrNull()
+        runtimeDiagnosticsOps.recordAction(
+            code = "APP_SETTINGS_OPENED",
+            details = "quick_fix=screen_recorder | package=${recorderPackage ?: "-"}"
+        )
+        launchFirstPlatformIntentSafely(
+            context,
+            listOfNotNull(
+                recorderPackage?.let {
+                    Intent(Settings.ACTION_APPLICATION_DETAILS_SETTINGS, Uri.parse("package:$it"))
+                },
+                Intent(Settings.ACTION_APPLICATION_SETTINGS),
+                Intent(Settings.ACTION_SETTINGS)
             )
-        }
+        )
     }
 
     fun handleOpenCastSettings() {
         runtimeDiagnosticsOps.recordAction(code = "CAST_SETTINGS_OPENED", details = "quick_fix=display_mirror")
-        runCatching {
-            context.startActivity(
-                Intent(Settings.ACTION_CAST_SETTINGS)
-                    .addFlags(Intent.FLAG_ACTIVITY_NEW_TASK)
+        // Some vendors (e.g. Samsung Smart View) have no ACTION_CAST_SETTINGS screen.
+        launchFirstPlatformIntentSafely(
+            context,
+            listOf(
+                Intent(Settings.ACTION_CAST_SETTINGS),
+                Intent(Settings.ACTION_DISPLAY_SETTINGS),
+                Intent(Settings.ACTION_WIRELESS_SETTINGS),
+                Intent(Settings.ACTION_SETTINGS)
             )
-        }
+        )
     }
 
     fun handleOpenWebViewProviderSettings() {
@@ -629,6 +645,21 @@ internal class ExamRuntimePreparationActionOps(
         openWebViewProviderSettings(
             context = context,
             providerPackageName = webViewCompatibilityStatus.packageName
+        )
+    }
+
+    /**
+     * The student closed the floating app. Touches recorded so far stop blocking; the
+     * count itself is kept for reports, and any new touch during the exam blocks again.
+     */
+    fun handleAcknowledgeOverlayViolation() {
+        val count = securityUiState.overlayViolationCount.intValue
+        securityUiState.overlayViolationAcknowledgedCount.intValue = count
+        securityUiState.showOverlayViolationDialog.value = false
+        runtimeDiagnosticsOps.recordAction(
+            code = "OVERLAY_VIOLATION_ACKNOWLEDGED",
+            details = "source=preparation | acknowledged_count=$count",
+            level = DiagnosticEventLevel.SECURITY
         )
     }
 

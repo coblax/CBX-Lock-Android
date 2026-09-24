@@ -569,19 +569,41 @@ internal fun ExamRuntimeSessionScreenImpl(
     var geofenceSecurityStatus by securityUiState.geofenceSecurityStatus
     var fakeLocationSecurityStatus by securityUiState.fakeLocationSecurityStatus
     LaunchedEffect(context, fakeLocationBypassState) {
-        val snapshot = readInitialStaticSecuritySnapshotOnIo(
-            context = context,
-            forceRefresh = false
-        )
-        applyInitialStaticSecuritySnapshot(
-            snapshot = snapshot,
-            securityUiState = securityUiState,
-            permissionGranted = hasLocationPermissionForWifi(context),
-            locationServicesEnabled = isLocationServicesEnabled(context),
-            fixQualityStatus = geofenceSecurityStatus.fixQualityStatus,
-            developerOptionsEnabled = developerOptionsEnabled,
-            fakeLocationBypassState = fakeLocationBypassState
-        )
+        // A throwing detector used to leave the scan "pending" for good: preparation
+        // showed "Checking…" and Start Exam stayed locked. Retry, then let preparation
+        // continue; Start Exam re-reads every one of these detectors with forceRefresh,
+        // so an unfinished first pass cannot let a device through.
+        repeat(InitialStaticSecurityScanAttempts) { attempt ->
+            val snapshot = try {
+                readInitialStaticSecuritySnapshotOnIo(
+                    context = context,
+                    forceRefresh = attempt > 0
+                )
+            } catch (cancelled: CancellationException) {
+                throw cancelled
+            } catch (throwable: Throwable) {
+                android.util.Log.w(
+                    ExamRuntimeHardeningLogTag,
+                    "STATIC_SECURITY_INITIAL_SCAN_FAILED attempt=${attempt + 1} error=${throwable.javaClass.simpleName}",
+                    throwable
+                )
+                null
+            }
+            if (snapshot != null) {
+                applyInitialStaticSecuritySnapshot(
+                    snapshot = snapshot,
+                    securityUiState = securityUiState,
+                    permissionGranted = hasLocationPermissionForWifi(context),
+                    locationServicesEnabled = isLocationServicesEnabled(context),
+                    fixQualityStatus = geofenceSecurityStatus.fixQualityStatus,
+                    developerOptionsEnabled = developerOptionsEnabled,
+                    fakeLocationBypassState = fakeLocationBypassState
+                )
+                return@LaunchedEffect
+            }
+            delay(InitialStaticSecurityScanRetryDelayMillis * (attempt + 1))
+        }
+        securityUiState.staticSecurityInitialScanComplete.value = true
     }
     val deviceTimeSecurityStatusState = remember(
         deviceTimeBaseline,
@@ -696,7 +718,11 @@ internal fun ExamRuntimeSessionScreenImpl(
         bypassed = overlayBypassState == OverlayBypassState.Active,
         accessibilityEnabled = accessibilityInspection.blockingServiceActive,
         riskyAccessibilityPackages = accessibilityInspection.riskyPackages,
-        violationCount = overlayViolationCount,
+        // Only violations newer than the ones handled in preparation count as confirmed:
+        // an old touch (or a failed shield on a start that never began) no longer blocks
+        // every later attempt. The full count stays in reports and the footer.
+        violationCount = (overlayViolationCount - securityUiState.overlayViolationAcknowledgedCount.intValue)
+            .coerceAtLeast(0),
         shieldStatus = OverlayShieldStatus(
             supported = Build.VERSION.SDK_INT >= Build.VERSION_CODES.S,
             requested = overlayShieldRequested,
@@ -2265,6 +2291,7 @@ internal fun ExamRuntimeSessionScreenImpl(
     fun handleOpenCastSettings() = preparationActionOps.handleOpenCastSettings()
     fun handleOpenWebViewProviderSettings() = preparationActionOps.handleOpenWebViewProviderSettings()
     fun handleReinstallOfficialApk() = preparationActionOps.handleReinstallOfficialApk()
+    fun handleAcknowledgeOverlayViolation() = preparationActionOps.handleAcknowledgeOverlayViolation()
     fun refreshPreparationStatusChecks() = preparationActionOps.refreshPreparationStatusChecks()
     fun handleRefreshPreparationStatus() = preparationActionOps.handleRefreshPreparationStatus()
     fun handleRefreshAllSecurityChecks() = preparationActionOps.handleRefreshAllSecurityChecks()
@@ -2626,6 +2653,7 @@ internal fun ExamRuntimeSessionScreenImpl(
         onOpenCastSettings = { handleOpenCastSettings() },
         onOpenWebViewProviderSettings = { handleOpenWebViewProviderSettings() },
         onReinstallOfficialApk = { handleReinstallOfficialApk() },
+        onAcknowledgeOverlayViolation = { handleAcknowledgeOverlayViolation() },
         onRefreshStatus = { handleRefreshPreparationStatus() },
         onRefreshAllSecurityChecks = { handleRefreshAllSecurityChecks() },
         onRefreshHealthCheck = { handleRefreshPreExamHealthCheck() },

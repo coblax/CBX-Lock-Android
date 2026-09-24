@@ -44,6 +44,15 @@ object ExamScheduleValidator {
         }
     }
 
+    /**
+     * When the exam window closes, or null when the schedule cannot be read (Direct Link,
+     * malformed dates). Lets preparation say "the exam has ended" before Start Exam does.
+     */
+    internal fun scheduleEndMillis(payload: ExamQrPayload): Long? {
+        val timeZone = resolveScheduleTimeZone(payload.timezoneId)
+        return parseDateTimeToMillis(payload.endDateTime, timeZone)
+    }
+
     internal fun validateAfterDeviceTimeCheck(
         payload: ExamQrPayload,
         deviceTimeStatus: DeviceTimeSecurityStatus,

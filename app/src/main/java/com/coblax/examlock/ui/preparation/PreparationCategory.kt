@@ -1,7 +1,10 @@
 package com.coblax.examlock.ui.preparation
 
+import com.coblax.examlock.DpcProtectionTier
 import com.coblax.examlock.GeofenceSecurityVerdict
 import com.coblax.examlock.LocationSpoofSecurityVerdict
+import com.coblax.examlock.WebViewCompatibilityStatus
+import com.coblax.examlock.WebViewHealthVerdict
 import com.coblax.examlock.i18n.localized
 import com.coblax.examlock.model.NetworkReadinessVerdict
 import com.coblax.examlock.model.UiLanguage
@@ -397,13 +400,14 @@ private fun buildPreparationIssues(
         )
     }
     when (verdict) {
-        NetworkReadinessVerdict.Offline -> warning(
+        // Start Exam refuses offline and in airplane mode (no bypass), so both are required.
+        NetworkReadinessVerdict.Offline -> blocking(
             PreparationCategory.Connectivity,
             "network_offline",
-            t("Device is offline", "Perangkat sedang offline"),
+            t("No internet connection", "Tidak ada koneksi internet"),
             t(
-                "Connect to Wi-Fi or mobile data if the exam needs internet.",
-                "Sambungkan Wi-Fi atau data seluler jika ujian butuh internet."
+                "Turn on Wi-Fi or mobile data, then check the network again.",
+                "Nyalakan Wi-Fi atau data seluler, lalu cek ulang jaringan."
             )
         )
         NetworkReadinessVerdict.Unstable -> warning(
@@ -427,17 +431,33 @@ private fun buildPreparationIssues(
             t("Internet not confirmed yet", "Internet belum terkonfirmasi"),
             t("Internet access may still be limited.", "Akses internet mungkin masih terbatas.")
         )
-        NetworkReadinessVerdict.AirplaneMode -> warning(
+        NetworkReadinessVerdict.AirplaneMode -> blocking(
             PreparationCategory.Connectivity,
             "network_airplane",
             t("Airplane mode is on", "Mode pesawat aktif"),
-            t("No internet connection is available.", "Tidak ada koneksi internet.")
+            t(
+                "Turn off airplane mode, then connect to Wi-Fi or mobile data.",
+                "Matikan mode pesawat, lalu sambungkan Wi-Fi atau data seluler."
+            )
         )
         NetworkReadinessVerdict.ConnectedStable,
         NetworkReadinessVerdict.VpnActive -> Unit
     }
 
     // ── Device health ────────────────────────────────────────────
+    if (!readiness.scheduleReady) {
+        val endedAt = state.session.examEndDateTime.trim()
+        blocking(
+            PreparationCategory.DeviceHealth,
+            "exam_schedule_ended",
+            t("The exam has ended", "Waktu ujian sudah berakhir"),
+            if (endedAt.isNotBlank()) {
+                t("It closed at $endedAt. Ask the proctor.", "Ujian ditutup pukul $endedAt. Hubungi pengawas.")
+            } else {
+                t("Ask the proctor.", "Hubungi pengawas.")
+            }
+        )
+    }
     if (!readiness.deviceTimeReady) {
         blocking(
             PreparationCategory.DeviceHealth,
@@ -446,18 +466,28 @@ private fun buildPreparationIssues(
             t("Turn on automatic date and time.", "Aktifkan tanggal dan waktu otomatis.")
         )
     }
-    state.preExamHealthCheckSnapshot.items
-        .firstOrNull {
-            it.category == PreExamHealthCategory.WebView && it.verdict != PreExamHealthVerdict.Stable
-        }
-        ?.let { item ->
-            warning(
-                PreparationCategory.DeviceHealth,
-                "webview_health",
-                t("Exam browser needs attention", "Browser ujian perlu diperiksa"),
-                item.detail.takeIf { it.isNotBlank() }
+    val webViewHealth = state.preExamHealthCheckSnapshot.items
+        .firstOrNull { it.category == PreExamHealthCategory.WebView }
+    when (webViewHealth?.verdict) {
+        // Start Exam refuses on this (preExamHealthStartBlocker), so it is not optional.
+        PreExamHealthVerdict.Blocking -> blocking(
+            PreparationCategory.DeviceHealth,
+            "webview_unavailable",
+            t("Exam browser (WebView) not available", "Browser ujian (WebView) tidak tersedia"),
+            webViewProviderNote(state.webViewCompatibilityStatus, uiLanguage)
+        )
+        PreExamHealthVerdict.Warning -> warning(
+            PreparationCategory.DeviceHealth,
+            "webview_health",
+            t("Exam browser needs attention", "Browser ujian perlu diperiksa"),
+            // The health item detail is English-only, so it stays in the technical sheet.
+            webViewProviderNote(state.webViewCompatibilityStatus, uiLanguage) ?: t(
+                "The exam browser is being reset or was just recovered.",
+                "Browser ujian sedang disiapkan ulang atau baru dipulihkan."
             )
-        }
+        )
+        PreExamHealthVerdict.Stable, null -> Unit
+    }
 
     // ── Runtime interaction ──────────────────────────────────────
     if (!readiness.accessibilityReady) {
@@ -477,20 +507,75 @@ private fun buildPreparationIssues(
             "overlay_risk",
             t("Floating app detected", "Aplikasi melayang terdeteksi"),
             t(
-                "Close chat bubbles or apps that draw over the screen.",
-                "Tutup bubble chat atau aplikasi yang tampil di atas layar."
+                "An app covered the exam screen earlier. Close chat bubbles and floating windows, then tap \"Closed, Check Again\".",
+                "Ada aplikasi yang menutupi layar ujian sebelumnya. Tutup bubble chat dan jendela melayang, lalu ketuk \"Sudah Ditutup, Cek Ulang\"."
             )
         )
+    } else {
+        val overlayHealthBlocking = state.preExamHealthCheckSnapshot.items.any {
+            it.category == PreExamHealthCategory.FloatingAppOverlay &&
+                it.verdict == PreExamHealthVerdict.Blocking
+        }
+        val shield = runtime.overlayRiskResult.shieldStatus
+        val overlayBypassed = bypass.bypassOverlay || runtime.overlayRiskResult.bypassed
+        when {
+            // Start Exam refuses on these too; say so here instead of after the tap.
+            overlayHealthBlocking && shield.supported && shield.requested &&
+                shield.lastApplySucceeded == false -> blocking(
+                PreparationCategory.RuntimeInteraction,
+                "overlay_shield_failed",
+                t("Floating-app protection failed to start", "Perlindungan aplikasi melayang gagal aktif"),
+                t(
+                    "Check all again. If it stays, reinstall the official app or ask the proctor.",
+                    "Cek ulang semua. Jika tetap muncul, instal ulang aplikasi resmi atau hubungi pengawas."
+                )
+            )
+            overlayHealthBlocking -> blocking(
+                PreparationCategory.RuntimeInteraction,
+                "overlay_protection_not_ready",
+                t("Floating-app protection is not ready", "Perlindungan aplikasi melayang belum siap"),
+                t(
+                    "Check all again. If it stays, ask the proctor.",
+                    "Cek ulang semua. Jika tetap muncul, hubungi pengawas."
+                )
+            )
+            // Android 7-11 on a personal phone: floating apps cannot be hidden, only
+            // detected. Allowed by policy, so the student is told rather than stopped.
+            !overlayBypassed &&
+                runtime.dpcRuntimeStatus.protectionTier == DpcProtectionTier.None &&
+                !shield.supported -> warning(
+                PreparationCategory.RuntimeInteraction,
+                "overlay_protection_limited",
+                t(
+                    "Floating apps can't be hidden on this Android",
+                    "Android ini tidak bisa menyembunyikan aplikasi melayang"
+                ),
+                t(
+                    "Close chat bubbles and floating windows before starting. The exam can still start.",
+                    "Tutup bubble chat dan jendela mengambang sebelum mulai. Ujian tetap bisa dimulai."
+                )
+            )
+        }
     }
 
     // ── Device integrity ─────────────────────────────────────────
     if (!readiness.adbReady) {
         if (device.adbInspection.blocking) {
+            // Start Exam refuses on Developer options alone, so turning off only USB
+            // debugging is not enough; switching Developer options off clears every case.
+            val adb = device.adbInspection
             blocking(
                 PreparationCategory.DeviceIntegrity,
                 "adb_enabled",
-                t("USB debugging is on", "USB debugging masih aktif"),
-                t("Turn it off in Developer options.", "Matikan di Opsi pengembang.")
+                when {
+                    adb.adbEnabled -> t("USB debugging is on", "USB debugging masih aktif")
+                    adb.wirelessAdbEnabled -> t("Wireless debugging is on", "Wireless debugging masih aktif")
+                    else -> t("Developer options are on", "Opsi pengembang masih aktif")
+                },
+                t(
+                    "Turn off the \"Developer options\" switch at the top of Developer options.",
+                    "Matikan tombol \"Opsi pengembang\" di bagian atas halaman Opsi pengembang."
+                )
             )
         } else {
             blocking(
@@ -664,15 +749,30 @@ private fun buildPreparationIssues(
                 t("Location not available yet", "Lokasi belum tersedia"),
                 waitForFixMessage
             )
-            LocationSpoofSecurityVerdict.PackageWarning -> blocking(
-                PreparationCategory.Location,
-                "fake_location_app",
-                t("Fake location app found", "Aplikasi lokasi palsu terpasang"),
-                t(
-                    "Turn off mock location in Developer options.",
-                    "Matikan mock location di Opsi pengembang."
+            // Only blocks while Developer options are on (see fakeLocationReady), so turning
+            // mock location off alone does not clear it; say what actually does.
+            LocationSpoofSecurityVerdict.PackageWarning -> {
+                val packages = state.location.fakeLocationRuntimeStatus.securityStatus
+                    .suspiciousFakeLocationPackages
+                    .take(2)
+                    .joinToString(", ")
+                blocking(
+                    PreparationCategory.Location,
+                    "fake_location_app",
+                    t("Fake location app found", "Aplikasi lokasi palsu terpasang"),
+                    if (packages.isBlank()) {
+                        t(
+                            "Uninstall the fake GPS app, or turn off Developer options.",
+                            "Hapus aplikasi GPS palsu, atau matikan Opsi pengembang."
+                        )
+                    } else {
+                        t(
+                            "Uninstall $packages, or turn off Developer options.",
+                            "Hapus $packages, atau matikan Opsi pengembang."
+                        )
+                    }
                 )
-            )
+            }
             LocationSpoofSecurityVerdict.SpoofDetected,
             LocationSpoofSecurityVerdict.Bypassed,
             LocationSpoofSecurityVerdict.Disabled,
@@ -728,11 +828,17 @@ private fun buildPreparationIssues(
 
     // ── Runtime security ─────────────────────────────────────────
     if (!readiness.screenRecorderReady) {
+        // Detection is about installed apps, so closing the recorder does not clear it.
+        val recorders = runtime.screenRecorderPackages.take(3).joinToString(", ")
         blocking(
             PreparationCategory.RuntimeSecurity,
             "screen_recorder",
-            t("Screen recorder detected", "Perekam layar terdeteksi"),
-            runtime.screenRecorderPackages.take(3).joinToString(", ").ifBlank { null }
+            t("Screen recorder app installed", "Aplikasi perekam layar terpasang"),
+            if (recorders.isBlank()) {
+                t("Uninstall or disable the screen recorder app.", "Hapus atau nonaktifkan aplikasi perekam layar.")
+            } else {
+                t("Uninstall or disable: $recorders.", "Hapus atau nonaktifkan: $recorders.")
+            }
         )
     }
     if (!readiness.displayMirrorReady) {
@@ -767,4 +873,27 @@ private fun buildPreparationIssues(
     }
 
     return result
+}
+
+/**
+ * The student-facing line for the WebView provider, in the UI language. Null when the
+ * provider is fine; the English health detail stays in the technical sheet.
+ */
+internal fun webViewProviderNote(status: WebViewCompatibilityStatus, uiLanguage: UiLanguage): String? {
+    fun t(english: String, indonesian: String): String = localized(uiLanguage, english, indonesian)
+    return when (status.verdict) {
+        WebViewHealthVerdict.Unavailable -> t(
+            "Install or enable Android System WebView or Chrome, then reopen CBX Lock.",
+            "Pasang atau aktifkan Android System WebView atau Chrome, lalu buka ulang CBX Lock."
+        )
+        WebViewHealthVerdict.NeedsUpdate -> t(
+            "${status.providerLabel} ${status.versionLabel} is old. Update it from Play Store before a long exam.",
+            "${status.providerLabel} ${status.versionLabel} sudah lama. Perbarui di Play Store sebelum ujian panjang."
+        )
+        WebViewHealthVerdict.Unknown -> t(
+            "${status.providerLabel} version could not be checked. Updating it from Play Store is recommended.",
+            "Versi ${status.providerLabel} tidak bisa dicek. Disarankan perbarui di Play Store."
+        )
+        WebViewHealthVerdict.Ready -> null
+    }
 }

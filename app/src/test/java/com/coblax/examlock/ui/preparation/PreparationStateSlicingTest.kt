@@ -37,7 +37,9 @@ import com.coblax.examlock.RootBypassState
 import com.coblax.examlock.VpnBypassState
 import com.coblax.examlock.WebViewCompatibilityStatus
 import com.coblax.examlock.buildRootSecurityStatus
+import com.coblax.examlock.defaultDpcRuntimeStatus
 import com.coblax.examlock.evaluateDeviceTimeSecurityStatus
+import com.coblax.examlock.resolveWebViewCompatibilityStatus
 import com.coblax.examlock.model.ExamNetworkStatus
 import com.coblax.examlock.model.NetworkDiagnostics
 import com.coblax.examlock.model.NetworkReadinessStatus
@@ -650,14 +652,16 @@ class PreparationStateSlicingTest {
         assertEquals(!readiness.canStartExam, overview.blockingCount > 0)
     }
 
+    // Only soft network states are optional: Start Exam refuses offline and airplane mode
+    // (see offlineAndAirplaneModeAreRequiredFixes).
     @Test
-    fun networkWarningsAreOptionalAndKeepStartEnabled() {
+    fun softNetworkWarningsAreOptionalAndKeepStartEnabled() {
         val (readiness, overview) = overviewFor(
             preparationState(
                 network = networkState(
                     readinessStatus = networkReadinessStatus(
-                        verdict = NetworkReadinessVerdict.Offline,
-                        userVerdict = NetworkReadinessUserVerdict.Offline
+                        verdict = NetworkReadinessVerdict.Unvalidated,
+                        userVerdict = NetworkReadinessUserVerdict.Unvalidated
                     )
                 )
             )
@@ -857,6 +861,300 @@ class PreparationStateSlicingTest {
 
         assertTrue(integrity.issues.any { it.key == "virtual_environment" && it.blocking })
         assertFalse(integrity.actions.any { it.code in AdviceOnlyQuickFixCodes })
+    }
+
+    /**
+     * SELinux permissive only earns a warning (rootReady ignores it), but its quick fix
+     * was Blocking, and Screen Pinning is withheld while any Blocking fix is listed. On
+     * such a phone the pinning button never appeared and the exam could never start.
+     */
+    @Test
+    fun selinuxPermissiveNeverWithholdsScreenPinning() {
+        val device = deviceState().let { base ->
+            base.copy(
+                rootSecurityStatus = base.rootSecurityStatus.copy(
+                    detected = true,
+                    selinuxPermissive = true,
+                    blocking = false
+                ),
+                isScreenPinningActive = false
+            )
+        }
+        val (_, overview) = overviewFor(preparationState(device = device))
+
+        val lockActions = overview.status(PreparationCategory.DeviceLock).actions
+        assertTrue(lockActions.any { it.code == QuickFixStartScreenPinningCode })
+        assertFalse(lockActions.any { it.code == QuickFixScreenPinningDeferredCode })
+        assertFalse(overview.status(PreparationCategory.DeviceIntegrity).issues.any { it.blocking })
+    }
+
+    /** Start Exam refuses without a WebView provider, so the screen must say so first. */
+    @Test
+    fun missingWebViewIsARequiredFixNotASuggestion() {
+        val unavailable = resolveWebViewCompatibilityStatus(packageName = null, versionName = null)
+        val state = preparationState(
+            device = deviceState().copy(webViewCompatibilityStatus = unavailable),
+            diagnostics = diagnosticsWithHealth(
+                PreExamHealthItem(
+                    category = PreExamHealthCategory.WebView,
+                    verdict = PreExamHealthVerdict.Blocking,
+                    title = "WebView Provider",
+                    detail = unavailable.studentSummary
+                )
+            )
+        )
+        val (readiness, overview) = overviewFor(state)
+
+        assertFalse(readiness.startHealthReady)
+        assertFalse(overview.canStartExam)
+        val issue = overview.status(PreparationCategory.DeviceHealth).issues
+            .single { it.key == "webview_unavailable" }
+        assertTrue(issue.blocking)
+        assertEquals(webViewProviderNote(unavailable, UiLanguage.English), issue.message)
+    }
+
+    /**
+     * Policy: personal Android 7-11 phones may sit exams. Floating apps cannot be hidden
+     * there, so the student is told to close them, and Start Exam stays available.
+     */
+    @Test
+    fun legacyAndroidFloatingAppLimitIsASuggestionNotABlock() {
+        val runtime = runtimeSecurityState().let { base ->
+            base.copy(
+                overlayRiskResult = base.overlayRiskResult.copy(
+                    shieldStatus = OverlayShieldStatus(
+                        supported = false,
+                        requested = false,
+                        lastApplySucceeded = null,
+                        lastApplyAt = null
+                    )
+                ),
+                dpcRuntimeStatus = defaultDpcRuntimeStatus(sdkInt = 30, overlayShieldSupported = false)
+            )
+        }
+        val state = preparationState(
+            runtimeSecurity = runtime,
+            diagnostics = diagnosticsWithHealth(
+                PreExamHealthItem(
+                    category = PreExamHealthCategory.FloatingAppOverlay,
+                    verdict = PreExamHealthVerdict.Warning,
+                    title = "Floating App / Overlay",
+                    detail = "Legacy Android normal APK cannot hide floating apps before Android 12."
+                )
+            )
+        )
+        val (readiness, overview) = overviewFor(state)
+
+        assertTrue(readiness.startHealthReady)
+        assertTrue(overview.canStartExam)
+        val issue = overview.status(PreparationCategory.RuntimeInteraction).issues
+            .single { it.key == "overlay_protection_limited" }
+        assertFalse(issue.blocking)
+    }
+
+    /** A failed overlay shield on Android 12+ still refuses Start Exam, and says so here. */
+    @Test
+    fun failedOverlayShieldIsARequiredFix() {
+        val runtime = runtimeSecurityState().let { base ->
+            base.copy(
+                overlayRiskResult = base.overlayRiskResult.copy(
+                    shieldStatus = OverlayShieldStatus(
+                        supported = true,
+                        requested = true,
+                        lastApplySucceeded = false,
+                        lastApplyAt = null
+                    )
+                )
+            )
+        }
+        val state = preparationState(
+            runtimeSecurity = runtime,
+            diagnostics = diagnosticsWithHealth(
+                PreExamHealthItem(
+                    category = PreExamHealthCategory.FloatingAppOverlay,
+                    verdict = PreExamHealthVerdict.Blocking,
+                    title = "Floating App / Overlay",
+                    detail = "Android overlay shield is supported but failed to apply."
+                )
+            )
+        )
+        val (readiness, overview) = overviewFor(state)
+
+        assertFalse(readiness.startHealthReady)
+        assertFalse(overview.canStartExam)
+        assertTrue(
+            overview.status(PreparationCategory.RuntimeInteraction).issues
+                .any { it.key == "overlay_shield_failed" && it.blocking }
+        )
+    }
+
+    /** Health categories with their own readiness flag are not double-gated. */
+    @Test
+    fun screenPinningHealthBlockerDoesNotAddASecondGate() {
+        val state = preparationState(
+            diagnostics = diagnosticsWithHealth(
+                PreExamHealthItem(
+                    category = PreExamHealthCategory.ScreenPinning,
+                    verdict = PreExamHealthVerdict.Blocking,
+                    title = "Managed Kiosk Mode",
+                    detail = "Lock task not started yet."
+                )
+            )
+        )
+        val (readiness, overview) = overviewFor(state)
+
+        assertTrue(readiness.startHealthReady)
+        assertTrue(overview.canStartExam)
+    }
+
+    /**
+     * The fake-location app only blocks while Developer options are on, so "turn off
+     * mock location" alone could not clear it. The message names the real fixes.
+     */
+    @Test
+    fun fakeLocationAppMessageNamesTheAppAndTheRealFix() {
+        val fake = fakeLocationRuntimeStatus().let { base ->
+            base.copy(
+                securityStatus = base.securityStatus.copy(
+                    monitoringEnabled = true,
+                    suspiciousFakeLocationPackages = listOf("com.lexa.fakegps"),
+                    developerOptionsEnabled = true,
+                    finalVerdict = LocationSpoofSecurityVerdict.PackageWarning
+                )
+            )
+        }
+        val (readiness, overview) = overviewFor(
+            preparationState(location = locationState(fakeLocationRuntimeStatus = fake))
+        )
+
+        assertFalse(readiness.fakeLocationReady)
+        val issue = overview.status(PreparationCategory.Location).issues
+            .single { it.key == "fake_location_app" }
+        assertTrue(issue.message!!.contains("com.lexa.fakegps"))
+        assertTrue(issue.message!!.contains("Developer options"))
+    }
+
+    /**
+     * Start Exam refuses offline and in airplane mode. They used to be optional
+     * suggestions, so "Ready to start" was followed by a refusal.
+     */
+    @Test
+    fun offlineAndAirplaneModeAreRequiredFixes() {
+        listOf(
+            NetworkReadinessVerdict.Offline to "network_offline",
+            NetworkReadinessVerdict.AirplaneMode to "network_airplane"
+        ).forEach { (verdict, key) ->
+            val state = preparationState(
+                network = networkState(readinessStatus = networkReadinessStatus(verdict = verdict)),
+                device = deviceState().copy(isScreenPinningActive = false)
+            )
+            val (readiness, overview) = overviewFor(state)
+
+            assertFalse(verdict.name, readiness.networkReachableReady)
+            assertFalse(verdict.name, overview.canStartExam)
+            assertTrue(
+                verdict.name,
+                overview.status(PreparationCategory.Connectivity).issues.any { it.key == key && it.blocking }
+            )
+            // Settings cannot be opened once pinned, so pinning waits for the network fix.
+            val lockActions = overview.status(PreparationCategory.DeviceLock).actions
+            assertTrue(verdict.name, lockActions.any { it.code == QuickFixScreenPinningDeferredCode })
+            assertFalse(verdict.name, lockActions.any { it.code == QuickFixStartScreenPinningCode })
+        }
+    }
+
+    @Test
+    fun unstableNetworkStaysASuggestion() {
+        val state = preparationState(
+            network = networkState(
+                readinessStatus = networkReadinessStatus(verdict = NetworkReadinessVerdict.Unstable)
+            )
+        )
+        val (readiness, overview) = overviewFor(state)
+
+        assertTrue(readiness.networkReachableReady)
+        assertTrue(overview.canStartExam)
+        assertTrue(overview.status(PreparationCategory.Connectivity).issues.none { it.blocking })
+    }
+
+    /**
+     * Start Exam refuses on Developer options alone. The issue used to say "USB debugging
+     * is on", so a student who turned off only USB debugging stayed blocked.
+     */
+    @Test
+    fun developerOptionsAloneIsNamedAndTheFixSaysToTurnThemOff() {
+        val device = deviceState().let { base ->
+            base.copy(
+                isScreenPinningActive = false,
+                adbInspection = base.adbInspection.copy(
+                    developerOptionsEnabled = true,
+                    developerOptionsRawValue = "1"
+                )
+            )
+        }
+        val (_, overview) = overviewFor(preparationState(device = device))
+        val integrity = overview.status(PreparationCategory.DeviceIntegrity)
+        val issue = integrity.issues.single { it.key == "adb_enabled" }
+
+        assertEquals("Developer options are on", issue.title)
+        assertTrue(issue.message!!.contains("Developer options"))
+        assertTrue(integrity.actions.any { it.buttonLabel() == "Turn Off Developer Options" })
+    }
+
+    /**
+     * A touch through a floating app (or a failed shield on a start that never began)
+     * used to block preparation for good, with no button and no way to clear it.
+     */
+    @Test
+    fun recordedFloatingAppTouchOffersAWayForward() {
+        val runtime = runtimeSecurityState().let { base ->
+            base.copy(
+                overlayRiskResult = base.overlayRiskResult.copy(confirmedInteractionDetected = true)
+            )
+        }
+        val (readiness, overview) = overviewFor(preparationState(runtimeSecurity = runtime))
+        val interaction = overview.status(PreparationCategory.RuntimeInteraction)
+
+        assertFalse(readiness.overlayReady)
+        assertTrue(interaction.issues.any { it.key == "overlay_risk" && it.blocking })
+        assertTrue(interaction.actions.any { it.code == "overlay_permission_settings" && it.opensExternalSettings })
+        assertTrue(interaction.actions.any { it.code == "overlay_violation_acknowledged" && !it.opensExternalSettings })
+    }
+
+    @Test
+    fun endedExamScheduleIsARequiredIssueNamingTheEnd() {
+        val state = preparationState(
+            session = sessionState().copy(examEndDateTime = "21/04/2026 09:30")
+        )
+        val readiness = buildPreparationChecklistReadiness(
+            state = state,
+            needsBluetoothPermission = false,
+            accessibilityGuardRequired = false,
+            accessibilityGuardAvailable = true,
+            accessibilityGuardEnabled = false,
+            examScheduleEnded = true
+        )
+        val overview = buildPreparationOverview(
+            state = state,
+            readiness = readiness,
+            quickFixActions = quickFixActionsFor(state),
+            needsBluetoothPermission = false,
+            accessibilityGuardAvailable = true,
+            uiLanguage = UiLanguage.English
+        )
+
+        assertFalse(readiness.scheduleReady)
+        assertFalse(overview.canStartExam)
+        val issue = overview.status(PreparationCategory.DeviceHealth).issues.single { it.key == "exam_schedule_ended" }
+        assertTrue(issue.blocking)
+        assertTrue(issue.message!!.contains("09:30"))
+    }
+
+    private fun diagnosticsWithHealth(vararg items: PreExamHealthItem): PreparationDiagnosticsState {
+        val base = diagnosticsState()
+        return base.copy(
+            preExamHealthCheckSnapshot = base.preExamHealthCheckSnapshot.copy(items = items.toList())
+        )
     }
 
     private fun overviewFor(

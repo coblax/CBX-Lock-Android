@@ -353,6 +353,7 @@ internal fun buildPreparationScreenActions(
     onOpenCastSettings: () -> Unit,
     onOpenWebViewProviderSettings: () -> Unit,
     onReinstallOfficialApk: () -> Unit,
+    onAcknowledgeOverlayViolation: () -> Unit,
     onRefreshStatus: () -> Unit,
     onRefreshAllSecurityChecks: () -> Unit,
     onRefreshHealthCheck: () -> Unit,
@@ -417,7 +418,8 @@ internal fun buildPreparationScreenActions(
             onOpenOverlaySettings = onOpenOverlaySettings,
             onOpenOverlayGuardSettings = onOpenOverlaySettings,
             onOpenAppSettings = onOpenAppSettings,
-            onOpenCastSettings = onOpenCastSettings
+            onOpenCastSettings = onOpenCastSettings,
+            onAcknowledgeOverlayViolation = onAcknowledgeOverlayViolation
         )
     )
 }

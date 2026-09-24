@@ -33,6 +33,7 @@ import com.coblax.examlock.model.NetworkReadinessStatus
 import com.coblax.examlock.model.NetworkReadinessUserVerdict
 import com.coblax.examlock.model.NetworkReadinessVerdict
 import org.junit.Assert.assertEquals
+import org.junit.Assert.assertNull
 import org.junit.Assert.assertTrue
 import org.junit.Test
 
@@ -229,8 +230,12 @@ class PreExamHealthCheckTest {
         )
     }
 
+    /**
+     * Policy: personal Android 7-11 phones may sit exams. Floating apps cannot be hidden
+     * there, so it is a warning the student sees, not a refusal at Start Exam.
+     */
     @Test
-    fun android7NormalApkBlocksBecauseFloatingAppsCannotBeBlocked() {
+    fun android7NormalApkWarnsButCanStart() {
         val snapshot = buildPreExamHealthSnapshot(
             defaultInput(
                 overlayRiskResult = defaultOverlayRisk(shieldSupported = false),
@@ -242,13 +247,13 @@ class PreExamHealthCheckTest {
         )
 
         val overlay = snapshot.items.first { it.category == PreExamHealthCategory.FloatingAppOverlay }
-        assertEquals(PreExamHealthVerdict.Blocking, overlay.verdict)
+        assertEquals(PreExamHealthVerdict.Warning, overlay.verdict)
         assertTrue(overlay.detail.contains("Legacy Android"))
-        assertTrue(overlay.detail.contains("not safe", ignoreCase = true))
+        assertNull(preExamHealthStartBlocker(snapshot))
     }
 
     @Test
-    fun android11NormalApkBlocksBecauseFloatingAppsCannotBeBlocked() {
+    fun android11NormalApkWarnsButCanStart() {
         val snapshot = buildPreExamHealthSnapshot(
             defaultInput(
                 overlayRiskResult = defaultOverlayRisk(shieldSupported = false),
@@ -260,9 +265,32 @@ class PreExamHealthCheckTest {
         )
 
         val overlay = snapshot.items.first { it.category == PreExamHealthCategory.FloatingAppOverlay }
-        assertEquals(PreExamHealthVerdict.Blocking, overlay.verdict)
+        assertEquals(PreExamHealthVerdict.Warning, overlay.verdict)
         assertTrue(overlay.detail.contains("Legacy Android"))
-        assertTrue(overlay.detail.contains("not safe", ignoreCase = true))
+        assertNull(preExamHealthStartBlocker(snapshot))
+    }
+
+    /**
+     * The first matching rule wins. A risky accessibility package (a warning) used to be
+     * checked first, so it hid a failed overlay shield and let a riskier phone start.
+     */
+    @Test
+    fun failedOverlayShieldStillBlocksWhenAWarningAlsoApplies() {
+        val snapshot = buildPreExamHealthSnapshot(
+            defaultInput(
+                overlayRiskResult = defaultOverlayRisk(
+                    shieldSupported = true,
+                    shieldLastApplySucceeded = false
+                ).copy(
+                    heuristicRisk = true,
+                    riskyAccessibilityPackages = listOf("com.example.risky")
+                )
+            )
+        )
+
+        val overlay = snapshot.items.first { it.category == PreExamHealthCategory.FloatingAppOverlay }
+        assertEquals(PreExamHealthVerdict.Blocking, overlay.verdict)
+        assertTrue(overlay.detail.contains("failed to apply"))
     }
 
     @Test

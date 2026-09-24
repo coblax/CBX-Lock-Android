@@ -1,5 +1,7 @@
 package com.coblax.examlock.ui.preparation
 
+import com.coblax.examlock.model.NetworkReadinessVerdict
+
 internal data class PreparationChecklistReadiness(
     val keyboardReady: Boolean,
     val bluetoothReady: Boolean,
@@ -22,9 +24,26 @@ internal data class PreparationChecklistReadiness(
     val reverseEngineeringReady: Boolean,
     val integrityReady: Boolean,
     val signatureReady: Boolean,
+    /** No start-time health blocker the specific checks above do not already cover. */
+    val startHealthReady: Boolean,
+    /** Start Exam refuses while offline or in airplane mode, with no bypass. */
+    val networkReachableReady: Boolean,
+    /** False once the exam window has closed; Start Exam refuses then too. */
+    val scheduleReady: Boolean,
     val staticSecurityInitialScanComplete: Boolean,
     val canStartExam: Boolean,
     val hasBypassIndicators: Boolean
+)
+
+/**
+ * Start Exam re-runs the pre-exam health check and refuses on any Blocking item
+ * (preExamHealthStartBlocker). These categories have no specific readiness flag, so
+ * without this gate the screen said "ready" and the refusal only came after Start.
+ * Screen pinning, network, location and device time are gated by their own flags.
+ */
+internal val StartHealthGateCategories: Set<PreExamHealthCategory> = setOf(
+    PreExamHealthCategory.WebView,
+    PreExamHealthCategory.FloatingAppOverlay
 )
 
 internal fun resolvePreparationScreenPinningReady(
@@ -44,7 +63,8 @@ internal fun buildPreparationChecklistReadiness(
     needsBluetoothPermission: Boolean,
     accessibilityGuardRequired: Boolean,
     accessibilityGuardAvailable: Boolean,
-    accessibilityGuardEnabled: Boolean
+    accessibilityGuardEnabled: Boolean,
+    examScheduleEnded: Boolean = false
 ): PreparationChecklistReadiness = buildPreparationChecklistReadiness(
     network = state.network,
     device = state.device,
@@ -55,6 +75,9 @@ internal fun buildPreparationChecklistReadiness(
     accessibilityGuardRequired = accessibilityGuardRequired,
     accessibilityGuardAvailable = accessibilityGuardAvailable,
     accessibilityGuardEnabled = accessibilityGuardEnabled
+,
+    preExamHealthSnapshot = state.preExamHealthCheckSnapshot,
+    examScheduleEnded = examScheduleEnded
 )
 
 internal fun buildPreparationChecklistReadiness(
@@ -66,7 +89,9 @@ internal fun buildPreparationChecklistReadiness(
     needsBluetoothPermission: Boolean,
     accessibilityGuardRequired: Boolean,
     accessibilityGuardAvailable: Boolean,
-    accessibilityGuardEnabled: Boolean
+    accessibilityGuardEnabled: Boolean,
+    preExamHealthSnapshot: PreExamHealthSnapshot? = null,
+    examScheduleEnded: Boolean = false
 ): PreparationChecklistReadiness {
     val keyboardReady = bypass.bypassKeyboardPolicy ||
         device.keyboardAllowed ||
@@ -80,6 +105,11 @@ internal fun buildPreparationChecklistReadiness(
     val rootReady = bypass.bypassRoot || !device.rootSecurityStatus.blocking
     val virtualEnvironmentReady = bypass.bypassVirtualEnvironment || !device.virtualEnvironmentDetected
     val vpnReady = network.bypassVpn || !network.networkReadinessStatus.diagnostics.isVpnActive
+    val scheduleReady = !examScheduleEnded
+    val networkReachableReady = network.networkReadinessStatus.verdict !in setOf(
+        NetworkReadinessVerdict.Offline,
+        NetworkReadinessVerdict.AirplaneMode
+    )
     val clipboardReady = true
     val deviceTimeReady = bypass.bypassDeviceTime || !device.deviceTimeSecurityStatus.blocking
     val geofenceReady =
@@ -114,6 +144,8 @@ internal fun buildPreparationChecklistReadiness(
         runtimeSecurity.integrityBypassActive ||
             (!runtimeSecurity.integrityDetected && !device.signatureMismatchDetected)
     val signatureReady = integrityReady
+    val startHealthReady = preExamHealthSnapshot == null ||
+        preExamHealthSnapshot.items.none { it.category in StartHealthGateCategories && it.verdict == PreExamHealthVerdict.Blocking }
     val canStartExam =
         runtimeSecurity.staticSecurityInitialScanComplete &&
             bluetoothReady &&
@@ -128,12 +160,15 @@ internal fun buildPreparationChecklistReadiness(
             overlayBlockingReady &&
             virtualEnvironmentReady &&
             vpnReady &&
+            networkReachableReady &&
+            scheduleReady &&
             signatureReady &&
             screenRecorderReady &&
             displayMirrorReady &&
             multiWindowReady &&
             reverseEngineeringReady &&
-            integrityReady
+            integrityReady &&
+            startHealthReady
     val hasBypassIndicators = listOf(
         bypass.bypassKeyboardPolicy,
         bypass.bypassBluetooth,
@@ -179,6 +214,9 @@ internal fun buildPreparationChecklistReadiness(
         reverseEngineeringReady = reverseEngineeringReady,
         integrityReady = integrityReady,
         signatureReady = signatureReady,
+        startHealthReady = startHealthReady,
+        networkReachableReady = networkReachableReady,
+        scheduleReady = scheduleReady,
         staticSecurityInitialScanComplete = runtimeSecurity.staticSecurityInitialScanComplete,
         canStartExam = canStartExam,
         hasBypassIndicators = hasBypassIndicators
@@ -190,6 +228,7 @@ internal fun resolveFirstBlockingReason(
     en: Boolean = true
 ): String? {
     if (readiness.canStartExam) return null
+    if (!readiness.scheduleReady) return if (en) "The exam has ended" else "Waktu ujian sudah berakhir"
     if (!readiness.staticSecurityInitialScanComplete) return if (en) "Security scan in progress" else "Pemindaian keamanan sedang berlangsung"
     if (!readiness.adbReady) return if (en) "USB Debugging is active" else "USB Debugging masih aktif"
     if (!readiness.deviceTimeReady) return if (en) "Automatic date & time not enabled" else "Tanggal & waktu otomatis belum aktif"
@@ -199,6 +238,7 @@ internal fun resolveFirstBlockingReason(
     if (!readiness.integrityReady) return if (en) "APK integrity check failed" else "Cek integritas APK gagal"
     if (!readiness.signatureReady) return if (en) "App signature mismatch" else "Signature aplikasi tidak cocok"
     if (!readiness.vpnReady) return if (en) "VPN is active" else "VPN masih aktif"
+    if (!readiness.networkReachableReady) return if (en) "No internet connection" else "Tidak ada koneksi internet"
     if (!readiness.accessibilityReady) return if (en) "Accessibility service is active" else "Layanan aksesibilitas masih aktif"
     if (!readiness.accessibilityGuardReady) return if (en) "Exam Guard not enabled" else "Exam Guard belum diaktifkan"
     if (!readiness.bluetoothReady) return if (en) "Bluetooth is active" else "Bluetooth masih aktif"
@@ -209,6 +249,7 @@ internal fun resolveFirstBlockingReason(
     if (!readiness.screenRecorderReady) return if (en) "Screen recorder detected" else "Screen recorder terdeteksi"
     if (!readiness.displayMirrorReady) return if (en) "External display detected" else "Layar eksternal terdeteksi"
     if (!readiness.multiWindowReady) return if (en) "Multi-window mode active" else "Mode multi-window aktif"
+    if (!readiness.startHealthReady) return if (en) "Pre-exam health check not passed" else "Health check sebelum ujian belum lulus"
     if (!readiness.appSwitchReady) return if (en) "App switch violation" else "Pelanggaran app switch"
     return if (en) "Device check not passed" else "Pemeriksaan perangkat belum lulus"
 }

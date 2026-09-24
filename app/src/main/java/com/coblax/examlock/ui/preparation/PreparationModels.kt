@@ -37,7 +37,10 @@ internal data class PreparationSessionState(
     val screenPinningMessage: String?,
     val webViewSessionResetInFlight: Boolean,
     val webViewSessionResetError: String?,
-    val showChecklistDetails: Boolean
+    val showChecklistDetails: Boolean,
+    /** Exam window end (epoch ms), or null when the schedule has none. */
+    val examEndsAtMillis: Long? = null,
+    val examEndDateTime: String = ""
 )
 
 internal data class PreparationNetworkState(
@@ -283,7 +286,9 @@ internal data class PreparationRuntimeSecurityActions(
     val onOpenOverlaySettings: () -> Unit,
     val onOpenOverlayGuardSettings: () -> Unit,
     val onOpenAppSettings: () -> Unit,
-    val onOpenCastSettings: () -> Unit
+    val onOpenCastSettings: () -> Unit,
+    /** Marks the floating-app touches seen so far as handled; later ones block again. */
+    val onAcknowledgeOverlayViolation: () -> Unit = {}
 )
 
 internal data class PreparationScreenActions(
@@ -316,6 +321,7 @@ internal data class PreparationScreenActions(
     val onOpenScreenPinningSettings: () -> Unit get() = device.onOpenScreenPinningSettings
     val onStartScreenPinning: () -> Unit get() = device.onStartScreenPinning
     val onOpenOverlaySettings: () -> Unit get() = device.onOpenOverlaySettings
+    val onAcknowledgeOverlayViolation: () -> Unit get() = runtimeSecurity.onAcknowledgeOverlayViolation
     val onOpenAppSettings: () -> Unit get() = device.onOpenAppSettings
     val onOpenCastSettings: () -> Unit get() = device.onOpenCastSettings
     val onOpenWebViewProviderSettings: () -> Unit get() = device.onOpenWebViewProviderSettings
@@ -399,6 +405,7 @@ internal fun forwardingPreparationActions(
         onOpenOverlaySettings = { latest().runtimeSecurity.onOpenOverlaySettings() },
         onOpenOverlayGuardSettings = { latest().runtimeSecurity.onOpenOverlayGuardSettings() },
         onOpenAppSettings = { latest().runtimeSecurity.onOpenAppSettings() },
-        onOpenCastSettings = { latest().runtimeSecurity.onOpenCastSettings() }
+        onOpenCastSettings = { latest().runtimeSecurity.onOpenCastSettings() },
+        onAcknowledgeOverlayViolation = { latest().runtimeSecurity.onAcknowledgeOverlayViolation() }
     )
 )

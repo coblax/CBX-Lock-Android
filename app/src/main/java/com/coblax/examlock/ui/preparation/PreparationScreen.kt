@@ -33,6 +33,7 @@ import androidx.compose.runtime.Stable
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableIntStateOf
 import androidx.compose.runtime.mutableStateOf
+import androidx.compose.runtime.produceState
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.runtime.rememberUpdatedState
@@ -105,6 +106,19 @@ internal fun ExamSecurityPreparationScreen(
     val accessibilityGuardRequired =
         !state.screenPinningAvailable && !state.bypassScreenPinning && accessibilityGuardAvailable
     val needsBluetoothPermission = requiresBluetoothExamPermission()
+    // The QR was valid when scanned, but the exam window can close while the student is
+    // still here; Start Exam would then refuse, so say it first. Ticks only with an end.
+    val examEndsAtMillis = state.session.examEndsAtMillis
+    val examScheduleEnded by produceState(
+        initialValue = examEndsAtMillis != null && System.currentTimeMillis() > examEndsAtMillis,
+        key1 = examEndsAtMillis
+    ) {
+        val endsAt = examEndsAtMillis ?: return@produceState
+        while (System.currentTimeMillis() <= endsAt) {
+            delay(ExamScheduleTickMillis)
+        }
+        value = true
+    }
 
     val autoFixSuggestions = remember(state.preExamHealthCheckSnapshot, state.deviceSurvivalPolicy) {
         buildPreparationAutoFixSuggestions(
@@ -132,7 +146,8 @@ internal fun ExamSecurityPreparationScreen(
 
     val readiness = remember(
         state.network, state.device, state.location,
-        state.runtimeSecurity, state.bypass,
+        state.runtimeSecurity, state.bypass, state.preExamHealthCheckSnapshot,
+        examScheduleEnded,
         needsBluetoothPermission,
         accessibilityGuardRequired, accessibilityGuardAvailable,
         accessibilityGuardEnabled
@@ -146,7 +161,9 @@ internal fun ExamSecurityPreparationScreen(
             needsBluetoothPermission = needsBluetoothPermission,
             accessibilityGuardRequired = accessibilityGuardRequired,
             accessibilityGuardAvailable = accessibilityGuardAvailable,
-            accessibilityGuardEnabled = accessibilityGuardEnabled
+            accessibilityGuardEnabled = accessibilityGuardEnabled,
+            preExamHealthSnapshot = state.preExamHealthCheckSnapshot,
+            examScheduleEnded = examScheduleEnded
         )
     }
     val quickFixActions = remember(
@@ -427,10 +444,11 @@ private fun PreparationSessionNotices(
         }
 
         state.webViewSessionResetError?.let { resetError ->
-            val webViewHealthDetail = state.preExamHealthCheckSnapshot.items
-                .firstOrNull { it.category == PreExamHealthCategory.WebView }
-                ?.detail
-                .orEmpty()
+            // The health item detail is English-only; this note is in the student's language.
+            val webViewProviderNote = webViewProviderNote(
+                state.webViewCompatibilityStatus,
+                LocalUiLanguage.current
+            ).orEmpty()
             StatusBanner(
                 title = tr("Exam browser recovered safely", "Browser ujian dipulihkan dengan aman"),
                 message = listOf(
@@ -439,7 +457,7 @@ private fun PreparationSessionNotices(
                         "Export diagnostics if an admin needs evidence, then start again.",
                         "Export diagnostik bila admin butuh bukti, lalu mulai lagi."
                     ),
-                    webViewHealthDetail
+                    webViewProviderNote
                 ).filter { it.isNotBlank() }.joinToString("\n\n"),
                 tone = UiStatusTone.Danger
             )
@@ -538,6 +556,8 @@ private fun PreparationSessionNotices(
 // ──────────────────────────────────────────────────────────────
 // Refresh throttling and quick-fix return handling
 // ──────────────────────────────────────────────────────────────
+
+private const val ExamScheduleTickMillis = 15_000L
 
 @Stable
 internal class PreparationInteraction(
