@@ -17,6 +17,7 @@ import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
+import androidx.compose.foundation.layout.heightIn
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.size
@@ -50,7 +51,13 @@ import com.coblax.examlock.R
 import com.coblax.examlock.ui.theme.AppColors
 import com.coblax.examlock.WebViewCompatibilityStatus
 import com.coblax.examlock.WebViewHealthSeverity
+import com.coblax.examlock.WebViewHealthVerdict
 import com.coblax.examlock.ui.theme.UiTokens
+import com.coblax.examlock.ui.theme.AppTextStyles
+import com.coblax.examlock.ui.theme.ScopedUiTokens
+import com.coblax.examlock.ui.theme.StatusBadge
+import com.coblax.examlock.ui.theme.UiStatusTone
+import com.coblax.examlock.ui.theme.primaryActionColors
 import kotlin.coroutines.resume
 import kotlin.coroutines.resumeWithException
 import kotlin.math.roundToInt
@@ -65,12 +72,12 @@ internal fun AdminReadinessSummaryCard(
     onOpenWebViewSettings: () -> Unit,
     onOpenAdvanced: () -> Unit
 ) {
-    val statusColor = adminReadinessVerdictColor(summary.verdict)
-    val securityLabel = when (summary.verdict) {
-        AdminReadinessVerdict.NotRun -> tr("Not checked", "Belum dicek")
-        AdminReadinessVerdict.Ready -> tr("Ready", "Siap")
-        AdminReadinessVerdict.NeedsSetup -> tr("Need Check", "Perlu Dicek")
-        AdminReadinessVerdict.Blocked -> tr("Blocked", "Terblokir")
+    val tokens = ScopedUiTokens.current
+    val tone = when (summary.verdict) {
+        AdminReadinessVerdict.NotRun -> UiStatusTone.Info
+        AdminReadinessVerdict.Ready -> UiStatusTone.Success
+        AdminReadinessVerdict.NeedsSetup -> UiStatusTone.Warning
+        AdminReadinessVerdict.Blocked -> UiStatusTone.Danger
     }
     val primaryClick = when (summary.verdict) {
         AdminReadinessVerdict.NotRun -> onRunCheck
@@ -84,118 +91,97 @@ internal fun AdminReadinessSummaryCard(
             }
         }
     }
-    Surface(
-        modifier = Modifier.fillMaxWidth(),
-        shape = RoundedCornerShape(22.dp),
-        color = AppColors.current.cardBg,
-        border = BorderStroke(1.dp, statusColor.copy(alpha = 0.24f)),
-        tonalElevation = 0.dp,
-        shadowElevation = 0.dp
+    // The summary builder's labels are fixed strings shared with diagnostics; the card
+    // shows them in the UI language instead.
+    val badgeLabel = when (summary.verdict) {
+        AdminReadinessVerdict.NotRun -> tr("Not checked", "Belum dicek")
+        AdminReadinessVerdict.Ready -> tr("Ready", "Siap")
+        AdminReadinessVerdict.NeedsSetup -> tr("Needs setup", "Perlu setup")
+        AdminReadinessVerdict.Blocked -> tr("Blocked", "Terblokir")
+    }
+    val detail = when (summary.verdict) {
+        AdminReadinessVerdict.NotRun -> tr(
+            "Run the check on the real device before exam day.",
+            "Jalankan pemeriksaan di perangkat asli sebelum hari ujian."
+        )
+        AdminReadinessVerdict.Ready -> tr(
+            "The device is ready for a field test.",
+            "Perangkat siap untuk uji lapangan."
+        )
+        AdminReadinessVerdict.NeedsSetup -> tr(
+            "Some items need a look; only security blockers stop Start Exam.",
+            "Ada yang perlu dicek; hanya blocker keamanan yang menghentikan Mulai Ujian."
+        )
+        AdminReadinessVerdict.Blocked -> tr(
+            "A security blocker must be fixed before the exam.",
+            "Ada blocker keamanan yang harus dibereskan sebelum ujian."
+        )
+    }
+    val webViewLabel = when (webViewStatus.verdict) {
+        WebViewHealthVerdict.Ready -> tr("Ready", "Siap")
+        WebViewHealthVerdict.NeedsUpdate -> tr("Needs update", "Perlu update")
+        WebViewHealthVerdict.Unavailable -> tr("Unavailable", "Tidak tersedia")
+        WebViewHealthVerdict.Unknown -> tr("Unknown", "Tidak diketahui")
+    }
+    val nextActionLabel = when (summary.verdict) {
+        AdminReadinessVerdict.NotRun -> tr("Run check", "Jalankan cek")
+        AdminReadinessVerdict.Ready -> tr("View details", "Lihat detail")
+        AdminReadinessVerdict.NeedsSetup,
+        AdminReadinessVerdict.Blocked -> tr("Fix first", "Perbaiki dulu")
+    }
+    val primary = primaryActionColors()
+    SecretAdminSection(
+        title = tr("Device readiness", "Kesiapan perangkat"),
+        trailing = { StatusBadge(label = badgeLabel, tone = tone) }
     ) {
-        Column(
-            modifier = Modifier.padding(horizontal = 16.dp, vertical = 16.dp),
-            verticalArrangement = Arrangement.spacedBy(12.dp)
+        Text(
+            text = detail,
+            color = AppColors.current.textSecondary,
+            style = AppTextStyles.diagnostic
+        )
+        Column {
+            SecretAdminInfoRow(label = "WebView", value = webViewLabel)
+            SecretAdminInfoRow(label = "Vendor", value = summary.vendorLabel)
+        }
+        Row(
+            modifier = Modifier.fillMaxWidth(),
+            horizontalArrangement = Arrangement.spacedBy(8.dp),
+            verticalAlignment = Alignment.CenterVertically
         ) {
-            Row(
-                modifier = Modifier.fillMaxWidth(),
-                horizontalArrangement = Arrangement.spacedBy(10.dp),
-                verticalAlignment = Alignment.Top
+            Button(
+                onClick = primaryClick,
+                enabled = !fieldReadinessRunning,
+                shape = RoundedCornerShape(tokens.radiusMedium),
+                colors = ButtonDefaults.buttonColors(
+                    containerColor = primary.container,
+                    contentColor = primary.content,
+                    disabledContainerColor = AppColors.current.surfaceSoft,
+                    disabledContentColor = AppColors.current.textSecondary
+                ),
+                modifier = Modifier
+                    .weight(1f)
+                    .heightIn(min = tokens.touchTarget)
             ) {
-                Column(modifier = Modifier.weight(1f)) {
-                    Text(
-                        text = tr("Device Readiness", "Kesiapan Perangkat"),
-                        color = AppColors.current.textPrimary,
-                        fontSize = 18.sp,
-                        fontWeight = FontWeight.Bold
+                if (fieldReadinessRunning) {
+                    CircularProgressIndicator(
+                        modifier = Modifier.size(16.dp),
+                        strokeWidth = 2.dp,
+                        color = AppColors.current.textSecondary
                     )
-                    Text(
-                        text = summary.detail,
-                        color = AppColors.current.textSecondary,
-                        fontSize = 12.sp,
-                        lineHeight = 16.sp
-                    )
-                }
-                Surface(
-                    shape = RoundedCornerShape(UiTokens.RadiusPill),
-                    color = statusColor.copy(alpha = 0.12f),
-                    border = BorderStroke(1.dp, statusColor.copy(alpha = 0.25f))
-                ) {
-                    Text(
-                        text = summary.title,
-                        color = statusColor,
-                        fontSize = 10.sp,
-                        fontWeight = FontWeight.ExtraBold,
-                        modifier = Modifier.padding(horizontal = 10.dp, vertical = 6.dp)
-                    )
+                } else {
+                    Text(text = nextActionLabel, style = AppTextStyles.button)
                 }
             }
-
-            Column(verticalArrangement = Arrangement.spacedBy(6.dp)) {
-                AdminHealthLine(
-                    label = tr("WebView", "WebView"),
-                    value = summary.webViewLabel
-                )
-                AdminHealthLine(
-                    label = tr("Security", "Keamanan"),
-                    value = securityLabel
-                )
-                AdminHealthLine(
-                    label = tr("Vendor", "Vendor"),
-                    value = summary.vendorLabel
-                )
-            }
-
-            Row(
-                modifier = Modifier.fillMaxWidth(),
-                horizontalArrangement = Arrangement.spacedBy(8.dp),
-                verticalAlignment = Alignment.CenterVertically
-            ) {
-                Button(
-                    onClick = primaryClick,
-                    enabled = !fieldReadinessRunning,
-                    shape = RoundedCornerShape(UiTokens.RadiusMd),
-                    colors = ButtonDefaults.buttonColors(
-                        containerColor = statusColor,
-                        contentColor = AppColors.current.onDark,
-                        disabledContainerColor = statusColor.copy(alpha = 0.42f),
-                        disabledContentColor = AppColors.current.onDark.copy(alpha = 0.75f)
-                    ),
-                    modifier = Modifier.weight(1f)
-                ) {
-                    if (fieldReadinessRunning) {
-                        CircularProgressIndicator(
-                            modifier = Modifier.size(16.dp),
-                            strokeWidth = 2.dp,
-                            color = AppColors.current.onDark
-                        )
-                    } else {
-                        Text(
-                            text = summary.nextActionLabel,
-                            fontWeight = FontWeight.Bold
-                        )
-                    }
-                }
-                if (summary.verdict != AdminReadinessVerdict.NotRun) {
-                    TextButton(
-                        onClick = onRunCheck,
-                        enabled = !fieldReadinessRunning,
-                        modifier = Modifier.weight(1f)
-                    ) {
-                        Text(
-                            text = tr("Run Check", "Cek Ulang"),
-                            color = AppColors.current.blue,
-                            fontWeight = FontWeight.Bold
-                        )
-                    }
-                }
+            if (summary.verdict != AdminReadinessVerdict.NotRun) {
                 TextButton(
-                    onClick = onOpenAdvanced,
-                    modifier = Modifier.weight(1f)
+                    onClick = onRunCheck,
+                    enabled = !fieldReadinessRunning,
+                    modifier = Modifier.heightIn(min = tokens.touchTarget)
                 ) {
                     Text(
-                        text = tr("Details", "Detail"),
-                        color = AppColors.current.blue,
-                        fontWeight = FontWeight.Bold
+                        text = tr("Run again", "Cek ulang"),
+                        color = AppColors.current.brandText,
+                        style = AppTextStyles.button
                     )
                 }
             }
@@ -219,164 +205,118 @@ internal fun AdminAdvancedDiagnosticsCard(
     onOpenOverlaySettings: () -> Unit,
     onOpenAppSettings: () -> Unit
 ) {
-    Surface(
-        modifier = Modifier.fillMaxWidth(),
-        shape = RoundedCornerShape(22.dp),
-        color = AppColors.current.surfaceSoft,
-        border = BorderStroke(1.dp, AppColors.current.outline)
-    ) {
-        Column(
-            modifier = Modifier.padding(horizontal = 16.dp, vertical = 16.dp),
-            verticalArrangement = Arrangement.spacedBy(12.dp)
-        ) {
-            Row(
-                modifier = Modifier.fillMaxWidth(),
-                horizontalArrangement = Arrangement.spacedBy(10.dp),
-                verticalAlignment = Alignment.CenterVertically
-            ) {
-                Column(modifier = Modifier.weight(1f)) {
-                    Text(
-                        text = tr("Advanced Diagnostics", "Diagnostik Lanjutan"),
-                        color = AppColors.current.textPrimary,
-                        fontSize = 18.sp,
-                        fontWeight = FontWeight.Bold
-                    )
-                    Text(
-                        text = tr(
-                            "Technical details are hidden until needed.",
-                            "Detail teknis disembunyikan sampai dibutuhkan."
-                        ),
-                        color = AppColors.current.textSecondary,
-                        fontSize = 12.sp,
-                        lineHeight = 16.sp
-                    )
-                }
-                TextButton(onClick = onToggleExpanded) {
-                    Text(
-                        text = if (expanded) tr("Hide", "Tutup") else tr("Open", "Buka"),
-                        color = AppColors.current.blue,
-                        fontWeight = FontWeight.Bold
-                    )
-                }
-            }
-
-            if (!expanded) {
-                Text(
-                    text = tr(
-                        "Open only for troubleshooting.",
-                        "Buka hanya saat troubleshooting."
-                    ),
-                    color = AppColors.current.textMuted,
-                    fontSize = 11.sp,
-                    lineHeight = 15.sp
-                )
-                return@Column
-            }
-
-            AdminDiagnosticDivider()
-            AdminDiagnosticSectionTitle(tr("WebView Provider", "Provider WebView"))
-            AdminHealthLine(tr("Status", "Status"), "${webViewStatus.verdict.name} / ${webViewStatus.severity.name}")
-            AdminHealthLine(tr("Provider", "Provider"), webViewStatus.providerLabel)
-            AdminHealthLine(tr("Package", "Package"), webViewStatus.packageName)
-            AdminHealthLine(tr("Version", "Versi"), webViewStatus.versionLabel)
-            AdminHealthLine(tr("Source", "Sumber"), webViewStatus.providerSource)
-            AdminHealthLine(
-                tr("Survival score", "Skor survival"),
-                "${survivalPolicy.score.name} / ${survivalPolicy.runtimeTier.name}"
-            )
-            webViewStatus.quickFix?.takeIf { it.isNotBlank() }?.let { quickFix ->
-                Text(
-                    text = quickFix,
-                    color = AppColors.current.textSecondary,
-                    fontSize = 12.sp,
-                    lineHeight = 16.sp
-                )
-            }
-            Row(
-                modifier = Modifier.fillMaxWidth(),
-                horizontalArrangement = Arrangement.spacedBy(8.dp)
-            ) {
-                TextButton(
-                    onClick = onRefreshWebView,
-                    modifier = Modifier.weight(1f)
-                ) {
-                    Text(tr("Refresh", "Refresh"), color = AppColors.current.blue, fontWeight = FontWeight.Bold)
-                }
-                TextButton(
-                    onClick = onOpenWebViewSettings,
-                    modifier = Modifier.weight(1f)
-                ) {
-                    Text(tr("Open Settings", "Buka Setelan"), color = AppColors.current.blue, fontWeight = FontWeight.Bold)
-                }
-            }
-
-            AdminDiagnosticDivider()
-            AdminDiagnosticSectionTitle(tr("Field Readiness Details", "Detail Field Readiness"))
-            FieldReadinessReportCard(
-                report = report,
-                survivalPolicy = survivalPolicy
-            )
-
-            AdminDiagnosticDivider()
-            AdminDiagnosticSectionTitle(tr("Device Setup Checklist", "Checklist Setup Perangkat"))
-            AdminHealthLine(
-                label = tr("Vendor", "Vendor"),
-                value = vendorChecklist.displayName
-            )
-            AdminHealthLine(
-                label = tr("Compatibility", "Kompatibilitas"),
-                value = "${deviceCompatibilityProfile.family.name} | ${deviceCompatibilityProfile.model}"
-            )
-            vendorChecklist.items.forEach { item ->
-                Column(verticalArrangement = Arrangement.spacedBy(3.dp)) {
-                    Text(
-                        text = item.title,
-                        color = AppColors.current.textPrimary,
-                        fontSize = 13.sp,
-                        fontWeight = FontWeight.Bold
-                    )
-                    Text(
-                        text = item.detail,
-                        color = AppColors.current.textSecondary,
-                        fontSize = 12.sp,
-                        lineHeight = 16.sp
-                    )
-                }
-            }
-            Row(
-                modifier = Modifier.fillMaxWidth(),
-                horizontalArrangement = Arrangement.spacedBy(8.dp)
-            ) {
-                TextButton(
-                    onClick = onOpenBatterySettings,
-                    modifier = Modifier.weight(1f)
-                ) {
-                    Text(tr("Battery", "Baterai"), color = AppColors.current.blue)
-                }
-                TextButton(
-                    onClick = onOpenLocationSettings,
-                    modifier = Modifier.weight(1f)
-                ) {
-                    Text(tr("Location", "Lokasi"), color = AppColors.current.blue)
-                }
-                TextButton(
-                    onClick = onOpenOverlaySettings,
-                    modifier = Modifier.weight(1f)
-                ) {
-                    Text(tr("Floating Apps", "Floating App"), color = AppColors.current.blue)
-                }
-            }
+    SecretAdminSection(
+        title = tr("Advanced diagnostics", "Diagnostik lanjutan"),
+        trailing = {
             TextButton(
-                onClick = onOpenAppSettings,
-                modifier = Modifier.fillMaxWidth()
+                onClick = onToggleExpanded,
+                modifier = Modifier.heightIn(min = ScopedUiTokens.current.touchTarget)
             ) {
                 Text(
-                    text = tr("Open App Settings", "Buka Setelan Aplikasi"),
-                    color = AppColors.current.blue,
-                    fontWeight = FontWeight.Bold
+                    text = if (expanded) tr("Hide", "Tutup") else tr("Open", "Buka"),
+                    color = AppColors.current.brandText,
+                    style = AppTextStyles.button
                 )
             }
         }
+    ) {
+        if (!expanded) {
+            Text(
+                text = tr(
+                    "WebView provider, field test results, and the vendor setup checklist. For troubleshooting.",
+                    "Provider WebView, hasil field test, dan checklist setup vendor. Untuk troubleshooting."
+                ),
+                color = AppColors.current.textSecondary,
+                style = AppTextStyles.diagnostic
+            )
+            return@SecretAdminSection
+        }
+
+        AdminDiagnosticSectionTitle(tr("WebView Provider", "Provider WebView"))
+        AdminHealthLine(tr("Status", "Status"), "${webViewStatus.verdict.name} / ${webViewStatus.severity.name}")
+        AdminHealthLine(tr("Provider", "Provider"), webViewStatus.providerLabel)
+        AdminHealthLine(tr("Package", "Package"), webViewStatus.packageName)
+        AdminHealthLine(tr("Version", "Versi"), webViewStatus.versionLabel)
+        AdminHealthLine(tr("Source", "Sumber"), webViewStatus.providerSource)
+        AdminHealthLine(
+            tr("Survival score", "Skor survival"),
+            "${survivalPolicy.score.name} / ${survivalPolicy.runtimeTier.name}"
+        )
+        webViewStatus.quickFix?.takeIf { it.isNotBlank() }?.let { quickFix ->
+            Text(
+                text = quickFix,
+                color = AppColors.current.textSecondary,
+                style = AppTextStyles.diagnostic
+            )
+        }
+        Row(
+            modifier = Modifier.fillMaxWidth(),
+            horizontalArrangement = Arrangement.spacedBy(8.dp)
+        ) {
+            AdminLinkButton(tr("Refresh", "Refresh"), onRefreshWebView, Modifier.weight(1f))
+            AdminLinkButton(tr("Open Settings", "Buka Setelan"), onOpenWebViewSettings, Modifier.weight(1f))
+        }
+
+        AdminDiagnosticDivider()
+        AdminDiagnosticSectionTitle(tr("Field Readiness Details", "Detail Field Readiness"))
+        FieldReadinessReportCard(
+            report = report,
+            survivalPolicy = survivalPolicy
+        )
+
+        AdminDiagnosticDivider()
+        AdminDiagnosticSectionTitle(tr("Device Setup Checklist", "Checklist Setup Perangkat"))
+        AdminHealthLine(
+            label = tr("Vendor", "Vendor"),
+            value = vendorChecklist.displayName
+        )
+        AdminHealthLine(
+            label = tr("Compatibility", "Kompatibilitas"),
+            value = "${deviceCompatibilityProfile.family.name} | ${deviceCompatibilityProfile.model}"
+        )
+        vendorChecklist.items.forEach { item ->
+            Column(verticalArrangement = Arrangement.spacedBy(2.dp)) {
+                Text(
+                    text = item.title,
+                    color = AppColors.current.textPrimary,
+                    style = AppTextStyles.bodyCompact.copy(fontWeight = FontWeight.SemiBold)
+                )
+                Text(
+                    text = item.detail,
+                    color = AppColors.current.textSecondary,
+                    style = AppTextStyles.diagnostic
+                )
+            }
+        }
+        Row(
+            modifier = Modifier.fillMaxWidth(),
+            horizontalArrangement = Arrangement.spacedBy(8.dp)
+        ) {
+            AdminLinkButton(tr("Battery", "Baterai"), onOpenBatterySettings, Modifier.weight(1f))
+            AdminLinkButton(tr("Location", "Lokasi"), onOpenLocationSettings, Modifier.weight(1f))
+            AdminLinkButton(tr("Floating Apps", "Floating App"), onOpenOverlaySettings, Modifier.weight(1f))
+        }
+        AdminLinkButton(
+            tr("Open App Settings", "Buka Setelan Aplikasi"),
+            onOpenAppSettings,
+            Modifier.fillMaxWidth()
+        )
+    }
+}
+
+@Composable
+private fun AdminLinkButton(label: String, onClick: () -> Unit, modifier: Modifier = Modifier) {
+    TextButton(
+        onClick = onClick,
+        modifier = modifier.heightIn(min = ScopedUiTokens.current.touchTarget)
+    ) {
+        Text(
+            text = label,
+            color = AppColors.current.brandText,
+            style = AppTextStyles.button,
+            textAlign = TextAlign.Center,
+            maxLines = 2
+        )
     }
 }
 
@@ -398,16 +338,6 @@ private fun AdminDiagnosticDivider() {
             .height(1.dp)
             .background(AppColors.current.outline.copy(alpha = 0.8f))
     )
-}
-
-@Composable
-private fun adminReadinessVerdictColor(verdict: AdminReadinessVerdict): Color {
-    return when (verdict) {
-        AdminReadinessVerdict.NotRun -> AppColors.current.blue
-        AdminReadinessVerdict.Ready -> AppColors.current.safeEmphasis
-        AdminReadinessVerdict.NeedsSetup -> AppColors.current.goldDark
-        AdminReadinessVerdict.Blocked -> AppColors.current.dialogDangerIcon
-    }
 }
 
 @Composable

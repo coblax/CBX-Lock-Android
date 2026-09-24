@@ -16,7 +16,6 @@ import androidx.activity.compose.BackHandler
 import androidx.compose.foundation.background
 import androidx.compose.foundation.border
 import androidx.compose.foundation.BorderStroke
-import androidx.compose.foundation.Image
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
@@ -30,26 +29,25 @@ import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.statusBarsPadding
 import androidx.compose.foundation.layout.width
+import androidx.compose.foundation.layout.heightIn
+import androidx.compose.foundation.layout.widthIn
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.icons.automirrored.rounded.Send
 import androidx.compose.material.icons.Icons
-import androidx.compose.material.icons.rounded.Language
+import androidx.compose.material.icons.rounded.EditNote
 import androidx.compose.material.icons.rounded.Refresh
-import androidx.compose.material3.AlertDialog
-import androidx.compose.material3.Button
 import androidx.compose.material3.ButtonDefaults
-import androidx.compose.material3.Checkbox
 import androidx.compose.material3.CircularProgressIndicator
 import androidx.compose.material3.Icon
-import androidx.compose.material3.Surface
-import androidx.compose.material3.Switch
+import androidx.compose.material3.IconButton
+import androidx.compose.material3.OutlinedButton
 import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
-import androidx.compose.material3.MaterialTheme
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.getValue
+import androidx.compose.runtime.key
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.mutableIntStateOf
 import androidx.compose.runtime.mutableLongStateOf
@@ -61,16 +59,11 @@ import androidx.compose.runtime.saveable.Saver
 import androidx.compose.runtime.setValue
 import androidx.compose.runtime.SideEffect
 import androidx.compose.ui.Alignment
-import androidx.compose.ui.draw.clip
-import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.input.KeyboardType
 import androidx.compose.ui.unit.dp
-import androidx.compose.ui.unit.sp
-import androidx.compose.ui.window.Dialog
-import androidx.webkit.WebViewCompat
 
 import com.coblax.examlock.AdbBypassResolver
 import com.coblax.examlock.AppSwitchBypassResolver
@@ -155,9 +148,16 @@ import com.coblax.examlock.ui.geofence.effectiveCircleCenters
 import com.coblax.examlock.ui.LocalTelegramDiagnosticsEnabled
 import com.coblax.examlock.ui.theme.AppColors
 import com.coblax.examlock.ui.theme.UpgradeUiScope
+import com.coblax.examlock.ui.theme.AppTextStyles
+import com.coblax.examlock.ui.theme.ScopedUiTokens
+import com.coblax.examlock.ui.theme.StatusBadge
+import com.coblax.examlock.ui.theme.StatusBanner as UiStatusBanner
+import com.coblax.examlock.ui.theme.UiStatusTone
+import com.coblax.examlock.ui.dialog.AppAlertAction
+import com.coblax.examlock.ui.dialog.AppAlertDialog
+import com.coblax.examlock.ui.dialog.AppAlertStyle
 import com.coblax.examlock.WebViewCompatibilityStatus
 import com.coblax.examlock.WebViewHealthSeverity
-import com.coblax.examlock.ui.theme.UiTokens
 
 import java.net.URL
 import java.util.Date
@@ -340,11 +340,6 @@ internal fun SecretAdminScreen(
             settings.effectiveExamUserAgent()
         }
     }
-    val usesDefaultExamUserAgent = remember(settings.examUserAgent) {
-        debugMeasureSecretAdminWork("usesDefaultExamUserAgent") {
-            settings.usesDefaultExamUserAgent()
-        }
-    }
     val deviceTimeBaseline = remember(
         deviceTimeBaselineWallClockMillis,
         deviceTimeBaselineElapsedRealtimeMillis
@@ -353,13 +348,6 @@ internal fun SecretAdminScreen(
             wallClockMillis = deviceTimeBaselineWallClockMillis,
             elapsedRealtimeMillis = deviceTimeBaselineElapsedRealtimeMillis
         )
-    }
-    val examUserAgentSourceLabel = remember(usesDefaultExamUserAgent, uiLanguage) {
-        if (usesDefaultExamUserAgent) {
-            localized(uiLanguage, "Default", "Default")
-        } else {
-            localized(uiLanguage, "Custom", "Custom")
-        }
     }
     val overridesActive = remember(
         draftAdminSettings
@@ -859,13 +847,12 @@ internal fun SecretAdminScreen(
     }
 
     val selectedSecretAdminTab = remember(selectedTabName) {
-        debugMeasureSecretAdminWork("selectedSecretAdminTab") {
-            runCatching {
-                SecretAdminTab.valueOf(selectedTabName)
-            }.getOrDefault(SecretAdminTab.Setup)
-        }
+        resolveSecretAdminTab(selectedTabName)
     }
-    val scrollState = rememberScrollState()
+    val activeOverrideCount = remember(draftAdminSettings) {
+        activeSecurityOverrideCount(draftAdminSettings)
+    }
+    val showApplyBar = adminSettingsDirty || isApplyInProgress || !applyStatusMessage.isNullOrBlank()
 
     DebugSecretAdminRecomposeTrace(selectedSecretAdminTab)
 
@@ -874,814 +861,219 @@ internal fun SecretAdminScreen(
         modifier = modifier
             .fillMaxSize()
             .background(AppColors.current.background)
-            .statusBarsPadding()
-            .navigationBarsPadding()
-            .padding(horizontal = 20.dp, vertical = 14.dp)
     ) {
-        Row(
-            modifier = Modifier.fillMaxWidth(),
-            horizontalArrangement = Arrangement.SpaceBetween,
-            verticalAlignment = Alignment.CenterVertically
-        ) {
-            BackPillButton(onClick = { requestBack() })
-
-            Surface(
-                shape = RoundedCornerShape(UiTokens.RadiusPill),
-                color = AppColors.current.brandText
-            ) {
-                Text(
-                    text = "ADMIN",
-                    color = AppColors.current.onDark,
-                    fontSize = 10.sp,
-                    fontWeight = FontWeight.ExtraBold,
-                    letterSpacing = 0.8.sp,
-                    modifier = Modifier.padding(horizontal = 10.dp, vertical = 5.dp)
-                )
-            }
-        }
-
-        Spacer(modifier = Modifier.height(14.dp))
-
-        Text(
-            text = tr("Secret Admin", "Admin Rahasia"),
-            color = AppColors.current.textPrimary,
-            fontSize = 24.sp,
-            fontWeight = FontWeight.Black
-        )
-
-        Spacer(modifier = Modifier.height(4.dp))
-
-        Text(
-            text = tr(
-                "Setup, security, location, diagnostics, and overrides",
-                "Setup, keamanan, lokasi, diagnostik, dan override"
-            ),
-            color = AppColors.current.textSecondary,
-            fontSize = 13.sp
-        )
-
-        if (settings.bypassMigrationResetNotice) {
-            Spacer(modifier = Modifier.height(14.dp))
-            StatusBanner(
-                message = tr(
-                    "Security storage was upgraded. Existing bypasses were reset to safe OFF and must be re-enabled manually.",
-                    "Penyimpanan keamanan telah ditingkatkan. Semua bypass lama direset ke OFF aman dan harus diaktifkan ulang secara manual."
-                ),
-                isError = false
-            )
-        }
-
-        Spacer(modifier = Modifier.height(16.dp))
-
-        SecretAdminTabSelector(
-            selectedTab = selectedSecretAdminTab,
-            onTabSelected = { onSelectedTabNameChange(it.name) }
-        )
-
-        Spacer(modifier = Modifier.height(16.dp))
-
         Column(
             modifier = Modifier
                 .fillMaxWidth()
-                .weight(1f)
-                .verticalScroll(scrollState)
+                .statusBarsPadding()
+                .padding(start = 16.dp, end = 16.dp, top = 4.dp, bottom = 8.dp),
+            horizontalAlignment = Alignment.CenterHorizontally,
+            verticalArrangement = Arrangement.spacedBy(8.dp)
         ) {
-            if (selectedSecretAdminTab == SecretAdminTab.Setup) {
+            val barModifier = Modifier
+                .widthIn(max = SecretAdminContentMaxWidth)
+                .fillMaxWidth()
+            SecretAdminTopBar(
+                subtitle = examName.ifBlank {
+                    tr("Exam device settings", "Pengaturan perangkat ujian")
+                },
+                activeOverrideCount = activeOverrideCount,
+                onBack = { requestBack() },
+                modifier = barModifier
+            )
+            SecretAdminTabs(
+                selected = selectedSecretAdminTab,
+                activeOverrideCount = activeOverrideCount,
+                onSelect = { onSelectedTabNameChange(it.name) },
+                modifier = barModifier
+            )
+        }
 
+        // Each tab starts at its top instead of inheriting the last tab's scroll offset.
+        key(selectedSecretAdminTab) {
+            Column(
+                modifier = Modifier
+                    .weight(1f)
+                    .fillMaxWidth()
+                    .verticalScroll(rememberScrollState())
+                    .padding(start = 16.dp, end = 16.dp, top = 8.dp, bottom = 24.dp)
+                    .then(if (showApplyBar) Modifier else Modifier.navigationBarsPadding()),
+                horizontalAlignment = Alignment.CenterHorizontally
+            ) {
                 Column(
                     modifier = Modifier
-                        .fillMaxWidth()
-                        .clip(RoundedCornerShape(UiTokens.RadiusLg))
-                        .background(MaterialTheme.colorScheme.surface)
-                        .border(1.dp, AppColors.current.outlineStrong, RoundedCornerShape(UiTokens.RadiusLg))
-                        .padding(horizontal = 16.dp, vertical = 16.dp),
-                    verticalArrangement = Arrangement.spacedBy(12.dp)
+                        .widthIn(max = SecretAdminContentMaxWidth)
+                        .fillMaxWidth(),
+                    verticalArrangement = Arrangement.spacedBy(16.dp)
                 ) {
-                Text(
-                    text = tr("Direct Link", "Direct Link"),
-                    color = AppColors.current.textPrimary,
-                    fontSize = 17.sp,
-                    fontWeight = FontWeight.Bold
-                )
-                AdminInputField(
-                    value = draftAdminSettings.fastExamUrl,
-                    onValueChange = {
-                        updateDraftSettings(
-                            draftAdminSettings
-                                .copy(fastExamUrl = it)
-                                .withoutDirectLinkLocationPolicy()
-                        )
-                    },
-                    placeholder = tr("Direct link URL", "URL Direct Link"),
-                    keyboardType = KeyboardType.Uri
-                )
-                AdminInputField(
-                    value = draftAdminSettings.fastExamLabel,
-                    onValueChange = {
-                        updateDraftSettings(draftAdminSettings.copy(fastExamLabel = it))
-                    },
-                    placeholder = tr("Direct link label", "Label Direct Link")
-                )
-                Text(
-                    text = directLinkPolicySummary,
-                    color = AppColors.current.textSecondary,
-                    fontSize = 12.sp,
-                    lineHeight = 16.sp
-                )
-                Text(
-                    text = tr("Official APK URL", "URL APK Resmi"),
-                    color = AppColors.current.textPrimary,
-                    fontSize = 14.sp,
-                    fontWeight = FontWeight.SemiBold
-                )
-                AdminInputField(
-                    value = draftAdminSettings.officialApkUrl,
-                    onValueChange = {
-                        updateDraftSettings(draftAdminSettings.copy(officialApkUrl = it))
-                    },
-                    placeholder = tr("Official APK download URL", "URL unduhan APK resmi"),
-                    keyboardType = KeyboardType.Uri
-                )
-                Text(
-                    text = tr("WebView User-Agent", "User-Agent WebView"),
-                    color = AppColors.current.textPrimary,
-                    fontSize = 14.sp,
-                    fontWeight = FontWeight.SemiBold
-                )
-                AdminInputField(
-                    value = draftAdminSettings.examUserAgent,
-                    onValueChange = {
-                        updateDraftSettings(draftAdminSettings.copy(examUserAgent = it))
-                    },
-                    placeholder = DefaultExamUserAgent
-                )
-                Text(
-                    text = localized(
-                        uiLanguage,
-                        "Used by the internal exam browser. Leave blank to reset to $DefaultExamUserAgent.",
-                        "Dipakai oleh browser ujian internal. Kosongkan untuk kembali ke $DefaultExamUserAgent."
-                    ),
-                    color = AppColors.current.textSecondary,
-                    fontSize = 12.sp,
-                    lineHeight = 16.sp
-                )
-                Row(
-                    modifier = Modifier.fillMaxWidth(),
-                    horizontalArrangement = Arrangement.SpaceBetween,
-                    verticalAlignment = Alignment.CenterVertically
-                ) {
-                    Text(
-                        text = tr("Active User-Agent", "User-Agent Aktif"),
-                        color = AppColors.current.textMuted,
-                        fontSize = 12.sp
-                    )
-                    Text(
-                        text = draftAdminSettings.effectiveExamUserAgent(),
-                        color = AppColors.current.textPrimary,
-                        fontSize = 12.sp,
-                        fontWeight = FontWeight.SemiBold
-                    )
-                }
-                Row(
-                    modifier = Modifier.fillMaxWidth(),
-                    horizontalArrangement = Arrangement.SpaceBetween,
-                    verticalAlignment = Alignment.CenterVertically
-                ) {
-                    Text(
-                        text = tr("User-Agent source", "Sumber User-Agent"),
-                        color = AppColors.current.textMuted,
-                        fontSize = 12.sp
-                    )
-                    Text(
-                        text = if (draftAdminSettings.usesDefaultExamUserAgent()) {
-                            tr("Default", "Default")
-                        } else {
-                            tr("Custom", "Custom")
-                        },
-                        color = AppColors.current.textPrimary,
-                        fontSize = 12.sp,
-                        fontWeight = FontWeight.SemiBold
-                    )
-                }
-                AdminToggleRow(
-                    title = tr(
-                        "Enable Save to Direct Link in Custom QR",
-                        "Aktifkan Simpan ke Direct Link di Custom QR"
-                    ),
-                    description = tr(
-                        "Show the save-to-direct-link checkbox on Custom QR.",
-                        "Tampilkan checkbox simpan ke Direct Link di Custom QR."
-                    ),
-                    checked = draftAdminSettings.customQrSaveToDirectLinkEnabled,
-                    onCheckedChange = {
-                        updateDraftSettings(
-                            draftAdminSettings.copy(customQrSaveToDirectLinkEnabled = it)
+                    if (settings.bypassMigrationResetNotice) {
+                        UiStatusBanner(
+                            message = tr(
+                                "Security storage was upgraded. Existing bypasses were reset to safe OFF and must be re-enabled manually.",
+                                "Penyimpanan keamanan telah ditingkatkan. Semua bypass lama direset ke OFF aman dan harus diaktifkan ulang secara manual."
+                            ),
+                            tone = UiStatusTone.Info
                         )
                     }
-                )
-                Row(
-                    modifier = Modifier.fillMaxWidth(),
-                    horizontalArrangement = Arrangement.End
-                ) {
-                    TextButton(
-                        onClick = {
-                            updateDraftSettings(
-                                draftAdminSettings.copy(
-                                    fastExamUrl = SecureStrings.fastExamUrl,
-                                    fastExamLabel = FastExamName
-                                ).withoutDirectLinkLocationPolicy()
+                    when (selectedSecretAdminTab) {
+                        SecretAdminTab.Setup,
+                        SecretAdminTab.Location -> SecretAdminSetupTab(
+                            draft = draftAdminSettings,
+                            directLinkPolicySummary = directLinkPolicySummary,
+                            onDraftChange = { updateDraftSettings(it) }
+                        )
+                        SecretAdminTab.Security -> SecretAdminSecurityTab(
+                            draft = draftAdminSettings,
+                            healthChecking = healthChecking,
+                            integritySummary = healthIntegritySummary,
+                            reverseDetected = healthReverseDetected,
+                            deviceTimeLabel = healthDeviceTimeLabel,
+                            deviceTimeStatus = healthDeviceTimeStatus,
+                            lastCheckedAt = healthLastCheckedAt,
+                            sendEnabled = !healthChecking && !sendingSecurityHealthReport &&
+                                healthIntegrityResult != null && healthReverseResult != null,
+                            sending = sendingSecurityHealthReport,
+                            onRefresh = { coroutineScope.launch { refreshSecurityHealth() } },
+                            onSendReport = { pendingSecurityHealthReport = true },
+                            onDraftChange = { updateDraftSettings(it) }
+                        )
+                        SecretAdminTab.Overrides -> SecretAdminSecurityOverridesCard(
+                            settings = draftAdminSettings,
+                            overridesActive = overridesActive,
+                            onSettingsChange = { updated -> updateDraftSettings(updated) }
+                        )
+                        SecretAdminTab.Diagnostics -> {
+                            AdminReadinessSummaryCard(
+                                summary = adminReadinessSummary,
+                                fieldReadinessRunning = fieldReadinessRunning,
+                                webViewStatus = adminWebViewCompatibilityStatus,
+                                onRunCheck = { runFieldReadinessTest() },
+                                onOpenWebViewSettings = { openAdminWebViewProviderSettings() },
+                                onOpenAdvanced = { advancedDiagnosticsExpanded = true }
                             )
-                        }
-                    ) {
-                        Text(tr("Reset to default", "Reset ke default"), color = AppColors.current.blue)
-                    }
-                }
-        }
-
-        Spacer(modifier = Modifier.height(18.dp))
-            }
-
-            if (selectedSecretAdminTab == SecretAdminTab.Location) {
-                Surface(
-                    modifier = Modifier.fillMaxWidth(),
-                    shape = RoundedCornerShape(UiTokens.RadiusLg),
-                    color = MaterialTheme.colorScheme.surface,
-                    border = BorderStroke(1.dp, AppColors.current.outlineStrong)
-                ) {
-                    Column(
-                        modifier = Modifier.padding(horizontal = 16.dp, vertical = 16.dp),
-                        verticalArrangement = Arrangement.spacedBy(12.dp)
-                    ) {
-                        Text(
-                            text = tr("Direct Link Location", "Lokasi Direct Link"),
-                            color = AppColors.current.textPrimary,
-                            fontSize = 18.sp,
-                            fontWeight = FontWeight.Bold
-                        )
-                        Surface(
-                            modifier = Modifier.fillMaxWidth(),
-                            shape = RoundedCornerShape(UiTokens.RadiusSm),
-                            color = if (draftAdminSettings.directLinkLocationPolicySaved) {
-                                AppColors.current.statusSafeFill
-                            } else {
-                                AppColors.current.surfaceSoft
-                            },
-                            border = BorderStroke(
-                                1.dp,
-                                if (draftAdminSettings.directLinkLocationPolicySaved) {
-                                    AppColors.current.statusSafe.copy(alpha = 0.35f)
-                                } else {
-                                    AppColors.current.outline
+                            AdminAdvancedDiagnosticsCard(
+                                expanded = advancedDiagnosticsExpanded,
+                                onToggleExpanded = {
+                                    advancedDiagnosticsExpanded = !advancedDiagnosticsExpanded
+                                    if (advancedDiagnosticsExpanded) {
+                                        Log.i(
+                                            "ExamRuntimeHardening",
+                                            "code=${ExamRuntimeHardeningDiagnostics.VendorChecklistOpened} level=INFO details=vendor=${vendorChecklist.family.name}"
+                                        )
+                                    }
+                                },
+                                report = fieldReadinessReport,
+                                survivalPolicy = fieldSurvivalPolicy,
+                                webViewStatus = adminWebViewCompatibilityStatus,
+                                vendorChecklist = vendorChecklist,
+                                deviceCompatibilityProfile = deviceCompatibilityProfile,
+                                onRefreshWebView = { adminWebViewRefreshKey += 1 },
+                                onOpenWebViewSettings = { openAdminWebViewProviderSettings() },
+                                onOpenBatterySettings = { openSettingsIntent(Settings.ACTION_BATTERY_SAVER_SETTINGS) },
+                                onOpenLocationSettings = { openSettingsIntent(Settings.ACTION_LOCATION_SOURCE_SETTINGS) },
+                                onOpenOverlaySettings = { openOverlaySettings(context) },
+                                onOpenAppSettings = {
+                                    launchFirstPlatformIntentSafely(
+                                        context,
+                                        listOf(
+                                            Intent(
+                                                Settings.ACTION_APPLICATION_DETAILS_SETTINGS,
+                                                Uri.parse("package:${context.packageName}")
+                                            ),
+                                            Intent(Settings.ACTION_SETTINGS)
+                                        )
+                                    )
                                 }
                             )
-                        ) {
-                            Column(
-                                modifier = Modifier.padding(horizontal = 14.dp, vertical = 12.dp),
-                                verticalArrangement = Arrangement.spacedBy(6.dp)
-                            ) {
-                                Text(
-                                    text = if (draftAdminSettings.directLinkLocationPolicySaved) {
-                                        tr("POLICY SAVED", "POLICY TERSIMPAN")
-                                    } else {
-                                        tr("NO SAVED POLICY", "BELUM ADA POLICY")
-                                    },
-                                    color = if (draftAdminSettings.directLinkLocationPolicySaved) {
-                                        AppColors.current.statusSafe
-                                    } else {
-                                        AppColors.current.textMuted
-                                    },
-                                    fontSize = 11.sp,
-                                    fontWeight = FontWeight.ExtraBold
-                                )
-                                Text(
-                                    text = directLinkPolicySummary,
-                                    color = AppColors.current.textSecondary,
-                                    fontSize = 13.sp,
-                                    lineHeight = 18.sp
-                                )
-                            }
-                        }
-                        Text(
-                            text = tr(
-                                "Location policy is copied only from a confirmed Custom QR. Resetting it does not change the exam URL.",
-                                "Policy lokasi hanya disalin dari Custom QR yang dikonfirmasi. Reset tidak mengubah URL ujian."
-                            ),
-                            color = AppColors.current.textSecondary,
-                            fontSize = 13.sp,
-                            lineHeight = 18.sp
-                        )
-                        Button(
-                            onClick = {
-                                updateDraftSettings(
-                                    draftAdminSettings.withoutDirectLinkLocationPolicy()
-                                )
-                            },
-                            enabled = draftAdminSettings.directLinkLocationPolicySaved,
-                            modifier = Modifier.fillMaxWidth(),
-                            shape = RoundedCornerShape(UiTokens.RadiusMd),
-                            colors = ButtonDefaults.buttonColors(
-                                containerColor = AppColors.current.blue,
-                                contentColor = AppColors.current.onDark
-                            )
-                        ) {
-                            Text(
-                                text = tr("Reset location policy", "Reset policy lokasi"),
-                                fontWeight = FontWeight.Bold
-                            )
-                        }
-                    }
-                }
-
-                Spacer(modifier = Modifier.height(18.dp))
-            }
-
-            if (selectedSecretAdminTab == SecretAdminTab.Diagnostics) {
-        AdminReadinessSummaryCard(
-            summary = adminReadinessSummary,
-            fieldReadinessRunning = fieldReadinessRunning,
-            webViewStatus = adminWebViewCompatibilityStatus,
-            onRunCheck = { runFieldReadinessTest() },
-            onOpenWebViewSettings = { openAdminWebViewProviderSettings() },
-            onOpenAdvanced = { advancedDiagnosticsExpanded = true }
-        )
-
-        Spacer(modifier = Modifier.height(18.dp))
-
-        AdminAdvancedDiagnosticsCard(
-            expanded = advancedDiagnosticsExpanded,
-            onToggleExpanded = {
-                advancedDiagnosticsExpanded = !advancedDiagnosticsExpanded
-                if (advancedDiagnosticsExpanded) {
-                    Log.i(
-                        "ExamRuntimeHardening",
-                        "code=${ExamRuntimeHardeningDiagnostics.VendorChecklistOpened} level=INFO details=vendor=${vendorChecklist.family.name}"
-                    )
-                }
-            },
-            report = fieldReadinessReport,
-            survivalPolicy = fieldSurvivalPolicy,
-            webViewStatus = adminWebViewCompatibilityStatus,
-            vendorChecklist = vendorChecklist,
-            deviceCompatibilityProfile = deviceCompatibilityProfile,
-            onRefreshWebView = { adminWebViewRefreshKey += 1 },
-            onOpenWebViewSettings = { openAdminWebViewProviderSettings() },
-            onOpenBatterySettings = { openSettingsIntent(Settings.ACTION_BATTERY_SAVER_SETTINGS) },
-            onOpenLocationSettings = { openSettingsIntent(Settings.ACTION_LOCATION_SOURCE_SETTINGS) },
-            onOpenOverlaySettings = { openOverlaySettings(context) },
-            onOpenAppSettings = {
-                launchFirstPlatformIntentSafely(
-                    context,
-                    listOf(
-                        Intent(
-                            Settings.ACTION_APPLICATION_DETAILS_SETTINGS,
-                            Uri.parse("package:${context.packageName}")
-                        ),
-                        Intent(Settings.ACTION_SETTINGS)
-                    )
-                )
-            }
-        )
-
-        Spacer(modifier = Modifier.height(18.dp))
-            }
-
-            if (selectedSecretAdminTab == SecretAdminTab.Overrides) {
-                SecretAdminSecurityOverridesCard(
-                    settings = draftAdminSettings,
-                    overridesActive = overridesActive,
-                    onSettingsChange = { updated -> updateDraftSettings(updated) }
-                )
-
-                Spacer(modifier = Modifier.height(18.dp))
-            }
-
-            if (selectedSecretAdminTab == SecretAdminTab.Security) {
-        Surface(
-            modifier = Modifier.fillMaxWidth(),
-            shape = RoundedCornerShape(22.dp),
-            color = AppColors.current.surfaceSoft,
-            border = BorderStroke(1.dp, AppColors.current.outline)
-        ) {
-            Column(
-                modifier = Modifier.padding(horizontal = 16.dp, vertical = 16.dp),
-                verticalArrangement = Arrangement.spacedBy(12.dp)
-            ) {
-                Text(
-                    text = tr("Checklist Details", "Detail Checklist"),
-                    color = AppColors.current.textPrimary,
-                    fontSize = 18.sp,
-                    fontWeight = FontWeight.Bold
-                )
-                AdminToggleRow(
-                    title = tr("Show Checklist Details", "Tampilkan Detail Checklist"),
-                    description = tr(
-                        "Show the full technical checks on the preparation checklist.",
-                        "Tampilkan detail teknis pemeriksaan di checklist persiapan."
-                    ),
-                    checked = draftAdminSettings.showChecklistDetails,
-                    onCheckedChange = {
-                        updateDraftSettings(draftAdminSettings.copy(showChecklistDetails = it))
-                    }
-                )
-                AdminToggleRow(
-                    title = tr("Telegram Diagnostics", "Diagnostik Telegram"),
-                    description = if (BuildConfig.REMOTE_DIAGNOSTICS_ENABLED) {
-                        tr(
-                            "Allow sending diagnostics to Telegram. When off, every " +
-                                "\"Send to Telegram\" button is hidden.",
-                            "Izinkan mengirim diagnostik ke Telegram. Jika nonaktif, semua " +
-                                "tombol \"Kirim ke Telegram\" disembunyikan."
-                        )
-                    } else {
-                        tr(
-                            "This build was compiled without Telegram diagnostics, so " +
-                                "sending is unavailable regardless of this switch.",
-                            "Build ini dikompilasi tanpa diagnostik Telegram, jadi " +
-                                "pengiriman tidak tersedia terlepas dari switch ini."
-                        )
-                    },
-                    checked = draftAdminSettings.telegramDiagnosticsEnabled,
-                    onCheckedChange = {
-                        updateDraftSettings(draftAdminSettings.copy(telegramDiagnosticsEnabled = it))
-                    }
-                )
-            }
-        }
-
-        Spacer(modifier = Modifier.height(18.dp))
-            }
-
-            if (selectedSecretAdminTab == SecretAdminTab.Security) {
-        Surface(
-            modifier = Modifier.fillMaxWidth(),
-            shape = RoundedCornerShape(22.dp),
-            color = AppColors.current.surfaceSoft,
-            border = BorderStroke(1.dp, AppColors.current.outline)
-        ) {
-            Column(
-                modifier = Modifier.padding(horizontal = 16.dp, vertical = 16.dp),
-                verticalArrangement = Arrangement.spacedBy(12.dp)
-            ) {
-                Row(
-                    modifier = Modifier.fillMaxWidth(),
-                    horizontalArrangement = Arrangement.SpaceBetween,
-                    verticalAlignment = Alignment.CenterVertically
-                ) {
-                    Text(
-                        text = tr("Security Health", "Kesehatan Keamanan"),
-                        color = AppColors.current.textPrimary,
-                        fontSize = 18.sp,
-                        fontWeight = FontWeight.Bold
-                    )
-                    if (healthChecking) {
-                        CircularProgressIndicator(
-                            modifier = Modifier.size(18.dp),
-                            strokeWidth = 2.dp,
-                            color = AppColors.current.blue
-                        )
-                    }
-                }
-
-                Row(
-                    modifier = Modifier.fillMaxWidth(),
-                    horizontalArrangement = Arrangement.SpaceBetween,
-                    verticalAlignment = Alignment.CenterVertically
-                ) {
-                    Text(
-                        text = "IntegrityGuard",
-                        color = AppColors.current.textMuted,
-                        fontSize = 12.sp
-                    )
-                    Text(
-                        text = healthIntegritySummary.ifBlank { "-" },
-                        color = AppColors.current.textPrimary,
-                        fontSize = 12.sp,
-                        fontWeight = FontWeight.SemiBold
-                    )
-                }
-
-                Row(
-                    modifier = Modifier.fillMaxWidth(),
-                    horizontalArrangement = Arrangement.SpaceBetween,
-                    verticalAlignment = Alignment.CenterVertically
-                ) {
-                    Text(
-                        text = "Reverse Engineering",
-                        color = AppColors.current.textMuted,
-                        fontSize = 12.sp
-                    )
-                    Text(
-                        text = if (healthReverseDetected) {
-                            tr("Detected", "Terdeteksi")
-                        } else {
-                            "OK"
-                        },
-                        color = if (healthReverseDetected) AppColors.current.dialogDangerIcon else AppColors.current.textPrimary,
-                        fontSize = 12.sp,
-                        fontWeight = FontWeight.SemiBold
-                    )
-                }
-
-                Row(
-                    modifier = Modifier.fillMaxWidth(),
-                    horizontalArrangement = Arrangement.SpaceBetween,
-                    verticalAlignment = Alignment.CenterVertically
-                ) {
-                    Text(
-                        text = tr("Device Time", "Waktu Perangkat"),
-                        color = AppColors.current.textMuted,
-                        fontSize = 12.sp
-                    )
-                    Text(
-                        text = healthDeviceTimeLabel,
-                        color = if (healthDeviceTimeStatus?.blocking == true) AppColors.current.dialogDangerIcon else AppColors.current.textPrimary,
-                        fontSize = 12.sp,
-                        fontWeight = FontWeight.SemiBold
-                    )
-                }
-
-                Row(
-                    modifier = Modifier.fillMaxWidth(),
-                    horizontalArrangement = Arrangement.SpaceBetween,
-                    verticalAlignment = Alignment.CenterVertically
-                ) {
-                    Text(
-                        text = tr("Last checked", "Terakhir dicek"),
-                        color = AppColors.current.textMuted,
-                        fontSize = 12.sp
-                    )
-                    Text(
-                        text = healthLastCheckedAt ?: "-",
-                        color = AppColors.current.textPrimary,
-                        fontSize = 12.sp,
-                        fontWeight = FontWeight.SemiBold
-                    )
-                }
-
-                Row(
-                    modifier = Modifier.fillMaxWidth(),
-                    horizontalArrangement = Arrangement.SpaceBetween,
-                    verticalAlignment = Alignment.CenterVertically
-                ) {
-                    Text(
-                        text = tr("Exam User-Agent", "User-Agent Ujian"),
-                        color = AppColors.current.textMuted,
-                        fontSize = 12.sp
-                    )
-                    Text(
-                        text = effectiveExamUserAgent,
-                        color = AppColors.current.textPrimary,
-                        fontSize = 12.sp,
-                        fontWeight = FontWeight.SemiBold
-                    )
-                }
-
-                Row(
-                    modifier = Modifier.fillMaxWidth(),
-                    horizontalArrangement = Arrangement.SpaceBetween,
-                    verticalAlignment = Alignment.CenterVertically
-                ) {
-                    Text(
-                        text = tr("User-Agent source", "Sumber User-Agent"),
-                        color = AppColors.current.textMuted,
-                        fontSize = 12.sp
-                    )
-                    Text(
-                        text = examUserAgentSourceLabel,
-                        color = AppColors.current.textPrimary,
-                        fontSize = 12.sp,
-                        fontWeight = FontWeight.SemiBold
-                    )
-                }
-
-                val securityHealthSendEnabled =
-                    !healthChecking && !sendingSecurityHealthReport &&
-                        healthIntegrityResult != null && healthReverseResult != null
-
-                Row(
-                    modifier = Modifier.fillMaxWidth(),
-                    horizontalArrangement = Arrangement.spacedBy(12.dp),
-                    verticalAlignment = Alignment.CenterVertically
-                ) {
-                    Button(
-                        onClick = { coroutineScope.launch { refreshSecurityHealth() } },
-                        enabled = !healthChecking,
-                        modifier = Modifier.weight(1f),
-                        shape = RoundedCornerShape(UiTokens.RadiusMd),
-                        colors = ButtonDefaults.buttonColors(
-                            containerColor = AppColors.current.blue,
-                            contentColor = AppColors.current.onDark
-                        )
-                    ) {
-                        Text(
-                            text = tr("Refresh", "Refresh"),
-                            fontWeight = FontWeight.Bold
-                        )
-                    }
-
-                    if (LocalTelegramDiagnosticsEnabled.current) {
-                        Button(
-                            onClick = { pendingSecurityHealthReport = true },
-                            enabled = securityHealthSendEnabled,
-                            modifier = Modifier.weight(1f),
-                            shape = RoundedCornerShape(UiTokens.RadiusMd),
-                            colors = ButtonDefaults.buttonColors(
-                                containerColor = Color(0xFF2AABEE),
-                                contentColor = AppColors.current.onDark,
-                                disabledContainerColor = AppColors.current.telegramDisabled,
-                                disabledContentColor = AppColors.current.onDark.copy(alpha = 0.75f)
-                            )
-                        ) {
-                            if (sendingSecurityHealthReport) {
-                                CircularProgressIndicator(
-                                    modifier = Modifier.size(16.dp),
-                                    strokeWidth = 2.dp,
-                                    color = AppColors.current.onDark
-                                )
-                            } else {
-                                Icon(
-                                    imageVector = Icons.AutoMirrored.Rounded.Send,
-                                    contentDescription = tr(
-                                        "Send Security Health diagnostics to Telegram",
-                                        "Kirim diagnostik Security Health ke Telegram"
-                                    ),
-                                    modifier = Modifier.size(16.dp)
-                                )
-                                Spacer(modifier = Modifier.width(8.dp))
-                                Text(
-                                    text = "Telegram",
-                                    fontWeight = FontWeight.Bold
-                                )
-                            }
                         }
                     }
                 }
             }
         }
 
-        Spacer(modifier = Modifier.height(12.dp))
-            }
-        }
-
-        if (adminSettingsDirty || isApplyInProgress || !applyStatusMessage.isNullOrBlank()) {
-            Spacer(modifier = Modifier.height(10.dp))
-            Surface(
-                modifier = Modifier.fillMaxWidth(),
-                shape = RoundedCornerShape(UiTokens.RadiusMd),
-                color = MaterialTheme.colorScheme.surface,
-                border = BorderStroke(
-                    1.dp,
-                    if (applyStatusIsError) {
-                        AppColors.current.statusDanger.copy(alpha = 0.45f)
-                    } else {
-                        AppColors.current.outlineStrong
-                    }
-                )
-            ) {
-                Column(
-                    modifier = Modifier.padding(horizontal = 12.dp, vertical = 10.dp),
-                    verticalArrangement = Arrangement.spacedBy(8.dp)
-                ) {
-                    Text(
-                        text = applyStatusMessage ?: when {
-                            isApplyInProgress -> tr(
-                                "Applying settings…",
-                                "Menerapkan pengaturan…"
-                            )
-                            else -> tr(
-                                "You have unapplied changes.",
-                                "Ada perubahan yang belum diterapkan."
-                            )
-                        },
-                        color = if (applyStatusIsError) {
-                            AppColors.current.statusDanger
-                        } else {
-                            AppColors.current.textSecondary
-                        },
-                        fontSize = 12.sp,
-                        lineHeight = 16.sp
+        if (showApplyBar) {
+            SecretAdminApplyBar(
+                message = applyStatusMessage ?: when {
+                    isApplyInProgress -> tr("Applying settings…", "Menerapkan pengaturan…")
+                    else -> tr(
+                        "Changes are not applied yet.",
+                        "Perubahan belum diterapkan."
                     )
-                    Row(
-                        modifier = Modifier.fillMaxWidth(),
-                        horizontalArrangement = Arrangement.spacedBy(8.dp),
-                        verticalAlignment = Alignment.CenterVertically
-                    ) {
-                        TextButton(
-                            onClick = { revertDraftSettings() },
-                            enabled = adminSettingsDirty && !isApplyInProgress,
-                            modifier = Modifier.weight(1f)
-                        ) {
-                            Text(
-                                text = tr("Revert", "Batalkan perubahan"),
-                                fontWeight = FontWeight.Bold
-                            )
-                        }
-                        Button(
-                            onClick = { applyDraftSettings() },
-                            enabled = adminSettingsDirty && !isApplyInProgress,
-                            modifier = Modifier.weight(1f),
-                            shape = RoundedCornerShape(UiTokens.RadiusMd),
-                            colors = ButtonDefaults.buttonColors(
-                                containerColor = AppColors.current.blue,
-                                contentColor = AppColors.current.onDark
-                            )
-                        ) {
-                            if (isApplyInProgress) {
-                                CircularProgressIndicator(
-                                    modifier = Modifier.size(16.dp),
-                                    strokeWidth = 2.dp,
-                                    color = AppColors.current.onDark
-                                )
-                                Spacer(modifier = Modifier.width(8.dp))
-                            }
-                            Text(
-                                text = tr("Apply", "Terapkan"),
-                                fontWeight = FontWeight.Bold
-                            )
-                        }
-                    }
-                }
-            }
+                },
+                isError = applyStatusIsError,
+                canApply = adminSettingsDirty,
+                applying = isApplyInProgress,
+                onRevert = { revertDraftSettings() },
+                onApply = { applyDraftSettings() }
+            )
         }
     }
 
     if (pendingExitConfirmation) {
-        AlertDialog(
-            onDismissRequest = { pendingExitConfirmation = false },
-            title = {
-                Text(tr("Unapplied changes", "Perubahan belum diterapkan"))
-            },
-            text = {
-                Text(
-                    text = tr(
-                        "Apply your changes before leaving, discard them, or stay on this screen.",
-                        "Terapkan perubahan sebelum keluar, buang perubahan, atau tetap di layar ini."
-                    )
-                )
-            },
-            confirmButton = {
-                Button(
+        AppAlertDialog(
+            tone = UiStatusTone.Warning,
+            icon = Icons.Rounded.EditNote,
+            title = tr("Unapplied changes", "Perubahan belum diterapkan"),
+            message = tr(
+                "Apply your changes before leaving, discard them, or stay on this screen.",
+                "Terapkan perubahan sebelum keluar, buang perubahan, atau tetap di layar ini."
+            ),
+            primaryAction = AppAlertAction(
+                label = tr("Apply and leave", "Terapkan lalu keluar"),
+                enabled = adminSettingsDirty && !isApplyInProgress,
+                onClick = {
+                    pendingExitConfirmation = false
+                    applyDraftSettings(exitAfterApply = true)
+                }
+            ),
+            secondaryActions = listOf(
+                AppAlertAction(
+                    label = tr("Discard", "Buang perubahan"),
+                    enabled = !isApplyInProgress,
+                    style = AppAlertStyle.Destructive,
                     onClick = {
                         pendingExitConfirmation = false
-                        applyDraftSettings(exitAfterApply = true)
-                    },
-                    enabled = adminSettingsDirty && !isApplyInProgress
-                ) {
-                    Text(tr("Apply", "Terapkan"))
-                }
-            },
-            dismissButton = {
-                Row(horizontalArrangement = Arrangement.spacedBy(4.dp)) {
-                    TextButton(
-                        onClick = {
-                            pendingExitConfirmation = false
-                            exitAfterSuccessfulApply = false
-                            revertDraftSettings()
-                            onBack()
-                        },
-                        enabled = !isApplyInProgress
-                    ) {
-                        Text(tr("Discard", "Buang"))
+                        exitAfterSuccessfulApply = false
+                        revertDraftSettings()
+                        onBack()
                     }
-                    TextButton(onClick = { pendingExitConfirmation = false }) {
-                        Text(tr("Stay", "Tetap"))
-                    }
-                }
-            }
+                ),
+                AppAlertAction(
+                    label = tr("Stay", "Tetap di sini"),
+                    onClick = { pendingExitConfirmation = false }
+                )
+            ),
+            dismissible = true,
+            onDismissRequest = { pendingExitConfirmation = false }
         )
     }
 
     if (pendingSecurityHealthReport) {
         val sectionLabel = diagnosticSectionLabel(DiagnosticSection.SecurityHealth, uiLanguage)
-        AlertDialog(
-            onDismissRequest = { pendingSecurityHealthReport = false },
-            title = { Text(tr("Send diagnostics?", "Kirim diagnostik?")) },
-            text = {
-                Text(
-                    text = localized(
-                        uiLanguage,
-                        "Send diagnostics for $sectionLabel to Telegram?",
-                        "Kirim diagnostik $sectionLabel ke Telegram?"
-                    ),
-                    color = AppColors.current.textSecondary,
-                    fontSize = 14.sp
+        AppAlertDialog(
+            tone = UiStatusTone.Info,
+            icon = Icons.AutoMirrored.Rounded.Send,
+            title = tr("Send diagnostics?", "Kirim diagnostik?"),
+            message = localized(
+                uiLanguage,
+                "Send diagnostics for $sectionLabel to Telegram?",
+                "Kirim diagnostik $sectionLabel ke Telegram?"
+            ),
+            primaryAction = AppAlertAction(
+                label = tr("Send", "Kirim"),
+                onClick = {
+                    pendingSecurityHealthReport = false
+                    coroutineScope.launch { sendSecurityHealthReport() }
+                }
+            ),
+            secondaryActions = listOf(
+                AppAlertAction(
+                    label = tr("Cancel", "Batal"),
+                    onClick = { pendingSecurityHealthReport = false }
                 )
-            },
-            confirmButton = {
-                Button(
-                    onClick = {
-                        pendingSecurityHealthReport = false
-                        coroutineScope.launch { sendSecurityHealthReport() }
-                    }
-                ) {
-                    Text(tr("Send", "Kirim"), fontWeight = FontWeight.Bold)
-                }
-            },
-            dismissButton = {
-                TextButton(onClick = { pendingSecurityHealthReport = false }) {
-                    Text(tr("Cancel", "Batal"))
-                }
-            }
+            ),
+            dismissible = true,
+            onDismissRequest = { pendingSecurityHealthReport = false }
         )
     }
 
@@ -1695,5 +1087,263 @@ internal fun SecretAdminScreen(
             }
         )
     }
+    }
+}
+
+@Composable
+private fun SecretAdminSetupTab(
+    draft: AdminSettings,
+    directLinkPolicySummary: String,
+    onDraftChange: (AdminSettings) -> Unit
+) {
+    val policySaved = draft.directLinkLocationPolicySaved
+    SecretAdminSection(
+        title = tr("Direct Link", "Direct Link"),
+        trailing = {
+            TextButton(
+                onClick = {
+                    onDraftChange(
+                        draft.copy(
+                            fastExamUrl = SecureStrings.fastExamUrl,
+                            fastExamLabel = FastExamName
+                        ).withoutDirectLinkLocationPolicy()
+                    )
+                },
+                modifier = Modifier.heightIn(min = ScopedUiTokens.current.touchTarget)
+            ) {
+                Text(
+                    text = tr("Reset to default", "Reset ke default"),
+                    color = AppColors.current.brandText,
+                    style = AppTextStyles.button
+                )
+            }
+        }
+    ) {
+        SecretAdminTextField(
+            label = tr("Exam URL", "URL ujian"),
+            value = draft.fastExamUrl,
+            onValueChange = {
+                // A new URL invalidates the location policy saved for the old one.
+                onDraftChange(draft.copy(fastExamUrl = it).withoutDirectLinkLocationPolicy())
+            },
+            keyboardType = KeyboardType.Uri
+        )
+        SecretAdminTextField(
+            label = tr("Label", "Label"),
+            value = draft.fastExamLabel,
+            onValueChange = { onDraftChange(draft.copy(fastExamLabel = it)) }
+        )
+        Column(verticalArrangement = Arrangement.spacedBy(2.dp)) {
+            // Badge on the title line; the summary gets the full width below it.
+            Row(
+                modifier = Modifier.fillMaxWidth(),
+                horizontalArrangement = Arrangement.spacedBy(12.dp),
+                verticalAlignment = Alignment.CenterVertically
+            ) {
+                Text(
+                    text = tr("Location policy", "Policy lokasi"),
+                    modifier = Modifier.weight(1f),
+                    color = AppColors.current.textPrimary,
+                    style = AppTextStyles.bodyCompact.copy(fontWeight = FontWeight.SemiBold)
+                )
+                StatusBadge(
+                    label = if (policySaved) tr("Saved", "Tersimpan") else tr("None", "Belum ada"),
+                    tone = if (policySaved) UiStatusTone.Success else UiStatusTone.Neutral
+                )
+            }
+            Text(
+                text = directLinkPolicySummary,
+                color = AppColors.current.textSecondary,
+                style = AppTextStyles.diagnostic
+            )
+        }
+        SecretAdminNote(
+            text = tr(
+                "Copied only from a confirmed Custom QR. Changing the URL clears it.",
+                "Hanya disalin dari Custom QR yang dikonfirmasi. Mengubah URL akan menghapusnya."
+            )
+        )
+        if (policySaved) {
+            OutlinedButton(
+                onClick = { onDraftChange(draft.withoutDirectLinkLocationPolicy()) },
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .heightIn(min = ScopedUiTokens.current.touchTarget),
+                shape = RoundedCornerShape(ScopedUiTokens.current.radiusMedium),
+                colors = ButtonDefaults.outlinedButtonColors(contentColor = AppColors.current.brandText),
+                border = BorderStroke(1.dp, AppColors.current.outline)
+            ) {
+                Text(text = tr("Clear location policy", "Hapus policy lokasi"), style = AppTextStyles.button)
+            }
+        }
+    }
+
+    SecretAdminSection(title = tr("Custom QR", "Custom QR"), padded = false) {
+        SecretAdminSwitchRow(
+            title = tr("Save to Direct Link", "Simpan ke Direct Link"),
+            description = tr(
+                "Show the save-to-Direct-Link option on Custom QR.",
+                "Tampilkan pilihan simpan ke Direct Link di Custom QR."
+            ),
+            checked = draft.customQrSaveToDirectLinkEnabled,
+            onCheckedChange = { onDraftChange(draft.copy(customQrSaveToDirectLinkEnabled = it)) }
+        )
+    }
+
+    SecretAdminSection(title = tr("Exam browser & app", "Browser ujian & aplikasi")) {
+        SecretAdminTextField(
+            label = "User-Agent",
+            value = draft.examUserAgent,
+            onValueChange = { onDraftChange(draft.copy(examUserAgent = it)) },
+            placeholder = DefaultExamUserAgent,
+            supportingText = if (draft.usesDefaultExamUserAgent()) {
+                tr("Default: $DefaultExamUserAgent", "Default: $DefaultExamUserAgent")
+            } else {
+                tr(
+                    "Custom. Leave blank to go back to $DefaultExamUserAgent.",
+                    "Custom. Kosongkan untuk kembali ke $DefaultExamUserAgent."
+                )
+            }
+        )
+        SecretAdminTextField(
+            label = tr("Official APK URL", "URL APK resmi"),
+            value = draft.officialApkUrl,
+            onValueChange = { onDraftChange(draft.copy(officialApkUrl = it)) },
+            keyboardType = KeyboardType.Uri,
+            supportingText = tr(
+                "Opened by \"Install official APK\" when an unofficial app is detected.",
+                "Dibuka tombol \"Instal APK resmi\" saat aplikasi tidak resmi terdeteksi."
+            )
+        )
+    }
+}
+
+@Composable
+private fun SecretAdminSecurityTab(
+    draft: AdminSettings,
+    healthChecking: Boolean,
+    integritySummary: String,
+    reverseDetected: Boolean,
+    deviceTimeLabel: String,
+    deviceTimeStatus: DeviceTimeSecurityStatus?,
+    lastCheckedAt: String?,
+    sendEnabled: Boolean,
+    sending: Boolean,
+    onRefresh: () -> Unit,
+    onSendReport: () -> Unit,
+    onDraftChange: (AdminSettings) -> Unit
+) {
+    val tokens = ScopedUiTokens.current
+    SecretAdminSection(
+        title = tr("Security health", "Kesehatan keamanan"),
+        trailing = {
+            Box(
+                modifier = Modifier.size(tokens.touchTarget),
+                contentAlignment = Alignment.Center
+            ) {
+                if (healthChecking) {
+                    CircularProgressIndicator(
+                        modifier = Modifier.size(18.dp),
+                        strokeWidth = 2.dp,
+                        color = AppColors.current.brandText
+                    )
+                } else {
+                    IconButton(onClick = onRefresh, modifier = Modifier.size(tokens.touchTarget)) {
+                        Icon(
+                            imageVector = Icons.Rounded.Refresh,
+                            contentDescription = tr("Check again", "Cek ulang"),
+                            tint = AppColors.current.brandText
+                        )
+                    }
+                }
+            }
+        }
+    ) {
+        Column {
+            SecretAdminInfoRow(
+                label = "IntegrityGuard",
+                value = integritySummary,
+                tone = if (integritySummary == "OK") UiStatusTone.Success else UiStatusTone.Danger
+            )
+            SecretAdminInfoRow(
+                label = "Reverse engineering",
+                value = if (reverseDetected) tr("Detected", "Terdeteksi") else "OK",
+                tone = if (reverseDetected) UiStatusTone.Danger else UiStatusTone.Success
+            )
+            SecretAdminInfoRow(
+                label = tr("Device time", "Waktu perangkat"),
+                value = deviceTimeLabel,
+                tone = when {
+                    deviceTimeStatus == null -> UiStatusTone.Neutral
+                    deviceTimeStatus.blocking -> UiStatusTone.Danger
+                    deviceTimeStatus.bypassActive ||
+                        deviceTimeStatus.bypassState == DeviceTimeBypassState.Tampered -> UiStatusTone.Warning
+                    else -> UiStatusTone.Success
+                }
+            )
+        }
+        Text(
+            text = lastCheckedAt?.let { tr("Last checked $it", "Terakhir dicek $it") }
+                ?: tr("Not checked yet", "Belum dicek"),
+            color = AppColors.current.textMuted,
+            style = AppTextStyles.diagnostic
+        )
+        if (LocalTelegramDiagnosticsEnabled.current) {
+            OutlinedButton(
+                onClick = onSendReport,
+                enabled = sendEnabled,
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .heightIn(min = tokens.touchTarget),
+                shape = RoundedCornerShape(tokens.radiusMedium),
+                colors = ButtonDefaults.outlinedButtonColors(contentColor = AppColors.current.brandText),
+                border = BorderStroke(1.dp, AppColors.current.outline)
+            ) {
+                if (sending) {
+                    CircularProgressIndicator(
+                        modifier = Modifier.size(16.dp),
+                        strokeWidth = 2.dp,
+                        color = AppColors.current.brandText
+                    )
+                } else {
+                    Icon(
+                        imageVector = Icons.AutoMirrored.Rounded.Send,
+                        contentDescription = null,
+                        modifier = Modifier.size(16.dp)
+                    )
+                }
+                Spacer(modifier = Modifier.width(8.dp))
+                Text(text = tr("Send to Telegram", "Kirim ke Telegram"), style = AppTextStyles.button)
+            }
+        }
+    }
+
+    SecretAdminSection(title = tr("Preparation & reports", "Persiapan & laporan"), padded = false) {
+        SecretAdminSwitchRow(
+            title = tr("Technical checklist details", "Detail teknis checklist"),
+            description = tr(
+                "Show package names and raw values in each preparation category.",
+                "Tampilkan nama paket dan nilai mentah di detail kategori persiapan."
+            ),
+            checked = draft.showChecklistDetails,
+            onCheckedChange = { onDraftChange(draft.copy(showChecklistDetails = it)) }
+        )
+        SecretAdminRowDivider()
+        SecretAdminSwitchRow(
+            title = tr("Telegram diagnostics", "Diagnostik Telegram"),
+            description = if (BuildConfig.REMOTE_DIAGNOSTICS_ENABLED) {
+                tr(
+                    "When off, every \"Send to Telegram\" button is hidden.",
+                    "Jika mati, semua tombol \"Kirim ke Telegram\" disembunyikan."
+                )
+            } else {
+                tr(
+                    "This build has no Telegram diagnostics; sending stays unavailable.",
+                    "Build ini tanpa diagnostik Telegram; pengiriman tetap tidak tersedia."
+                )
+            },
+            checked = draft.telegramDiagnosticsEnabled,
+            onCheckedChange = { onDraftChange(draft.copy(telegramDiagnosticsEnabled = it)) }
+        )
     }
 }

@@ -13,9 +13,6 @@ import androidx.compose.foundation.layout.heightIn
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.size
-import androidx.compose.foundation.layout.widthIn
-import androidx.compose.foundation.lazy.LazyRow
-import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material3.Surface
@@ -37,7 +34,6 @@ import androidx.compose.ui.unit.sp
 
 import com.coblax.examlock.i18n.tr
 import com.coblax.examlock.model.CustomQrAdminTab
-import com.coblax.examlock.model.SecretAdminTab
 import com.coblax.examlock.ui.theme.AppColors
 import com.coblax.examlock.ui.theme.UiTokens
 
@@ -133,70 +129,6 @@ internal fun CustomQrAdminTabSelector(
                         )
                     }
                 }
-            }
-        }
-    }
-}
-
-@Composable
-internal fun SecretAdminTabSelector(
-    selectedTab: SecretAdminTab,
-    onTabSelected: (SecretAdminTab) -> Unit
-) {
-    val tabs = listOf(
-        SecretAdminTab.Setup to tr("Setup", "Setup"),
-        SecretAdminTab.Security to tr("Security", "Keamanan"),
-        SecretAdminTab.Location to tr("Location", "Lokasi"),
-        SecretAdminTab.Diagnostics to tr("Diagnostics", "Diagnostik"),
-        SecretAdminTab.Overrides to tr("Overrides", "Override")
-    )
-
-    LazyRow(
-        modifier = Modifier
-            .fillMaxWidth()
-            .clip(RoundedCornerShape(UiTokens.RadiusSm))
-            .background(AppColors.current.surfaceSoft)
-            .border(1.dp, AppColors.current.outlineStrong, RoundedCornerShape(UiTokens.RadiusSm))
-            .padding(3.dp),
-        horizontalArrangement = Arrangement.spacedBy(3.dp),
-        verticalAlignment = Alignment.CenterVertically
-    ) {
-        items(
-            items = tabs,
-            key = { (tab, _) -> tab.name }
-        ) { (tab, label) ->
-            val selected = tab == selectedTab
-            val tabStateDescription = if (selected) {
-                tr("Selected", "Dipilih")
-            } else {
-                tr("Not selected", "Tidak dipilih")
-            }
-            Box(
-                modifier = Modifier
-                    .widthIn(min = 96.dp)
-                    .heightIn(min = 48.dp)
-                    .clip(RoundedCornerShape(11.dp))
-                    .background(if (selected) AppColors.current.blue else Color.Transparent)
-                    .semantics {
-                        this.selected = selected
-                        stateDescription = tabStateDescription
-                    }
-                    .clickable(
-                        interactionSource = remember { MutableInteractionSource() },
-                        indication = null,
-                        role = Role.Tab,
-                        onClick = { onTabSelected(tab) }
-                    )
-                    .padding(horizontal = 14.dp, vertical = 12.dp),
-                contentAlignment = Alignment.Center
-            ) {
-                Text(
-                    text = label,
-                    color = if (selected) AppColors.current.onDark else AppColors.current.textSecondary,
-                    fontSize = 13.sp,
-                    fontWeight = FontWeight.Bold,
-                    textAlign = TextAlign.Center
-                )
             }
         }
     }

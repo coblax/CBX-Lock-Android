@@ -1,46 +1,36 @@
 package com.coblax.examlock.ui.admin
 
-import android.location.Location
-import android.net.Uri
-import android.provider.Settings
-import android.util.Log
-import androidx.compose.foundation.border
 import androidx.compose.foundation.BorderStroke
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.fillMaxWidth
-import androidx.compose.foundation.layout.padding
-import androidx.compose.foundation.layout.Row
-import androidx.compose.foundation.layout.size
-import androidx.compose.foundation.layout.width
+import androidx.compose.foundation.layout.heightIn
 import androidx.compose.foundation.shape.RoundedCornerShape
-import androidx.compose.material3.AlertDialog
-import androidx.compose.material3.Button
-import androidx.compose.material3.Surface
-import androidx.compose.material3.Switch
+import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.rounded.GppMaybe
+import androidx.compose.material3.OutlinedButton
+import androidx.compose.material3.ButtonDefaults
 import androidx.compose.material3.Text
-import androidx.compose.material3.TextButton
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
-import androidx.compose.ui.Alignment
-import androidx.compose.ui.draw.clip
-import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.platform.testTag
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
-import androidx.compose.ui.unit.sp
-
+import com.coblax.examlock.i18n.LocalUiLanguage
+import com.coblax.examlock.i18n.localized
 import com.coblax.examlock.i18n.tr
 import com.coblax.examlock.model.AdminSettings
-import com.coblax.examlock.R
+import com.coblax.examlock.model.UiLanguage
+import com.coblax.examlock.ui.dialog.AppAlertAction
+import com.coblax.examlock.ui.dialog.AppAlertDialog
 import com.coblax.examlock.ui.theme.AppColors
-import com.coblax.examlock.ui.theme.UiTokens
-import kotlin.coroutines.resume
-import kotlin.coroutines.resumeWithException
-import kotlin.math.roundToInt
+import com.coblax.examlock.ui.theme.AppTextStyles
+import com.coblax.examlock.ui.theme.ScopedUiTokens
+import com.coblax.examlock.ui.theme.UiStatusTone
 
 internal fun activeSecurityOverrideCount(settings: AdminSettings): Int {
     return listOf(
@@ -66,465 +56,340 @@ internal fun activeSecurityOverrideCount(settings: AdminSettings): Int {
     ).count { it }
 }
 
+/** Every bypass off. Turning bypasses off only makes the exam stricter, so no confirmation. */
+internal fun AdminSettings.withAllSecurityOverridesOff(): AdminSettings = copy(
+    bypassScreenPinning = false,
+    bypassBluetooth = false,
+    bypassAccessibility = false,
+    bypassAdb = false,
+    bypassRoot = false,
+    bypassReverseEngineering = false,
+    bypassApkIntegrity = false,
+    bypassVirtualEnvironment = false,
+    bypassVpn = false,
+    bypassKeyboardPolicy = false,
+    bypassClipboard = false,
+    bypassOverlay = false,
+    bypassGeofence = false,
+    bypassFakeLocation = false,
+    bypassDeviceTime = false,
+    bypassAppSwitch = false,
+    bypassScreenRecorder = false,
+    bypassDisplayMirror = false,
+    bypassMultiWindow = false
+)
+
+/** One bypass switch: how it reads, and how it maps onto [AdminSettings]. */
+internal data class SecurityOverrideItem(
+    val key: String,
+    val title: String,
+    val description: String,
+    val isOn: (AdminSettings) -> Boolean,
+    val set: (AdminSettings, Boolean) -> AdminSettings
+)
+
+internal data class SecurityOverrideGroup(
+    val title: String,
+    val items: List<SecurityOverrideItem>
+)
+
+/**
+ * The 19 bypasses, grouped by what they relax so the admin can find one without reading
+ * the whole list. Every switch appears exactly once (see SecretAdminOverridesTest).
+ */
+internal fun securityOverrideGroups(uiLanguage: UiLanguage, settings: AdminSettings): List<SecurityOverrideGroup> {
+    fun t(english: String, indonesian: String) = localized(uiLanguage, english, indonesian)
+    val tamperedNote = t(
+        "Bypass storage was tampered. Enforcement stays on until this is saved again.",
+        "Storage bypass dimanipulasi. Enforcement tetap aktif sampai ini disimpan ulang."
+    )
+    return listOf(
+        SecurityOverrideGroup(
+            title = t("Screen lock & apps", "Kunci layar & aplikasi"),
+            items = listOf(
+                SecurityOverrideItem(
+                    key = "screen_pinning",
+                    title = t("Screen pinning", "Screen pinning"),
+                    description = t("Skip lock task and the pin confirmation.", "Lewati lock task dan konfirmasi pin."),
+                    isOn = { it.bypassScreenPinning },
+                    set = { s, on -> s.copy(bypassScreenPinning = on) }
+                ),
+                SecurityOverrideItem(
+                    key = "app_switch",
+                    title = t("App switch alerts", "Peringatan pindah aplikasi"),
+                    description = t("No forced-exit alarm when switching apps.", "Tanpa alarm keluar paksa saat pindah aplikasi."),
+                    isOn = { it.bypassAppSwitch },
+                    set = { s, on -> s.copy(bypassAppSwitch = on) }
+                ),
+                SecurityOverrideItem(
+                    key = "multi_window",
+                    title = t("Split screen detection", "Deteksi split screen"),
+                    description = t("Allow split screen and picture-in-picture.", "Izinkan split screen dan picture-in-picture."),
+                    isOn = { it.bypassMultiWindow },
+                    set = { s, on -> s.copy(bypassMultiWindow = on) }
+                ),
+                SecurityOverrideItem(
+                    key = "overlay",
+                    title = t("Floating app detection", "Deteksi aplikasi melayang"),
+                    description = t("Ignore touches covered by other apps.", "Abaikan sentuhan yang tertutup aplikasi lain."),
+                    isOn = { it.bypassOverlay },
+                    set = { s, on -> s.copy(bypassOverlay = on) }
+                )
+            )
+        ),
+        SecurityOverrideGroup(
+            title = t("Device", "Perangkat"),
+            items = listOf(
+                SecurityOverrideItem(
+                    key = "bluetooth",
+                    title = t("Bluetooth check", "Cek Bluetooth"),
+                    description = t("Ignore Bluetooth permission and state.", "Abaikan izin dan status Bluetooth."),
+                    isOn = { it.bypassBluetooth },
+                    set = { s, on -> s.copy(bypassBluetooth = on) }
+                ),
+                SecurityOverrideItem(
+                    key = "keyboard",
+                    title = t("Keyboard policy", "Kebijakan keyboard"),
+                    description = t("Allow any system keyboard, no fallback.", "Izinkan keyboard apa pun tanpa fallback."),
+                    isOn = { it.bypassKeyboardPolicy },
+                    set = { s, on -> s.copy(bypassKeyboardPolicy = on) }
+                ),
+                SecurityOverrideItem(
+                    key = "accessibility",
+                    title = t("Accessibility check", "Cek aksesibilitas"),
+                    description = t("Ignore third-party accessibility services.", "Abaikan layanan aksesibilitas pihak ketiga."),
+                    isOn = { it.bypassAccessibility },
+                    set = { s, on -> s.copy(bypassAccessibility = on) }
+                ),
+                SecurityOverrideItem(
+                    key = "clipboard",
+                    title = t("Clipboard monitoring", "Pemantauan clipboard"),
+                    description = t("No alarm on clipboard changes.", "Tanpa alarm saat clipboard berubah."),
+                    isOn = { it.bypassClipboard },
+                    set = { s, on -> s.copy(bypassClipboard = on) }
+                ),
+                SecurityOverrideItem(
+                    key = "device_time",
+                    title = t("Device time", "Waktu perangkat"),
+                    description = t("Skip automatic date, time zone, and clock checks.", "Lewati cek tanggal, zona waktu, dan jam otomatis."),
+                    isOn = { it.bypassDeviceTime },
+                    set = { s, on -> s.copy(bypassDeviceTime = on) }
+                )
+            )
+        ),
+        SecurityOverrideGroup(
+            title = t("Device integrity", "Integritas perangkat"),
+            items = listOf(
+                SecurityOverrideItem(
+                    key = "adb",
+                    title = t("USB debugging (ADB)", "USB debugging (ADB)"),
+                    description = t("Ignore USB debugging checks.", "Abaikan pemeriksaan USB debugging."),
+                    isOn = { it.bypassAdb },
+                    set = { s, on -> s.copy(bypassAdb = on) }
+                ),
+                SecurityOverrideItem(
+                    key = "root",
+                    title = t("Root check", "Cek root"),
+                    description = t("Ignore rooted-device detection.", "Abaikan deteksi HP yang di-root."),
+                    isOn = { it.bypassRoot },
+                    set = { s, on -> s.copy(bypassRoot = on) }
+                ),
+                SecurityOverrideItem(
+                    key = "reverse_engineering",
+                    title = t("Reverse engineering", "Reverse engineering"),
+                    description = if (settings.reverseEngineeringBypassTampered) {
+                        tamperedNote
+                    } else {
+                        t(
+                            "Skip debugger and hooking enforcement. Still logged.",
+                            "Lewati enforcement debugger dan hooking. Tetap dicatat."
+                        )
+                    },
+                    isOn = { it.bypassReverseEngineering && !it.reverseEngineeringBypassTampered },
+                    set = { s, on -> s.copy(bypassReverseEngineering = on) }
+                ),
+                SecurityOverrideItem(
+                    key = "apk_integrity",
+                    title = t("APK integrity", "Integritas APK"),
+                    description = if (settings.apkIntegrityBypassTampered) {
+                        tamperedNote
+                    } else {
+                        t(
+                            "Skip signature and hash enforcement. Still logged.",
+                            "Lewati enforcement signature dan hash. Tetap dicatat."
+                        )
+                    },
+                    isOn = { it.bypassApkIntegrity && !it.apkIntegrityBypassTampered },
+                    set = { s, on -> s.copy(bypassApkIntegrity = on) }
+                ),
+                SecurityOverrideItem(
+                    key = "virtual_environment",
+                    title = t("Emulator detection", "Deteksi emulator"),
+                    description = t("Allow emulators and virtual machines.", "Izinkan emulator dan mesin virtual."),
+                    isOn = { it.bypassVirtualEnvironment },
+                    set = { s, on -> s.copy(bypassVirtualEnvironment = on) }
+                )
+            )
+        ),
+        SecurityOverrideGroup(
+            title = t("Network & location", "Jaringan & lokasi"),
+            items = listOf(
+                SecurityOverrideItem(
+                    key = "vpn",
+                    title = t("VPN detection", "Deteksi VPN"),
+                    description = t("Allow starting with a VPN on.", "Izinkan mulai ujian saat VPN aktif."),
+                    isOn = { it.bypassVpn },
+                    set = { s, on -> s.copy(bypassVpn = on) }
+                ),
+                SecurityOverrideItem(
+                    key = "geofence",
+                    title = t("Geofence", "Geofence"),
+                    description = t("Skip the exam-area position check.", "Lewati cek posisi area ujian."),
+                    isOn = { it.bypassGeofence },
+                    set = { s, on -> s.copy(bypassGeofence = on) }
+                ),
+                SecurityOverrideItem(
+                    key = "fake_location",
+                    title = t("Anti fake location", "Anti lokasi palsu"),
+                    description = t("Skip mock location and fake GPS checks.", "Lewati cek mock location dan GPS palsu."),
+                    isOn = { it.bypassFakeLocation },
+                    set = { s, on -> s.copy(bypassFakeLocation = on) }
+                )
+            )
+        ),
+        SecurityOverrideGroup(
+            title = t("Screen capture", "Rekam layar"),
+            items = listOf(
+                SecurityOverrideItem(
+                    key = "screen_recorder",
+                    title = t("Screen recorder detection", "Deteksi perekam layar"),
+                    description = t("Allow screen recorder apps.", "Izinkan aplikasi perekam layar."),
+                    isOn = { it.bypassScreenRecorder },
+                    set = { s, on -> s.copy(bypassScreenRecorder = on) }
+                ),
+                SecurityOverrideItem(
+                    key = "display_mirror",
+                    title = t("Cast / mirror detection", "Deteksi cast / mirror"),
+                    description = t("Allow external displays and casting.", "Izinkan layar eksternal dan casting."),
+                    isOn = { it.bypassDisplayMirror },
+                    set = { s, on -> s.copy(bypassDisplayMirror = on) }
+                )
+            )
+        )
+    )
+}
+
 @Composable
 internal fun SecretAdminSecurityOverridesCard(
     settings: AdminSettings,
     overridesActive: Boolean,
     onSettingsChange: (AdminSettings) -> Unit
 ) {
-        var pendingOverrideTitle by remember { mutableStateOf<String?>(null) }
-        var pendingOverrideSettings by remember { mutableStateOf<AdminSettings?>(null) }
-        val activeOverrideCount = remember(settings) {
-            activeSecurityOverrideCount(settings)
-        }
-        val screenPinningTitle = tr("Bypass Screen Pinning", "Bypass Screen Pinning")
-        val bluetoothTitle = tr("Bypass Bluetooth Checks", "Bypass Cek Bluetooth")
-        val accessibilityTitle = tr(
-            "Bypass Accessibility Checks",
-            "Bypass Cek Aksesibilitas"
-        )
-        val adbTitle = tr("Bypass ADB Checks", "Bypass Cek ADB")
-        val rootTitle = tr("Bypass Root Checks", "Bypass Cek Root")
-        val reverseEngineeringTitle = tr(
-            "Bypass Reverse Engineering Checks",
-            "Bypass Cek Reverse Engineering"
-        )
-        val apkIntegrityTitle = tr(
-            "Bypass APK Integrity Checks",
-            "Bypass Cek Integritas APK"
-        )
-        val virtualEnvironmentTitle = tr(
-            "Bypass Virtual Environment",
-            "Bypass Virtual Environment"
-        )
-        val vpnTitle = tr("Bypass VPN Detection", "Bypass Deteksi VPN")
-        val keyboardTitle = tr("Bypass Keyboard Policy", "Bypass Kebijakan Keyboard")
-        val clipboardTitle = tr(
-            "Bypass Clipboard Monitoring",
-            "Bypass Monitoring Clipboard"
-        )
-        val overlayTitle = tr("Bypass Overlay Detection", "Bypass Deteksi Overlay")
-        val geofenceTitle = tr("Bypass Geofence", "Bypass Geofence")
-        val fakeLocationTitle = tr(
-            "Bypass Anti-Fake-Location",
-            "Bypass Anti-Fake-Location"
-        )
-        val deviceTimeTitle = tr("Bypass Device Time", "Bypass Waktu Perangkat")
-        val appSwitchTitle = tr(
-            "Bypass App Switch Alerts",
-            "Bypass Peringatan App Switch"
-        )
-        val screenRecorderTitle = tr(
-            "Bypass Screen Recorder Detection",
-            "Bypass Deteksi Screen Recorder"
-        )
-        val displayMirrorTitle = tr(
-            "Bypass Display Mirror Detection",
-            "Bypass Deteksi Display Mirror"
-        )
-        val multiWindowTitle = tr(
-            "Bypass Multi-Window Detection",
-            "Bypass Deteksi Multi-Window"
-        )
+    val uiLanguage = LocalUiLanguage.current
+    val tokens = ScopedUiTokens.current
+    var pendingOverride by remember { mutableStateOf<Pair<String, AdminSettings>?>(null) }
+    val activeCount = remember(settings) { activeSecurityOverrideCount(settings) }
+    val groups = remember(settings, uiLanguage) { securityOverrideGroups(uiLanguage, settings) }
 
-        fun requestOverrideChange(
-            title: String,
-            enabled: Boolean,
-            proposedSettings: AdminSettings
+    Column(verticalArrangement = Arrangement.spacedBy(16.dp)) {
+        SecretAdminSection(
+            title = tr("Status", "Status")
         ) {
-            if (enabled) {
-                pendingOverrideTitle = title
-                pendingOverrideSettings = proposedSettings
-            } else {
-                onSettingsChange(proposedSettings)
-            }
-        }
-
-        Surface(
-            modifier = Modifier.fillMaxWidth(),
-            shape = RoundedCornerShape(22.dp),
-            color = AppColors.current.surfaceSoft,
-            border = BorderStroke(1.dp, AppColors.current.outline)
-        ) {
-            Column(
-                modifier = Modifier.padding(horizontal = 16.dp, vertical = 16.dp),
-                verticalArrangement = Arrangement.spacedBy(12.dp)
-            ) {
-                Row(
-                    modifier = Modifier.fillMaxWidth(),
-                    horizontalArrangement = Arrangement.SpaceBetween,
-                    verticalAlignment = Alignment.CenterVertically
+            if (activeCount > 0 || overridesActive) {
+                SecretAdminNote(
+                    text = tr(
+                        "$activeCount bypass active. The exam is weaker while they are on; every detection is still logged.",
+                        "$activeCount bypass aktif. Ujian lebih lemah selama aktif; semua deteksi tetap dicatat."
+                    ),
+                    tone = UiStatusTone.Warning
+                )
+                OutlinedButton(
+                    onClick = { onSettingsChange(settings.withAllSecurityOverridesOff()) },
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .heightIn(min = tokens.touchTarget)
+                        .testTag(SecretAdminUiTestTags.DisableAllOverrides),
+                    shape = RoundedCornerShape(tokens.radiusMedium),
+                    colors = ButtonDefaults.outlinedButtonColors(contentColor = AppColors.current.brandText),
+                    border = BorderStroke(1.dp, AppColors.current.outline)
                 ) {
-                    Text(
-                        text = tr("Security Overrides", "Override Keamanan"),
-                        color = AppColors.current.textPrimary,
-                        fontSize = 18.sp,
-                        fontWeight = FontWeight.Bold
-                    )
-                    if (overridesActive || activeOverrideCount > 0) {
-                        Surface(
-                            shape = RoundedCornerShape(UiTokens.RadiusPill),
-                            color = AppColors.current.gold.copy(alpha = 0.18f),
-                            border = BorderStroke(1.dp, AppColors.current.gold.copy(alpha = 0.45f))
-                        ) {
-                            Text(
-                                text = tr(
-                                    "$activeOverrideCount ACTIVE",
-                                    "$activeOverrideCount AKTIF"
-                                ),
-                                color = AppColors.current.goldDark,
-                                fontSize = 10.sp,
-                                fontWeight = FontWeight.Bold,
-                                modifier = Modifier.padding(horizontal = 10.dp, vertical = 6.dp)
-                            )
-                        }
-                    }
+                    Text(text = tr("Turn off all bypasses", "Matikan semua bypass"), style = AppTextStyles.button)
                 }
-
-                AdminToggleRow(
-                    title = tr("Bypass Screen Pinning", "Bypass Screen Pinning"),
-                    description = tr(
-                        "Skip lock-task and pin confirmation.",
-                        "Lewati lock-task dan konfirmasi pin."
+            } else {
+                SecretAdminNote(
+                    text = tr(
+                        "No bypass is active. Every exam check is enforced.",
+                        "Tidak ada bypass aktif. Semua pemeriksaan ujian berlaku."
                     ),
-                    checked = settings.bypassScreenPinning,
-                    onCheckedChange = {
-                        requestOverrideChange(
-                            screenPinningTitle,
-                            it,
-                            settings.copy(bypassScreenPinning = it)
-                        )
-                    }
-                )
-                AdminToggleRow(
-                    title = tr("Bypass Bluetooth Checks", "Bypass Cek Bluetooth"),
-                    description = tr(
-                        "Ignore Bluetooth permission and status checks.",
-                        "Abaikan izin dan status Bluetooth."
-                    ),
-                    checked = settings.bypassBluetooth,
-                    onCheckedChange = {
-                        requestOverrideChange(
-                            bluetoothTitle,
-                            it,
-                            settings.copy(bypassBluetooth = it)
-                        )
-                    }
-                )
-                AdminToggleRow(
-                    title = tr("Bypass Accessibility Checks", "Bypass Cek Aksesibilitas"),
-                    description = tr(
-                        "Ignore accessibility service warnings and blocks.",
-                        "Abaikan peringatan dan blokir aksesibilitas."
-                    ),
-                    checked = settings.bypassAccessibility,
-                    onCheckedChange = {
-                        requestOverrideChange(
-                            accessibilityTitle,
-                            it,
-                            settings.copy(bypassAccessibility = it)
-                        )
-                    }
-                )
-                AdminToggleRow(
-                    title = tr("Bypass ADB Checks", "Bypass Cek ADB"),
-                    description = tr(
-                        "Ignore USB debugging checks.",
-                        "Abaikan pemeriksaan USB debugging."
-                    ),
-                    checked = settings.bypassAdb,
-                    onCheckedChange = {
-                        requestOverrideChange(
-                            adbTitle,
-                            it,
-                            settings.copy(bypassAdb = it)
-                        )
-                    }
-                )
-                AdminToggleRow(
-                    title = tr("Bypass Root Checks", "Bypass Cek Root"),
-                    description = tr(
-                        "Ignore root device detection.",
-                        "Abaikan deteksi perangkat root."
-                    ),
-                    checked = settings.bypassRoot,
-                    onCheckedChange = {
-                        requestOverrideChange(
-                            rootTitle,
-                            it,
-                            settings.copy(bypassRoot = it)
-                        )
-                    }
-                )
-                AdminToggleRow(
-                    title = tr(
-                        "Bypass Reverse Engineering Checks",
-                        "Bypass Cek Reverse Engineering"
-                    ),
-                    description = if (settings.reverseEngineeringBypassTampered) {
-                        tr(
-                            "Bypass storage was tampered. Enforcement stays active until the admin saves this setting again.",
-                            "Storage bypass terdeteksi tampered. Enforcement tetap aktif sampai admin menyimpan ulang pengaturan ini."
-                        )
-                    } else {
-                        tr(
-                            "Skip debugger, tracer, hooking memory, class, and package enforcement for official troubleshooting only. Detection remains logged.",
-                            "Lewati enforcement debugger, tracer, memory hooking, class, dan package hanya untuk troubleshooting resmi. Deteksi tetap dicatat."
-                        )
-                    },
-                    checked = settings.bypassReverseEngineering && !settings.reverseEngineeringBypassTampered,
-                    onCheckedChange = {
-                        requestOverrideChange(
-                            reverseEngineeringTitle,
-                            it,
-                            settings.copy(bypassReverseEngineering = it)
-                        )
-                    }
-                )
-                AdminToggleRow(
-                    title = tr("Bypass APK Integrity Checks", "Bypass Cek Integritas APK"),
-                    description = if (settings.apkIntegrityBypassTampered) {
-                        tr(
-                            "Bypass storage was tampered. Enforcement stays active until the admin saves this setting again.",
-                            "Storage bypass terdeteksi tampered. Enforcement tetap aktif sampai admin menyimpan ulang pengaturan ini."
-                        )
-                    } else {
-                        tr(
-                            "Skip signature/hash integrity enforcement for official troubleshooting only. Detection remains logged.",
-                            "Lewati enforcement signature/hash integrity hanya untuk troubleshooting resmi. Deteksi tetap dicatat."
-                        )
-                    },
-                    checked = settings.bypassApkIntegrity && !settings.apkIntegrityBypassTampered,
-                    onCheckedChange = {
-                        requestOverrideChange(
-                            apkIntegrityTitle,
-                            it,
-                            settings.copy(bypassApkIntegrity = it)
-                        )
-                    }
-                )
-                AdminToggleRow(
-                    title = tr("Bypass Virtual Environment", "Bypass Virtual Environment"),
-                    description = tr(
-                        "Ignore emulator/VM detection.",
-                        "Abaikan deteksi emulator/VM."
-                    ),
-                    checked = settings.bypassVirtualEnvironment,
-                    onCheckedChange = {
-                        requestOverrideChange(
-                            virtualEnvironmentTitle,
-                            it,
-                            settings.copy(bypassVirtualEnvironment = it)
-                        )
-                    }
-                )
-                AdminToggleRow(
-                    title = tr("Bypass VPN Detection", "Bypass Deteksi VPN"),
-                    description = tr(
-                        "Allow exam start while VPN is active for approved troubleshooting only.",
-                        "Izinkan mulai ujian saat VPN aktif hanya untuk troubleshooting resmi."
-                    ),
-                    checked = settings.bypassVpn,
-                    onCheckedChange = {
-                        requestOverrideChange(
-                            vpnTitle,
-                            it,
-                            settings.copy(bypassVpn = it)
-                        )
-                    }
-                )
-                AdminToggleRow(
-                    title = tr("Bypass Keyboard Policy", "Bypass Kebijakan Keyboard"),
-                    description = tr(
-                        "Allow any system keyboard without fallback.",
-                        "Izinkan keyboard sistem apa pun tanpa fallback."
-                    ),
-                    checked = settings.bypassKeyboardPolicy,
-                    onCheckedChange = {
-                        requestOverrideChange(
-                            keyboardTitle,
-                            it,
-                            settings.copy(bypassKeyboardPolicy = it)
-                        )
-                    }
-                )
-                AdminToggleRow(
-                    title = tr("Bypass Clipboard Monitoring", "Bypass Monitoring Clipboard"),
-                    description = tr(
-                        "Disable clipboard change alarms.",
-                        "Matikan alarm perubahan clipboard."
-                    ),
-                    checked = settings.bypassClipboard,
-                    onCheckedChange = {
-                        requestOverrideChange(
-                            clipboardTitle,
-                            it,
-                            settings.copy(bypassClipboard = it)
-                        )
-                    }
-                )
-                AdminToggleRow(
-                    title = tr("Bypass Overlay Detection", "Bypass Deteksi Overlay"),
-                    description = tr(
-                        "Ignore obscured touch alerts.",
-                        "Abaikan peringatan sentuhan tertutup."
-                    ),
-                    checked = settings.bypassOverlay,
-                    onCheckedChange = {
-                        requestOverrideChange(
-                            overlayTitle,
-                            it,
-                            settings.copy(bypassOverlay = it)
-                        )
-                    }
-                )
-                AdminToggleRow(
-                    title = tr("Bypass Geofence", "Bypass Geofence"),
-                    description = tr(
-                        "Skip exam-area position enforcement.",
-                        "Lewati enforcement posisi area ujian."
-                    ),
-                    checked = settings.bypassGeofence,
-                    onCheckedChange = {
-                        requestOverrideChange(
-                            geofenceTitle,
-                            it,
-                            settings.copy(bypassGeofence = it)
-                        )
-                    }
-                )
-                AdminToggleRow(
-                    title = tr("Bypass Anti-Fake-Location", "Bypass Anti-Fake-Location"),
-                    description = tr(
-                        "Skip mock-location and fake GPS enforcement.",
-                        "Lewati enforcement mock-location dan fake GPS."
-                    ),
-                    checked = settings.bypassFakeLocation,
-                    onCheckedChange = {
-                        requestOverrideChange(
-                            fakeLocationTitle,
-                            it,
-                            settings.copy(bypassFakeLocation = it)
-                        )
-                    }
-                )
-                AdminToggleRow(
-                    title = tr("Bypass Device Time", "Bypass Waktu Perangkat"),
-                    description = tr(
-                        "Skip automatic date & time, automatic time zone, and clock-change checks.",
-                        "Lewati cek tanggal & waktu otomatis, zona waktu otomatis, dan perubahan jam."
-                    ),
-                    checked = settings.bypassDeviceTime,
-                    onCheckedChange = {
-                        requestOverrideChange(
-                            deviceTimeTitle,
-                            it,
-                            settings.copy(bypassDeviceTime = it)
-                        )
-                    }
-                )
-                AdminToggleRow(
-                    title = tr("Bypass App Switch Alerts", "Bypass Peringatan App Switch"),
-                    description = tr(
-                        "Disable forced-exit alarms on app switching.",
-                        "Matikan alarm keluar paksa saat pindah aplikasi."
-                    ),
-                    checked = settings.bypassAppSwitch,
-                    onCheckedChange = {
-                        requestOverrideChange(
-                            appSwitchTitle,
-                            it,
-                            settings.copy(bypassAppSwitch = it)
-                        )
-                    }
-                )
-                AdminToggleRow(
-                    title = tr("Bypass Screen Recorder Detection", "Bypass Deteksi Screen Recorder"),
-                    description = tr(
-                        "Skip screen recorder app detection.",
-                        "Lewati deteksi aplikasi screen recorder."
-                    ),
-                    checked = settings.bypassScreenRecorder,
-                    onCheckedChange = {
-                        requestOverrideChange(
-                            screenRecorderTitle,
-                            it,
-                            settings.copy(bypassScreenRecorder = it)
-                        )
-                    }
-                )
-                AdminToggleRow(
-                    title = tr("Bypass Display Mirror Detection", "Bypass Deteksi Display Mirror"),
-                    description = tr(
-                        "Skip external display / screen casting detection.",
-                        "Lewati deteksi display eksternal / screen casting."
-                    ),
-                    checked = settings.bypassDisplayMirror,
-                    onCheckedChange = {
-                        requestOverrideChange(
-                            displayMirrorTitle,
-                            it,
-                            settings.copy(bypassDisplayMirror = it)
-                        )
-                    }
-                )
-                AdminToggleRow(
-                    title = tr("Bypass Multi-Window Detection", "Bypass Deteksi Multi-Window"),
-                    description = tr(
-                        "Skip split-screen and picture-in-picture detection.",
-                        "Lewati deteksi split-screen dan picture-in-picture."
-                    ),
-                    checked = settings.bypassMultiWindow,
-                    onCheckedChange = {
-                        requestOverrideChange(
-                            multiWindowTitle,
-                            it,
-                            settings.copy(bypassMultiWindow = it)
-                        )
-                    }
+                    tone = UiStatusTone.Success
                 )
             }
         }
 
-        val proposedSettings = pendingOverrideSettings
-        if (proposedSettings != null) {
-            AlertDialog(
-                onDismissRequest = {
-                    pendingOverrideTitle = null
-                    pendingOverrideSettings = null
-                },
-                title = {
-                    Text(tr("Enable security override?", "Aktifkan override keamanan?"))
-                },
-                text = {
-                    Text(
-                        text = tr(
-                            "${pendingOverrideTitle.orEmpty()} weakens exam enforcement. Enable it only for approved troubleshooting. Detection remains logged.",
-                            "${pendingOverrideTitle.orEmpty()} melemahkan enforcement ujian. Aktifkan hanya untuk troubleshooting resmi. Deteksi tetap dicatat."
+        groups.forEach { group ->
+            val groupActive = group.items.count { it.isOn(settings) }
+            SecretAdminSection(
+                title = group.title,
+                padded = false,
+                trailing = if (groupActive > 0) {
+                    {
+                        Text(
+                            text = tr("$groupActive on", "$groupActive aktif"),
+                            color = AppColors.current.goldDark,
+                            style = AppTextStyles.label.copy(fontWeight = FontWeight.Bold)
                         )
-                    )
-                },
-                confirmButton = {
-                    Button(
-                        onClick = {
-                            onSettingsChange(proposedSettings)
-                            pendingOverrideTitle = null
-                            pendingOverrideSettings = null
-                        }
-                    ) {
-                        Text(tr("Enable override", "Aktifkan override"))
                     }
-                },
-                dismissButton = {
-                    TextButton(
-                        onClick = {
-                            pendingOverrideTitle = null
-                            pendingOverrideSettings = null
-                        }
-                    ) {
-                        Text(tr("Cancel", "Batal"))
-                    }
+                } else {
+                    null
                 }
-            )
+            ) {
+                group.items.forEachIndexed { index, item ->
+                    if (index > 0) SecretAdminRowDivider()
+                    val on = item.isOn(settings)
+                    SecretAdminSwitchRow(
+                        title = item.title,
+                        description = item.description,
+                        checked = on,
+                        highlighted = on,
+                        testTag = SecretAdminUiTestTags.OverrideRowPrefix + item.key,
+                        onCheckedChange = { enable ->
+                            val proposed = item.set(settings, enable)
+                            if (enable) {
+                                pendingOverride = item.title to proposed
+                            } else {
+                                onSettingsChange(proposed)
+                            }
+                        }
+                    )
+                }
+            }
         }
+    }
+
+    pendingOverride?.let { (title, proposed) ->
+        AppAlertDialog(
+            tone = UiStatusTone.Warning,
+            icon = Icons.Rounded.GppMaybe,
+            title = tr("Turn on this bypass?", "Aktifkan bypass ini?"),
+            message = tr(
+                "\"$title\" weakens exam enforcement. Use it only for approved troubleshooting; detection stays logged.",
+                "\"$title\" melemahkan pengamanan ujian. Pakai hanya untuk troubleshooting resmi; deteksi tetap dicatat."
+            ),
+            primaryAction = AppAlertAction(
+                label = tr("Turn on", "Aktifkan"),
+                onClick = {
+                    onSettingsChange(proposed)
+                    pendingOverride = null
+                }
+            ),
+            secondaryActions = listOf(
+                AppAlertAction(
+                    label = tr("Cancel", "Batal"),
+                    onClick = { pendingOverride = null }
+                )
+            ),
+            dismissible = true,
+            onDismissRequest = { pendingOverride = null }
+        )
+    }
 }
