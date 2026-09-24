@@ -172,17 +172,34 @@ internal fun getRootDetectionDetails(
     )
 }
 
+/**
+ * busybox is a general-purpose applet bundle that ships on plenty of stock ROMs —
+ * Android TV boxes and several MediaTek vendor images carry it — so finding one says
+ * nothing about root on its own. Every other watched path (su, daemonsu, Superuser.apk)
+ * only exists because someone rooted the device.
+ */
+internal fun isCorroboratingRootBinaryPath(path: String): Boolean =
+    path.substringAfterLast('/').equals("busybox", ignoreCase = true)
+
 internal fun isDeviceRooted(details: RootDetectionDetails): Boolean {
-    return details.hasTestKeys ||
-        details.hasSuBinary ||
-        details.rootBinaryPaths.isNotEmpty() ||
+    val conclusiveBinaries = details.rootBinaryPaths.filterNot { path ->
+        isCorroboratingRootBinaryPath(path)
+    }
+    val corroboration = conclusiveBinaries.size < details.rootBinaryPaths.size ||
+        details.selinuxEnforced == false
+    return details.hasSuBinary ||
+        conclusiveBinaries.isNotEmpty() ||
         details.foundRootPackages.isNotEmpty() ||
         details.magiskPaths.isNotEmpty() ||
         details.zygiskDetected ||
         details.xposedBridgeDetected ||
         details.bootloaderUnlocked ||
         details.dangerousSystemProperties.isNotEmpty() ||
-        details.selinuxEnabled == false
+        details.selinuxEnabled == false ||
+        // ro.build.tags=test-keys is normal on genuine budget retail ROMs from smaller
+        // OEMs, which is most of this app's install base, so on its own it refused the
+        // exam on perfectly stock devices. It now has to be corroborated.
+        (details.hasTestKeys && corroboration)
 }
 
 @Suppress("TooGenericExceptionCaught")
@@ -445,12 +462,30 @@ internal fun findEmulatorPackagesFromInventory(
         .toList()
 }
 
+/**
+ * Decides whether the signal counts add up to an emulator.
+ *
+ * The old rule was `score >= 2` with every strong signal worth 2, which meant any two
+ * weak signals also crossed the line. A genuine budget tablet reporting `Build.BOARD`
+ * of "unknown" with a short sensor list, or an x86 Chromebook, scored exactly 2 and was
+ * refused the exam as an emulator. Weak signals now have to corroborate each other
+ * three ways before they count on their own, while one unambiguous strong signal is
+ * still conclusive — a real emulator trips several of those at once.
+ */
+internal fun resolveVirtualEnvironmentDetected(strongCount: Int, weakCount: Int): Boolean =
+    strongCount >= 1 || weakCount >= 3
+
 private fun computeVirtualEnvironmentDiagnostics(
     context: Context,
     packageInventory: InstalledPackageInventory
 ): VirtualEnvironmentDiagnostics {
     val indicators = mutableListOf<String>()
     var score = 0
+    // Strong signals name an emulator outright (goldfish hardware, qemu files, a
+    // BlueStacks package). Weak ones are merely consistent with one and are also
+    // true of real budget hardware, so they are counted apart.
+    var strongCount = 0
+    var weakCount = 0
 
     // --- Build field checks (strong signals, +2 each) ---
 
@@ -461,6 +496,7 @@ private fun computeVirtualEnvironmentDiagnostics(
     ) {
         indicators.add("fingerprint:$fingerprint")
         score += 2
+        strongCount++
     }
 
     val model = Build.MODEL.orEmpty()
@@ -470,6 +506,7 @@ private fun computeVirtualEnvironmentDiagnostics(
     ) {
         indicators.add("model:$model")
         score += 2
+        strongCount++
     }
 
     val manufacturer = Build.MANUFACTURER.orEmpty()
@@ -479,6 +516,7 @@ private fun computeVirtualEnvironmentDiagnostics(
     ) {
         indicators.add("manufacturer:$manufacturer")
         score += 2
+        strongCount++
     }
 
     val brand = Build.BRAND.orEmpty()
@@ -488,6 +526,7 @@ private fun computeVirtualEnvironmentDiagnostics(
     ) {
         indicators.add("generic_brand_device:${brand}/${device}")
         score += 2
+        strongCount++
     }
 
     val product = Build.PRODUCT.orEmpty()
@@ -497,6 +536,7 @@ private fun computeVirtualEnvironmentDiagnostics(
     ) {
         indicators.add("product:$product")
         score += 2
+        strongCount++
     }
 
     val hardware = Build.HARDWARE.orEmpty()
@@ -506,6 +546,7 @@ private fun computeVirtualEnvironmentDiagnostics(
     ) {
         indicators.add("hardware:$hardware")
         score += 2
+        strongCount++
     }
 
     val board = Build.BOARD.orEmpty()
@@ -515,6 +556,7 @@ private fun computeVirtualEnvironmentDiagnostics(
     ) {
         indicators.add("board:$board")
         score += 1
+        weakCount++
     }
 
     // --- ABI check (weak signal, +1) ---
@@ -523,6 +565,7 @@ private fun computeVirtualEnvironmentDiagnostics(
     if (abis.any { it.contains("x86", ignoreCase = true) }) {
         indicators.add("abis:${abis.joinToString()}")
         score += 1
+        weakCount++
     }
 
     // --- System properties (strong signal, +2 per match) ---
@@ -531,6 +574,7 @@ private fun computeVirtualEnvironmentDiagnostics(
     if (qemuProperty == "1") {
         indicators.add("ro.kernel.qemu=1")
         score += 2
+        strongCount++
     }
 
     val suspiciousSystemProperties = mutableListOf<String>()
@@ -552,6 +596,7 @@ private fun computeVirtualEnvironmentDiagnostics(
     if (suspiciousSystemProperties.isNotEmpty()) {
         indicators.add("sysprops:${suspiciousSystemProperties.joinToString()}")
         score += 2
+        strongCount++
     }
 
     // --- QEMU / emulator filesystem artifacts (strong signal, +2) ---
@@ -562,6 +607,7 @@ private fun computeVirtualEnvironmentDiagnostics(
     if (qemuFiles.isNotEmpty()) {
         indicators.add("qemu_files:${qemuFiles.joinToString()}")
         score += 2
+        strongCount++
     }
 
     // --- Emulator packages (strong signal, +2) ---
@@ -570,6 +616,7 @@ private fun computeVirtualEnvironmentDiagnostics(
     if (emulatorPackages.isNotEmpty()) {
         indicators.add("packages:${emulatorPackages.joinToString()}")
         score += 2
+        strongCount++
     }
 
     // --- Hardware sensor count (weak signal, +1) ---
@@ -582,6 +629,7 @@ private fun computeVirtualEnvironmentDiagnostics(
     if (sensorCount in 0..4) {
         indicators.add("low_sensors:$sensorCount")
         score += 1
+        weakCount++
     }
 
     // --- Battery presence (weak signal, +1) ---
@@ -603,15 +651,11 @@ private fun computeVirtualEnvironmentDiagnostics(
     if (!hasBattery) {
         indicators.add("no_battery")
         score += 1
+        weakCount++
     }
 
-    // --- Detection threshold ---
-    // Score >= 2 triggers detection. Single weak signals (score 1) alone are
-    // not enough to avoid false positives on real x86 Chromebooks or
-    // low-sensor budget devices.
-
     return VirtualEnvironmentDiagnostics(
-        detected = score >= 2,
+        detected = resolveVirtualEnvironmentDetected(strongCount, weakCount),
         indicators = indicators,
         score = score,
         qemuProperty = qemuProperty,

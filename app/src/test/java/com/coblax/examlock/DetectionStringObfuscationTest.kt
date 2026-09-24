@@ -46,7 +46,13 @@ class DetectionStringObfuscationTest {
 
     @Test
     fun everyObfuscatedConstantDecodesToTheValueItsCommentClaims() {
-        val annotated = Regex("\"([A-Za-z0-9+/=]{8,})\",?\\s*//\\s*(\\S.*?)\\s*$", RegexOption.MULTILINE)
+        // Horizontal whitespace only: a plain token followed by a comment on the NEXT
+        // line is not an annotated constant, and treating it as one made this test
+        // try to base64-decode ordinary source text.
+        val annotated = Regex(
+            "\"([A-Za-z0-9+/=]{8,})\",?[ \\t]*//[ \\t]*(\\S.*?)[ \\t]*$",
+            RegexOption.MULTILINE
+        )
         var decoded = 0
         var mirrored = 0
         for ((relative, source) in readGuarded()) {

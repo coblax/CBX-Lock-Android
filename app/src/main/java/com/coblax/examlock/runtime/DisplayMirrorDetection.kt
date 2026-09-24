@@ -12,8 +12,10 @@ import android.view.Display
  * Any additional display (index 1+) indicates an external connection
  * via Miracast, Chromecast, wired HDMI, or USB-C DisplayPort.
  *
- * Zero false positive: multi-display only occurs when user explicitly
- * connects to an external screen. No OEM reports phantom displays.
+ * Only displays that are actually ON count. getDisplays() also returns virtual
+ * displays created by other apps, overlay displays left on from developer options,
+ * and cast targets that are registered but idle; those sit in OFF or UNKNOWN state
+ * and cannot show the exam to anyone, yet they used to refuse the exam as a mirror.
  */
 
 internal data class ExternalDisplayInfo(
@@ -57,18 +59,23 @@ internal fun hasExternalDisplay(context: Context): Boolean {
     return getExternalDisplayCount(context) > 0
 }
 
+internal fun isActiveExternalDisplayState(state: Int): Boolean =
+    state == Display.STATE_ON || state == Display.STATE_VR || state == Display.STATE_ON_SUSPEND
+
 internal fun getExternalDisplayCount(context: Context): Int {
     val displayManager = context.getSystemService(DisplayManager::class.java) ?: return 0
     val displays = runCatching { displayManager.displays }.getOrDefault(emptyArray())
     // Display[0] = built-in, anything beyond = external
-    return (displays.size - 1).coerceAtLeast(0)
+    return displays.drop(1).count { display -> isActiveExternalDisplayState(display.state) }
 }
 
 internal fun getExternalDisplayInfoList(context: Context): List<ExternalDisplayInfo> {
     val displayManager = context.getSystemService(DisplayManager::class.java) ?: return emptyList()
     val displays = runCatching { displayManager.displays }.getOrDefault(emptyArray())
     if (displays.size <= 1) return emptyList()
-    return displays.drop(1).map { display ->
+    return displays.drop(1).filter { display ->
+        isActiveExternalDisplayState(display.state)
+    }.map { display ->
         ExternalDisplayInfo(
             displayId = display.displayId,
             name = display.name.orEmpty(),

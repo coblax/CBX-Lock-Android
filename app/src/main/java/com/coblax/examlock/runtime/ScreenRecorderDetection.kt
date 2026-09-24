@@ -162,6 +162,10 @@ internal fun findScreenRecorderMatchesFromInventory(
             continue
         }
         val record = inventory.get(packageName) ?: fallbackRecordProvider(packageName) ?: continue
+        // A disabled package cannot record anything, and a student inside lock task
+        // cannot reach Settings to re-enable it. Counting it refused the exam over an
+        // app that was already switched off.
+        if (!record.enabled) continue
         results[packageName] = ScreenRecorderPackageMatch(
             packageName = packageName,
             flags = record.flags,
@@ -174,6 +178,7 @@ internal fun findScreenRecorderMatchesFromInventory(
     for (record in inventory.records) {
         // Only user-installed apps are suspicious in keyword scan.
         if (record.systemApp) continue
+        if (!record.enabled) continue
         if (isOemBundledScreenRecorderPackage(record.packageName)) continue
         val pkg = record.packageName.lowercase()
         if (ScreenRecorderKeywords.any { keyword -> pkg.contains(keyword) }) {

@@ -199,7 +199,11 @@ internal val RiskyAccessibilityKeywords = listOf(
 
 internal val VirtualFingerprintTokens = listOf(
     "generic",
-    "unknown",
+    // "unknown" was here: Build.FINGERPRINT is
+    // brand/product/device:release/id/incremental:type/tags and plenty of budget
+    // retail devices ship "unknown" in the id or incremental segment, which made
+    // them score as emulators. Build.BOARD == "unknown" still counts, as a weak
+    // signal that needs corroboration.
     "emulator",
     "sdk_gphone",
     "vsemu",
@@ -252,8 +256,11 @@ internal val VirtualHardwareTokens = listOf(
     "nox",
     "ttvm",
     "android_x86",
-    "memuplusqemu",
-    "intel"
+    "memuplusqemu"
+    // "intel" was here: Build.HARDWARE on real Intel-based Android devices (Asus
+    // ZenFone x86, Atom tablets, some Chromebooks) contains it, so as a strong
+    // signal it refused the exam on genuine hardware. The x86 ABI check below
+    // still notices Intel builds, as a weak signal that needs corroboration.
 )
 
 internal val VirtualBoardTokens = listOf(
