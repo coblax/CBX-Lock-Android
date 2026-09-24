@@ -20,9 +20,17 @@ private object NativeLibraryRuntime {
 internal object NativeSecurityBridge {
     fun isNativeAvailableForTests(): Boolean = NativeLibraryRuntime.isAvailable
 
+    /**
+     * [isUsable] lets a caller reject a native result that arrived without an exception
+     * but is not actually an answer. Some native paths report failure by returning an
+     * empty value, and treating that as the verdict skipped the Kotlin fallback
+     * entirely. ForceNative deliberately keeps the raw result so parity tests still
+     * compare the two implementations rather than Kotlin against itself.
+     */
     private fun <T> invokeOrFallback(
         operation: String,
         fallback: () -> T,
+        isUsable: (T) -> Boolean = { true },
         nativeCall: () -> T
     ): T {
         return when (NativeBridgeTestControl.currentMode) {
@@ -37,11 +45,16 @@ internal object NativeSecurityBridge {
                 if (!NativeLibraryRuntime.isAvailable) {
                     fallback()
                 } else {
-                    runCatching(nativeCall)
+                    val nativeResult = runCatching(nativeCall)
                         .onFailure { throwable ->
                             logNativeWarning("Native $operation failed; using Kotlin fallback.", throwable)
                         }
-                        .getOrElse { fallback() }
+                        .getOrNull()
+                    if (nativeResult != null && isUsable(nativeResult)) {
+                        nativeResult
+                    } else {
+                        fallback()
+                    }
                 }
             }
         }
@@ -65,7 +78,15 @@ internal object NativeSecurityBridge {
         }
 
     fun readDexHash(apkPath: String, fallback: () -> String): String =
-        invokeOrFallback(operation = "readDexHash", fallback = fallback) {
+        invokeOrFallback(
+            operation = "readDexHash",
+            fallback = fallback,
+            // The native reader buffers the whole APK before hashing it and reports
+            // any failure as an empty string, so on a low-RAM device it could hand
+            // back "no hash" without ever throwing. Kotlin's ZipFile streams instead,
+            // so falling through to it is both cheaper and more likely to succeed.
+            isUsable = { hash -> hash.isNotBlank() }
+        ) {
             nativeReadDexHash(apkPath)
         }
 

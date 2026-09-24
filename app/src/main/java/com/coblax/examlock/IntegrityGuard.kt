@@ -45,6 +45,39 @@ object IntegrityGuard {
         return assetHash.replace(" ", "").trim().uppercase(Locale.US)
     }
 
+    /**
+     * What the DEX hash comparison concluded.
+     *
+     * [issue] is an enforced tamper signal; [unreadable] means the check could not run
+     * and is reported without blocking.
+     */
+    internal data class DexHashVerdict(val issue: String?, val unreadable: Boolean)
+
+    /**
+     * A blank comparison used to be skipped silently, so the cheapest way past this
+     * guard was to delete assets/dex.sha256 rather than recompute it. Every release
+     * build ships that asset, so a blank reference means it was stripped — that is
+     * tampering and it is enforced. Debug builds never get the asset, hence
+     * [enforceMissingReference].
+     *
+     * A blank *actual* hash is the opposite situation: our own reader failed, which
+     * says nothing about the APK. Briefly enforcing that refused the exam outright on
+     * devices where the reader could not complete, so it is recorded and never blocks.
+     */
+    internal fun resolveDexHashVerdict(
+        expectedHash: String,
+        actualHash: String,
+        enforceMissingReference: Boolean
+    ): DexHashVerdict = when {
+        expectedHash.isBlank() -> DexHashVerdict(
+            issue = "dex_hash_reference_missing".takeIf { enforceMissingReference },
+            unreadable = false
+        )
+        actualHash.isBlank() -> DexHashVerdict(issue = null, unreadable = true)
+        expectedHash != actualHash -> DexHashVerdict(issue = "dex_hash_mismatch", unreadable = false)
+        else -> DexHashVerdict(issue = null, unreadable = false)
+    }
+
     fun check(context: Context, baselineFingerprint: String?): IntegrityCheckResult {
         val issues = mutableListOf<String>()
         val expectedHash = expectedDexHash(context)
@@ -52,18 +85,13 @@ object IntegrityGuard {
             .replace(" ", "")
             .uppercase(Locale.US)
 
-        // Both blanks used to skip the comparison silently, so the cheapest way past
-        // this guard was to delete assets/dex.sha256 rather than recompute it. A
-        // release build always ships the asset (the Gradle task generates it), so a
-        // blank value there means it was stripped. Debug builds never get the asset,
-        // which is why the strict path is release-only.
-        when {
-            expectedHash.isBlank() ->
-                if (!BuildConfig.DEBUG) issues.add("dex_hash_reference_missing")
-            actualHash.isBlank() ->
-                if (!BuildConfig.DEBUG) issues.add("dex_hash_unreadable")
-            expectedHash != actualHash -> issues.add("dex_hash_mismatch")
-        }
+        val dexHashVerdict = resolveDexHashVerdict(
+            expectedHash = expectedHash,
+            actualHash = actualHash,
+            enforceMissingReference = !BuildConfig.DEBUG
+        )
+        dexHashVerdict.issue?.let { issue -> issues.add(issue) }
+        val dexHashUnreadable = dexHashVerdict.unreadable
 
         val currentFingerprint = readSigningFingerprint(context)
         if (!baselineFingerprint.isNullOrBlank() &&
@@ -96,9 +124,13 @@ object IntegrityGuard {
         val detailSummary = buildString {
             if (issues.isEmpty()) {
                 append("ok")
+                // Carried so an admin can see the hash check did not run, without it
+                // counting as an issue and refusing the exam.
+                if (dexHashUnreadable) append(" | dex_hash_unreadable")
                 return@buildString
             }
             append("issues=").append(issues.joinToString())
+            if (dexHashUnreadable) append(" | dex_hash_unreadable")
             if (issues.any { it.startsWith("dex_hash_") }) {
                 append(" | dex=").append(shorten(actualHash))
                 append("/exp=").append(shorten(expectedHash))

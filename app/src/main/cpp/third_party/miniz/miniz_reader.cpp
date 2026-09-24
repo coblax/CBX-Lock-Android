@@ -45,7 +45,9 @@ bool ReadFileBytes(const std::string& path, std::vector<uint8_t>* outBytes) {
     if (fileSize <= 0) {
         return false;
     }
-    if (fileSize > static_cast<std::streamoff>(std::numeric_limits<size_t>::max())) {
+    // Compare unsigned: casting SIZE_MAX to the signed streamoff gives -1 on 64-bit ABIs,
+    // which rejected every APK there and left the dex hash blank.
+    if (static_cast<unsigned long long>(fileSize) > std::numeric_limits<size_t>::max()) {
         return false;
     }
     outBytes->resize(static_cast<size_t>(fileSize));

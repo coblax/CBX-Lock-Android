@@ -14,7 +14,9 @@ namespace {
 constexpr const char* kClipboardEmptyFingerprint = "clipboard_empty";
 constexpr const char* kClipboardEmptySemanticSignature = "clipboard_empty";
 constexpr const char* kClipboardSignatureSeparator = " || ";
-constexpr const char* kDiagnosticEllipsis = "\xC3\xA2\xE2\x82\xAC\xC2\xA6";
+// U+2026 in UTF-8, the character the Kotlin reference appends. This used to hold the
+// UTF-8 of its Windows-1252 misreading, so clipped diagnostics ended in mojibake.
+constexpr const char* kDiagnosticEllipsis = "\xE2\x80\xA6";
 constexpr int kClipboardModeDiagnosticFull = 1;
 
 void AppendSignatureSeparatorIfNeeded(std::string* builder) {
