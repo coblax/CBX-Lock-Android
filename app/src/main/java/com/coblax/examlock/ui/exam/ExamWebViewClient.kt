@@ -59,6 +59,7 @@ internal fun SecureExamWebView.createExamWebViewClient(
             if (url == null || url == "about:blank" || url.startsWith("data:")) {
                 return
             }
+            val heldHttpError = navigationState.takeHeldHttpError(url)
             navigationState.start(url)
             cancelPendingConnectionRetries()
             pageLoadStartedAtElapsedMs = SystemClock.elapsedRealtime()
@@ -79,6 +80,18 @@ internal fun SecureExamWebView.createExamWebViewClient(
                 )
             }
             scheduleNavigationTimeout(watchdog, loadingTimeoutMs)
+            // Applied after the load-start callback, which clears the error message.
+            if (heldHttpError != null) {
+                failMainFrameWithHttpError(view, url, heldHttpError.statusCode)
+            }
+        }
+
+        private fun failMainFrameWithHttpError(view: WebView?, url: String, statusCode: Int?) {
+            navigationState.fail(url, recoverOnConnection = false)
+            cancelNavigationTimeout()
+            cancelPendingConnectionRetries()
+            onLoadingProgressChange(view, 1f)
+            onWebViewHttpError(view, statusCode)
         }
 
         override fun onPageFinished(view: WebView?, url: String?) {
@@ -199,12 +212,15 @@ internal fun SecureExamWebView.createExamWebViewClient(
         ) {
             if (request?.isForMainFrame == true) {
                 val failedUrl = request.url.toString()
-                if (!navigationState.isCurrentNavigation(failedUrl)) return
-                navigationState.fail(failedUrl, recoverOnConnection = false)
-                cancelNavigationTimeout()
-                cancelPendingConnectionRetries()
-                onLoadingProgressChange(view, 1f)
-                onWebViewHttpError(view, errorResponse?.statusCode)
+                val statusCode = errorResponse?.statusCode
+                if (navigationState.isLoading(failedUrl)) {
+                    // The page already started (older WebView ordering): fail it now.
+                    failMainFrameWithHttpError(view, failedUrl, statusCode)
+                } else {
+                    // Usual ordering: headers arrive before onPageStarted, which would
+                    // reset a failure recorded now. Held until that page starts.
+                    navigationState.holdHttpError(failedUrl, statusCode)
+                }
             }
         }
 

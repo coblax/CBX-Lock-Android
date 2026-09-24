@@ -96,6 +96,23 @@ internal class SecureExamWebView @JvmOverloads constructor(
         pendingConnectionRetryCallbacks.clear()
     }
 
+    // A held HTTP error belongs to a navigation that has not committed yet. Stopping it
+    // or starting another one means it never will, so it must not mark a later page.
+    override fun stopLoading() {
+        navigationState.dropHeldHttpError()
+        super.stopLoading()
+    }
+
+    override fun loadUrl(url: String) {
+        navigationState.dropHeldHttpError()
+        super.loadUrl(url)
+    }
+
+    override fun loadUrl(url: String, additionalHttpHeaders: Map<String, String>) {
+        navigationState.dropHeldHttpError()
+        super.loadUrl(url, additionalHttpHeaders)
+    }
+
     override fun onDetachedFromWindow() {
         cancelPendingConnectionRetries()
         cancelNavigationTimeout()

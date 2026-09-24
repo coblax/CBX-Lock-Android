@@ -57,6 +57,45 @@ class ExamWebViewNavigationStateTest {
         assertEquals(url, state.failedUrl)
     }
 
+    /**
+     * WebView reports a main-frame HTTP error when the headers arrive, before
+     * onPageStarted. Recording it as a failure then let start() wipe it, so a 403/503
+     * page finished as a successful exam load.
+     */
+    @Test
+    fun httpErrorReportedBeforePageStartSurvivesTheStart() {
+        val state = ExamWebViewNavigationState()
+        assertFalse(state.isLoading(url))
+        state.holdHttpError(url, 503)
+
+        val held = state.takeHeldHttpError("$url#top")
+        state.start(url)
+        assertEquals(PendingHttpError(url, 503), held)
+        assertTrue(state.isLoading(url))
+        state.fail(url, recoverOnConnection = false)
+
+        assertFalse(state.finish(url))
+        assertEquals(url, state.failedUrl)
+        assertNull(state.nextRetryDelayMillis())
+        assertNull(state.takeHeldHttpError(url))
+    }
+
+    @Test
+    fun heldHttpErrorNeverMarksADifferentOrLaterNavigation() {
+        val state = ExamWebViewNavigationState()
+        state.holdHttpError(url, 403)
+        // Redirected elsewhere or never committed: the next page start drops it.
+        assertNull(state.takeHeldHttpError("https://exam.example/questions/3"))
+        assertNull(state.takeHeldHttpError(url))
+
+        // Stopped or replaced before commit.
+        state.holdHttpError(url, 403)
+        state.dropHeldHttpError()
+        assertNull(state.takeHeldHttpError(url))
+        state.start(url)
+        assertTrue(state.finish(url))
+    }
+
     @Test
     fun httpSslAndPostFailuresNeverRetryAutomatically() {
         val state = ExamWebViewNavigationState()

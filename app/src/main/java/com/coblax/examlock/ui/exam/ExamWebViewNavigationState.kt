@@ -17,9 +17,38 @@ internal class ExamWebViewNavigationState {
     private var failed = false
     private var retryCount = 0
     private var automaticRetryPending = false
+    private var pendingHttpError: PendingHttpError? = null
 
     fun prepareAutomaticRetry() {
         automaticRetryPending = true
+    }
+
+    /** True while [url] is the main-frame navigation that has started and not finished. */
+    fun isLoading(url: String?): Boolean = loading && isCurrentNavigation(url)
+
+    /**
+     * WebView reports a main-frame HTTP error as soon as the response headers arrive,
+     * which is before onPageStarted for that same navigation. [start] would wipe a
+     * failure recorded that early, so the error is held here until the page starts.
+     */
+    fun holdHttpError(url: String, statusCode: Int?) {
+        pendingHttpError = PendingHttpError(url, statusCode)
+    }
+
+    /**
+     * Hands back the held HTTP error when it belongs to [url]. Anything held is dropped
+     * either way, so an error from a navigation that never committed cannot leak into a
+     * later one.
+     */
+    fun takeHeldHttpError(url: String?): PendingHttpError? {
+        val held = pendingHttpError ?: return null
+        pendingHttpError = null
+        return held.takeIf { sameDocument(it.url, url) }
+    }
+
+    /** A stopped or replaced navigation never commits its held error. */
+    fun dropHeldHttpError() {
+        pendingHttpError = null
     }
 
     fun start(url: String) {
@@ -61,15 +90,19 @@ internal class ExamWebViewNavigationState {
     fun canApplyServerProbe(startRevision: Long): Boolean =
         revision == startRevision && !loading && !failed
 
-    fun isCurrentNavigation(url: String?): Boolean =
-        url != null && currentUrl != null &&
-            url.substringBefore('#') == currentUrl?.substringBefore('#')
+    fun isCurrentNavigation(url: String?): Boolean = sameDocument(url, currentUrl)
 
     fun nextRetryDelayMillis(): Long? {
         if (!canRecoverOnConnection || retryCount >= 3) return null
         return 2_000L * (1L shl retryCount++)
     }
+
+    private fun sameDocument(first: String?, second: String?): Boolean =
+        first != null && second != null &&
+            first.substringBefore('#') == second.substringBefore('#')
 }
+
+internal data class PendingHttpError(val url: String, val statusCode: Int?)
 
 internal fun isExamWebUrl(url: String?): Boolean =
     url?.startsWith("https://", ignoreCase = true) == true ||

@@ -1,6 +1,7 @@
 package com.coblax.examlock.ui.exam
 
 import androidx.compose.ui.viewinterop.AndroidView
+import androidx.compose.ui.test.ComposeTimeoutException
 import androidx.compose.ui.test.junit4.createComposeRule
 import java.net.ServerSocket
 import java.io.IOException
@@ -124,7 +125,8 @@ class ExamWebViewNetworkTest {
     private fun awaitHttpError() {
         try {
             composeRule.waitUntil(15_000) { httpErrors.get() >= 1 }
-        } catch (error: AssertionError) {
+        } catch (error: ComposeTimeoutException) {
+            // waitUntil times out with ComposeTimeoutException, not AssertionError.
             throw AssertionError("HTTP error not delivered. Events: ${events.joinToString(" | ")}", error)
         }
     }
@@ -231,6 +233,18 @@ class ExamWebViewNetworkTest {
         val base = startServer()
         open("$base/unavailable")
         awaitHttpError()
+        // WebView's own finish for the error page must not count as an exam load either,
+        // and the error must come after the load start, which clears the error message.
+        composeRule.waitUntil(15_000) { events.any { it.startsWith("raw finish:") } }
+        composeRule.runOnIdle {
+            val order = events.toList()
+            assertTrue(
+                "Events: ${order.joinToString(" | ")}",
+                order.indexOfFirst { it.startsWith("start:") } <
+                    order.indexOfFirst { it.startsWith("http error:") }
+            )
+            assertEquals(0, successfulLoads.get())
+        }
         composeRule.runOnIdle {
             val view = webView!!
             client!!.onPageFinished(view, "$base/unavailable")
