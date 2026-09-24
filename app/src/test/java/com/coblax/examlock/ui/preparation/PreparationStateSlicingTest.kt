@@ -220,9 +220,9 @@ class PreparationStateSlicingTest {
     }
 
     @Test
-    fun wizardLocationStepIncludesAllLocationQuickFixActions() {
-        val permissionActions = filterQuickFixActionsForStep(
-            WizardStep.Location,
+    fun locationCategoryIncludesAllLocationQuickFixActions() {
+        val permissionActions = filterQuickFixActionsForCategory(
+            PreparationCategory.Location,
             quickFixActionsFor(
                 preparationState(
                     location = locationState(
@@ -242,8 +242,8 @@ class PreparationStateSlicingTest {
             }
         )
 
-        val outsideActions = filterQuickFixActionsForStep(
-            WizardStep.Location,
+        val outsideActions = filterQuickFixActionsForCategory(
+            PreparationCategory.Location,
             quickFixActionsFor(
                 preparationState(
                     location = locationState(
@@ -272,9 +272,9 @@ class PreparationStateSlicingTest {
     }
 
     @Test
-    fun wizardConnectivityStepIncludesNetworkRefreshActions() {
-        val actions = filterQuickFixActionsForStep(
-            WizardStep.Connectivity,
+    fun connectivityCategoryIncludesNetworkRefreshActions() {
+        val actions = filterQuickFixActionsForCategory(
+            PreparationCategory.Connectivity,
             quickFixActionsFor(
                 preparationState(
                     network = networkState(
@@ -297,9 +297,9 @@ class PreparationStateSlicingTest {
     }
 
     @Test
-    fun wizardRuntimeSecurityStepIncludesAppSwitchViolationFix() {
-        val actions = filterQuickFixActionsForStep(
-            WizardStep.RuntimeSecurity,
+    fun runtimeSecurityCategoryIncludesAppSwitchViolationFix() {
+        val actions = filterQuickFixActionsForCategory(
+            PreparationCategory.RuntimeSecurity,
             quickFixActionsFor(
                 preparationState(
                     runtimeSecurity = runtimeSecurityState().copy(
@@ -503,6 +503,397 @@ class PreparationStateSlicingTest {
                 accessibilityGuardAvailable = true,
                 accessibilityGuardEnabled = false
             )
+        )
+    }
+
+    @Test
+    fun overviewForHealthyDeviceIsReadyWithNothingToFix() {
+        val (readiness, overview) = overviewFor(preparationState())
+
+        assertTrue(readiness.canStartExam)
+        assertEquals(PreparationOverallState.Ready, overview.overallState)
+        assertEquals(0, overview.blockingCount)
+        assertTrue(overview.attention.isEmpty())
+        assertEquals(PreparationCategory.entries.size, overview.clearCategoryCount)
+    }
+
+    @Test
+    fun everyStartBlockerShowsARequiredIssueInItsCategory() {
+        val cases: List<Pair<PreparationCategory, PreparationScreenState>> = listOf(
+            PreparationCategory.DeviceSetup to preparationState(
+                device = deviceState().copy(bluetoothEnabled = true)
+            ),
+            PreparationCategory.Connectivity to preparationState(
+                network = networkState(
+                    readinessStatus = networkReadinessStatus(
+                        verdict = NetworkReadinessVerdict.VpnActive,
+                        userVerdict = NetworkReadinessUserVerdict.VpnActive,
+                        vpnActive = true
+                    )
+                )
+            ),
+            PreparationCategory.DeviceHealth to preparationState(
+                device = deviceState().copy(
+                    deviceTimeSecurityStatus = evaluateDeviceTimeSecurityStatus(
+                        autoTimeEnabled = false,
+                        autoTimeZoneEnabled = true,
+                        baseline = DeviceTimeBaseline(1_000L, 500L),
+                        bypassState = DeviceTimeBypassState.Inactive,
+                        timezoneSummary = "Asia/Jakarta",
+                        nowWallClockMillis = 2_000L,
+                        nowElapsedRealtimeMillis = 1_500L
+                    )
+                )
+            ),
+            PreparationCategory.RuntimeInteraction to preparationState(
+                runtimeSecurity = runtimeSecurityState().copy(accessibilityServiceEnabled = true)
+            ),
+            PreparationCategory.RuntimeInteraction to preparationState(
+                runtimeSecurity = runtimeSecurityState().copy(
+                    overlayRiskResult = runtimeSecurityState().overlayRiskResult.copy(
+                        confirmedInteractionDetected = true
+                    )
+                )
+            ),
+            PreparationCategory.DeviceIntegrity to preparationState(
+                device = deviceState().copy(
+                    adbInspection = deviceState().adbInspection.copy(adbEnabled = true)
+                )
+            ),
+            PreparationCategory.DeviceIntegrity to preparationState(
+                device = deviceState().copy(
+                    adbInspection = deviceState().adbInspection.copy(adbSecureProperty = "0")
+                )
+            ),
+            PreparationCategory.DeviceIntegrity to preparationState(
+                device = deviceState().copy(virtualEnvironmentDetected = true)
+            ),
+            PreparationCategory.DeviceIntegrity to preparationState(
+                device = deviceState().copy(signatureMismatchDetected = true)
+            ),
+            PreparationCategory.DeviceIntegrity to preparationState(
+                runtimeSecurity = runtimeSecurityState().copy(
+                    reverseEngineeringDetected = true,
+                    reverseEngineeringSummary = "debugger"
+                )
+            ),
+            PreparationCategory.DeviceIntegrity to preparationState(
+                runtimeSecurity = runtimeSecurityState().copy(
+                    integrityDetected = true,
+                    integritySummary = "dex_hash_mismatch"
+                )
+            ),
+            PreparationCategory.Location to preparationState(
+                location = locationState(
+                    geofenceRuntimeStatus = geofenceRuntimeStatus(
+                        finalVerdict = GeofenceSecurityVerdict.Outside
+                    )
+                )
+            ),
+            PreparationCategory.Location to preparationState(
+                location = locationState(
+                    geofenceRuntimeStatus = geofenceRuntimeStatus(
+                        finalVerdict = GeofenceSecurityVerdict.PermissionMissing
+                    )
+                )
+            ),
+            PreparationCategory.DeviceLock to preparationState(
+                device = deviceState().copy(isScreenPinningActive = false)
+            ),
+            PreparationCategory.RuntimeSecurity to preparationState(
+                runtimeSecurity = runtimeSecurityState().copy(screenRecorderPackages = listOf("recorder.app"))
+            ),
+            PreparationCategory.RuntimeSecurity to preparationState(
+                runtimeSecurity = runtimeSecurityState().copy(
+                    externalDisplayDetected = true,
+                    externalDisplayCount = 1
+                )
+            ),
+            PreparationCategory.RuntimeSecurity to preparationState(
+                runtimeSecurity = runtimeSecurityState().copy(multiWindowDetected = true)
+            )
+        )
+
+        cases.forEachIndexed { index, (category, state) ->
+            val (readiness, overview) = overviewFor(state)
+            val label = "case #$index ($category)"
+            assertFalse("$label should block start", readiness.canStartExam)
+            assertEquals("$label overall state", PreparationOverallState.Blocked, overview.overallState)
+            assertTrue("$label needs a required issue", overview.status(category).blockingCount > 0)
+            assertEquals(
+                "$label blocking issues belong to one category",
+                overview.blockingCount,
+                overview.status(category).blockingCount
+            )
+            assertEquals("$label is listed first", category, overview.attention.first().category)
+        }
+    }
+
+    @Test
+    fun rootedDeviceBlocksStartWithIntegrityIssue() {
+        val state = preparationState(
+            device = deviceState().copy(
+                rootSecurityStatus = buildRootSecurityStatus(
+                    rootDetectionDetails().copy(hasSuBinary = true, rootBinaryPaths = listOf("/system/xbin/su"))
+                )
+            )
+        )
+        val (readiness, overview) = overviewFor(state)
+
+        if (!readiness.rootReady) {
+            assertTrue(
+                overview.status(PreparationCategory.DeviceIntegrity).issues.any {
+                    it.key == "root_detected" && it.blocking
+                }
+            )
+        }
+        assertEquals(!readiness.canStartExam, overview.blockingCount > 0)
+    }
+
+    @Test
+    fun networkWarningsAreOptionalAndKeepStartEnabled() {
+        val (readiness, overview) = overviewFor(
+            preparationState(
+                network = networkState(
+                    readinessStatus = networkReadinessStatus(
+                        verdict = NetworkReadinessVerdict.Offline,
+                        userVerdict = NetworkReadinessUserVerdict.Offline
+                    )
+                )
+            )
+        )
+
+        assertTrue(readiness.canStartExam)
+        assertEquals(PreparationOverallState.ReadyWithWarnings, overview.overallState)
+        assertEquals(PreparationTone.Warning, overview.status(PreparationCategory.Connectivity).tone)
+        assertEquals(0, overview.blockingCount)
+    }
+
+    @Test
+    fun attentionListsRequiredFixesFirstAndScreenPinningLast() {
+        val (_, overview) = overviewFor(
+            preparationState(
+                device = deviceState().copy(
+                    bluetoothEnabled = true,
+                    isScreenPinningActive = false
+                ),
+                network = networkState(
+                    readinessStatus = networkReadinessStatus(
+                        verdict = NetworkReadinessVerdict.Unstable,
+                        userVerdict = NetworkReadinessUserVerdict.Unstable
+                    )
+                )
+            )
+        )
+
+        assertEquals(
+            listOf(
+                PreparationCategory.DeviceSetup,
+                PreparationCategory.DeviceLock,
+                PreparationCategory.Connectivity
+            ),
+            overview.attention.map { it.category }
+        )
+        val pinningActions = overview.status(PreparationCategory.DeviceLock).actions
+        assertTrue(pinningActions.any { it.code == QuickFixScreenPinningDeferredCode && it.isNotice })
+    }
+
+    @Test
+    fun initialScanShowsScanningInsteadOfUnexplainedBlock() {
+        val (readiness, overview) = overviewFor(
+            preparationState(
+                runtimeSecurity = runtimeSecurityState().copy(staticSecurityInitialScanComplete = false)
+            )
+        )
+
+        assertFalse(readiness.canStartExam)
+        assertEquals(PreparationOverallState.Scanning, overview.overallState)
+    }
+
+    @Test
+    fun examGuardIssueAndFixShareTheScreenLockCategory() {
+        val state = preparationState(
+            device = deviceState().copy(
+                screenPinningAvailable = false,
+                isScreenPinningActive = false
+            )
+        )
+        val (readiness, overview) = overviewFor(
+            state,
+            accessibilityGuardAvailable = true,
+            accessibilityGuardEnabled = false
+        )
+        val lock = overview.status(PreparationCategory.DeviceLock)
+
+        assertFalse(readiness.canStartExam)
+        assertTrue(lock.issues.any { it.key == "exam_guard" && it.blocking })
+        assertTrue(lock.actions.any { it.priority == 36 })
+        assertFalse(
+            overview.status(PreparationCategory.RuntimeInteraction).actions.any { it.priority == 36 }
+        )
+    }
+
+    @Test
+    fun unknownAccessibilityStateDoesNotClaimScreenLockIsUnsupported() {
+        val state = preparationState(
+            device = deviceState().copy(
+                screenPinningAvailable = false,
+                isScreenPinningActive = false
+            )
+        )
+        val (_, loading) = overviewFor(
+            state,
+            accessibilityGuardAvailable = false,
+            accessibilityStateLoaded = false
+        )
+        val (_, loaded) = overviewFor(
+            state,
+            accessibilityGuardAvailable = false,
+            accessibilityStateLoaded = true
+        )
+
+        assertEquals(PreparationOverallState.Scanning, loading.overallState)
+        assertFalse(
+            loading.status(PreparationCategory.DeviceLock).issues.any { it.key == "screen_lock_unavailable" }
+        )
+        assertTrue(
+            loaded.status(PreparationCategory.DeviceLock).issues.any { it.key == "screen_lock_unavailable" }
+        )
+    }
+
+    @Test
+    fun adminBypassedIntegrityShowsWarningWithoutBlocking() {
+        val (readiness, overview) = overviewFor(
+            preparationState(
+                runtimeSecurity = runtimeSecurityState().copy(
+                    integrityDetected = true,
+                    integritySummary = "dex_hash_mismatch",
+                    integrityBypassActive = true
+                )
+            )
+        )
+
+        assertTrue(readiness.canStartExam)
+        assertEquals(PreparationTone.Warning, overview.status(PreparationCategory.DeviceIntegrity).tone)
+    }
+
+    @Test
+    fun categoryFilterNeverListsATaggedActionTwice() {
+        val actionsBySection = PreparationCategory.entries.map { category ->
+            PreparationQuickFixAction(
+                code = "section_${category.name}",
+                text = category.name,
+                severity = QuickFixSeverity.Blocking,
+                target = null,
+                priority = 1,
+                section = category.preparationSection(),
+                onClick = {}
+            )
+        } + PreparationQuickFixAction(
+            // Code matches the RuntimeInteraction prefix fallback, but the section tag wins.
+            code = "quick_fix_36",
+            text = "Enable Exam Guard",
+            severity = QuickFixSeverity.Blocking,
+            target = QuickFixTarget.All,
+            priority = 36,
+            section = PreparationSection.DeviceLock,
+            onClick = {}
+        ) + PreparationQuickFixAction(
+            code = QuickFixRefreshAllSecurityChecksCode,
+            text = "Refresh",
+            severity = QuickFixSeverity.Warning,
+            target = null,
+            priority = 900,
+            onClick = {}
+        )
+
+        val placements = PreparationCategory.entries.flatMap { category ->
+            filterQuickFixActionsForCategory(category, actionsBySection).map { it.code to category }
+        }
+
+        PreparationCategory.entries.forEach { category ->
+            assertTrue(placements.contains("section_${category.name}" to category))
+        }
+        assertEquals(listOf(PreparationCategory.DeviceLock), placements.filter { it.first == "quick_fix_36" }.map { it.second })
+        assertFalse(placements.any { it.first == QuickFixRefreshAllSecurityChecksCode })
+        assertEquals(placements.size, placements.map { it.first }.distinct().size)
+    }
+
+    @Test
+    fun forwardingActionsAlwaysReachTheLatestSessionActions() {
+        var firstStarts = 0
+        var secondStarts = 0
+        var secondReports = 0
+        val first = preparationActions().let {
+            it.copy(session = it.session.copy(onStartExam = { firstStarts += 1 }))
+        }
+        val second = preparationActions().let {
+            it.copy(
+                session = it.session.copy(
+                    onStartExam = { secondStarts += 1 },
+                    onRequestSectionReport = { secondReports += 1 }
+                )
+            )
+        }
+        var current = first
+        val forwarding = forwardingPreparationActions { current }
+
+        forwarding.onStartExam()
+        current = second
+        forwarding.onStartExam()
+        forwarding.onRequestSectionReport(com.coblax.examlock.model.DiagnosticSection.Network)
+
+        assertEquals(1, firstStarts)
+        assertEquals(1, secondStarts)
+        assertEquals(1, secondReports)
+    }
+
+    @Test
+    fun adviceOnlyFixesAreNotOfferedAsButtons() {
+        val (_, overview) = overviewFor(
+            preparationState(device = deviceState().copy(virtualEnvironmentDetected = true))
+        )
+        val integrity = overview.status(PreparationCategory.DeviceIntegrity)
+
+        assertTrue(integrity.issues.any { it.key == "virtual_environment" && it.blocking })
+        assertFalse(integrity.actions.any { it.code in AdviceOnlyQuickFixCodes })
+    }
+
+    private fun overviewFor(
+        state: PreparationScreenState,
+        accessibilityGuardAvailable: Boolean = true,
+        accessibilityGuardEnabled: Boolean = false,
+        accessibilityStateLoaded: Boolean = true
+    ): Pair<PreparationChecklistReadiness, PreparationOverview> {
+        val guardRequired =
+            !state.screenPinningAvailable && !state.bypassScreenPinning && accessibilityGuardAvailable
+        val readiness = buildPreparationChecklistReadiness(
+            state = state,
+            needsBluetoothPermission = false,
+            accessibilityGuardRequired = guardRequired,
+            accessibilityGuardAvailable = accessibilityGuardAvailable,
+            accessibilityGuardEnabled = accessibilityGuardEnabled
+        )
+        val quickFixActions = buildPreparationQuickFixActions(
+            state = state,
+            actions = preparationActions(),
+            uiLanguage = UiLanguage.English,
+            accessibilityGuardRequired = guardRequired,
+            accessibilityGuardEnabled = accessibilityGuardEnabled,
+            geofenceReady = readiness.geofenceReady,
+            fakeLocationReady = readiness.fakeLocationReady,
+            needsBluetoothPermission = false,
+            accessibilityInspection = accessibilityInspection(),
+            runQuickFix = { _, _, _, action -> action() }
+        )
+        return readiness to buildPreparationOverview(
+            state = state,
+            readiness = readiness,
+            quickFixActions = quickFixActions,
+            needsBluetoothPermission = false,
+            accessibilityGuardAvailable = accessibilityGuardAvailable,
+            uiLanguage = UiLanguage.English,
+            accessibilityStateLoaded = accessibilityStateLoaded
         )
     }
 

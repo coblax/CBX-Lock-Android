@@ -11,7 +11,9 @@ import kotlinx.coroutines.withContext
 internal data class PreparationAccessibilityState(
     val inspection: AccessibilityInspectionResult,
     val guardEnabled: Boolean,
-    val guardAvailable: Boolean
+    val guardAvailable: Boolean,
+    /** False until the first inspection finishes; the placeholder values are not facts. */
+    val loaded: Boolean = true
 )
 
 internal fun initialPreparationAccessibilityState(): PreparationAccessibilityState =
@@ -29,7 +31,8 @@ internal fun initialPreparationAccessibilityState(): PreparationAccessibilitySta
             riskyPackages = emptyList()
         ),
         guardEnabled = false,
-        guardAvailable = false
+        guardAvailable = false,
+        loaded = false
     )
 
 internal suspend fun loadPreparationAccessibilityState(

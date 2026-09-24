@@ -14,62 +14,96 @@ import org.junit.Test
 
 class ExamFooterLayoutTest {
     @Test
-    fun compactPhoneKeepsAllActionsAtAccessibleHeight() {
-        val spec = calculateExamFooterLayoutSpec(
-            maxWidthDp = 320,
-            lowRamEnabled = false,
-            lowRamSevere = false
-        )
-
-        assertEquals(ExamFooterLayoutMode.Compact, spec.layoutMode)
-        assertTrue(spec.compact)
-        assertFalse(spec.severe)
-        assertEquals(48, spec.touchTargetDp)
-        assertEquals(52, spec.railHeightDp)
-        assertFalse(spec.showFullActionLabels)
-    }
-
-    @Test
-    fun severeLowRamDoesNotShrinkTouchTargets() {
-        val spec = calculateExamFooterLayoutSpec(
+    fun phoneChromeShowsEveryWordInSlimBars() {
+        val spec = calculateExamChromeLayoutSpec(
             maxWidthDp = 360,
-            lowRamEnabled = true,
-            lowRamSevere = true
-        )
-
-        assertEquals(ExamFooterLayoutMode.Compact, spec.layoutMode)
-        assertTrue(spec.compact)
-        assertTrue(spec.severe)
-        assertEquals(48, spec.touchTargetDp)
-        assertEquals(52, spec.railHeightDp)
-        assertEquals(17, spec.iconSizeDp)
-    }
-
-    @Test
-    fun mediumPhoneUsesFullActionLabels() {
-        val spec = calculateExamFooterLayoutSpec(
-            maxWidthDp = 480,
-            lowRamEnabled = false,
+            fontScale = 1f,
             lowRamSevere = false
         )
 
         assertEquals(ExamFooterLayoutMode.Regular, spec.layoutMode)
-        assertFalse(spec.compact)
-        assertTrue(spec.showFullActionLabels)
+        assertTrue(spec.showExamName)
+        assertTrue(spec.showStatusLabels)
+        assertTrue(spec.showActionLabels)
+        assertFalse(spec.stackActionLabels)
+        assertEquals(32, spec.headerHeightDp)
+        assertEquals(48, spec.footerHeightDp)
+        assertEquals(48, spec.touchTargetDp)
+        // Both bars together stay well under the old 48dp card rail plus 40dp status strip.
+        assertTrue(spec.headerHeightDp + spec.footerHeightDp <= 80)
     }
 
     @Test
-    fun wideTabletUsesWideActionRail() {
-        val spec = calculateExamFooterLayoutSpec(
+    fun largeFontDropsStatusWordsBeforeActionLabels() {
+        val spec = calculateExamChromeLayoutSpec(
+            maxWidthDp = 360,
+            fontScale = 1.1f,
+            lowRamSevere = false
+        )
+
+        assertFalse(spec.showStatusLabels)
+        assertTrue(spec.showActionLabels)
+        assertFalse(spec.stackActionLabels)
+        assertTrue(spec.showExamName)
+    }
+
+    @Test
+    fun largerFontMovesActionLabelsUnderIconsInsteadOfDroppingThem() {
+        val spec = calculateExamChromeLayoutSpec(
+            maxWidthDp = 360,
+            fontScale = 1.3f,
+            lowRamSevere = false
+        )
+
+        assertTrue(spec.showActionLabels)
+        assertTrue(spec.stackActionLabels)
+        assertEquals(48, spec.touchTargetDp)
+    }
+
+    @Test
+    fun hugeFontIsCappedSoTheBarsKeepTheirWords() {
+        val spec = calculateExamChromeLayoutSpec(
+            maxWidthDp = 320,
+            fontScale = 2f,
+            lowRamSevere = false
+        )
+
+        // 2x is treated as the 1.3x cap: the bars stay slim and every button keeps a word.
+        assertEquals(ExamFooterLayoutMode.Compact, spec.layoutMode)
+        assertFalse(spec.showStatusLabels)
+        assertTrue(spec.showActionLabels)
+        assertTrue(spec.stackActionLabels)
+        assertTrue(spec.showExamName)
+        assertEquals(48, spec.footerHeightDp)
+        assertEquals(48, spec.touchTargetDp)
+    }
+
+    @Test
+    fun severeLowRamKeepsLabelsAndTouchTargets() {
+        val spec = calculateExamChromeLayoutSpec(
             maxWidthDp = 720,
-            lowRamEnabled = false,
+            fontScale = 1f,
+            lowRamSevere = true
+        )
+
+        assertEquals(ExamFooterLayoutMode.Compact, spec.layoutMode)
+        assertTrue(spec.showActionLabels)
+        assertEquals(48, spec.touchTargetDp)
+    }
+
+    @Test
+    fun wideTabletShowsEverything() {
+        val spec = calculateExamChromeLayoutSpec(
+            maxWidthDp = 720,
+            fontScale = 1.3f,
             lowRamSevere = false
         )
 
         assertEquals(ExamFooterLayoutMode.TabletWide, spec.layoutMode)
-        assertFalse(spec.compact)
-        assertEquals(20, spec.iconSizeDp)
-        assertTrue(spec.showFullActionLabels)
+        assertTrue(spec.showActionLabels)
+        assertTrue(spec.showStatusLabels)
+        assertTrue(spec.showExamName)
+        assertFalse(spec.stackActionLabels)
     }
 
     @Test

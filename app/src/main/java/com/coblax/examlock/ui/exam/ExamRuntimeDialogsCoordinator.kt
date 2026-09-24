@@ -1,38 +1,29 @@
-﻿package com.coblax.examlock.ui.exam
+package com.coblax.examlock.ui.exam
 
-import androidx.compose.foundation.layout.Arrangement
-import androidx.compose.foundation.layout.Column
-import androidx.compose.foundation.layout.Row
-import androidx.compose.foundation.layout.Spacer
-import androidx.compose.foundation.layout.height
-import androidx.compose.foundation.layout.size
-import androidx.compose.foundation.layout.width
 import androidx.compose.material.icons.Icons
-import androidx.compose.material.icons.rounded.Refresh
-import androidx.compose.material3.AlertDialog
-import androidx.compose.material3.CircularProgressIndicator
-import androidx.compose.material3.Icon
+import androidx.compose.material.icons.automirrored.rounded.Send
+import androidx.compose.material.icons.rounded.CloudOff
+import androidx.compose.material.icons.rounded.GppMaybe
+import androidx.compose.material.icons.rounded.Info
+import androidx.compose.material.icons.rounded.PhonelinkLock
+import androidx.compose.material.icons.rounded.Sync
 import androidx.compose.material3.Text
-import androidx.compose.material3.TextButton
-import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.Composable
-import androidx.compose.ui.Modifier
-import androidx.compose.ui.Alignment
-import androidx.compose.ui.graphics.Color
-import androidx.compose.ui.unit.dp
-import androidx.compose.ui.unit.sp
+import androidx.compose.runtime.LaunchedEffect
 import com.coblax.examlock.i18n.diagnosticSectionLabel
 import com.coblax.examlock.i18n.localized
 import com.coblax.examlock.i18n.tr
 import com.coblax.examlock.model.DiagnosticSection
 import com.coblax.examlock.model.UiLanguage
-import com.coblax.examlock.ui.admin.InfoDialog
+import com.coblax.examlock.ui.dialog.AppAlertAction
+import com.coblax.examlock.ui.dialog.AppAlertDialog
 import com.coblax.examlock.ui.dialog.ExamRuntimeDialogsActions
 import com.coblax.examlock.ui.dialog.ExamRuntimeDialogsHost
 import com.coblax.examlock.ui.dialog.ExamRuntimeDialogsState
 import com.coblax.examlock.ui.theme.AppColors
-import androidx.compose.ui.text.font.FontWeight
-import androidx.compose.ui.window.DialogProperties
+import com.coblax.examlock.ui.theme.AppTextStyles
+import com.coblax.examlock.ui.theme.UiStatusTone
+import androidx.compose.ui.text.style.TextAlign
 import kotlinx.coroutines.delay
 
 private const val StartExamBlockedNetworkReachabilityCode = "START_EXAM_BLOCKED_NETWORK_REACHABILITY"
@@ -63,32 +54,19 @@ internal fun ExamRuntimeDialogsCoordinator(
 ) {
     pendingSection?.let { section ->
         val sectionLabel = diagnosticSectionLabel(section, uiLanguage)
-        AlertDialog(
+        AppAlertDialog(
+            tone = UiStatusTone.Info,
+            icon = Icons.AutoMirrored.Rounded.Send,
+            title = tr("Send diagnostics?", "Kirim diagnostik?"),
+            message = localized(
+                uiLanguage,
+                "Send diagnostics for $sectionLabel to Telegram?",
+                "Kirim diagnostik $sectionLabel ke Telegram?"
+            ),
+            dismissible = true,
             onDismissRequest = onDismissPendingSection,
-            title = { Text(tr("Send diagnostics?", "Kirim diagnostik?")) },
-            text = {
-                Text(
-                    text = localized(
-                        uiLanguage,
-                        "Send diagnostics for $sectionLabel to Telegram?",
-                        "Kirim diagnostik $sectionLabel ke Telegram?"
-                    ),
-                    color = AppColors.current.textSecondary,
-                    fontSize = 14.sp,
-                    lineHeight = 18.sp
-                )
-            },
-            confirmButton = {
-                TextButton(onClick = { onConfirmPendingSection(section) }) {
-                    Text(tr("Send", "Kirim"))
-                }
-            },
-            dismissButton = {
-                TextButton(onClick = onDismissPendingSection) {
-                    Text(tr("Cancel", "Batal"))
-                }
-            },
-            containerColor = AppColors.current.cardBg
+            primaryAction = AppAlertAction(tr("Send", "Kirim"), { onConfirmPendingSection(section) }),
+            secondaryActions = listOf(AppAlertAction(tr("Cancel", "Batal"), onDismissPendingSection))
         )
     }
 
@@ -104,108 +82,75 @@ internal fun ExamRuntimeDialogsCoordinator(
     )
 
     screenPinningMessage?.let { message ->
+        val title = localized(uiLanguage, "Screen pinning required", "Screen pinning diperlukan")
         if (lockTaskRequestPending) {
-            AlertDialog(
-                onDismissRequest = {},
-                properties = DialogProperties(
-                    dismissOnBackPress = false,
-                    dismissOnClickOutside = false
-                ),
-                containerColor = AppColors.current.background,
-                title = {
-                    Text(
-                        text = localized(uiLanguage, "Screen Pinning Required", "Screen Pinning Diperlukan"),
-                        color = AppColors.current.textPrimary,
-                        fontWeight = FontWeight.Bold
-                    )
-                },
-                text = {
-                    Text(
-                        text = message,
-                        color = AppColors.current.textSecondary
-                    )
-                },
-                confirmButton = {
-                    Row(
-                        horizontalArrangement = Arrangement.spacedBy(8.dp),
-                        verticalAlignment = Alignment.CenterVertically
-                    ) {
-                        CircularProgressIndicator(
-                            modifier = Modifier.size(16.dp),
-                            strokeWidth = 2.dp,
-                            color = AppColors.current.brandText
-                        )
-                        Text(localized(uiLanguage, "Waiting", "Menunggu"), color = AppColors.current.textSecondary)
-                    }
-                }
+            // Waiting on Android's pinning prompt: nothing to press here.
+            AppAlertDialog(
+                tone = UiStatusTone.Info,
+                icon = Icons.Rounded.PhonelinkLock,
+                title = title,
+                message = message,
+                progress = true,
+                primaryAction = null
             )
         } else {
-            InfoDialog(
-                title = localized(uiLanguage, "Screen Pinning Required", "Screen Pinning Diperlukan"),
+            AppAlertDialog(
+                tone = UiStatusTone.Warning,
+                icon = Icons.Rounded.PhonelinkLock,
+                title = title,
                 message = message,
-                onDismiss = onDismissScreenPinningMessage
+                dismissible = true,
+                onDismissRequest = onDismissScreenPinningMessage,
+                primaryAction = AppAlertAction(tr("Close", "Tutup"), onDismissScreenPinningMessage)
             )
         }
     }
 
     securityIssueDialogMessage?.let { message ->
         if (securityIssueDialogCode == StartExamBlockedNetworkReachabilityCode) {
-            AlertDialog(
+            AppAlertDialog(
+                tone = UiStatusTone.Warning,
+                icon = Icons.Rounded.CloudOff,
+                title = securityIssueDialogTitle ?: tr("Exam network not ready", "Jaringan ujian belum siap"),
+                message = message,
+                dismissible = true,
                 onDismissRequest = onDismissSecurityIssueDialog,
-                title = {
-                    Text(securityIssueDialogTitle ?: tr("Exam Network Not Ready", "Network Ujian Belum Siap"))
-                },
-                text = {
-                    Text(
-                        text = message,
-                        color = AppColors.current.textSecondary,
-                        fontSize = 14.sp,
-                        lineHeight = 18.sp
-                    )
-                },
-                confirmButton = {
-                    TextButton(
-                        enabled = !isRefreshingNetwork,
-                        onClick = {
-                            onRefreshNetworkStatus()
-                            onDismissSecurityIssueDialog()
-                        }
-                    ) {
-                        Icon(
-                            imageVector = Icons.Rounded.Refresh,
-                            contentDescription = null
-                        )
-                        Spacer(Modifier.width(6.dp))
-                        Text(
-                            if (isRefreshingNetwork) {
-                                tr("Refreshing...", "Refresh...")
-                            } else {
-                                tr("Refresh Network", "Refresh Network")
-                            }
-                        )
-                    }
-                },
-                dismissButton = {
-                    TextButton(onClick = onDismissSecurityIssueDialog) {
-                        Text(tr("Close", "Tutup"))
-                    }
-                },
-                containerColor = AppColors.current.cardBg
+                primaryAction = AppAlertAction(
+                    label = if (isRefreshingNetwork) {
+                        tr("Checking…", "Mengecek…")
+                    } else {
+                        tr("Check network again", "Cek ulang jaringan")
+                    },
+                    onClick = {
+                        onRefreshNetworkStatus()
+                        onDismissSecurityIssueDialog()
+                    },
+                    loading = isRefreshingNetwork
+                ),
+                secondaryActions = listOf(AppAlertAction(tr("Close", "Tutup"), onDismissSecurityIssueDialog))
             )
         } else {
-            InfoDialog(
-                title = securityIssueDialogTitle ?: "Keamanan Perangkat",
+            AppAlertDialog(
+                tone = UiStatusTone.Warning,
+                icon = Icons.Rounded.GppMaybe,
+                title = securityIssueDialogTitle ?: tr("Device security", "Keamanan perangkat"),
                 message = message,
-                onDismiss = onDismissSecurityIssueDialog
+                dismissible = true,
+                onDismissRequest = onDismissSecurityIssueDialog,
+                primaryAction = AppAlertAction(tr("Close", "Tutup"), onDismissSecurityIssueDialog)
             )
         }
     }
 
     bugReportFeedbackMessage?.let { message ->
-        InfoDialog(
+        AppAlertDialog(
+            tone = UiStatusTone.Info,
+            icon = Icons.Rounded.Info,
             title = bugReportFeedbackTitle ?: "Info",
             message = message,
-            onDismiss = onDismissBugReportFeedback
+            dismissible = true,
+            onDismissRequest = onDismissBugReportFeedback,
+            primaryAction = AppAlertAction(tr("Close", "Tutup"), onDismissBugReportFeedback)
         )
     }
 }
@@ -240,59 +185,35 @@ private fun StartExamPreflightDialog(
 
     val label = startExamPreflightStepLabel(step, uiLanguage)
     val detail = state.detail.value ?: startExamPreflightStepDetail(step, uiLanguage)
-    AlertDialog(
-        onDismissRequest = {},
-        title = {
-            Text(localized(uiLanguage, "Preparing exam...", "Menyiapkan ujian..."))
-        },
-        text = {
-            Column {
-                Row(
-                    horizontalArrangement = Arrangement.spacedBy(12.dp),
-                    verticalAlignment = Alignment.CenterVertically
-                ) {
-                    CircularProgressIndicator(
-                        modifier = Modifier.size(24.dp),
-                        strokeWidth = 2.5.dp
-                    )
-                    Text(
-                        text = label,
-                        fontSize = 15.sp,
-                        lineHeight = 19.sp
-                    )
-                }
-                Spacer(Modifier.height(10.dp))
+    val slow = state.slowHintVisible.value
+    AppAlertDialog(
+        tone = UiStatusTone.Info,
+        icon = Icons.Rounded.Sync,
+        title = localized(uiLanguage, "Preparing exam…", "Menyiapkan ujian…"),
+        message = detail,
+        progress = true,
+        badge = label,
+        extraContent = if (slow) {
+            {
                 Text(
-                    text = detail,
+                    text = localized(
+                        uiLanguage,
+                        "This is taking longer than usual; the app is waiting for the network or device checks.",
+                        "Ini lebih lama dari biasanya; aplikasi sedang menunggu jaringan atau pemeriksaan perangkat."
+                    ),
                     color = AppColors.current.textSecondary,
-                    fontSize = 14.sp,
-                    lineHeight = 18.sp
+                    style = AppTextStyles.diagnostic,
+                    textAlign = TextAlign.Center
                 )
-                if (state.slowHintVisible.value) {
-                    Spacer(Modifier.height(10.dp))
-                    Text(
-                        text = localized(
-                            uiLanguage,
-                            "If this takes longer than usual, the app is waiting for the network or device checks to respond.",
-                            "Jika lebih lama dari biasanya, aplikasi sedang menunggu jaringan atau pemeriksaan perangkat merespons."
-                        ),
-                        color = AppColors.current.textSecondary,
-                        fontSize = 13.sp,
-                        lineHeight = 17.sp
-                    )
-                }
             }
+        } else {
+            null
         },
-        confirmButton = {
-            if (state.slowHintVisible.value) {
-                TextButton(onClick = onCancel) {
-                    Text(
-                        localized(uiLanguage, "Cancel", "Batal"),
-                        color = AppColors.current.textSecondary
-                    )
-                }
-            }
-        },
-        containerColor = AppColors.current.cardBg
+        primaryAction = null,
+        secondaryActions = if (slow) {
+            listOf(AppAlertAction(localized(uiLanguage, "Cancel", "Batal"), onCancel))
+        } else {
+            emptyList()
+        }
     )
 }

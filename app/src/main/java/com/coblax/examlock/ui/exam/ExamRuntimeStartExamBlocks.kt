@@ -117,11 +117,12 @@ internal fun formatApkIntegrityBlockReason(summary: String): String {
     if ("signature_changed" in lower || "signature" in lower) {
         reasons.add("Signature APK berubah")
     }
+    // dex_hash_unreadable can appear in the summary for diagnostics but never blocks,
+    // so it must not be named as a reason — and the old loose "hash" catch-all would
+    // have reported it as "Hash APK berubah", which is not what happened.
     if ("dex_hash_reference_missing" in lower) {
         reasons.add("Referensi hash APK hilang")
-    } else if ("dex_hash_unreadable" in lower) {
-        reasons.add("Hash APK tidak terbaca")
-    } else if ("dex_hash_mismatch" in lower || "hash" in lower) {
+    } else if ("dex_hash_mismatch" in lower) {
         reasons.add("Hash APK berubah")
     }
     if ("sysprop_" in lower || "test_keys" in lower || "system property" in lower) {

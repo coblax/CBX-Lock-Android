@@ -4,26 +4,24 @@ import android.graphics.Bitmap
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.background
 import androidx.compose.ui.Modifier
-import androidx.compose.material3.Text
 import androidx.compose.runtime.CompositionLocalProvider
-import androidx.compose.runtime.getValue
-import androidx.compose.runtime.mutableStateOf
-import androidx.compose.runtime.setValue
 import androidx.compose.ui.graphics.asAndroidBitmap
 import androidx.compose.ui.test.assertIsDisplayed
 import androidx.compose.ui.test.captureToImage
 import androidx.compose.ui.test.junit4.createComposeRule
-import androidx.compose.ui.test.onNodeWithContentDescription
 import androidx.compose.ui.test.onNodeWithText
 import androidx.compose.ui.test.onRoot
-import androidx.compose.ui.test.performClick
 import androidx.test.platform.app.InstrumentationRegistry
 import com.coblax.examlock.i18n.LocalUiLanguage
 import com.coblax.examlock.model.ThemeMode
 import com.coblax.examlock.model.UiLanguage
-import com.coblax.examlock.ui.preparation.CollapsibleChecklistSection
-import com.coblax.examlock.ui.preparation.PreparationChecklistHeader
-import com.coblax.examlock.ui.preparation.SectionHealth
+import com.coblax.examlock.ui.preparation.PreparationCategory
+import com.coblax.examlock.ui.preparation.PreparationCategoryGrid
+import com.coblax.examlock.ui.preparation.PreparationCategoryStatus
+import com.coblax.examlock.ui.preparation.PreparationIssue
+import com.coblax.examlock.ui.preparation.PreparationOverview
+import com.coblax.examlock.ui.preparation.PreparationStatusCard
+import com.coblax.examlock.ui.preparation.PreparationTone
 import com.coblax.examlock.ui.theme.COBLAXEXAMLOCKTheme
 import com.coblax.examlock.ui.theme.AppColors
 import java.io.File
@@ -34,42 +32,44 @@ class DarkThemeTextUiTest {
     @get:Rule val composeRule = createComposeRule()
 
     @Test
-    fun themeIconsCycleAndIndonesianChecklistTextRendersInDarkLowRamMode() {
-        var theme by mutableStateOf(ThemeMode.Dark)
+    fun indonesianPreparationTextRendersInDarkMode() {
+        val theme = ThemeMode.Dark
         composeRule.setContent {
             CompositionLocalProvider(LocalUiLanguage provides UiLanguage.Indonesian) {
                 COBLAXEXAMLOCKTheme(themeMode = theme) {
                     Column(Modifier.background(AppColors.current.background)) {
-                        ThemeTogglePill(theme) { theme = it }
-                        PreparationChecklistHeader(
-                            examTitle = "Ujian Sekolah",
-                            severeLowRamPreparation = true,
-                            blockingCount = 2, warningCount = 0, safeCount = 4,
-                            canStartExam = false, firstBlockingReason = "Periksa jaringan",
-                            onBackHome = {}
+                        val categories = PreparationCategory.entries.map { category ->
+                            PreparationCategoryStatus(
+                                category = category,
+                                issues = if (category == PreparationCategory.Connectivity) {
+                                    listOf(
+                                        PreparationIssue("vpn_active", "VPN masih aktif", "Matikan VPN.", blocking = true),
+                                        PreparationIssue("network_unstable", "Koneksi tidak stabil", null, blocking = true)
+                                    )
+                                } else {
+                                    emptyList()
+                                },
+                                actions = emptyList()
+                            )
+                        }
+                        val overview = PreparationOverview(
+                            categories = categories,
+                            attention = categories.filter { it.tone != PreparationTone.Clear },
+                            canStartExam = false,
+                            scanPending = false
                         )
-                        CollapsibleChecklistSection(
-                            "network", SectionHealth("Koneksi", false, 2)
-                        ) { Text("Periksa Wi-Fi atau data seluler", color = AppColors.current.textPrimary) }
-                        CollapsibleChecklistSection(
-                            "device", SectionHealth("Perangkat", true, 0)
-                        ) { Text("Siap") }
+                        PreparationStatusCard(overview = overview, hasBypassIndicators = false)
+                        PreparationCategoryGrid(categories = categories, onOpenCategory = {})
                     }
                 }
             }
         }
-        composeRule.onNodeWithContentDescription("Tema: gelap").assertIsDisplayed()
         composeRule.onNodeWithText("2 masalah").assertIsDisplayed()
-        composeRule.onNodeWithText("Aman semua").assertIsDisplayed()
-        composeRule.onNodeWithText("Wizard").assertIsDisplayed()
+        composeRule.onNodeWithText("2 hal wajib diperbaiki").assertIsDisplayed()
         val context = InstrumentationRegistry.getInstrumentation().targetContext
         val screenshot = File(context.getExternalFilesDir(null), "dark-ui-regression.png")
         screenshot.outputStream().use {
             composeRule.onRoot().captureToImage().asAndroidBitmap().compress(Bitmap.CompressFormat.PNG, 100, it)
         }
-        composeRule.onNodeWithContentDescription("Tema: gelap").performClick()
-        composeRule.onNodeWithContentDescription("Tema: sistem").assertIsDisplayed().performClick()
-        composeRule.onNodeWithContentDescription("Tema: terang").assertIsDisplayed().performClick()
-        composeRule.onNodeWithContentDescription("Tema: gelap").assertIsDisplayed()
     }
 }

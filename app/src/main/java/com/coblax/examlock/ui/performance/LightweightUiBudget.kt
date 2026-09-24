@@ -11,12 +11,6 @@ internal data class PreparationActionRenderBudget(
 internal fun shouldRenderRuntimeAnimation(lowRamProfile: LowRamProfile): Boolean =
     !lowRamProfile.enabled && !lowRamProfile.disableNonEssentialAnimations
 
-@Suppress("UNUSED_PARAMETER")
-internal fun shouldBuildFullPreparationPayload(
-    lowRamProfile: LowRamProfile,
-    showDetails: Boolean
-): Boolean = !lowRamProfile.enabled
-
 internal fun resolvePreparationActionRenderBudget(
     lowRamProfile: LowRamProfile
 ): PreparationActionRenderBudget =

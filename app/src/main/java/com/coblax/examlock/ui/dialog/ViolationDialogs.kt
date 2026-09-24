@@ -1,90 +1,56 @@
 package com.coblax.examlock.ui.dialog
 
-import android.content.Context
-import android.location.Location
-import android.net.Network
-import android.net.Uri
-import android.os.Build
-import android.provider.Settings
-import androidx.compose.foundation.background
-import androidx.compose.foundation.Image
-import androidx.compose.foundation.layout.Arrangement
-import androidx.compose.foundation.layout.Column
-import androidx.compose.foundation.layout.height
-import androidx.compose.foundation.layout.padding
-import androidx.compose.foundation.layout.Row
-import androidx.compose.foundation.layout.size
-import androidx.compose.foundation.layout.Spacer
-import androidx.compose.foundation.layout.width
-import androidx.compose.foundation.rememberScrollState
-import androidx.compose.foundation.shape.CircleShape
-import androidx.compose.foundation.shape.RoundedCornerShape
-import androidx.compose.foundation.verticalScroll
-import androidx.compose.material.icons.automirrored.rounded.Backspace
-import androidx.compose.material.icons.automirrored.rounded.Send
 import androidx.compose.material.icons.Icons
-import androidx.compose.material.icons.rounded.AdminPanelSettings
+import androidx.compose.material.icons.automirrored.rounded.ExitToApp
 import androidx.compose.material.icons.rounded.BluetoothDisabled
-import androidx.compose.material.icons.rounded.Home
-import androidx.compose.material.icons.rounded.Language
-import androidx.compose.material.icons.rounded.QrCodeScanner
-import androidx.compose.material.icons.rounded.Refresh
-import androidx.compose.material3.AlertDialog
-import androidx.compose.material3.Button
-import androidx.compose.material3.ButtonDefaults
-import androidx.compose.material3.CircularProgressIndicator
-import androidx.compose.material3.Icon
-import androidx.compose.material3.Surface
-import androidx.compose.material3.Switch
-import androidx.compose.material3.Text
-import androidx.compose.material3.TextButton
+import androidx.compose.material.icons.rounded.CloudOff
+import androidx.compose.material.icons.rounded.ContentPaste
+import androidx.compose.material.icons.rounded.GppBad
+import androidx.compose.material.icons.rounded.Keyboard
+import androidx.compose.material.icons.rounded.Layers
+import androidx.compose.material.icons.rounded.LocationOff
+import androidx.compose.material.icons.rounded.ScreenShare
+import androidx.compose.material.icons.rounded.SyncProblem
+import androidx.compose.material.icons.rounded.VerticalSplit
+import androidx.compose.material.icons.rounded.Videocam
+import androidx.compose.material.icons.rounded.VpnKey
+import androidx.compose.material.icons.rounded.WrongLocation
 import androidx.compose.runtime.Composable
-import androidx.compose.runtime.getValue
 import androidx.compose.runtime.LaunchedEffect
+import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
-import androidx.compose.ui.Alignment
-import androidx.compose.ui.draw.clip
-import androidx.compose.ui.graphics.Color
-import androidx.compose.ui.Modifier
-import androidx.compose.ui.text.font.FontWeight
-import androidx.compose.ui.unit.dp
-import androidx.compose.ui.unit.sp
-import androidx.compose.ui.window.Dialog
-import androidx.compose.ui.window.DialogProperties
-
+import androidx.compose.ui.graphics.vector.ImageVector
 import com.coblax.examlock.AppSwitchStatus
-import com.coblax.examlock.diagnosticLabel
-import com.coblax.examlock.format.formatLocationFixAge
-import com.coblax.examlock.formatCoordinates
 import com.coblax.examlock.GeofenceSecurityStatus
 import com.coblax.examlock.GeofenceSecurityVerdict
-import com.coblax.examlock.ui.LocalTelegramDiagnosticsEnabled
-import com.coblax.examlock.i18n.tr
 import com.coblax.examlock.LocationSpoofConfidenceTier
 import com.coblax.examlock.LocationSpoofSecurityStatus
 import com.coblax.examlock.LocationSpoofSecurityVerdict
 import com.coblax.examlock.OverlaySignal
+import com.coblax.examlock.diagnosticLabel
+import com.coblax.examlock.format.formatLocationFixAge
+import com.coblax.examlock.formatCoordinates
+import com.coblax.examlock.i18n.tr
+import com.coblax.examlock.runtime.ExternalDisplayInfo
+import com.coblax.examlock.runtime.MultiWindowModeInfo
 import com.coblax.examlock.runtime.buildDisplayMirrorRuntimeEvidence
 import com.coblax.examlock.runtime.buildMultiWindowRuntimeEvidence
 import com.coblax.examlock.runtime.buildScreenRecorderRuntimeEvidence
 import com.coblax.examlock.runtime.buildVpnRuntimeEvidence
-import com.coblax.examlock.runtime.ExternalDisplayInfo
-import com.coblax.examlock.runtime.MultiWindowModeInfo
+import com.coblax.examlock.ui.LocalTelegramDiagnosticsEnabled
 import com.coblax.examlock.ui.geofence.summarizeCircleCenters
-import com.coblax.examlock.ui.theme.AppColors
-import com.coblax.examlock.ui.theme.UiTokens
-
-import java.util.Date
+import com.coblax.examlock.ui.theme.UiStatusTone
 import java.util.Locale
-
-import kotlin.coroutines.resume
-import kotlin.coroutines.resumeWithException
-import kotlin.math.roundToInt
 import kotlinx.coroutines.delay
-import kotlinx.coroutines.launch
 
+@Composable
+private fun violationBadge(count: Int): String =
+    tr("Violation #$count", "Pelanggaran ke-$count")
+
+@Composable
+private fun yesNo(value: Boolean): String = if (value) tr("yes", "ya") else tr("no", "tidak")
 
 @Composable
 internal fun KeyboardViolationDialog(
@@ -92,76 +58,26 @@ internal fun KeyboardViolationDialog(
     keyboardLabel: String,
     onAcknowledge: () -> Unit
 ) {
-    AlertDialog(
-        onDismissRequest = {},
-        properties = DialogProperties(
-            dismissOnBackPress = false,
-            dismissOnClickOutside = false
+    AppAlertDialog(
+        tone = UiStatusTone.Danger,
+        icon = Icons.Rounded.Keyboard,
+        title = tr("Keyboard not allowed", "Keyboard tidak diizinkan"),
+        badge = violationBadge(violationCount),
+        message = tr(
+            "A non-standard keyboard was detected during the exam.",
+            "Keyboard non-standar terdeteksi saat ujian berjalan."
         ),
-        containerColor = AppColors.current.dialogDangerBg,
-        title = {
-            Row(
-                horizontalArrangement = Arrangement.spacedBy(10.dp),
-                verticalAlignment = Alignment.CenterVertically
-            ) {
-                Surface(
-                    shape = CircleShape,
-                    color = AppColors.current.dangerTint
-                ) {
-                    Icon(
-                        imageVector = Icons.Rounded.QrCodeScanner,
-                        contentDescription = null,
-                        tint = AppColors.current.dialogDangerIcon,
-                        modifier = Modifier
-                            .padding(6.dp)
-                            .size(20.dp)
-                    )
-                }
-                Text(
-                    text = tr("Keyboard Not Allowed", "Keyboard Tidak Diizinkan"),
-                    color = AppColors.current.dialogDangerIcon,
-                    fontWeight = FontWeight.Bold
-                )
-            }
-        },
-        text = {
-            Column {
-                Text(
-                    text = tr(
-                        "The app detected a non-standard keyboard during the exam session.",
-                        "Aplikasi mendeteksi keyboard non-standar saat sesi ujian berjalan."
-                    ),
-                    color = AppColors.current.textPrimary
-                )
-                Spacer(modifier = Modifier.height(10.dp))
-                Text(
-                    text = tr(
-                        "Detected keyboard: ${keyboardLabel.ifBlank { "Unknown" }}",
-                        "Keyboard terdeteksi: ${keyboardLabel.ifBlank { "Tidak diketahui" }}"
-                    ),
-                    color = AppColors.current.textSecondary
-                )
-                Spacer(modifier = Modifier.height(10.dp))
-                Text(
-                    text = tr("Keyboard violations: $violationCount", "Jumlah pelanggaran keyboard: $violationCount"),
-                    color = AppColors.current.dialogDangerIcon,
-                    fontWeight = FontWeight.Bold
-                )
-                Spacer(modifier = Modifier.height(10.dp))
-                Text(
-                    text = tr(
-                        "Please switch back to the device's default keyboard so the exam can continue.",
-                        "Silakan kembali ke keyboard bawaan perangkat agar ujian bisa dilanjutkan."
-                    ),
-                    color = AppColors.current.textSecondary
-                )
-            }
-        },
-        confirmButton = {
-            TextButton(onClick = onAcknowledge) {
-                Text(tr("I Understand", "Saya Mengerti"), color = AppColors.current.brandText)
-            }
-        }
+        nextStep = tr(
+            "Switch back to the device's default keyboard so the exam can continue.",
+            "Kembali ke keyboard bawaan perangkat agar ujian bisa dilanjutkan."
+        ),
+        details = listOf(
+            AppAlertDetail(
+                tr("Detected keyboard", "Keyboard terdeteksi"),
+                keyboardLabel.ifBlank { tr("Unknown", "Tidak diketahui") }
+            )
+        ),
+        primaryAction = AppAlertAction(acknowledgeLabel(), onAcknowledge)
     )
 }
 
@@ -180,106 +96,54 @@ internal fun ExitExamDialog(
             forceExitEnabled = true
         }
     }
-    AlertDialog(
-        onDismissRequest = {
-            if (!isClearingSession) {
-                onDismiss()
-            }
-        },
-        containerColor = AppColors.current.background,
-        title = {
-            Row(
-                horizontalArrangement = Arrangement.spacedBy(10.dp),
-                verticalAlignment = Alignment.CenterVertically
-            ) {
-                Surface(
-                    shape = CircleShape,
-                    color = AppColors.current.textPrimary.copy(alpha = 0.08f)
-                ) {
-                    Icon(
-                        imageVector = Icons.AutoMirrored.Rounded.Send,
-                        contentDescription = null,
-                        tint = AppColors.current.textPrimary,
-                        modifier = Modifier
-                            .padding(6.dp)
-                            .size(18.dp)
-                    )
-                }
-                Text(
-                    text = tr("Exit Exam Mode", "Keluar Dari Mode Ujian"),
-                    color = AppColors.current.textPrimary,
-                    fontWeight = FontWeight.Bold
-                )
-            }
-        },
-        text = {
-            Text(
-                text = if (isClearingSession && forceExitEnabled) {
-                    tr(
-                        "Session cleanup is taking longer than expected. You can force exit now.",
-                        "Pembersihan sesi lebih lama dari biasanya. Anda bisa keluar paksa sekarang."
-                    )
-                } else if (isClearingSession) {
-                    tr(
-                        "Clearing exam session data before returning to Home.",
-                        "Membersihkan data sesi ujian sebelum kembali ke Home."
-                    )
-                } else {
-                    tr(
-                        "You will leave the exam screen and app lock mode will be turned off.",
-                        "Anda akan keluar dari layar ujian dan mode kunci aplikasi akan dimatikan."
-                    )
-                },
-                color = AppColors.current.textSecondary
-            )
-        },
-        confirmButton = {
-            if (isClearingSession && forceExitEnabled) {
-                Button(
-                    onClick = onForceExit,
-                    shape = RoundedCornerShape(UiTokens.RadiusSm),
-                    colors = ButtonDefaults.buttonColors(
-                        containerColor = AppColors.current.dialogDangerIcon,
-                        contentColor = Color.White
-                    )
-                ) {
-                    Text(tr("Force Exit", "Keluar Paksa"), fontWeight = FontWeight.Bold)
-                }
-            } else if (isClearingSession) {
-                TextButton(onClick = {}, enabled = false) {
-                    Row(
-                        horizontalArrangement = Arrangement.spacedBy(8.dp),
-                        verticalAlignment = Alignment.CenterVertically
-                    ) {
-                        CircularProgressIndicator(
-                            modifier = Modifier.size(16.dp),
-                            strokeWidth = 2.dp,
-                            color = AppColors.current.brandText
-                        )
-                        Text(tr("Clearing", "Membersihkan"), color = AppColors.current.textSecondary)
-                    }
-                }
-            } else {
-                Button(
-                    onClick = onConfirm,
-                    shape = RoundedCornerShape(UiTokens.RadiusSm),
-                    colors = ButtonDefaults.buttonColors(
-                        containerColor = AppColors.current.dialogDangerIcon,
-                        contentColor = Color.White
-                    )
-                ) {
-                    Text(tr("Exit", "Keluar"), fontWeight = FontWeight.Bold)
-                }
-            }
-        },
-        dismissButton = {
-            TextButton(
+    val message = when {
+        isClearingSession && forceExitEnabled -> tr(
+            "Session cleanup is taking longer than expected. You can force exit now.",
+            "Pembersihan sesi lebih lama dari biasanya. Anda bisa keluar paksa sekarang."
+        )
+        isClearingSession -> tr(
+            "Clearing exam session data before returning to Home.",
+            "Membersihkan data sesi ujian sebelum kembali ke menu utama."
+        )
+        else -> tr(
+            "You will leave the exam screen and the app lock will be turned off.",
+            "Anda akan keluar dari layar ujian dan kunci aplikasi akan dimatikan."
+        )
+    }
+    val primaryAction = when {
+        isClearingSession && forceExitEnabled -> AppAlertAction(
+            label = tr("Force exit", "Keluar paksa"),
+            onClick = onForceExit,
+            style = AppAlertStyle.Destructive
+        )
+        isClearingSession -> AppAlertAction(
+            label = tr("Clearing…", "Membersihkan…"),
+            onClick = {},
+            enabled = false,
+            loading = true
+        )
+        else -> AppAlertAction(
+            label = tr("Exit exam", "Keluar ujian"),
+            onClick = onConfirm,
+            style = AppAlertStyle.Destructive
+        )
+    }
+    AppAlertDialog(
+        tone = UiStatusTone.Warning,
+        icon = Icons.AutoMirrored.Rounded.ExitToApp,
+        title = tr("Exit the exam?", "Keluar dari ujian?"),
+        message = message,
+        dismissible = !isClearingSession,
+        onDismissRequest = onDismiss,
+        progress = isClearingSession && !forceExitEnabled,
+        primaryAction = primaryAction,
+        secondaryActions = listOf(
+            AppAlertAction(
+                label = tr("Cancel", "Batal"),
                 onClick = onDismiss,
                 enabled = !isClearingSession || forceExitEnabled
-            ) {
-                Text(tr("Cancel", "Batal"), color = AppColors.current.brandText)
-            }
-        }
+            )
+        )
     )
 }
 
@@ -291,78 +155,26 @@ internal fun OverlayViolationDialog(
 ) {
     val reasonText = when (trigger) {
         OverlaySignal.WindowFocusLoss.diagnosticLabel() -> tr(
-            "Reason: the exam window lost focus in a suspicious way, which often indicates a floating app captured focus.",
-            "Alasan: jendela ujian kehilangan fokus secara mencurigakan, yang sering menandakan floating app mengambil fokus."
+            "The exam window lost focus in a suspicious way, which often means a floating app took focus.",
+            "Jendela ujian kehilangan fokus secara mencurigakan, yang sering menandakan aplikasi melayang mengambil fokus."
         )
         else -> tr(
-            "Reason: touch input on the exam screen was obscured by another window.",
-            "Alasan: input sentuh pada layar ujian tertutup oleh jendela lain."
+            "Touch input on the exam screen was covered by another window.",
+            "Sentuhan pada layar ujian tertutup oleh jendela lain."
         )
     }
-    AlertDialog(
-        onDismissRequest = {},
-        properties = DialogProperties(
-            dismissOnBackPress = false,
-            dismissOnClickOutside = false
+    AppAlertDialog(
+        tone = UiStatusTone.Danger,
+        icon = Icons.Rounded.Layers,
+        title = tr("Floating app detected", "Aplikasi melayang terdeteksi"),
+        badge = violationBadge(violationCount),
+        message = reasonText,
+        nextStep = tr(
+            "Close the floating app (chat bubbles, recorders, and similar), then continue the exam.",
+            "Tutup aplikasi melayang (bubble chat, perekam, dan sejenisnya), lalu lanjutkan ujian."
         ),
-        containerColor = AppColors.current.dialogDangerBg,
-        title = {
-            Row(
-                horizontalArrangement = Arrangement.spacedBy(10.dp),
-                verticalAlignment = Alignment.CenterVertically
-            ) {
-                Surface(
-                    shape = CircleShape,
-                    color = AppColors.current.dangerTint
-                ) {
-                    Icon(
-                        imageVector = Icons.Rounded.AdminPanelSettings,
-                        contentDescription = null,
-                        tint = AppColors.current.dialogDangerIcon,
-                        modifier = Modifier
-                            .padding(6.dp)
-                            .size(20.dp)
-                    )
-                }
-                Text(
-                    text = tr("Floating App Detected", "Floating App Terdeteksi"),
-                    color = AppColors.current.dialogDangerIcon,
-                    fontWeight = FontWeight.Bold
-                )
-            }
-        },
-        text = {
-            Column {
-                Text(
-                    text = tr(
-                        "The app detected a floating window or overlay above the exam screen.",
-                        "Aplikasi mendeteksi ada jendela melayang atau overlay di atas layar ujian."
-                    ),
-                    color = AppColors.current.textPrimary
-                )
-                Spacer(modifier = Modifier.height(10.dp))
-                Text(text = reasonText, color = AppColors.current.textSecondary)
-                Spacer(modifier = Modifier.height(10.dp))
-                Text(
-                    text = tr("Overlay violations: $violationCount", "Jumlah pelanggaran overlay: $violationCount"),
-                    color = AppColors.current.dialogDangerIcon,
-                    fontWeight = FontWeight.Bold
-                )
-                Spacer(modifier = Modifier.height(10.dp))
-                Text(
-                    text = tr(
-                        "Close the floating app, then continue the exam carefully.",
-                        "Tutup floating app lalu lanjutkan ujian dengan hati-hati."
-                    ),
-                    color = AppColors.current.textSecondary
-                )
-            }
-        },
-        confirmButton = {
-            TextButton(onClick = onAcknowledge) {
-                Text(tr("I Understand", "Saya Mengerti"), color = AppColors.current.brandText)
-            }
-        }
+        details = listOf(AppAlertDetail(tr("Trigger", "Pemicu"), trigger ?: "-")),
+        primaryAction = AppAlertAction(acknowledgeLabel(), onAcknowledge)
     )
 }
 
@@ -371,62 +183,20 @@ internal fun OfflineTooLongDialog(
     durationText: String,
     onAcknowledge: () -> Unit
 ) {
-    AlertDialog(
-        onDismissRequest = {},
-        properties = DialogProperties(
-            dismissOnBackPress = false,
-            dismissOnClickOutside = false
+    AppAlertDialog(
+        tone = UiStatusTone.Warning,
+        icon = Icons.Rounded.CloudOff,
+        title = tr("Offline for too long", "Offline terlalu lama"),
+        badge = tr("Offline for $durationText", "Offline selama $durationText"),
+        message = tr(
+            "The exam device has been without a connection for too long.",
+            "Perangkat ujian sudah terlalu lama tanpa koneksi."
         ),
-        containerColor = AppColors.current.warnBgWarm,
-        title = {
-            Row(
-                horizontalArrangement = Arrangement.spacedBy(10.dp),
-                verticalAlignment = Alignment.CenterVertically
-            ) {
-                Surface(shape = CircleShape, color = AppColors.current.goldDark.copy(alpha = 0.14f)) {
-                    Icon(
-                        imageVector = Icons.Rounded.Language,
-                        contentDescription = null,
-                        tint = AppColors.current.goldDark,
-                        modifier = Modifier.padding(6.dp).size(20.dp)
-                    )
-                }
-                Text(text = tr("Connection Lost Too Long", "Koneksi Terputus Terlalu Lama"), color = AppColors.current.goldDark, fontWeight = FontWeight.Bold)
-            }
-        },
-        text = {
-            Column {
-                Text(
-                    text = tr(
-                        "The exam device has been offline for too long.",
-                        "Perangkat ujian sudah offline terlalu lama."
-                    ),
-                    color = AppColors.current.textPrimary
-                )
-                Spacer(modifier = Modifier.height(10.dp))
-                Text(
-                    text = tr(
-                        "Offline duration: $durationText",
-                        "Durasi offline: $durationText"
-                    ),
-                    color = AppColors.current.goldDark,
-                    fontWeight = FontWeight.Bold
-                )
-                Spacer(modifier = Modifier.height(10.dp))
-                Text(
-                    text = tr(
-                        "Check Wi-Fi or cellular data, then continue the exam once the connection is stable.",
-                        "Periksa Wi-Fi atau data seluler, lalu lanjutkan ujian setelah koneksi stabil."
-                    ),
-                    color = AppColors.current.textSecondary
-                )
-            }
-        },
-        confirmButton = {
-            TextButton(onClick = onAcknowledge) {
-                Text(tr("I Understand", "Saya Mengerti"), color = AppColors.current.brandText)
-            }
-        }
+        nextStep = tr(
+            "Check Wi-Fi or mobile data, then continue once the connection is stable.",
+            "Periksa Wi-Fi atau data seluler, lalu lanjutkan setelah koneksi stabil."
+        ),
+        primaryAction = AppAlertAction(acknowledgeLabel(), onAcknowledge)
     )
 }
 
@@ -436,71 +206,21 @@ internal fun NetworkUnstableDialog(
     flapCount: Int,
     onAcknowledge: () -> Unit
 ) {
-    AlertDialog(
-        onDismissRequest = {},
-        properties = DialogProperties(
-            dismissOnBackPress = false,
-            dismissOnClickOutside = false
+    AppAlertDialog(
+        tone = UiStatusTone.Warning,
+        icon = Icons.Rounded.SyncProblem,
+        title = tr("Connection unstable", "Koneksi tidak stabil"),
+        badge = tr("$flapCount changes detected", "$flapCount perubahan terdeteksi"),
+        message = tr(
+            "The exam connection changed several times in a short period.",
+            "Koneksi ujian berubah beberapa kali dalam waktu singkat."
         ),
-        containerColor = AppColors.current.warnBgWarm,
-        title = {
-            Row(
-                horizontalArrangement = Arrangement.spacedBy(10.dp),
-                verticalAlignment = Alignment.CenterVertically
-            ) {
-                Surface(shape = CircleShape, color = AppColors.current.goldDark.copy(alpha = 0.14f)) {
-                    Icon(
-                        imageVector = Icons.Rounded.Refresh,
-                        contentDescription = null,
-                        tint = AppColors.current.goldDark,
-                        modifier = Modifier.padding(6.dp).size(20.dp)
-                    )
-                }
-                Text(text = tr("Connection Unstable", "Koneksi Tidak Stabil"), color = AppColors.current.goldDark, fontWeight = FontWeight.Bold)
-            }
-        },
-        text = {
-            Column {
-                Text(
-                    text = tr(
-                        "The exam connection changed several times in a short period.",
-                        "Koneksi ujian berubah beberapa kali dalam waktu singkat."
-                    ),
-                    color = AppColors.current.textPrimary
-                )
-                Spacer(modifier = Modifier.height(10.dp))
-                Text(
-                    text = tr(
-                        "Last transport: $transportLabel",
-                        "Transport terakhir: $transportLabel"
-                    ),
-                    color = AppColors.current.goldDark,
-                    fontWeight = FontWeight.Bold
-                )
-                Spacer(modifier = Modifier.height(6.dp))
-                Text(
-                    text = tr(
-                        "Detected changes: $flapCount",
-                        "Jumlah perubahan terdeteksi: $flapCount"
-                    ),
-                    color = AppColors.current.textPrimary,
-                    fontWeight = FontWeight.SemiBold
-                )
-                Spacer(modifier = Modifier.height(10.dp))
-                Text(
-                    text = tr(
-                        "Move to a more stable Wi-Fi or cellular connection if the exam needs internet access.",
-                        "Pindah ke koneksi Wi-Fi atau seluler yang lebih stabil jika ujian membutuhkan akses internet."
-                    ),
-                    color = AppColors.current.textSecondary
-                )
-            }
-        },
-        confirmButton = {
-            TextButton(onClick = onAcknowledge) {
-                Text(tr("I Understand", "Saya Mengerti"), color = AppColors.current.brandText)
-            }
-        }
+        nextStep = tr(
+            "Move to a more stable Wi-Fi or mobile connection if the exam needs internet.",
+            "Pindah ke Wi-Fi atau data seluler yang lebih stabil jika ujian butuh internet."
+        ),
+        details = listOf(AppAlertDetail(tr("Last connection", "Koneksi terakhir"), transportLabel)),
+        primaryAction = AppAlertAction(acknowledgeLabel(), onAcknowledge)
     )
 }
 
@@ -514,75 +234,34 @@ internal fun VpnDetectedDialog(
     onRefreshStatus: () -> Unit,
     onSendReport: () -> Unit
 ) {
-    AlertDialog(
-        onDismissRequest = {},
-        properties = DialogProperties(
-            dismissOnBackPress = false,
-            dismissOnClickOutside = false
+    AppAlertDialog(
+        tone = UiStatusTone.Danger,
+        icon = Icons.Rounded.VpnKey,
+        title = tr("VPN is on", "VPN aktif"),
+        message = tr(
+            "A VPN connection is active while the exam is running.",
+            "Koneksi VPN aktif saat ujian berjalan."
         ),
-        containerColor = AppColors.current.dialogDangerBg,
-        title = {
-            Row(
-                horizontalArrangement = Arrangement.spacedBy(10.dp),
-                verticalAlignment = Alignment.CenterVertically
-            ) {
-                Surface(shape = CircleShape, color = AppColors.current.dangerTint) {
-                    Icon(
-                        imageVector = Icons.Rounded.Language,
-                        contentDescription = null,
-                        tint = AppColors.current.dialogDangerIcon,
-                        modifier = Modifier.padding(6.dp).size(20.dp)
-                    )
-                }
-                Text(text = tr("VPN Active", "VPN Aktif"), color = AppColors.current.dialogDangerIcon, fontWeight = FontWeight.Bold)
-            }
-        },
-        text = {
-            Column {
-                RuntimeDialogSection(
-                    title = tr("Problem", "Masalah"),
-                    body = tr(
-                        "A VPN connection is active while the exam is running.",
-                        "Koneksi VPN aktif saat ujian berjalan."
-                    )
+        nextStep = tr(
+            "Turn off the VPN, then tap Check again.",
+            "Matikan VPN, lalu ketuk Cek ulang."
+        ),
+        details = listOf(
+            AppAlertDetail(
+                tr("Evidence", "Bukti"),
+                buildVpnRuntimeEvidence(
+                    transportLabel = transportLabel,
+                    interfaceName = interfaceName,
+                    bypassActive = bypassActive,
+                    bypassTampered = bypassTampered
                 )
-                Spacer(modifier = Modifier.height(8.dp))
-                RuntimeDialogSection(
-                    title = tr("Evidence", "Evidence"),
-                    body = buildVpnRuntimeEvidence(
-                        transportLabel = transportLabel,
-                        interfaceName = interfaceName,
-                        bypassActive = bypassActive,
-                        bypassTampered = bypassTampered
-                    ),
-                    bodyColor = AppColors.current.dialogDangerIcon,
-                    bodyWeight = FontWeight.SemiBold
-                )
-                Spacer(modifier = Modifier.height(8.dp))
-                RuntimeDialogSection(
-                    title = tr("Next Step", "Langkah Berikutnya"),
-                    body = tr(
-                        "Open VPN Settings if needed, turn off VPN, then tap Refresh Status. Send Network Report if admin needs evidence.",
-                        "Buka Setelan VPN bila perlu, matikan VPN, lalu tekan Refresh Status. Kirim Report Network jika admin membutuhkan bukti."
-                    )
-                )
-            }
-        },
-        confirmButton = {
-            TextButton(onClick = onOpenVpnSettings) {
-                Text(tr("Open VPN Settings", "Buka Setelan VPN"), color = AppColors.current.brandText)
-            }
-        },
-        dismissButton = {
-            Column {
-                TextButton(onClick = onRefreshStatus) {
-                    Text(tr("Refresh Status", "Refresh Status"), color = AppColors.current.brandText)
-                }
-                if (LocalTelegramDiagnosticsEnabled.current) {
-                    TextButton(onClick = onSendReport) {
-                        Text(tr("Send Network Report", "Kirim Report Network"), color = AppColors.current.textMuted)
-                    }
-                }
+            )
+        ),
+        primaryAction = AppAlertAction(tr("Open VPN settings", "Buka setelan VPN"), onOpenVpnSettings),
+        secondaryActions = buildList {
+            add(AppAlertAction(tr("Check again", "Cek ulang"), onRefreshStatus))
+            if (LocalTelegramDiagnosticsEnabled.current) {
+                add(AppAlertAction(tr("Send network report", "Kirim report jaringan"), onSendReport))
             }
         }
     )
@@ -596,150 +275,104 @@ internal fun GeofenceViolationDialog(
 ) {
     val evaluation = locationStatus.geofenceEvaluation
     val titleText = when (locationStatus.finalVerdict) {
-        GeofenceSecurityVerdict.Outside -> tr("Outside Allowed Exam Area", "Di Luar Area Ujian")
-        GeofenceSecurityVerdict.PreciseRequired -> tr("Precise Location Required", "Lokasi Presisi Diperlukan")
-        GeofenceSecurityVerdict.StaleFix -> tr("Location Fix Too Old", "Fix Lokasi Terlalu Lama")
-        GeofenceSecurityVerdict.LowAccuracy -> tr("Location Accuracy Too Low", "Akurasi Lokasi Terlalu Rendah")
-        GeofenceSecurityVerdict.MissingAccuracy -> tr("Location Accuracy Missing", "Akurasi Lokasi Belum Ada")
-        else -> tr("Location Validation Failed", "Validasi Lokasi Gagal")
+        GeofenceSecurityVerdict.Outside -> tr("Outside the exam area", "Di luar area ujian")
+        GeofenceSecurityVerdict.PreciseRequired -> tr("Precise location required", "Lokasi presisi diperlukan")
+        GeofenceSecurityVerdict.StaleFix -> tr("Location is out of date", "Lokasi sudah kedaluwarsa")
+        GeofenceSecurityVerdict.LowAccuracy -> tr("Location not accurate enough", "Lokasi kurang akurat")
+        GeofenceSecurityVerdict.MissingAccuracy -> tr("Location accuracy missing", "Akurasi lokasi belum ada")
+        else -> tr("Location check failed", "Validasi lokasi gagal")
     }
     val primaryMessage = when (locationStatus.finalVerdict) {
         GeofenceSecurityVerdict.Outside -> tr(
-            "The device location moved outside the configured exam radius.",
-            "Lokasi perangkat keluar dari radius ujian yang dikonfigurasi."
+            "The device moved outside the exam area.",
+            "Perangkat keluar dari area ujian."
         )
         GeofenceSecurityVerdict.PreciseRequired -> tr(
-            "The exam requires precise location access, but only approximate location is available.",
-            "Ujian membutuhkan akses lokasi presisi, tetapi yang tersedia hanya lokasi perkiraan."
+            "The exam needs precise location, but only approximate location is allowed.",
+            "Ujian butuh lokasi presisi, tetapi yang diizinkan hanya lokasi perkiraan."
         )
         GeofenceSecurityVerdict.StaleFix -> tr(
-            "The latest location fix is too old, so the exam area cannot be validated reliably.",
-            "Fix lokasi terbaru sudah terlalu lama sehingga area ujian tidak bisa divalidasi dengan andal."
+            "The latest location reading is too old to check the exam area.",
+            "Pembacaan lokasi terakhir terlalu lama untuk memeriksa area ujian."
         )
         GeofenceSecurityVerdict.LowAccuracy -> tr(
-            "The latest location fix is too inaccurate for strict geofence validation.",
-            "Fix lokasi terbaru terlalu tidak akurat untuk validasi geofence ketat."
+            "The latest location reading is too inaccurate to check the exam area.",
+            "Pembacaan lokasi terakhir terlalu tidak akurat untuk memeriksa area ujian."
         )
         GeofenceSecurityVerdict.MissingAccuracy -> tr(
-            "The latest location fix has no usable accuracy value yet.",
-            "Fix lokasi terbaru belum memiliki nilai akurasi yang bisa dipakai."
+            "The latest location reading has no accuracy value yet.",
+            "Pembacaan lokasi terakhir belum punya nilai akurasi."
         )
         else -> tr(
-            "The app could not validate the exam location while the session was running.",
-            "Aplikasi tidak dapat memvalidasi lokasi ujian saat sesi sedang berjalan."
+            "The app could not check the exam location while the exam was running.",
+            "Aplikasi tidak dapat memeriksa lokasi ujian saat ujian berjalan."
         )
     }
-    val locationText = evaluation.locationSnapshot?.let {
-        formatCoordinates(it.latitude, it.longitude)
-    } ?: "-"
-    val circleCenters = evaluation.config?.circleCenters.orEmpty()
-    val centerText = evaluation.closestCircleCenter?.let {
-        formatCoordinates(it.latitude, it.longitude)
-    } ?: evaluation.config?.let {
-        formatCoordinates(it.centerLat, it.centerLng)
-    } ?: "-"
-    val radiusText = evaluation.config?.radiusMeters?.let {
-        String.format(Locale.US, "%.1f m", it)
-    } ?: "-"
-    val distanceText = evaluation.distanceMeters?.let {
-        String.format(Locale.US, "%.1f m", it)
-    } ?: "-"
-    val providerText = evaluation.locationSnapshot?.provider?.ifBlank { "-" } ?: "-"
-    val accuracyText = evaluation.locationSnapshot?.accuracyMeters?.let {
-        String.format(Locale.US, "%.1f m", it)
-    } ?: "-"
-    val fixQualityText = locationStatus.fixQualityStatus.verdict.diagnosticLabel()
-    val fixAgeText = formatLocationFixAge(locationStatus.fixQualityStatus.ageMs)
-    val preciseText = if (locationStatus.preciseLocationGranted) {
-        tr("granted", "diberikan")
-    } else {
-        tr("required", "wajib")
+    val nextStep = when (locationStatus.finalVerdict) {
+        GeofenceSecurityVerdict.Outside -> tr(
+            "Go back inside the exam area.",
+            "Kembali ke dalam area ujian."
+        )
+        GeofenceSecurityVerdict.PreciseRequired -> tr(
+            "Allow precise location for CBX Lock.",
+            "Izinkan lokasi presisi untuk CBX Lock."
+        )
+        GeofenceSecurityVerdict.StaleFix,
+        GeofenceSecurityVerdict.LowAccuracy,
+        GeofenceSecurityVerdict.MissingAccuracy -> tr(
+            "Move near a window or outdoors so the location becomes accurate.",
+            "Pindah ke dekat jendela atau tempat terbuka agar lokasi lebih akurat."
+        )
+        else -> tr(
+            "Tell the proctor if this keeps happening.",
+            "Beri tahu pengawas jika masalah ini terus muncul."
+        )
     }
-    AlertDialog(
-        onDismissRequest = {},
-        properties = DialogProperties(
-            dismissOnBackPress = false,
-            dismissOnClickOutside = false
+    val circleCenters = evaluation.config?.circleCenters.orEmpty()
+    val meters = { value: Double? -> value?.let { String.format(Locale.US, "%.1f m", it) } ?: "-" }
+    val details = listOf(
+        AppAlertDetail(tr("Verdict", "Verdict"), locationStatus.finalVerdict.diagnosticLabel()),
+        AppAlertDetail(
+            tr("Current coordinates", "Koordinat saat ini"),
+            evaluation.locationSnapshot?.let { formatCoordinates(it.latitude, it.longitude) } ?: "-"
         ),
-        containerColor = AppColors.current.dialogDangerBg,
-        title = {
-            Text(
-                text = titleText,
-                color = AppColors.current.dialogDangerIcon,
-                fontWeight = FontWeight.Bold
-            )
-        },
-        text = {
-            Column(modifier = Modifier.verticalScroll(rememberScrollState())) {
-                Text(
-                    text = primaryMessage,
-                    color = AppColors.current.textPrimary
-                )
-                Spacer(modifier = Modifier.height(10.dp))
-                Text(
-                    text = tr(
-                        "Location security violations: $violationCount",
-                        "Jumlah pelanggaran keamanan lokasi: $violationCount"
-                    ),
-                    color = AppColors.current.dialogDangerIcon,
-                    fontWeight = FontWeight.Bold
-                )
-                Spacer(modifier = Modifier.height(8.dp))
-                Text(
-                    text = tr(
-                        "Verdict: ${locationStatus.finalVerdict.diagnosticLabel()}",
-                        "Verdict: ${locationStatus.finalVerdict.diagnosticLabel()}"
-                    ),
-                    color = AppColors.current.textSecondary
-                )
-                Text(
-                    text = tr("Current coordinates: $locationText", "Koordinat saat ini: $locationText"),
-                    color = AppColors.current.textSecondary
-                )
-                Text(
-                    text = tr(
-                        "Closest / primary center: $centerText",
-                        "Center terdekat / utama: $centerText"
-                    ),
-                    color = AppColors.current.textSecondary
-                )
-                Text(
-                    text = tr(
-                        "Circle centers: ${circleCenters.size} | ${summarizeCircleCenters(circleCenters)}",
-                        "Center circle: ${circleCenters.size} | ${summarizeCircleCenters(circleCenters)}"
-                    ),
-                    color = AppColors.current.textSecondary
-                )
-                Text(
-                    text = tr("Shared radius: $radiusText", "Radius bersama: $radiusText"),
-                    color = AppColors.current.textSecondary
-                )
-                Text(
-                    text = tr("Distance from closest center: $distanceText", "Jarak dari center terdekat: $distanceText"),
-                    color = AppColors.current.textSecondary
-                )
-                Text(
-                    text = tr("Provider / accuracy: $providerText / $accuracyText", "Provider / akurasi: $providerText / $accuracyText"),
-                    color = AppColors.current.textSecondary
-                )
-                Text(
-                    text = tr("Fix quality / age: $fixQualityText / $fixAgeText", "Kualitas fix / umur: $fixQualityText / $fixAgeText"),
-                    color = AppColors.current.textSecondary
-                )
-                Text(
-                    text = tr(
-                        "Location permission: ${if (evaluation.permissionGranted) "granted" else "missing"} | Precise: $preciseText | Services: ${if (evaluation.locationServicesEnabled) "enabled" else "disabled"}",
-                        "Izin lokasi: ${if (evaluation.permissionGranted) "diberikan" else "belum"} | Presisi: $preciseText | Layanan: ${if (evaluation.locationServicesEnabled) "aktif" else "nonaktif"}"
-                    ),
-                    color = AppColors.current.textSecondary
-                )
-            }
-        },
-        confirmButton = {
-            TextButton(onClick = onAcknowledge) {
-                Text(tr("I Understand", "Saya Mengerti"), color = AppColors.current.brandText)
-            }
-        }
+        AppAlertDetail(
+            tr("Closest / primary center", "Center terdekat / utama"),
+            evaluation.closestCircleCenter?.let { formatCoordinates(it.latitude, it.longitude) }
+                ?: evaluation.config?.let { formatCoordinates(it.centerLat, it.centerLng) }
+                ?: "-"
+        ),
+        AppAlertDetail(
+            tr("Circle centers", "Center circle"),
+            "${circleCenters.size} | ${summarizeCircleCenters(circleCenters)}"
+        ),
+        AppAlertDetail(tr("Shared radius", "Radius bersama"), meters(evaluation.config?.radiusMeters)),
+        AppAlertDetail(tr("Distance from closest center", "Jarak dari center terdekat"), meters(evaluation.distanceMeters)),
+        AppAlertDetail(
+            tr("Provider / accuracy", "Provider / akurasi"),
+            "${evaluation.locationSnapshot?.provider?.ifBlank { "-" } ?: "-"} / " +
+                meters(evaluation.locationSnapshot?.accuracyMeters?.toDouble())
+        ),
+        AppAlertDetail(
+            tr("Fix quality / age", "Kualitas fix / umur"),
+            "${locationStatus.fixQualityStatus.verdict.diagnosticLabel()} / " +
+                formatLocationFixAge(locationStatus.fixQualityStatus.ageMs)
+        ),
+        AppAlertDetail(
+            tr("Permission / precise / services", "Izin / presisi / layanan"),
+            "${yesNo(evaluation.permissionGranted)} / ${yesNo(locationStatus.preciseLocationGranted)} / " +
+                yesNo(evaluation.locationServicesEnabled)
+        )
+    )
+    AppAlertDialog(
+        tone = UiStatusTone.Danger,
+        icon = Icons.Rounded.LocationOff,
+        title = titleText,
+        badge = violationBadge(violationCount),
+        message = primaryMessage,
+        nextStep = nextStep,
+        details = details,
+        primaryAction = AppAlertAction(acknowledgeLabel(), onAcknowledge)
     )
 }
 
@@ -749,150 +382,91 @@ internal fun FakeLocationViolationDialog(
     violationCount: Int,
     onAcknowledge: () -> Unit
 ) {
-    val suspiciousPackages = fakeLocationStatus.suspiciousFakeLocationPackages.joinToString().ifBlank { "-" }
     val titleText = when (fakeLocationStatus.finalVerdict) {
         LocationSpoofSecurityVerdict.PermissionRequired ->
-            tr("Location Permission Required", "Izin Lokasi Diperlukan")
+            tr("Location permission required", "Izin lokasi diperlukan")
         LocationSpoofSecurityVerdict.LocationServicesDisabled ->
-            tr("Location Services Disabled", "Layanan Lokasi Nonaktif")
+            tr("Location is turned off", "Lokasi dimatikan")
         LocationSpoofSecurityVerdict.LocationUnavailable ->
-            tr("Location Snapshot Unavailable", "Snapshot Lokasi Belum Tersedia")
+            tr("Location not available yet", "Lokasi belum tersedia")
         else -> when (fakeLocationStatus.confidenceTier) {
-            LocationSpoofConfidenceTier.Critical -> tr("Critical Fake Location Detected", "Fake Location Kritis Terdeteksi")
-            else -> tr("Mock Location Detected", "Lokasi Palsu Terdeteksi")
+            LocationSpoofConfidenceTier.Critical -> tr("Fake location detected (critical)", "Lokasi palsu terdeteksi (kritis)")
+            else -> tr("Fake location detected", "Lokasi palsu terdeteksi")
         }
     }
     val primaryMessage = when (fakeLocationStatus.finalVerdict) {
         LocationSpoofSecurityVerdict.PermissionRequired -> tr(
-            "Location permission is no longer available while the exam is running. Anti-fake-location cannot continue safely without it.",
-            "Izin lokasi tidak lagi tersedia saat ujian berlangsung. Anti-fake-location tidak bisa lanjut dengan aman tanpanya."
+            "Location permission was removed during the exam, so fake-location protection cannot continue safely.",
+            "Izin lokasi dicabut saat ujian, sehingga perlindungan lokasi palsu tidak bisa berjalan dengan aman."
         )
         LocationSpoofSecurityVerdict.LocationServicesDisabled -> tr(
-            "Location services were turned off while the exam is running. Anti-fake-location cannot continue safely without them.",
-            "Layanan lokasi dimatikan saat ujian berlangsung. Anti-fake-location tidak bisa lanjut dengan aman tanpanya."
+            "Location was turned off during the exam, so fake-location protection cannot continue safely.",
+            "Lokasi dimatikan saat ujian, sehingga perlindungan lokasi palsu tidak bisa berjalan dengan aman."
         )
         LocationSpoofSecurityVerdict.LocationUnavailable -> tr(
-            "The app could not obtain a usable location snapshot while the exam is running.",
-            "Aplikasi tidak bisa mendapatkan snapshot lokasi yang bisa dipakai saat ujian berlangsung."
+            "The app could not get a usable location while the exam was running.",
+            "Aplikasi tidak bisa mendapatkan lokasi yang bisa dipakai saat ujian berjalan."
         )
         else -> when (fakeLocationStatus.confidenceTier) {
             LocationSpoofConfidenceTier.Critical -> tr(
-                "The app detected critical combined fake-location signals while the exam was running.",
-                "Aplikasi mendeteksi kombinasi sinyal fake-location kritis saat ujian berlangsung."
+                "Several strong fake-location signals were detected during the exam.",
+                "Beberapa sinyal lokasi palsu yang kuat terdeteksi saat ujian."
             )
             else -> tr(
-                "The app detected strong fake-location or mock-location signals while the exam was running.",
-                "Aplikasi mendeteksi sinyal fake-location atau mock-location kuat saat ujian berlangsung."
+                "Strong fake-location or mock-location signals were detected during the exam.",
+                "Sinyal lokasi palsu atau mock location yang kuat terdeteksi saat ujian."
             )
         }
     }
-    AlertDialog(
-        onDismissRequest = {},
-        properties = DialogProperties(
-            dismissOnBackPress = false,
-            dismissOnClickOutside = false
+    val nextStep = when (fakeLocationStatus.finalVerdict) {
+        LocationSpoofSecurityVerdict.PermissionRequired -> tr(
+            "Allow location access for CBX Lock again.",
+            "Izinkan kembali akses lokasi untuk CBX Lock."
+        )
+        LocationSpoofSecurityVerdict.LocationServicesDisabled -> tr(
+            "Turn location back on.",
+            "Nyalakan kembali lokasi (GPS)."
+        )
+        LocationSpoofSecurityVerdict.LocationUnavailable -> tr(
+            "Move near a window or outdoors and wait for the location.",
+            "Pindah ke dekat jendela atau tempat terbuka dan tunggu lokasi terbaca."
+        )
+        else -> tr(
+            "Turn off fake location apps and mock location, then tell the proctor.",
+            "Matikan aplikasi lokasi palsu dan mock location, lalu beri tahu pengawas."
+        )
+    }
+    val status = fakeLocationStatus
+    val details = listOf(
+        AppAlertDetail(tr("Verdict", "Verdict"), status.finalVerdict.diagnosticLabel()),
+        AppAlertDetail(tr("Confidence tier", "Tingkat keyakinan"), status.confidenceTier.diagnosticLabel()),
+        AppAlertDetail(
+            tr("Fix quality eligible", "Fix layak dinilai"),
+            "${yesNo(status.fixQualityEligible)} (${status.fixQualityStatus.verdict.diagnosticLabel()})"
         ),
-        containerColor = AppColors.current.dialogDangerBg,
-        title = {
-            Text(
-                text = titleText,
-                color = AppColors.current.dialogDangerIcon,
-                fontWeight = FontWeight.Bold
-            )
-        },
-        text = {
-            Column(modifier = Modifier.verticalScroll(rememberScrollState())) {
-                Text(
-                    text = primaryMessage,
-                    color = AppColors.current.textPrimary
-                )
-                Spacer(modifier = Modifier.height(10.dp))
-                Text(
-                    text = tr(
-                        "Fake-location violations: $violationCount",
-                        "Jumlah pelanggaran fake-location: $violationCount"
-                    ),
-                    color = AppColors.current.dialogDangerIcon,
-                    fontWeight = FontWeight.Bold
-                )
-                Spacer(modifier = Modifier.height(8.dp))
-                Text(
-                    text = tr(
-                        "Verdict: ${fakeLocationStatus.finalVerdict.diagnosticLabel()}",
-                        "Verdict: ${fakeLocationStatus.finalVerdict.diagnosticLabel()}"
-                    ),
-                    color = AppColors.current.textSecondary
-                )
-                Text(
-                    text = tr(
-                        "Confidence tier: ${fakeLocationStatus.confidenceTier.diagnosticLabel()}",
-                        "Confidence tier: ${fakeLocationStatus.confidenceTier.diagnosticLabel()}"
-                    ),
-                    color = AppColors.current.textSecondary
-                )
-                Text(
-                    text = tr(
-                        "Fix quality eligible: ${if (fakeLocationStatus.fixQualityEligible) "yes" else "no"} (${fakeLocationStatus.fixQualityStatus.verdict.diagnosticLabel()})",
-                        "Fix layak dinilai: ${if (fakeLocationStatus.fixQualityEligible) "ya" else "tidak"} (${fakeLocationStatus.fixQualityStatus.verdict.diagnosticLabel()})"
-                    ),
-                    color = AppColors.current.textSecondary
-                )
-                Text(
-                    text = tr(
-                        "Location permission: ${if (fakeLocationStatus.permissionGranted) "yes" else "no"}",
-                        "Izin lokasi: ${if (fakeLocationStatus.permissionGranted) "ya" else "tidak"}"
-                    ),
-                    color = AppColors.current.textSecondary
-                )
-                Text(
-                    text = tr(
-                        "Location services: ${if (fakeLocationStatus.locationServicesEnabled) "enabled" else "disabled"}",
-                        "Layanan lokasi: ${if (fakeLocationStatus.locationServicesEnabled) "aktif" else "nonaktif"}"
-                    ),
-                    color = AppColors.current.textSecondary
-                )
-                Text(
-                    text = tr(
-                        "Snapshot available: ${if (fakeLocationStatus.snapshotAvailable) "yes" else "no"}",
-                        "Snapshot tersedia: ${if (fakeLocationStatus.snapshotAvailable) "ya" else "tidak"}"
-                    ),
-                    color = AppColors.current.textSecondary
-                )
-                Text(
-                    text = tr(
-                        "Mock flag: ${if (fakeLocationStatus.mockLocationDetected) "yes" else "no"}",
-                        "Flag mock: ${if (fakeLocationStatus.mockLocationDetected) "ya" else "tidak"}"
-                    ),
-                    color = AppColors.current.textSecondary
-                )
-                Text(
-                    text = tr(
-                        "Developer options: ${if (fakeLocationStatus.developerOptionsEnabled) "enabled" else "disabled"}",
-                        "Developer options: ${if (fakeLocationStatus.developerOptionsEnabled) "aktif" else "nonaktif"}"
-                    ),
-                    color = AppColors.current.textSecondary
-                )
-                Text(
-                    text = tr(
-                        "Suspicious packages: $suspiciousPackages",
-                        "Paket mencurigakan: $suspiciousPackages"
-                    ),
-                    color = AppColors.current.textSecondary
-                )
-                Text(
-                    text = tr(
-                        "Supporting signals: ${fakeLocationStatus.supportingSignals.map { it.diagnosticLabel() }.joinToString().ifBlank { "-" }}",
-                        "Sinyal pendukung: ${fakeLocationStatus.supportingSignals.map { it.diagnosticLabel() }.joinToString().ifBlank { "-" }}"
-                    ),
-                    color = AppColors.current.textSecondary
-                )
-            }
-        },
-        confirmButton = {
-            TextButton(onClick = onAcknowledge) {
-                Text(tr("I Understand", "Saya Mengerti"), color = AppColors.current.brandText)
-            }
-        }
+        AppAlertDetail(tr("Location permission", "Izin lokasi"), yesNo(status.permissionGranted)),
+        AppAlertDetail(tr("Location services", "Layanan lokasi"), yesNo(status.locationServicesEnabled)),
+        AppAlertDetail(tr("Snapshot available", "Snapshot tersedia"), yesNo(status.snapshotAvailable)),
+        AppAlertDetail(tr("Mock flag", "Flag mock"), yesNo(status.mockLocationDetected)),
+        AppAlertDetail(tr("Developer options", "Opsi pengembang"), yesNo(status.developerOptionsEnabled)),
+        AppAlertDetail(
+            tr("Suspicious packages", "Paket mencurigakan"),
+            status.suspiciousFakeLocationPackages.joinToString().ifBlank { "-" }
+        ),
+        AppAlertDetail(
+            tr("Supporting signals", "Sinyal pendukung"),
+            status.supportingSignals.joinToString { it.diagnosticLabel() }.ifBlank { "-" }
+        )
+    )
+    AppAlertDialog(
+        tone = UiStatusTone.Danger,
+        icon = Icons.Rounded.WrongLocation,
+        title = titleText,
+        badge = violationBadge(violationCount),
+        message = primaryMessage,
+        nextStep = nextStep,
+        details = details,
+        primaryAction = AppAlertAction(acknowledgeLabel(), onAcknowledge)
     )
 }
 
@@ -903,57 +477,22 @@ internal fun BluetoothViolationDialog(
     onOpenBluetoothSettings: () -> Unit,
     onAcknowledge: () -> Unit
 ) {
-    AlertDialog(
-        onDismissRequest = {},
-        properties = DialogProperties(
-            dismissOnBackPress = false,
-            dismissOnClickOutside = false
-        ),
-        containerColor = AppColors.current.dialogDangerBg,
-        title = {
-            Row(
-                horizontalArrangement = Arrangement.spacedBy(10.dp),
-                verticalAlignment = Alignment.CenterVertically
-            ) {
-                Surface(shape = CircleShape, color = AppColors.current.dangerTint) {
-                    Icon(
-                        imageVector = Icons.Rounded.BluetoothDisabled,
-                        contentDescription = null,
-                        tint = AppColors.current.dialogDangerIcon,
-                        modifier = Modifier.padding(6.dp).size(20.dp)
-                    )
-                }
-                Text(text = tr("Bluetooth Is Not Safe", "Bluetooth Tidak Aman"), color = AppColors.current.dialogDangerIcon, fontWeight = FontWeight.Bold)
-            }
+    AppAlertDialog(
+        tone = UiStatusTone.Danger,
+        icon = Icons.Rounded.BluetoothDisabled,
+        title = tr("Bluetooth is on", "Bluetooth aktif"),
+        badge = violationBadge(violationCount),
+        message = if (bluetoothEnabled) {
+            tr("Bluetooth was turned on during the exam.", "Bluetooth dinyalakan saat ujian berjalan.")
+        } else {
+            tr(
+                "Bluetooth must be confirmed off before the exam continues.",
+                "Bluetooth harus dipastikan mati sebelum ujian dilanjutkan."
+            )
         },
-        text = {
-            Column {
-                Text(
-                    text = if (bluetoothEnabled) {
-                        tr("Bluetooth was detected as enabled during the exam.", "Bluetooth terdeteksi aktif saat mode ujian berjalan.")
-                    } else {
-                        tr("Bluetooth must be confirmed off before the exam continues.", "Bluetooth perlu dipastikan nonaktif sebelum ujian dilanjutkan.")
-                    },
-                    color = AppColors.current.textPrimary
-                )
-                Spacer(modifier = Modifier.height(10.dp))
-                Text(
-                    text = tr("Bluetooth violations: $violationCount", "Jumlah pelanggaran Bluetooth: $violationCount"),
-                    color = AppColors.current.dialogDangerIcon,
-                    fontWeight = FontWeight.Bold
-                )
-            }
-        },
-        confirmButton = {
-            TextButton(onClick = onOpenBluetoothSettings) {
-                Text(tr("Open Bluetooth", "Buka Bluetooth"), color = AppColors.current.brandText)
-            }
-        },
-        dismissButton = {
-            TextButton(onClick = onAcknowledge) {
-                Text(tr("I Understand", "Saya Mengerti"), color = AppColors.current.textMuted)
-            }
-        }
+        nextStep = tr("Turn off Bluetooth, then continue.", "Matikan Bluetooth, lalu lanjutkan ujian."),
+        primaryAction = AppAlertAction(tr("Open Bluetooth", "Buka Bluetooth"), onOpenBluetoothSettings),
+        secondaryActions = listOf(AppAlertAction(acknowledgeLabel(), onAcknowledge))
     )
 }
 
@@ -964,93 +503,33 @@ internal fun ClipboardViolationDialog(
     lastDecision: String,
     onAcknowledge: () -> Unit
 ) {
-    AlertDialog(
-        onDismissRequest = {},
-        properties = DialogProperties(
-            dismissOnBackPress = false,
-            dismissOnClickOutside = false
+    AppAlertDialog(
+        tone = UiStatusTone.Danger,
+        icon = Icons.Rounded.ContentPaste,
+        title = tr("Clipboard changed", "Clipboard berubah"),
+        badge = violationBadge(violationCount),
+        message = tr(
+            "The device clipboard changed while the exam was running.",
+            "Clipboard perangkat berubah saat ujian berjalan."
         ),
-        containerColor = AppColors.current.dialogDangerBg,
-        title = {
-            Row(
-                horizontalArrangement = Arrangement.spacedBy(10.dp),
-                verticalAlignment = Alignment.CenterVertically
-            ) {
-                Surface(shape = CircleShape, color = AppColors.current.dangerTint) {
-                    Icon(
-                        imageVector = Icons.AutoMirrored.Rounded.Backspace,
-                        contentDescription = null,
-                        tint = AppColors.current.dialogDangerIcon,
-                        modifier = Modifier.padding(6.dp).size(20.dp)
-                    )
-                }
-                Text(text = tr("Clipboard Changed", "Clipboard Berubah"), color = AppColors.current.dialogDangerIcon, fontWeight = FontWeight.Bold)
-            }
-        },
-        text = {
-            Column {
-                Text(
-                    text = tr(
-                        "The app detected that the device clipboard changed while the exam was running, including after returning to the app.",
-                        "Aplikasi mendeteksi clipboard perangkat berubah saat ujian sedang berjalan, termasuk setelah kembali ke aplikasi."
-                    ),
-                    color = AppColors.current.textPrimary
-                )
-                Spacer(modifier = Modifier.height(10.dp))
-                Text(
-                    text = tr("Clipboard violations: $violationCount", "Jumlah pelanggaran clipboard: $violationCount"),
-                    color = AppColors.current.dialogDangerIcon,
-                    fontWeight = FontWeight.Bold
-                )
-                Spacer(modifier = Modifier.height(8.dp))
-                Text(
-                    text = tr(
-                        "Last confirmed change: ${lastConfirmedAt?.ifBlank { "-" } ?: "-"}",
-                        "Perubahan terkonfirmasi terakhir: ${lastConfirmedAt?.ifBlank { "-" } ?: "-"}"
-                    ),
-                    color = AppColors.current.textSecondary
-                )
-                Text(
-                    text = tr(
-                        "Listener decision: $lastDecision",
-                        "Keputusan listener: $lastDecision"
-                    ),
-                    color = AppColors.current.textSecondary
-                )
-            }
-        },
-        confirmButton = {
-            TextButton(onClick = onAcknowledge) {
-                Text(tr("I Understand", "Saya Mengerti"), color = AppColors.current.brandText)
-            }
-        }
+        nextStep = tr(
+            "Do not copy or paste text from other apps during the exam.",
+            "Jangan menyalin atau menempel teks dari aplikasi lain selama ujian."
+        ),
+        details = listOf(
+            AppAlertDetail(
+                tr("Last confirmed change", "Perubahan terakhir"),
+                lastConfirmedAt?.ifBlank { "-" } ?: "-"
+            ),
+            AppAlertDetail(tr("Listener decision", "Keputusan listener"), lastDecision)
+        ),
+        primaryAction = AppAlertAction(acknowledgeLabel(), onAcknowledge)
     )
 }
 
 @Composable
-private fun RuntimeDialogSection(
-    title: String,
-    body: String,
-    bodyColor: Color = AppColors.current.textSecondary,
-    bodyWeight: FontWeight? = null
-) {
-    Column {
-        Text(
-            text = title,
-            color = AppColors.current.textPrimary,
-            fontWeight = FontWeight.Bold
-        )
-        Spacer(modifier = Modifier.height(3.dp))
-        Text(
-            text = body.ifBlank { "-" },
-            color = bodyColor,
-            fontWeight = bodyWeight
-        )
-    }
-}
-
-@Composable
 private fun RuntimeStaticSecurityDialog(
+    icon: ImageVector,
     title: String,
     message: String,
     detail: String,
@@ -1060,68 +539,23 @@ private fun RuntimeStaticSecurityDialog(
     onRefreshStatus: () -> Unit,
     onSendReport: () -> Unit
 ) {
-    AlertDialog(
-        onDismissRequest = {},
-        properties = DialogProperties(
-            dismissOnBackPress = false,
-            dismissOnClickOutside = false
-        ),
-        containerColor = AppColors.current.dialogDangerBg,
-        title = {
-            Row(
-                horizontalArrangement = Arrangement.spacedBy(10.dp),
-                verticalAlignment = Alignment.CenterVertically
-            ) {
-                Surface(shape = CircleShape, color = AppColors.current.dangerTint) {
-                    Icon(
-                        imageVector = Icons.Rounded.QrCodeScanner,
-                        contentDescription = null,
-                        tint = AppColors.current.dialogDangerIcon,
-                        modifier = Modifier.padding(6.dp).size(20.dp)
-                    )
-                }
-                Text(text = title, color = AppColors.current.dialogDangerIcon, fontWeight = FontWeight.Bold)
-            }
-        },
-        text = {
-            Column {
-                RuntimeDialogSection(
-                    title = tr("Problem", "Masalah"),
-                    body = message,
-                    bodyColor = AppColors.current.textPrimary
-                )
-                Spacer(modifier = Modifier.height(8.dp))
-                RuntimeDialogSection(
-                    title = tr("Evidence", "Evidence"),
-                    body = detail.ifBlank { "-" }
-                )
-                Spacer(modifier = Modifier.height(8.dp))
-                RuntimeDialogSection(
-                    title = tr("Next Step", "Langkah Berikutnya"),
-                    body = nextStep,
-                    bodyColor = AppColors.current.textPrimary
-                )
-            }
-        },
-        confirmButton = {
-            if (primaryActionLabel != null && onPrimaryAction != null) {
-                TextButton(onClick = onPrimaryAction) {
-                    Text(primaryActionLabel, color = AppColors.current.brandText)
-                }
-            }
-        },
-        dismissButton = {
-            Row(horizontalArrangement = Arrangement.spacedBy(4.dp)) {
-                TextButton(onClick = onRefreshStatus) {
-                    Text(tr("Refresh Status", "Refresh Status"), color = AppColors.current.brandText)
-                }
-                if (LocalTelegramDiagnosticsEnabled.current) {
-                    TextButton(onClick = onSendReport) {
-                        Text(tr("Send Report", "Kirim Report"), color = AppColors.current.textMuted)
-                    }
-                }
-            }
-        }
+    val refresh = AppAlertAction(tr("Check again", "Cek ulang"), onRefreshStatus)
+    val report = AppAlertAction(tr("Send report", "Kirim report"), onSendReport)
+        .takeIf { LocalTelegramDiagnosticsEnabled.current }
+    val primary = if (primaryActionLabel != null && onPrimaryAction != null) {
+        AppAlertAction(primaryActionLabel, onPrimaryAction)
+    } else {
+        refresh
+    }
+    AppAlertDialog(
+        tone = UiStatusTone.Danger,
+        icon = icon,
+        title = title,
+        message = message,
+        nextStep = nextStep,
+        details = listOf(AppAlertDetail(tr("Evidence", "Bukti"), detail)),
+        primaryAction = primary,
+        secondaryActions = listOfNotNull(refresh.takeIf { primary !== refresh }, report)
     )
 }
 
@@ -1134,20 +568,21 @@ internal fun ScreenRecorderRuntimeViolationDialog(
     onSendReport: () -> Unit
 ) {
     RuntimeStaticSecurityDialog(
-        title = tr("Screen Recorder Detected", "Screen Recorder Terdeteksi"),
+        icon = Icons.Rounded.Videocam,
+        title = tr("Screen recorder detected", "Perekam layar terdeteksi"),
         message = tr(
-            "A screen recorder app is present while the exam is running. Remove or disable it, then refresh status.",
-            "Aplikasi screen recorder terdeteksi saat ujian berjalan. Hapus atau nonaktifkan, lalu refresh status."
+            "A screen recorder app is present while the exam is running.",
+            "Aplikasi perekam layar terdeteksi saat ujian berjalan."
         ),
         detail = buildScreenRecorderRuntimeEvidence(
             packages = packages,
             violationCount = violationCount
         ),
         nextStep = tr(
-            "Open App Settings, disable or uninstall the recorder app, then tap Refresh Status. Send Report if admin needs evidence.",
-            "Buka Setelan App, nonaktifkan atau hapus aplikasi recorder, lalu tekan Refresh Status. Kirim Report jika admin membutuhkan bukti."
+            "Open App settings, disable or uninstall the recorder, then tap Check again.",
+            "Buka Setelan App, nonaktifkan atau hapus aplikasi perekam, lalu ketuk Cek ulang."
         ),
-        primaryActionLabel = tr("Open App Settings", "Buka Setelan App"),
+        primaryActionLabel = tr("Open App settings", "Buka setelan App"),
         onPrimaryAction = onOpenAppSettings,
         onRefreshStatus = onRefreshStatus,
         onSendReport = onSendReport
@@ -1164,10 +599,11 @@ internal fun DisplayMirrorRuntimeViolationDialog(
     onSendReport: () -> Unit
 ) {
     RuntimeStaticSecurityDialog(
-        title = tr("Display Mirror Detected", "Display Mirror Terdeteksi"),
+        icon = Icons.Rounded.ScreenShare,
+        title = tr("Screen is being mirrored", "Layar sedang di-mirror"),
         message = tr(
-            "An external display or casting route is active while the exam is running. Disconnect it, then refresh status.",
-            "Display eksternal atau casting aktif saat ujian berjalan. Putuskan koneksinya, lalu refresh status."
+            "An external display or casting is active while the exam is running.",
+            "Layar eksternal atau casting aktif saat ujian berjalan."
         ),
         detail = buildDisplayMirrorRuntimeEvidence(
             externalDisplayCount = externalDisplayCount,
@@ -1175,10 +611,10 @@ internal fun DisplayMirrorRuntimeViolationDialog(
             violationCount = violationCount
         ),
         nextStep = tr(
-            "Open Cast Settings if needed, disconnect the external display or casting route, then tap Refresh Status. Send Report if admin needs evidence.",
-            "Buka Setelan Cast bila perlu, putuskan display eksternal atau casting, lalu tekan Refresh Status. Kirim Report jika admin membutuhkan bukti."
+            "Disconnect the external display or casting, then tap Check again.",
+            "Putuskan layar eksternal atau casting, lalu ketuk Cek ulang."
         ),
-        primaryActionLabel = tr("Open Cast Settings", "Buka Setelan Cast"),
+        primaryActionLabel = tr("Open Cast settings", "Buka setelan Cast"),
         onPrimaryAction = onOpenCastSettings,
         onRefreshStatus = onRefreshStatus,
         onSendReport = onSendReport
@@ -1194,10 +630,11 @@ internal fun MultiWindowRuntimeViolationDialog(
     onSendReport: () -> Unit
 ) {
     RuntimeStaticSecurityDialog(
-        title = tr("Split-Screen Active", "Split-Screen Aktif"),
+        icon = Icons.Rounded.VerticalSplit,
+        title = tr("Split screen is on", "Split screen aktif"),
         message = tr(
-            "The exam app is in split-screen or picture-in-picture mode. Return to normal single-app mode, then refresh status.",
-            "Aplikasi ujian berada di mode split-screen atau picture-in-picture. Kembali ke mode satu aplikasi, lalu refresh status."
+            "The exam app is in split-screen or picture-in-picture mode.",
+            "Aplikasi ujian berada di mode split screen atau picture-in-picture."
         ),
         detail = buildMultiWindowRuntimeEvidence(
             modeInfo = modeInfo,
@@ -1205,8 +642,8 @@ internal fun MultiWindowRuntimeViolationDialog(
             violationCount = violationCount
         ),
         nextStep = tr(
-            "Return to normal single-app mode, then tap Refresh Status. Send Report if admin needs evidence.",
-            "Kembali ke mode satu aplikasi, lalu tekan Refresh Status. Kirim Report jika admin membutuhkan bukti."
+            "Return to full-screen single-app mode, then tap Check again.",
+            "Kembali ke mode layar penuh satu aplikasi, lalu ketuk Cek ulang."
         ),
         primaryActionLabel = null,
         onPrimaryAction = null,
@@ -1381,86 +818,25 @@ internal fun SecurityViolationDialog(
     lastContext: String?,
     onAcknowledge: () -> Unit
 ) {
-    AlertDialog(
-        onDismissRequest = {},
-        properties = DialogProperties(
-            dismissOnBackPress = false,
-            dismissOnClickOutside = false
+    AppAlertDialog(
+        tone = UiStatusTone.Danger,
+        icon = Icons.Rounded.GppBad,
+        title = tr("You left the exam screen", "Anda keluar dari layar ujian"),
+        badge = violationBadge(violationCount),
+        message = tr(
+            "The app detected that you left the exam screen or the app lost focus.",
+            "Aplikasi mendeteksi Anda meninggalkan layar ujian atau aplikasi kehilangan fokus."
         ),
-        containerColor = AppColors.current.dialogDangerBg,
-        title = {
-            Row(
-                horizontalArrangement = Arrangement.spacedBy(10.dp),
-                verticalAlignment = Alignment.CenterVertically
-            ) {
-                Surface(shape = CircleShape, color = AppColors.current.dialogDangerIcon.copy(alpha = 0.16f)) {
-                    Icon(
-                        imageVector = Icons.Rounded.AdminPanelSettings,
-                        contentDescription = null,
-                        tint = AppColors.current.dialogDangerIcon,
-                        modifier = Modifier.padding(8.dp).size(24.dp)
-                    )
-                }
-                Text(text = tr("Violation Detected", "Pelanggaran Terdeteksi"), color = AppColors.current.dialogDangerIcon, fontWeight = FontWeight.Bold)
-            }
-        },
-        text = {
-            Column(modifier = Modifier.verticalScroll(rememberScrollState())) {
-                Text(
-                    text = tr(
-                        "The app detected that you left the exam screen or forced the app to lose focus.",
-                        "Aplikasi mendeteksi Anda meninggalkan layar ujian atau memaksa aplikasi kehilangan fokus."
-                    ),
-                    color = AppColors.current.textPrimary
-                )
-                Spacer(modifier = Modifier.height(10.dp))
-                Text(
-                    text = tr("Violations: $violationCount", "Jumlah pelanggaran: $violationCount"),
-                    color = AppColors.current.dialogDangerIcon,
-                    fontWeight = FontWeight.Bold
-                )
-                Spacer(modifier = Modifier.height(8.dp))
-                Text(
-                    text = tr(
-                        "Fallback guard active: ${if (fallbackGuardActive) "Yes" else "No"}",
-                        "Fallback guard aktif: ${if (fallbackGuardActive) "Ya" else "Tidak"}"
-                    ),
-                    color = AppColors.current.textSecondary
-                )
-                Text(
-                    text = tr(
-                        "Last trigger: ${lastTrigger?.ifBlank { "-" } ?: "-"}",
-                        "Pemicu terakhir: ${lastTrigger?.ifBlank { "-" } ?: "-"}"
-                    ),
-                    color = AppColors.current.textSecondary
-                )
-                Text(
-                    text = tr(
-                        "Last detected at: ${lastDetectedAt?.ifBlank { "-" } ?: "-"}",
-                        "Terdeteksi terakhir: ${lastDetectedAt?.ifBlank { "-" } ?: "-"}"
-                    ),
-                    color = AppColors.current.textSecondary
-                )
-                Text(
-                    text = tr(
-                        "Context: ${lastContext?.ifBlank { "-" } ?: "-"}",
-                        "Konteks: ${lastContext?.ifBlank { "-" } ?: "-"}"
-                    ),
-                    color = AppColors.current.textSecondary
-                )
-            }
-        },
-        confirmButton = {
-            Button(
-                onClick = onAcknowledge,
-                shape = RoundedCornerShape(UiTokens.RadiusSm),
-                colors = ButtonDefaults.buttonColors(
-                    containerColor = AppColors.current.dialogDangerIcon,
-                    contentColor = Color.White
-                )
-            ) {
-                Text(tr("I Understand", "Saya Mengerti"), fontWeight = FontWeight.Bold)
-            }
-        }
+        nextStep = tr(
+            "Stay on the exam screen. Every exit is recorded and reported.",
+            "Tetap di layar ujian. Setiap kali keluar akan tercatat dan dilaporkan."
+        ),
+        details = listOf(
+            AppAlertDetail(tr("Fallback guard active", "Fallback guard aktif"), yesNo(fallbackGuardActive)),
+            AppAlertDetail(tr("Last trigger", "Pemicu terakhir"), lastTrigger?.ifBlank { "-" } ?: "-"),
+            AppAlertDetail(tr("Last detected at", "Terdeteksi terakhir"), lastDetectedAt?.ifBlank { "-" } ?: "-"),
+            AppAlertDetail(tr("Context", "Konteks"), lastContext?.ifBlank { "-" } ?: "-")
+        ),
+        primaryAction = AppAlertAction(acknowledgeLabel(), onAcknowledge)
     )
 }

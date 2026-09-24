@@ -2,7 +2,6 @@ package com.coblax.examlock.ui.preparation
 
 import androidx.compose.foundation.background
 import androidx.compose.foundation.border
-import androidx.compose.foundation.BorderStroke
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.interaction.MutableInteractionSource
 import androidx.compose.foundation.layout.Arrangement
@@ -10,7 +9,6 @@ import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
-import androidx.compose.foundation.layout.heightIn
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.size
@@ -21,10 +19,6 @@ import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.automirrored.rounded.Send
 import androidx.compose.material.icons.Icons
-import androidx.compose.material.icons.rounded.Home
-import androidx.compose.material.icons.rounded.Refresh
-import androidx.compose.material3.Button
-import androidx.compose.material3.ButtonDefaults
 import androidx.compose.material3.CircularProgressIndicator
 import androidx.compose.material3.Icon
 import androidx.compose.material3.Text
@@ -33,7 +27,6 @@ import androidx.compose.runtime.Composable
 import androidx.compose.runtime.remember
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.draw.clip
-import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.semantics.Role
@@ -44,7 +37,6 @@ import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 
 import com.coblax.examlock.i18n.tr
-import com.coblax.examlock.LocalLowRamProfile
 import com.coblax.examlock.ui.LocalTelegramDiagnosticsEnabled
 import com.coblax.examlock.ui.theme.AppColors
 import com.coblax.examlock.ui.theme.ExamLockColorPalette
@@ -99,62 +91,6 @@ internal fun preparationStatusBadgeBackground(status: String): Color {
         in warningPreparationStatuses -> AppColors.current.gold.copy(alpha = 0.18f)
         in neutralPreparationStatuses -> AppColors.current.surfaceSoft
         else -> AppColors.current.statusDangerFill
-    }
-}
-
-@Composable
-internal fun PreparationAssistButton(
-    text: String,
-    onClick: () -> Unit,
-    modifier: Modifier = Modifier,
-    filled: Boolean = false,
-    enabled: Boolean = true,
-    loading: Boolean = false,
-    compact: Boolean = false,
-    labelPrefix: String? = null
-) {
-    Button(
-        onClick = onClick,
-        modifier = modifier
-            .fillMaxWidth()
-            .heightIn(min = if (compact) 38.dp else 44.dp),
-        enabled = enabled,
-        shape = RoundedCornerShape(18.dp),
-        colors = ButtonDefaults.buttonColors(
-            containerColor = if (filled) AppColors.current.blue else AppColors.current.cardBg,
-            contentColor = if (filled) AppColors.current.onDark else AppColors.current.brandText
-        ),
-        border = if (filled) null else BorderStroke(1.dp, AppColors.current.outline)
-    ) {
-        Row(
-            modifier = Modifier.fillMaxWidth(),
-            horizontalArrangement = Arrangement.Center,
-            verticalAlignment = Alignment.CenterVertically
-        ) {
-            if (loading) {
-                CircularProgressIndicator(
-                    modifier = Modifier.size(14.dp),
-                    strokeWidth = 2.dp,
-                    color = if (filled) AppColors.current.onDark else AppColors.current.brandText
-                )
-                Spacer(modifier = Modifier.width(8.dp))
-            }
-            labelPrefix?.let { prefix ->
-                Text(
-                    text = prefix,
-                    fontSize = 11.sp,
-                    fontWeight = FontWeight.Bold,
-                    textAlign = TextAlign.Center
-                )
-                Spacer(modifier = Modifier.width(6.dp))
-            }
-            Text(
-                text = text,
-                fontSize = if (compact) 13.sp else 14.sp,
-                fontWeight = FontWeight.Bold,
-                textAlign = TextAlign.Center
-            )
-        }
     }
 }
 
@@ -287,182 +223,6 @@ internal fun SecurityChecklistItem(
                 textAlign = TextAlign.Center,
                 maxLines = 2,
                 overflow = TextOverflow.Ellipsis
-            )
-        }
-    }
-}
-
-@Composable
-internal fun PreparationSummaryChip(
-    label: String,
-    value: String,
-    modifier: Modifier = Modifier,
-    accentColor: Color = Color.White
-) {
-    Column(
-        modifier = modifier
-            .clip(RoundedCornerShape(18.dp))
-            .background(AppColors.current.cardBg.copy(alpha = 0.88f))
-            .border(1.dp, AppColors.current.outlineMedium, RoundedCornerShape(18.dp))
-            .padding(horizontal = 10.dp, vertical = 8.dp),
-        verticalArrangement = Arrangement.spacedBy(4.dp)
-    ) {
-        Row(
-            horizontalArrangement = Arrangement.spacedBy(6.dp),
-            verticalAlignment = Alignment.CenterVertically
-        ) {
-            Box(
-                modifier = Modifier
-                    .size(7.dp)
-                    .clip(CircleShape)
-                    .background(accentColor.copy(alpha = 0.90f))
-            )
-            Text(
-                text = label.uppercase(Locale.US),
-                color = AppColors.current.textMuted,
-                fontSize = 9.sp,
-                fontWeight = FontWeight.Bold,
-                letterSpacing = 0.6.sp
-            )
-        }
-        Text(
-            text = value,
-            color = AppColors.current.textPrimary,
-            fontSize = 13.sp,
-            fontWeight = FontWeight.ExtraBold,
-            lineHeight = 16.sp
-        )
-    }
-}
-
-@Composable
-internal fun CompactPrepActionButton(
-    icon: androidx.compose.ui.graphics.vector.ImageVector,
-    label: String,
-    onClick: () -> Unit
-) {
-    Button(
-        onClick = onClick,
-        modifier = Modifier
-            .width(76.dp)
-            .heightIn(min = 48.dp),
-        shape = RoundedCornerShape(18.dp),
-        colors = ButtonDefaults.buttonColors(
-            containerColor = Color.White.copy(alpha = 0.20f),
-            contentColor = Color.White
-        ),
-        border = BorderStroke(1.dp, Color.White.copy(alpha = 0.28f)),
-        contentPadding = androidx.compose.foundation.layout.PaddingValues(horizontal = 6.dp, vertical = 6.dp)
-    ) {
-        Column(
-            horizontalAlignment = Alignment.CenterHorizontally,
-            verticalArrangement = Arrangement.spacedBy(2.dp)
-        ) {
-            Icon(
-                imageVector = icon,
-                contentDescription = null,
-                modifier = Modifier.size(16.dp)
-            )
-            Text(
-                text = label,
-                fontSize = 9.sp,
-                fontWeight = FontWeight.SemiBold
-            )
-        }
-    }
-}
-
-@Composable
-internal fun PreparationFloatingActionBar(
-    startButtonColor: Color,
-    startButtonContentColor: Color,
-    canStartExam: Boolean,
-    isStartingExam: Boolean,
-    webViewSessionResetInFlight: Boolean,
-    blockingReason: String? = null,
-    onRefreshStatus: () -> Unit,
-    onStartExam: () -> Unit,
-    onBackHome: () -> Unit,
-    modifier: Modifier = Modifier
-) {
-    Column(
-        modifier = modifier
-            .clip(RoundedCornerShape(UiTokens.RadiusLg))
-            .background(AppColors.current.blueDeep)
-            .border(1.dp, AppColors.current.blueDeep.copy(alpha = 0.85f), RoundedCornerShape(UiTokens.RadiusLg))
-            .fillMaxWidth()
-    ) {
-        Row(
-            modifier = Modifier
-                .fillMaxWidth()
-                .padding(horizontal = 6.dp, vertical = 5.dp),
-            horizontalArrangement = Arrangement.spacedBy(6.dp),
-            verticalAlignment = Alignment.CenterVertically
-        ) {
-            CompactPrepActionButton(
-                icon = Icons.Rounded.Refresh,
-                label = "Refresh",
-                onClick = onRefreshStatus
-            )
-            val lowRam = LocalLowRamProfile.current
-            val startEnabled = canStartExam && !(isStartingExam || webViewSessionResetInFlight)
-            val buttonBg = if (!lowRam.enabled && startEnabled) {
-                Modifier.background(
-                    brush = Brush.verticalGradient(
-                        colors = listOf(startButtonColor.copy(alpha = 0.92f), startButtonColor)
-                    ),
-                    shape = RoundedCornerShape(18.dp)
-                )
-            } else {
-                Modifier
-            }
-            Button(
-                onClick = onStartExam,
-                modifier = Modifier
-                    .weight(1f)
-                    .heightIn(min = 50.dp)
-                    .then(buttonBg),
-                shape = RoundedCornerShape(18.dp),
-                enabled = startEnabled,
-                colors = ButtonDefaults.buttonColors(
-                    containerColor = startButtonColor,
-                    contentColor = startButtonContentColor,
-                    disabledContainerColor = startButtonColor.copy(alpha = 0.85f),
-                    disabledContentColor = startButtonContentColor
-                )
-            ) {
-                Text(
-                    text = if (webViewSessionResetInFlight) {
-                        tr("PREPARING...", "MENYIAPKAN...")
-                    } else if (isStartingExam) {
-                        tr("STARTING...", "MEMULAI...")
-                    } else {
-                        tr("START EXAM", "MULAI UJIAN")
-                    },
-                    fontWeight = FontWeight.ExtraBold,
-                    fontSize = 15.sp,
-                    textAlign = TextAlign.Center,
-                    maxLines = 2,
-                    modifier = Modifier.fillMaxWidth()
-                )
-            }
-            CompactPrepActionButton(
-                icon = Icons.Rounded.Home,
-                label = "Menu",
-                onClick = onBackHome
-            )
-        }
-        if (!canStartExam && !blockingReason.isNullOrBlank()) {
-            Text(
-                text = blockingReason,
-                color = Color.White.copy(alpha = 0.85f),
-                fontSize = 11.sp,
-                fontWeight = FontWeight.SemiBold,
-                textAlign = TextAlign.Center,
-                maxLines = 2,
-                modifier = Modifier
-                    .fillMaxWidth()
-                    .padding(bottom = 6.dp)
             )
         }
     }

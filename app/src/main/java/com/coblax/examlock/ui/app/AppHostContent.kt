@@ -136,7 +136,6 @@ import com.coblax.examlock.StartupTrace
 import com.coblax.examlock.TrustedNetworkTimeCoordinator
 import com.coblax.examlock.ui.admin.AdminPasswordDialog
 import com.coblax.examlock.ui.admin.ExamLockHomeScreen
-import com.coblax.examlock.ui.admin.ExamLockLowRamHomeScreen
 import com.coblax.examlock.ui.admin.InfoDialog
 import com.coblax.examlock.ui.admin.PublicPerformanceProfileDialog
 import com.coblax.examlock.ui.admin.ScanSourceDialog
@@ -1177,45 +1176,24 @@ internal fun AppHostRuntimeContent(
                     StartupTrace.mark("home_compose_start")
                     true
                 }
-                if (lowRamProfile.severe) {
-                    ExamLockLowRamHomeScreen(
-                        uiLanguage = uiLanguage,
-                        onUiLanguageChange = { uiLanguage = it },
-                        themeMode = initialThemeModeOverride,
-                        onThemeModeChange = onThemeModeChange,
-                        onScanExam = { adminFlowViewModel.dispatch(AdminFlowUiAction.ShowScanSourceDialog) },
-                        onOpenAdmin = {
-                            coroutineScope.launch {
-                                loadCurrentAdminSettings()
-                                adminFlowViewModel.dispatch(AdminFlowUiAction.OpenCustomQrAdmin)
-                            }
-                        },
-                        onOpenFastExam = { launchDirectLink() },
-                        directLinkLabel = directLinkLabel,
-                        onSecretTap = { registerSecretTap() },
-                        onOpenPerformanceProfile = { showPerformanceProfileDialog = true },
-                        showDeferredChrome = showDeferredHomeChrome
-                    )
-                } else {
-                    ExamLockHomeScreen(
-                        uiLanguage = uiLanguage,
-                        onUiLanguageChange = { uiLanguage = it },
-                        themeMode = initialThemeModeOverride,
-                        onThemeModeChange = onThemeModeChange,
-                        onScanExam = { adminFlowViewModel.dispatch(AdminFlowUiAction.ShowScanSourceDialog) },
-                        onOpenAdmin = {
-                            coroutineScope.launch {
-                                loadCurrentAdminSettings()
-                                adminFlowViewModel.dispatch(AdminFlowUiAction.OpenCustomQrAdmin)
-                            }
-                        },
-                        onOpenFastExam = { launchDirectLink() },
-                        directLinkLabel = directLinkLabel,
-                        onSecretTap = { registerSecretTap() },
-                        onOpenPerformanceProfile = { showPerformanceProfileDialog = true },
-                        showDeferredChrome = showDeferredHomeChrome
-                    )
-                }
+                ExamLockHomeScreen(
+                    uiLanguage = uiLanguage,
+                    onUiLanguageChange = { uiLanguage = it },
+                    themeMode = initialThemeModeOverride,
+                    onThemeModeChange = onThemeModeChange,
+                    onScanExam = { adminFlowViewModel.dispatch(AdminFlowUiAction.ShowScanSourceDialog) },
+                    onOpenAdmin = {
+                        coroutineScope.launch {
+                            loadCurrentAdminSettings()
+                            adminFlowViewModel.dispatch(AdminFlowUiAction.OpenCustomQrAdmin)
+                        }
+                    },
+                    onOpenFastExam = { launchDirectLink() },
+                    directLinkLabel = directLinkLabel,
+                    onSecretTap = { registerSecretTap() },
+                    onOpenPerformanceProfile = { showPerformanceProfileDialog = true },
+                    showDeferredChrome = showDeferredHomeChrome
+                )
             } else {
                 AppNonHomeRouteHost(
                     screen = currentScreen,

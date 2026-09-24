@@ -40,7 +40,10 @@ import androidx.compose.ui.unit.sp
 import com.coblax.examlock.i18n.tr
 import com.coblax.examlock.model.ExamBatteryStatus
 import com.coblax.examlock.model.NetworkReadinessStatus
+import com.coblax.examlock.ui.dialog.AppAlertAction
+import com.coblax.examlock.ui.dialog.AppAlertDialogContent
 import com.coblax.examlock.ui.theme.AppColors
+import com.coblax.examlock.ui.theme.UiStatusTone
 import com.coblax.examlock.ui.theme.UiTokens
 
 internal data class ExamRuntimeChromeState(
@@ -75,6 +78,10 @@ internal data class ExamRuntimeChromeActions(
     val onShiftToggle: () -> Unit
 )
 
+/**
+ * Page-load failure card, drawn over the WebView area. Same look as the exam popups,
+ * but inline so it never takes window focus.
+ */
 @Composable
 internal fun ExamWebErrorOverlay(
     examDisplayName: String,
@@ -82,78 +89,18 @@ internal fun ExamWebErrorOverlay(
     onRetry: () -> Unit,
     modifier: Modifier = Modifier
 ) {
-    Box(
+    AppAlertDialogContent(
+        tone = UiStatusTone.Danger,
+        icon = Icons.Rounded.CloudOff,
+        title = tr("Exam page could not load", "Halaman ujian belum berhasil dimuat"),
+        badge = examDisplayName.ifBlank { null },
+        message = errorMessage?.takeIf { it.isNotBlank() } ?: tr(
+            "Check the connection, then try again.",
+            "Periksa koneksi, lalu coba lagi."
+        ),
+        primaryAction = AppAlertAction(tr("Reload", "Muat ulang"), onRetry),
         modifier = modifier
-            .padding(24.dp)
-            .clip(RoundedCornerShape(18.dp))
-            .background(MaterialTheme.colorScheme.surface)
-            .border(1.dp, AppColors.current.statusDanger.copy(alpha = 0.25f), RoundedCornerShape(18.dp))
-    ) {
-        // Subtle gradient background tint
-        Box(
-            modifier = Modifier
-                .fillMaxWidth()
-                .background(
-                    brush = Brush.verticalGradient(
-                        colors = listOf(AppColors.current.statusDangerFill.copy(alpha = 0.55f), AppColors.current.cardBg)
-                    )
-                )
-        ) {
-            // Left accent border stripe
-            Box(
-                modifier = Modifier
-                    .width(4.dp)
-                    .fillMaxHeight()
-                    .clip(RoundedCornerShape(topStart = 18.dp, bottomStart = 18.dp))
-                    .background(AppColors.current.statusDanger)
-            )
-
-            Column(
-                modifier = Modifier.padding(start = 20.dp, end = 20.dp, top = 20.dp, bottom = 20.dp),
-                verticalArrangement = Arrangement.spacedBy(12.dp)
-            ) {
-                // Big error icon
-                Icon(
-                    imageVector = Icons.Rounded.CloudOff,
-                    contentDescription = null,
-                    tint = AppColors.current.statusDanger.copy(alpha = 0.80f),
-                    modifier = Modifier.size(40.dp)
-                )
-                Text(
-                    text = tr("Exam page is not available yet", "Halaman ujian belum berhasil dimuat"),
-                    color = AppColors.current.textPrimary,
-                    fontWeight = FontWeight.Bold,
-                    fontSize = 18.sp,
-                    lineHeight = 24.sp
-                )
-                Text(
-                    text = examDisplayName,
-                    color = AppColors.current.brandText,
-                    fontSize = 13.sp,
-                    fontWeight = FontWeight.SemiBold
-                )
-                if (!errorMessage.isNullOrBlank()) {
-                    Text(
-                        text = errorMessage,
-                        color = AppColors.current.textSecondary,
-                        fontSize = 13.sp,
-                        lineHeight = 18.sp
-                    )
-                }
-                Button(
-                    onClick = onRetry,
-                    modifier = Modifier.fillMaxWidth(),
-                    shape = RoundedCornerShape(UiTokens.RadiusSm),
-                    colors = ButtonDefaults.buttonColors(
-                        containerColor = AppColors.current.blue,
-                        contentColor = AppColors.current.onDark
-                    )
-                ) {
-                    Text(tr("Retry Loading", "Muat Ulang"), fontWeight = FontWeight.Bold)
-                }
-            }
-        }
-    }
+    )
 }
 
 

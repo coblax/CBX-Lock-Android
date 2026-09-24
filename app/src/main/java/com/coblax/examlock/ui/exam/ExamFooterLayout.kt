@@ -9,17 +9,15 @@ internal enum class ExamFooterLayoutMode {
     TabletWide
 }
 
-internal data class ExamFooterLayoutSpec(
+internal data class ExamChromeLayoutSpec(
     val layoutMode: ExamFooterLayoutMode,
-    val compact: Boolean,
-    val severe: Boolean,
-    val horizontalPaddingDp: Int,
-    val actionSpacingDp: Int,
-    val touchTargetDp: Int,
-    val iconSizeDp: Int,
-    val railHeightDp: Int,
-    val cornerRadiusDp: Int,
-    val showFullActionLabels: Boolean
+    val showExamName: Boolean,
+    val showStatusLabels: Boolean,
+    val showActionLabels: Boolean,
+    val stackActionLabels: Boolean,
+    val headerHeightDp: Int,
+    val footerHeightDp: Int,
+    val touchTargetDp: Int
 )
 
 internal enum class ExamFooterConnectivityTransport {
@@ -67,42 +65,36 @@ internal enum class ExamRuntimeConnectionNoticeKind {
     ServerWarning
 }
 
-internal fun calculateExamFooterLayoutSpec(
+/**
+ * Sizing for the exam header (information only) and footer (actions). Widths are
+ * divided by the (capped) font scale so an enlarged system font drops words before it squeezes
+ * anything: status words go first, action labels move under their icons (and only
+ * vanish on extreme settings), and the exam name goes last. Icons, battery digits, and
+ * 48dp touch targets always stay.
+ */
+/** Text in the two bars follows the system font up to this scale; beyond it only the page grows. */
+internal const val ExamChromeMaxFontScale = 1.3f
+
+internal fun calculateExamChromeLayoutSpec(
     maxWidthDp: Int,
-    lowRamEnabled: Boolean,
+    fontScale: Float,
     lowRamSevere: Boolean
-): ExamFooterLayoutSpec {
-    val severe = lowRamSevere || maxWidthDp < 320
-    val compact = severe || lowRamEnabled || maxWidthDp < 480
+): ExamChromeLayoutSpec {
+    val effectiveWidth = maxWidthDp / fontScale.coerceIn(1f, ExamChromeMaxFontScale)
     val layoutMode = when {
-        maxWidthDp >= 600 && !lowRamEnabled -> ExamFooterLayoutMode.TabletWide
-        compact -> ExamFooterLayoutMode.Compact
+        maxWidthDp >= 600 && !lowRamSevere -> ExamFooterLayoutMode.TabletWide
+        maxWidthDp < 360 || lowRamSevere -> ExamFooterLayoutMode.Compact
         else -> ExamFooterLayoutMode.Regular
     }
-
-    return ExamFooterLayoutSpec(
+    return ExamChromeLayoutSpec(
         layoutMode = layoutMode,
-        compact = compact,
-        severe = severe,
-        horizontalPaddingDp = when {
-            severe -> 4
-            compact -> 8
-            else -> 12
-        },
-        actionSpacingDp = when {
-            severe -> 4
-            compact -> 6
-            else -> 8
-        },
-        touchTargetDp = 48,
-        iconSizeDp = when {
-            severe -> 17
-            compact -> 18
-            else -> 20
-        },
-        railHeightDp = 52,
-        cornerRadiusDp = if (compact) 12 else 16,
-        showFullActionLabels = maxWidthDp >= 480 && !lowRamSevere
+        showExamName = effectiveWidth >= 240,
+        showStatusLabels = effectiveWidth >= 340,
+        showActionLabels = effectiveWidth >= 170,
+        stackActionLabels = effectiveWidth < 290,
+        headerHeightDp = 32,
+        footerHeightDp = 48,
+        touchTargetDp = 48
     )
 }
 

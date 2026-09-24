@@ -332,3 +332,73 @@ internal data class PreparationScreenActions(
     val onStartExam: () -> Unit get() = session.onStartExam
     val onBackHome: () -> Unit get() = session.onBackHome
 }
+
+/**
+ * Actions whose lambdas keep the same identity forever; each one forwards to whatever
+ * [latest] returns at the moment it is invoked. The exam session rebuilds its actions on
+ * every recomposition, and without this each status tick rebuilt every quick fix and
+ * recomposed every card on the preparation screen.
+ */
+internal fun forwardingPreparationActions(
+    latest: () -> PreparationScreenActions
+): PreparationScreenActions = PreparationScreenActions(
+    session = PreparationSessionActions(
+        onRefreshStatus = { latest().session.onRefreshStatus() },
+        onRefreshAllSecurityChecks = { latest().session.onRefreshAllSecurityChecks() },
+        onRefreshHealthCheck = { latest().session.onRefreshHealthCheck() },
+        onRequestSectionReport = { section -> latest().session.onRequestSectionReport(section) },
+        onExportDiagnostics = { latest().session.onExportDiagnostics() },
+        onAutoFixShown = { details -> latest().session.onAutoFixShown(details) },
+        onPreviousSessionRecoveryHintShown = { details ->
+            latest().session.onPreviousSessionRecoveryHintShown(details)
+        },
+        onAutoFixActionOpened = { code -> latest().session.onAutoFixActionOpened(code) },
+        onScreenPinningDeferred = { details -> latest().session.onScreenPinningDeferred(details) },
+        onStartExam = { latest().session.onStartExam() },
+        onBackHome = { latest().session.onBackHome() }
+    ),
+    network = PreparationNetworkActions(
+        onOpenInternetSettings = { latest().network.onOpenInternetSettings() },
+        onOpenVpnSettings = { latest().network.onOpenVpnSettings() },
+        onOpenWifiSettings = { latest().network.onOpenWifiSettings() },
+        onOpenCellularSettings = { latest().network.onOpenCellularSettings() },
+        onOpenAirplaneModeSettings = { latest().network.onOpenAirplaneModeSettings() },
+        onRefreshNetworkStatus = { latest().network.onRefreshNetworkStatus() }
+    ),
+    device = PreparationDeviceActions(
+        onChooseKeyboard = { latest().device.onChooseKeyboard() },
+        onOpenKeyboardSettings = { latest().device.onOpenKeyboardSettings() },
+        onGrantBluetoothPermission = { latest().device.onGrantBluetoothPermission() },
+        onOpenBluetoothSettings = { latest().device.onOpenBluetoothSettings() },
+        onOpenAccessibilitySettings = { latest().device.onOpenAccessibilitySettings() },
+        onOpenOverlayAccessibilitySettings = { latest().device.onOpenOverlayAccessibilitySettings() },
+        onOpenDeveloperOptionsSettings = { latest().device.onOpenDeveloperOptionsSettings() },
+        onOpenDateTimeSettings = { latest().device.onOpenDateTimeSettings() },
+        onOpenScreenPinningSettings = { latest().device.onOpenScreenPinningSettings() },
+        onStartScreenPinning = { latest().device.onStartScreenPinning() },
+        onOpenOverlaySettings = { latest().device.onOpenOverlaySettings() },
+        onOpenAppSettings = { latest().device.onOpenAppSettings() },
+        onOpenCastSettings = { latest().device.onOpenCastSettings() },
+        onOpenWebViewProviderSettings = { latest().device.onOpenWebViewProviderSettings() },
+        onReinstallOfficialApk = { latest().device.onReinstallOfficialApk() }
+    ),
+    location = PreparationLocationActions(
+        onRequestLocationPermission = { latest().location.onRequestLocationPermission() },
+        onOpenLocationServicesSettings = { latest().location.onOpenLocationServicesSettings() },
+        onRefreshGeofenceLocation = { latest().location.onRefreshGeofenceLocation() },
+        onOpenGeofenceMapViewer = { latest().location.onOpenGeofenceMapViewer() },
+        onOpenFakeLocationDeveloperOptionsSettings = {
+            latest().location.onOpenFakeLocationDeveloperOptionsSettings()
+        }
+    ),
+    runtimeSecurity = PreparationRuntimeSecurityActions(
+        onOpenAccessibilitySettings = { latest().runtimeSecurity.onOpenAccessibilitySettings() },
+        onOpenOverlayAccessibilitySettings = {
+            latest().runtimeSecurity.onOpenOverlayAccessibilitySettings()
+        },
+        onOpenOverlaySettings = { latest().runtimeSecurity.onOpenOverlaySettings() },
+        onOpenOverlayGuardSettings = { latest().runtimeSecurity.onOpenOverlayGuardSettings() },
+        onOpenAppSettings = { latest().runtimeSecurity.onOpenAppSettings() },
+        onOpenCastSettings = { latest().runtimeSecurity.onOpenCastSettings() }
+    )
+)

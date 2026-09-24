@@ -127,7 +127,7 @@ class PreparationAutoFixTest {
     }
 
     @Test
-    fun actionDisplayTextUsesFieldTextOnlyForLowRamProfiles() {
+    fun actionButtonLabelPrefersShortFieldText() {
         val action = PreparationQuickFixAction(
             code = "location_refresh",
             text = "Refresh Location Now",
@@ -138,15 +138,8 @@ class PreparationAutoFixTest {
             onClick = {}
         )
 
-        assertEquals("Refresh Location Now", action.displayTextForProfile(LowRamProfile()))
-        assertEquals(
-            "Cek Ulang Lokasi",
-            action.displayTextForProfile(LowRamProfile(enabled = true))
-        )
-        assertEquals(
-            "Cek Ulang Lokasi",
-            action.displayTextForProfile(LowRamProfile(enabled = true, severe = true, ultra = true))
-        )
+        assertEquals("Cek Ulang Lokasi", action.buttonLabel())
+        assertEquals("Refresh Location Now", action.copy(fieldText = null).buttonLabel())
     }
 
     @Test

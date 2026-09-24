@@ -57,10 +57,10 @@ internal fun buildPreparationChecklistDetailText(
     uiLanguage: UiLanguage,
     accessibilityInspection: AccessibilityInspectionResult,
     accessibilityGuardEnabled: Boolean,
-    activeWizardStep: WizardStep? = null
+    activeCategory: PreparationCategory? = null
 ): PreparationChecklistDetailText = with(state) {
-    fun shouldBuildFor(step: WizardStep): Boolean =
-        activeWizardStep == null || activeWizardStep == step
+    fun shouldBuildFor(category: PreparationCategory): Boolean =
+        activeCategory == null || activeCategory == category
     val enabledAccessibilityPackages =
         if (showChecklistDetails) accessibilityInspection.activePackages else emptyList()
     val allowedAccessibilityServices =
@@ -73,7 +73,7 @@ internal fun buildPreparationChecklistDetailText(
         if (showChecklistDetails) accessibilityInspection.riskyPackages else emptyList()
     fun preparationDetailOrNull(english: () -> String, indonesian: () -> String): String? =
         preparationDetailOrNull(showChecklistDetails, uiLanguage, english, indonesian)
-    val keyboardDetail = if (shouldBuildFor(WizardStep.DeviceSetup)) preparationDetailOrNull(
+    val keyboardDetail = if (shouldBuildFor(PreparationCategory.DeviceSetup)) preparationDetailOrNull(
         english = {
         "Checked:\n" +
             "- Default input method package from Settings.Secure.DEFAULT_INPUT_METHOD\n" +
@@ -101,7 +101,7 @@ internal fun buildPreparationChecklistDetailText(
             "- Jika berubah saat ujian -> pelanggaran + alarm"
         }
     ) else null
-    val bluetoothDetail = if (shouldBuildFor(WizardStep.DeviceSetup)) preparationDetailOrNull(
+    val bluetoothDetail = if (shouldBuildFor(PreparationCategory.DeviceSetup)) preparationDetailOrNull(
         english = {
         "Checked:\n" +
             "- Permission BLUETOOTH_CONNECT (Android 12+)\n" +
@@ -122,7 +122,7 @@ internal fun buildPreparationChecklistDetailText(
         }
     ) else null
     val accessibilityActionDetail = if (
-        shouldBuildFor(WizardStep.RuntimeInteraction) &&
+        shouldBuildFor(PreparationCategory.RuntimeInteraction) &&
         !bypassAccessibility &&
         accessibilityInspection.blockingServiceActive
     ) {
@@ -132,7 +132,7 @@ internal fun buildPreparationChecklistDetailText(
     } else {
         null
     }
-    val accessibilityAuditDetail = if (shouldBuildFor(WizardStep.RuntimeInteraction)) preparationDetailOrNull(
+    val accessibilityAuditDetail = if (shouldBuildFor(PreparationCategory.RuntimeInteraction)) preparationDetailOrNull(
         english = {
         "Checked:\n" +
             "- AccessibilityManager.isEnabled\n" +
@@ -184,7 +184,7 @@ internal fun buildPreparationChecklistDetailText(
         actionDetail = accessibilityActionDetail,
         auditDetail = accessibilityAuditDetail
     )
-    val overlayDetail = if (shouldBuildFor(WizardStep.RuntimeInteraction)) preparationDetailOrNull(
+    val overlayDetail = if (shouldBuildFor(PreparationCategory.RuntimeInteraction)) preparationDetailOrNull(
         english = {
         val dpcStatus = runtimeSecurity.dpcRuntimeStatus
         val dpcImpact = when (dpcStatus.protectionTier) {
@@ -268,7 +268,7 @@ internal fun buildPreparationChecklistDetailText(
             "- $dpcImpact"
         }
     ) else null
-    val developerDetail = if (shouldBuildFor(WizardStep.DeviceIntegrity)) preparationDetailOrNull(
+    val developerDetail = if (shouldBuildFor(PreparationCategory.DeviceIntegrity)) preparationDetailOrNull(
         english = {
         "Checked:\n" +
             "- Settings.Global.DEVELOPMENT_SETTINGS_ENABLED = ${adbInspection.developerOptionsRawValue}\n" +
@@ -292,7 +292,7 @@ internal fun buildPreparationChecklistDetailText(
             "- Jika aktif saat ujian -> peringatan + alarm"
         }
     ) else null
-    val rootDetail = if (shouldBuildFor(WizardStep.DeviceIntegrity)) preparationDetailOrNull(
+    val rootDetail = if (shouldBuildFor(PreparationCategory.DeviceIntegrity)) preparationDetailOrNull(
         english = {
         "Checked:\n" +
             "- Build tags contain test-keys\n" +
@@ -326,7 +326,7 @@ internal fun buildPreparationChecklistDetailText(
             "- Jika terdeteksi saat ujian -> peringatan + alarm"
         }
     ) else null
-    val signatureDetail = if (shouldBuildFor(WizardStep.DeviceIntegrity)) preparationDetailOrNull(
+    val signatureDetail = if (shouldBuildFor(PreparationCategory.DeviceIntegrity)) preparationDetailOrNull(
         english = {
         "Checked:\n" +
             "- SHA-256 fingerprint of signing certificate\n" +
@@ -342,7 +342,7 @@ internal fun buildPreparationChecklistDetailText(
             "- Tidak cocok -> blok mulai ujian dan sarankan reinstall APK resmi"
         }
     ) else null
-    val virtualEnvironmentDetail = if (shouldBuildFor(WizardStep.DeviceIntegrity)) preparationDetailOrNull(
+    val virtualEnvironmentDetail = if (shouldBuildFor(PreparationCategory.DeviceIntegrity)) preparationDetailOrNull(
         english = {
         "Checked:\n" +
             "- Build.FINGERPRINT tokens: ${preparationListSummary(VirtualFingerprintTokens)}\n" +
@@ -376,7 +376,7 @@ internal fun buildPreparationChecklistDetailText(
             "- Jika terdeteksi saat ujian -> peringatan + alarm"
         }
     ) else null
-    val clipboardDetail = if (shouldBuildFor(WizardStep.Clipboard)) preparationDetailOrNull(
+    val clipboardDetail = if (shouldBuildFor(PreparationCategory.Clipboard)) preparationDetailOrNull(
         english = {
         "Checked:\n" +
             "- Clipboard monitoring arms as soon as START EXAM MODE is pressed\n" +
@@ -414,7 +414,7 @@ internal fun buildPreparationChecklistDetailText(
         "- Perubahan clipboard memicu alarm (tidak memblokir start)"
         }
     ) else null
-    val screenPinningDetail = if (shouldBuildFor(WizardStep.DeviceLock)) preparationDetailOrNull(
+    val screenPinningDetail = if (shouldBuildFor(PreparationCategory.DeviceLock)) preparationDetailOrNull(
         english = {
         "Checked:\n" +
             "- lock_to_app_enabled from Settings.System then Settings.Secure\n" +
@@ -438,7 +438,7 @@ internal fun buildPreparationChecklistDetailText(
             "- Jika bypass aktif -> lewati alur pin/lock-task"
         }
     ) else null
-    val accessibilityGuardDetail = if (shouldBuildFor(WizardStep.DeviceLock)) preparationDetailOrNull(
+    val accessibilityGuardDetail = if (shouldBuildFor(PreparationCategory.DeviceLock)) preparationDetailOrNull(
         english = {
         "Checked:\n" +
             "- CBX Lock Exam Guard accessibility service enabled: ${if (accessibilityGuardEnabled) "Yes" else "No"}\n" +
@@ -460,7 +460,7 @@ internal fun buildPreparationChecklistDetailText(
             "- Saat mode fallback, app switch dicatat dan app kembali ke ujian dengan alarm eskalatif"
         }
     ) else null
-    val appSwitchDetail = if (shouldBuildFor(WizardStep.RuntimeSecurity)) preparationDetailOrNull(
+    val appSwitchDetail = if (shouldBuildFor(PreparationCategory.RuntimeSecurity)) preparationDetailOrNull(
         english = {
         "Checked:\n" +
             "- App Switch monitoring arms as soon as START EXAM MODE is pressed\n" +

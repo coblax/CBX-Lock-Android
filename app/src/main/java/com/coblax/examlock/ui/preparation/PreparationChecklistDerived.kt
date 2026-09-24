@@ -185,51 +185,6 @@ internal fun buildPreparationChecklistReadiness(
     )
 }
 
-internal data class PreparationReadinessSummary(
-    val blockingCount: Int,
-    val warningCount: Int,
-    val safeCount: Int,
-    val firstBlockingReason: String?
-)
-
-internal fun buildPreparationReadinessSummary(
-    readiness: PreparationChecklistReadiness,
-    blockingReasonEN: String?,
-    blockingReasonID: String?
-): PreparationReadinessSummary {
-    val checks = listOf(
-        readiness.bluetoothReady,
-        readiness.accessibilityReady,
-        readiness.adbReady,
-        readiness.rootReady,
-        readiness.virtualEnvironmentReady,
-        readiness.vpnReady,
-        readiness.deviceTimeReady,
-        readiness.geofenceReady,
-        readiness.fakeLocationReady,
-        readiness.overlayReady,
-        readiness.accessibilityGuardReady,
-        readiness.screenPinningReady,
-        readiness.appSwitchReady,
-        readiness.screenRecorderReady,
-        readiness.displayMirrorReady,
-        readiness.multiWindowReady,
-        readiness.reverseEngineeringReady,
-        readiness.integrityReady,
-        readiness.signatureReady
-    )
-    val safeCount = checks.count { it }
-    val blockingCount = checks.count { !it }
-    return PreparationReadinessSummary(
-        blockingCount = blockingCount,
-        warningCount = 0, // warnings are derived from quick fix actions, not readiness
-        safeCount = safeCount,
-        firstBlockingReason = if (!readiness.canStartExam) {
-            blockingReasonEN // caller provides the localized string
-        } else null
-    )
-}
-
 internal fun resolveFirstBlockingReason(
     readiness: PreparationChecklistReadiness,
     en: Boolean = true
@@ -256,65 +211,4 @@ internal fun resolveFirstBlockingReason(
     if (!readiness.multiWindowReady) return if (en) "Multi-window mode active" else "Mode multi-window aktif"
     if (!readiness.appSwitchReady) return if (en) "App switch violation" else "Pelanggaran app switch"
     return if (en) "Device check not passed" else "Pemeriksaan perangkat belum lulus"
-}
-
-/**
- * Per-section health for collapsible sections (#8) and smart order (#6).
- */
-internal data class SectionHealth(
-    val title: String,
-    val allClear: Boolean,
-    val issueCount: Int
-)
-
-internal fun buildSectionHealthMap(
-    readiness: PreparationChecklistReadiness
-): Map<String, SectionHealth> {
-    return mapOf(
-        "checklist_device_setup" to SectionHealth(
-            title = "Device Setup",
-            allClear = readiness.keyboardReady && readiness.bluetoothReady,
-            issueCount = listOf(readiness.keyboardReady, readiness.bluetoothReady).count { !it }
-        ),
-        "checklist_connectivity" to SectionHealth(
-            title = "Connectivity",
-            allClear = true, // network readiness is not in readiness flags (derived differently)
-            issueCount = 0
-        ),
-        "checklist_device_health" to SectionHealth(
-            title = "Device Health",
-            allClear = readiness.deviceTimeReady,
-            issueCount = listOf(readiness.deviceTimeReady).count { !it }
-        ),
-        "checklist_runtime_interaction" to SectionHealth(
-            title = "Runtime Interaction",
-            allClear = readiness.accessibilityReady && readiness.overlayReady,
-            issueCount = listOf(readiness.accessibilityReady, readiness.overlayReady).count { !it }
-        ),
-        "checklist_device_integrity" to SectionHealth(
-            title = "Device Integrity",
-            allClear = readiness.adbReady && readiness.rootReady && readiness.signatureReady && readiness.virtualEnvironmentReady && readiness.reverseEngineeringReady && readiness.integrityReady,
-            issueCount = listOf(readiness.adbReady, readiness.rootReady, readiness.signatureReady, readiness.virtualEnvironmentReady, readiness.reverseEngineeringReady, readiness.integrityReady).count { !it }
-        ),
-        "checklist_runtime_clipboard" to SectionHealth(
-            title = "Clipboard",
-            allClear = readiness.clipboardReady,
-            issueCount = listOf(readiness.clipboardReady).count { !it }
-        ),
-        "checklist_location" to SectionHealth(
-            title = "Location",
-            allClear = readiness.geofenceReady && readiness.fakeLocationReady,
-            issueCount = listOf(readiness.geofenceReady, readiness.fakeLocationReady).count { !it }
-        ),
-        "checklist_device_lock" to SectionHealth(
-            title = "Device Lock",
-            allClear = readiness.screenPinningReady && readiness.accessibilityGuardReady,
-            issueCount = listOf(readiness.screenPinningReady, readiness.accessibilityGuardReady).count { !it }
-        ),
-        "checklist_runtime_static_security" to SectionHealth(
-            title = "Runtime Security",
-            allClear = readiness.screenRecorderReady && readiness.displayMirrorReady && readiness.multiWindowReady && readiness.appSwitchReady && readiness.reverseEngineeringReady,
-            issueCount = listOf(readiness.screenRecorderReady, readiness.displayMirrorReady, readiness.multiWindowReady, readiness.appSwitchReady, readiness.reverseEngineeringReady).count { !it }
-        )
-    )
 }

@@ -16,6 +16,8 @@ import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.text.KeyboardOptions
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.rounded.Image
+import androidx.compose.material.icons.rounded.Info
+import androidx.compose.material.icons.rounded.Warning
 import androidx.compose.material.icons.rounded.QrCodeScanner
 import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.Button
@@ -41,7 +43,10 @@ import androidx.compose.ui.window.Dialog
 
 import com.coblax.examlock.i18n.tr
 import com.coblax.examlock.R
+import com.coblax.examlock.ui.dialog.AppAlertAction
+import com.coblax.examlock.ui.dialog.AppAlertDialog
 import com.coblax.examlock.ui.theme.AppColors
+import com.coblax.examlock.ui.theme.UiStatusTone
 import com.google.android.libraries.places.api.model.Place
 
 import kotlin.coroutines.resume
@@ -52,29 +57,17 @@ import kotlin.math.roundToInt
 internal fun InfoDialog(
     title: String,
     message: String,
-    onDismiss: () -> Unit
+    onDismiss: () -> Unit,
+    tone: UiStatusTone = UiStatusTone.Info
 ) {
-    AlertDialog(
+    AppAlertDialog(
+        tone = tone,
+        icon = if (tone == UiStatusTone.Info) Icons.Rounded.Info else Icons.Rounded.Warning,
+        title = title,
+        message = message,
+        dismissible = true,
         onDismissRequest = onDismiss,
-        containerColor = AppColors.current.background,
-        title = {
-            Text(
-                text = title,
-                color = AppColors.current.textPrimary,
-                fontWeight = FontWeight.Bold
-            )
-        },
-        text = {
-            Text(
-                text = message,
-                color = AppColors.current.textSecondary
-            )
-        },
-        confirmButton = {
-            TextButton(onClick = onDismiss) {
-                Text(tr("Close", "Tutup"), color = AppColors.current.blue)
-            }
-        }
+        primaryAction = AppAlertAction(tr("Close", "Tutup"), onDismiss)
     )
 }
 

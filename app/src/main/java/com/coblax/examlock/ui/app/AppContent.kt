@@ -34,7 +34,7 @@ import com.coblax.examlock.resolveLowRamProfile
 import com.coblax.examlock.runtime.LowRamDispatchers
 import com.coblax.examlock.runtime.SecurityDetectorCache
 import com.coblax.examlock.saveLowRamProfileOverride
-import com.coblax.examlock.ui.admin.ExamLockLowRamHomeScreen
+import com.coblax.examlock.ui.admin.ExamLockHomeScreen
 import com.coblax.examlock.ui.admin.PublicPerformanceProfileDialog
 import com.coblax.examlock.ui.exam.ExamRuntimeHardeningDiagnostics
 import com.coblax.examlock.ui.exam.ExamRuntimeHardeningLogTag
@@ -165,7 +165,7 @@ internal fun AppContent(
                 LocalLowRamProfile provides lowRamProfile,
                 LocalDeviceCompatibilityProfile provides deviceCompatibilityProfile
             ) {
-                ExamLockLowRamHomeScreen(
+                ExamLockHomeScreen(
                     uiLanguage = shellUiLanguage,
                     onUiLanguageChange = { shellUiLanguage = it },
                     themeMode = shellThemeMode,

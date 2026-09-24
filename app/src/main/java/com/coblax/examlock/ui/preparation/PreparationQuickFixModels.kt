@@ -112,13 +112,3 @@ internal fun selectPreparationQuickFixActionsForDisplay(
         warningCount = issues.count { it.severity == QuickFixSeverity.Warning }
     )
 }
-
-internal fun PreparationQuickFixAction.displayTextForProfile(
-    lowRamProfile: LowRamProfile
-): String {
-    return if (lowRamProfile.enabled) {
-        fieldText ?: text
-    } else {
-        text
-    }
-}

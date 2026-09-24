@@ -2,7 +2,10 @@ package com.coblax.examlock.ui.exam
 
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.fillMaxSize
+import androidx.compose.foundation.layout.WindowInsets
+import androidx.compose.foundation.layout.asPaddingValues
 import androidx.compose.foundation.layout.height
+import androidx.compose.foundation.layout.navigationBars
 import androidx.compose.foundation.layout.width
 import androidx.compose.runtime.CompositionLocalProvider
 import androidx.compose.ui.Modifier
@@ -10,9 +13,11 @@ import androidx.compose.ui.platform.LocalDensity
 import androidx.compose.ui.platform.testTag
 import androidx.compose.ui.test.assertHasClickAction
 import androidx.compose.ui.test.assertHeightIsAtLeast
+import androidx.compose.ui.test.getUnclippedBoundsInRoot
 import androidx.compose.ui.test.assertIsDisplayed
 import androidx.compose.ui.test.junit4.createComposeRule
 import androidx.compose.ui.test.onNodeWithTag
+import androidx.compose.ui.test.onNodeWithText
 import androidx.compose.ui.test.performClick
 import androidx.compose.ui.unit.Density
 import androidx.compose.ui.unit.dp
@@ -25,6 +30,7 @@ import com.coblax.examlock.model.NetworkReadinessVerdict
 import com.coblax.examlock.model.ThemeMode
 import com.coblax.examlock.ui.theme.COBLAXEXAMLOCKTheme
 import org.junit.Assert.assertEquals
+import org.junit.Assert.assertTrue
 import org.junit.Rule
 import org.junit.Test
 import org.junit.runner.RunWith
@@ -37,9 +43,11 @@ class ExamRuntimeChromeUiTest {
     @Test
     fun compactChromeKeepsAllActionsVisibleAndClickable() {
         var refreshCount = 0
+        var navBarInset = 0.dp
         composeRule.setContent {
             COBLAXEXAMLOCKTheme(themeMode = ThemeMode.Light) {
                 val density = LocalDensity.current
+                navBarInset = WindowInsets.navigationBars.asPaddingValues().calculateBottomPadding()
                 CompositionLocalProvider(
                     LocalDensity provides Density(density.density, fontScale = 1.5f)
                 ) {
@@ -64,8 +72,20 @@ class ExamRuntimeChromeUiTest {
             }
         }
 
-        composeRule.onNodeWithTag(ExamRuntimeUiTestTags.StatusStrip).assertIsDisplayed()
-        composeRule.onNodeWithTag(ExamRuntimeUiTestTags.BottomActionRail).assertIsDisplayed()
+        // Info header on top, actions in the footer; together they stay slim.
+        val headerHeight = composeRule.onNodeWithTag(ExamRuntimeUiTestTags.Header)
+            .assertIsDisplayed()
+            .getUnclippedBoundsInRoot()
+            .let { it.bottom - it.top }
+        val footerHeight = composeRule.onNodeWithTag(ExamRuntimeUiTestTags.Footer)
+            .assertIsDisplayed()
+            .getUnclippedBoundsInRoot()
+            .let { it.bottom - it.top }
+        assertTrue("header is $headerHeight tall", headerHeight <= 36.dp)
+        // 1.5x font on a 320dp phone: the words sit under the icons, so the footer grows a little.
+        assertTrue("footer is $footerHeight tall", footerHeight <= 64.dp + navBarInset)
+        composeRule.onNodeWithTag(WebViewTag).assertHeightIsAtLeast(640.dp - 100.dp - navBarInset)
+        composeRule.onNodeWithText("Reload", useUnmergedTree = true).assertIsDisplayed()
         composeRule.onNodeWithTag(ExamRuntimeUiTestTags.ArrowToggle)
             .assertIsDisplayed()
             .assertHasClickAction()
@@ -83,6 +103,40 @@ class ExamRuntimeChromeUiTest {
         composeRule.runOnIdle {
             assertEquals(1, refreshCount)
         }
+    }
+
+    @Test
+    fun regularPhoneShowsStatusWordsAndActionLabels() {
+        var arrowToggles = 0
+        composeRule.setContent {
+            COBLAXEXAMLOCKTheme(themeMode = ThemeMode.Light) {
+                Box(
+                    modifier = Modifier
+                        .width(360.dp)
+                        .height(640.dp)
+                ) {
+                    ExamRuntimeChrome(
+                        state = chromeState(),
+                        actions = chromeActions(onToggleArrows = { arrowToggles += 1 }),
+                        webViewLayer = {
+                            Box(Modifier.fillMaxSize().testTag(WebViewTag))
+                        }
+                    )
+                }
+            }
+        }
+
+        composeRule.onNodeWithText("Ujian Akhir Semester").assertIsDisplayed()
+        composeRule.onNodeWithText("Online").assertIsDisplayed()
+        composeRule.onNodeWithText("82%").assertIsDisplayed()
+        composeRule.onNodeWithText("Protected").assertIsDisplayed()
+        composeRule.onNodeWithText("Arrows", useUnmergedTree = true).assertIsDisplayed()
+        composeRule.onNodeWithText("Reload", useUnmergedTree = true).assertIsDisplayed()
+        composeRule.onNodeWithText("Exit", useUnmergedTree = true).assertIsDisplayed()
+        composeRule.onNodeWithTag(ExamRuntimeUiTestTags.ArrowToggle)
+            .assertHeightIsAtLeast(48.dp)
+            .performClick()
+        composeRule.runOnIdle { assertEquals(1, arrowToggles) }
     }
 
     @Test
@@ -106,7 +160,7 @@ class ExamRuntimeChromeUiTest {
     }
 
     @Test
-    fun customFullscreenHidesStatusKeyboardAndBottomActions() {
+    fun customFullscreenHidesHeaderFooterKeyboardAndBanner() {
         composeRule.setContent {
             COBLAXEXAMLOCKTheme(themeMode = ThemeMode.Light) {
                 ExamRuntimeChrome(
@@ -127,10 +181,10 @@ class ExamRuntimeChromeUiTest {
         }
 
         composeRule.onNodeWithTag(FullscreenTag).assertIsDisplayed()
-        composeRule.onNodeWithTag(ExamRuntimeUiTestTags.StatusStrip).assertDoesNotExist()
+        composeRule.onNodeWithTag(ExamRuntimeUiTestTags.Header).assertDoesNotExist()
         composeRule.onNodeWithTag(ExamRuntimeUiTestTags.WarningBanner).assertDoesNotExist()
         composeRule.onNodeWithTag(ExamRuntimeUiTestTags.KeyboardPanel).assertDoesNotExist()
-        composeRule.onNodeWithTag(ExamRuntimeUiTestTags.BottomActionRail).assertDoesNotExist()
+        composeRule.onNodeWithTag(ExamRuntimeUiTestTags.Footer).assertDoesNotExist()
     }
 
     private fun chromeState(
@@ -158,7 +212,8 @@ class ExamRuntimeChromeUiTest {
     }
 
     private fun chromeActions(
-        onRefresh: () -> Unit = {}
+        onRefresh: () -> Unit = {},
+        onToggleArrows: () -> Unit = {}
     ): ExamRuntimeChromeActions {
         return ExamRuntimeChromeActions(
             onRetryLoading = {},
@@ -168,7 +223,7 @@ class ExamRuntimeChromeUiTest {
             onBackspace = {},
             onArrowLeft = {},
             onArrowRight = {},
-            onToggleSideArrowControls = {},
+            onToggleSideArrowControls = onToggleArrows,
             onEnter = {},
             onSpace = {},
             onShiftToggle = {}

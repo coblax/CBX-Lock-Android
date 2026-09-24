@@ -11,9 +11,8 @@ import androidx.compose.ui.unit.dp
 /**
  * Canonical token set for upgraded screens.
  *
- * [UiTokens] remains the compatibility layer for the existing Home UI. New
- * screens should read these scoped tokens so the Home layout can remain
- * pixel-stable while the rest of the app adopts the simplified system.
+ * [UiTokens] remains the compatibility layer for older admin screens. New and
+ * redesigned screens (Home, Preparation, Runtime) read these scoped tokens.
  */
 @Immutable
 internal data class UiDesignTokenSet(
@@ -62,8 +61,8 @@ internal fun uiSurfaceColor(role: UiSurfaceRole): Color {
 }
 
 /**
- * Applies only the new visual system. Call this at the root of Preparation,
- * Runtime, and Admin screens; do not wrap either Home implementation.
+ * Applies only the new visual system. Call this at the root of Home, Preparation,
+ * Runtime, and Admin screens.
  */
 @Composable
 internal fun UpgradeUiScope(

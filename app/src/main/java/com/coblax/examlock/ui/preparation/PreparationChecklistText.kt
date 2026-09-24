@@ -96,7 +96,12 @@ internal fun loadingPreparationChecklistText(uiLanguage: UiLanguage): Preparatio
     )
 }
 
-internal fun buildPreparationChecklistText(
+/**
+ * Builds checklist text for one category only. The preparation screen renders a
+ * category's technical rows on demand, so no device pays for all nine at once.
+ */
+internal fun buildPreparationCategoryText(
+    category: PreparationCategory,
     state: PreparationScreenState,
     uiLanguage: UiLanguage,
     accessibilityInspection: AccessibilityInspectionResult,
@@ -113,140 +118,7 @@ internal fun buildPreparationChecklistText(
         accessibilityGuardRequired = accessibilityGuardRequired,
         needsBluetoothPermission = needsBluetoothPermission
     )
-    val networkText = buildPreparationChecklistNetworkText(
-        state = state,
-        uiLanguage = uiLanguage
-    )
-    val detailText = buildPreparationChecklistDetailText(
-        state = state,
-        uiLanguage = uiLanguage,
-        accessibilityInspection = accessibilityInspection,
-        accessibilityGuardEnabled = accessibilityGuardEnabled
-    )
-    val locationDetailText = buildPreparationChecklistLocationDetailText(
-        state = state,
-        uiLanguage = uiLanguage
-    )
-    val deviceTimeDetail = appendPreparationAuditDetail(
-        actionDetail = statusText.deviceTimeDetail,
-        auditDetail = if (state.showChecklistDetails) {
-            buildPreparationDeviceTimeAuditDetail(
-                status = state.deviceTimeSecurityStatus,
-                uiLanguage = uiLanguage
-            )
-        } else {
-            null
-        }
-    )
-    val screenRecorderActionDetail = if (state.screenRecorderPackages.isNotEmpty()) {
-        state.screenRecorderPackages.joinToString("\n")
-    } else {
-        null
-    }
-    val screenRecorderDetail = appendPreparationAuditDetail(
-        actionDetail = screenRecorderActionDetail,
-        auditDetail = if (state.showChecklistDetails) {
-            buildPreparationScreenRecorderAuditDetail(
-                screenRecorderPackages = state.screenRecorderPackages,
-                bypassScreenRecorder = state.bypassScreenRecorder,
-                uiLanguage = uiLanguage
-            )
-        } else {
-            null
-        }
-    )
-    val displayMirrorDetail = appendPreparationAuditDetail(
-        actionDetail = null,
-        auditDetail = if (state.showChecklistDetails) {
-            buildPreparationDisplayMirrorAuditDetail(
-                externalDisplayDetected = state.externalDisplayDetected,
-                externalDisplayCount = state.externalDisplayCount,
-                externalDisplayInfoList = state.externalDisplayInfoList,
-                bypassDisplayMirror = state.bypassDisplayMirror,
-                uiLanguage = uiLanguage
-            )
-        } else {
-            null
-        }
-    )
-    val multiWindowDetail = appendPreparationAuditDetail(
-        actionDetail = null,
-        auditDetail = if (state.showChecklistDetails) {
-            buildPreparationMultiWindowAuditDetail(
-                modeInfo = state.multiWindowModeInfo,
-                runtimeDetected = state.multiWindowDetected,
-                bypassMultiWindow = state.bypassMultiWindow,
-                uiLanguage = uiLanguage
-            )
-        } else {
-            null
-        }
-    )
-
-    return PreparationChecklistText(
-        accessibilityStatusLabel = statusText.accessibilityStatusLabel,
-        overlayStatusLabel = statusText.overlayStatusLabel,
-        geofenceStatusLabel = statusText.geofenceStatusLabel,
-        geofenceMeta = statusText.geofenceMeta,
-        fakeLocationStatusLabel = statusText.fakeLocationStatusLabel,
-        deviceTimeStatusLabel = statusText.deviceTimeStatusLabel,
-        networkStatusLabel = networkText.networkStatusLabel,
-        networkValue = networkText.networkValue,
-        networkMeta = networkText.networkMeta,
-        networkDetail = networkText.networkDetail,
-        webViewProviderStatusLabel = networkText.webViewProviderStatusLabel,
-        webViewProviderValue = networkText.webViewProviderValue,
-        webViewProviderDetail = networkText.webViewProviderDetail,
-        deviceTimeDetail = deviceTimeDetail,
-        bluetoothStatusLabel = statusText.bluetoothStatusLabel,
-        developerStatusLabel = statusText.developerStatusLabel,
-        keyboardStatusLabel = statusText.keyboardStatusLabel,
-        rootStatusLabel = statusText.rootStatusLabel,
-        signatureStatusLabel = statusText.signatureStatusLabel,
-        signatureValue = statusText.signatureValue,
-        virtualEnvironmentStatusLabel = statusText.virtualEnvironmentStatusLabel,
-        screenPinningStatusLabel = statusText.screenPinningStatusLabel,
-        accessibilityGuardStatusLabel = statusText.accessibilityGuardStatusLabel,
-        appSwitchStatusLabel = statusText.appSwitchStatusLabel,
-        keyboardDetail = detailText.keyboardDetail,
-        bluetoothDetail = detailText.bluetoothDetail,
-        accessibilityDetail = detailText.accessibilityDetail,
-        overlayDetail = detailText.overlayDetail,
-        developerDetail = detailText.developerDetail,
-        rootDetail = detailText.rootDetail,
-        signatureDetail = detailText.signatureDetail,
-        virtualEnvironmentDetail = detailText.virtualEnvironmentDetail,
-        clipboardDetail = detailText.clipboardDetail,
-        geofenceDetail = locationDetailText.geofenceDetail,
-        fakeLocationDetail = locationDetailText.fakeLocationDetail,
-        screenPinningDetail = detailText.screenPinningDetail,
-        accessibilityGuardDetail = detailText.accessibilityGuardDetail,
-        screenRecorderDetail = screenRecorderDetail,
-        displayMirrorDetail = displayMirrorDetail,
-        multiWindowDetail = multiWindowDetail,
-        appSwitchDetail = detailText.appSwitchDetail
-    )
-}
-
-internal fun buildPreparationWizardStepText(
-    step: WizardStep,
-    state: PreparationScreenState,
-    uiLanguage: UiLanguage,
-    accessibilityInspection: AccessibilityInspectionResult,
-    accessibilityGuardEnabled: Boolean,
-    accessibilityGuardAvailable: Boolean,
-    accessibilityGuardRequired: Boolean,
-    needsBluetoothPermission: Boolean
-): PreparationChecklistText {
-    val statusText = buildPreparationChecklistStatusText(
-        state = state,
-        uiLanguage = uiLanguage,
-        accessibilityInspection = accessibilityInspection,
-        accessibilityGuardEnabled = accessibilityGuardEnabled,
-        accessibilityGuardRequired = accessibilityGuardRequired,
-        needsBluetoothPermission = needsBluetoothPermission
-    )
-    val networkText = if (step == WizardStep.Connectivity || step == WizardStep.DeviceHealth) {
+    val networkText = if (category == PreparationCategory.Connectivity || category == PreparationCategory.DeviceHealth) {
         buildPreparationChecklistNetworkText(
             state = state,
             uiLanguage = uiLanguage
@@ -259,9 +131,9 @@ internal fun buildPreparationWizardStepText(
         uiLanguage = uiLanguage,
         accessibilityInspection = accessibilityInspection,
         accessibilityGuardEnabled = accessibilityGuardEnabled,
-        activeWizardStep = step
+        activeCategory = category
     )
-    val locationDetailText = if (step == WizardStep.Location) {
+    val locationDetailText = if (category == PreparationCategory.Location) {
         buildPreparationChecklistLocationDetailText(
             state = state,
             uiLanguage = uiLanguage
@@ -272,7 +144,7 @@ internal fun buildPreparationWizardStepText(
             fakeLocationDetail = null
         )
     }
-    val deviceTimeDetail = if (step == WizardStep.DeviceHealth) {
+    val deviceTimeDetail = if (category == PreparationCategory.DeviceHealth) {
         appendPreparationAuditDetail(
             actionDetail = statusText.deviceTimeDetail,
             auditDetail = if (state.showChecklistDetails) {
@@ -288,14 +160,14 @@ internal fun buildPreparationWizardStepText(
         null
     }
     val screenRecorderActionDetail = if (
-        step == WizardStep.RuntimeSecurity &&
+        category == PreparationCategory.RuntimeSecurity &&
         state.screenRecorderPackages.isNotEmpty()
     ) {
         state.screenRecorderPackages.joinToString("\n")
     } else {
         null
     }
-    val screenRecorderDetail = if (step == WizardStep.RuntimeSecurity) {
+    val screenRecorderDetail = if (category == PreparationCategory.RuntimeSecurity) {
         appendPreparationAuditDetail(
             actionDetail = screenRecorderActionDetail,
             auditDetail = if (state.showChecklistDetails) {
@@ -311,7 +183,7 @@ internal fun buildPreparationWizardStepText(
     } else {
         null
     }
-    val displayMirrorDetail = if (step == WizardStep.RuntimeSecurity && state.showChecklistDetails) {
+    val displayMirrorDetail = if (category == PreparationCategory.RuntimeSecurity && state.showChecklistDetails) {
         buildPreparationDisplayMirrorAuditDetail(
             externalDisplayDetected = state.externalDisplayDetected,
             externalDisplayCount = state.externalDisplayCount,
@@ -322,7 +194,7 @@ internal fun buildPreparationWizardStepText(
     } else {
         null
     }
-    val multiWindowDetail = if (step == WizardStep.RuntimeSecurity && state.showChecklistDetails) {
+    val multiWindowDetail = if (category == PreparationCategory.RuntimeSecurity && state.showChecklistDetails) {
         buildPreparationMultiWindowAuditDetail(
             modeInfo = state.multiWindowModeInfo,
             runtimeDetected = state.multiWindowDetected,

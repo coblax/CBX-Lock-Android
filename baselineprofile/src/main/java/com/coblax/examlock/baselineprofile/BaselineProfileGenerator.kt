@@ -30,11 +30,11 @@ class BaselineProfileGenerator {
             startActivityAndWait()
             device.waitForHome()
 
-            device.openHomeEntrypoint("SCAN")
+            device.openHomeEntrypoint("Scan exam QR", "Pindai QR ujian")
             device.pressBack()
             device.waitForHome()
 
-            device.openHomeEntrypoint("CUSTOM QR")
+            device.openHomeEntrypoint("Custom QR")
             device.pressBack()
             device.waitForHome()
 
@@ -46,17 +46,17 @@ class BaselineProfileGenerator {
 
     private fun UiDevice.waitForHome() {
         waitForAnyText(
-            "SCAN EXAM QR",
-            "SCAN QR UJIAN",
-            "CUSTOM QR",
+            "Scan exam QR",
+            "Pindai QR ujian",
+            "Custom QR",
             "EXAM_SKANSATP",
             timeoutMs = LongWaitMs
         ) ?: error("CBX Home did not become visible.")
     }
 
-    private fun UiDevice.openHomeEntrypoint(text: String) {
-        val entrypoint = waitForAnyText(text, timeoutMs = LongWaitMs)
-            ?: error("Home entrypoint '$text' was not found.")
+    private fun UiDevice.openHomeEntrypoint(vararg labels: String) {
+        val entrypoint = waitForAnyText(*labels, timeoutMs = LongWaitMs)
+            ?: error("Home entrypoint '${labels.joinToString()}' was not found.")
         entrypoint.click()
         waitForIdle()
         SystemClock.sleep(EntrypointSettleMs)

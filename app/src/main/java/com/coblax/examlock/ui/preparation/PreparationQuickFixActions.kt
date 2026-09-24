@@ -330,7 +330,8 @@ internal fun buildPreparationQuickFixActions(
                         severity = QuickFixSeverity.Blocking,
                         target = QuickFixTarget.All,
                         priority = 36,
-                        section = PreparationSection.RuntimeInteraction,
+                        // Exam Guard is the screen-lock fallback, so it lives with pinning.
+                        section = PreparationSection.DeviceLock,
                         fieldText = t("Enable Exam Guard", "Aktifkan Exam Guard"),
                         filled = true,
                         opensExternalSettings = true,

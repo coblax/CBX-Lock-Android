@@ -24,28 +24,6 @@ class LightweightUiBudgetTest {
     }
 
     @Test
-    fun lowRamPreparationPayloadStaysStepScoped() {
-        assertTrue(
-            shouldBuildFullPreparationPayload(
-                lowRamProfile = LowRamProfile(),
-                showDetails = false
-            )
-        )
-        assertFalse(
-            shouldBuildFullPreparationPayload(
-                lowRamProfile = LowRamProfile(enabled = true),
-                showDetails = true
-            )
-        )
-        assertFalse(
-            shouldBuildFullPreparationPayload(
-                lowRamProfile = LowRamProfile(enabled = true, severe = true, ultra = true),
-                showDetails = true
-            )
-        )
-    }
-
-    @Test
     fun preparationActionBudgetMatchesProfileWeight() {
         val normalBudget = resolvePreparationActionRenderBudget(LowRamProfile())
         assertEquals(Int.MAX_VALUE, normalBudget.maxBlockingActions)

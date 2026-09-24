@@ -1,28 +1,19 @@
 package com.coblax.examlock.ui.preparation
 
 import android.util.Log
-import androidx.compose.foundation.BorderStroke
 import androidx.compose.foundation.background
 import androidx.compose.foundation.border
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.ColumnScope
-import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.shape.RoundedCornerShape
-import androidx.compose.material3.Surface
-import androidx.compose.material3.Text
-import androidx.compose.material3.MaterialTheme
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.SideEffect
-import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
-import androidx.compose.ui.graphics.Color
-import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
-import androidx.compose.ui.unit.sp
 import com.coblax.examlock.AccessibilityInspectionResult
 import com.coblax.examlock.AdbBypassState
 import com.coblax.examlock.BuildConfig
@@ -42,7 +33,6 @@ import com.coblax.examlock.diagnosticLabel
 import com.coblax.examlock.i18n.tr
 import com.coblax.examlock.model.DiagnosticSection
 import com.coblax.examlock.ui.theme.AppColors
-import com.coblax.examlock.ui.theme.UiTokens
 
 private const val PreparationRecomposeTag = "PreparationRecompose"
 
@@ -72,58 +62,6 @@ private fun PreparationChecklistSectionSurface(
         verticalArrangement = Arrangement.spacedBy(8.dp),
         content = content
     )
-}
-
-@Composable
-internal fun PreparationChecklistIntroItem(
-    checklistTitle: String,
-    checklistSubtitle: String,
-    telegramHelperText: String,
-    modifier: Modifier = Modifier
-) {
-    PreparationChecklistSectionSurface(
-        sectionName = "checklist_intro",
-        modifier = modifier
-    ) {
-        Row(
-            modifier = Modifier.fillMaxWidth(),
-            horizontalArrangement = Arrangement.SpaceBetween,
-            verticalAlignment = Alignment.CenterVertically
-        ) {
-            Column(
-                modifier = Modifier.weight(1f)
-            ) {
-                Text(
-                    text = checklistTitle,
-                    color = AppColors.current.textPrimary,
-                    fontSize = 15.sp,
-                    fontWeight = FontWeight.Bold
-                )
-                Text(
-                    text = checklistSubtitle,
-                    color = AppColors.current.textSecondary,
-                    fontSize = 11.sp,
-                    lineHeight = 15.sp
-                )
-            }
-        }
-
-        Column(
-            modifier = Modifier
-                .fillMaxWidth()
-                .clip(RoundedCornerShape(UiTokens.RadiusMd))
-                .background(MaterialTheme.colorScheme.surface)
-                .border(1.dp, AppColors.current.outlineMedium, RoundedCornerShape(UiTokens.RadiusMd))
-                .padding(horizontal = 10.dp, vertical = 8.dp)
-        ) {
-            Text(
-                text = telegramHelperText,
-                color = AppColors.current.textMuted,
-                fontSize = 10.sp,
-                lineHeight = 14.sp
-            )
-        }
-    }
 }
 
 @Composable
@@ -808,91 +746,4 @@ internal fun PreparationRuntimeStaticSecuritySection(
             sendEnabled = sendingSection == null
         )
     }
-}
-
-@Composable
-internal fun PreparationChecklistItemsCard(
-    state: PreparationScreenState,
-    actions: PreparationScreenActions,
-    text: PreparationChecklistText,
-    needsBluetoothPermission: Boolean,
-    accessibilityInspection: AccessibilityInspectionResult,
-    accessibilityGuardAvailable: Boolean,
-    accessibilityGuardRequired: Boolean,
-    accessibilityGuardEnabled: Boolean,
-    checklistTitle: String,
-    checklistSubtitle: String,
-    telegramHelperText: String
-) {
-    PreparationChecklistIntroItem(
-        checklistTitle = checklistTitle,
-        checklistSubtitle = checklistSubtitle,
-        telegramHelperText = telegramHelperText
-    )
-    PreparationDeviceSetupSection(
-        device = state.device,
-        bypass = state.bypass,
-        text = text,
-        sendingSection = state.session.sendingSection,
-        needsBluetoothPermission = needsBluetoothPermission,
-        onRequestSectionReport = actions.session.onRequestSectionReport
-    )
-    PreparationConnectivitySection(
-        text = text,
-        sendingSection = state.session.sendingSection,
-        onRequestSectionReport = actions.session.onRequestSectionReport
-    )
-    PreparationDeviceHealthSection(
-        device = state.device,
-        bypass = state.bypass,
-        text = text,
-        sendingSection = state.session.sendingSection,
-        onRequestSectionReport = actions.session.onRequestSectionReport
-    )
-    PreparationRuntimeInteractionSection(
-        runtimeSecurity = state.runtimeSecurity,
-        bypass = state.bypass,
-        text = text,
-        sendingSection = state.session.sendingSection,
-        accessibilityInspection = accessibilityInspection,
-        onRequestSectionReport = actions.session.onRequestSectionReport
-    )
-    PreparationDeviceIntegritySection(
-        device = state.device,
-        bypass = state.bypass,
-        text = text,
-        sendingSection = state.session.sendingSection,
-        onRequestSectionReport = actions.session.onRequestSectionReport
-    )
-    PreparationRuntimeClipboardSection(
-        runtimeSecurity = state.runtimeSecurity,
-        bypass = state.bypass,
-        text = text,
-        sendingSection = state.session.sendingSection,
-        onRequestSectionReport = actions.session.onRequestSectionReport
-    )
-    PreparationLocationSection(
-        location = state.location,
-        bypass = state.bypass,
-        text = text,
-        sendingSection = state.session.sendingSection,
-        onRequestSectionReport = actions.session.onRequestSectionReport
-    )
-    PreparationDeviceLockSection(
-        device = state.device,
-        bypass = state.bypass,
-        text = text,
-        sendingSection = state.session.sendingSection,
-        accessibilityGuardAvailable = accessibilityGuardAvailable,
-        accessibilityGuardRequired = accessibilityGuardRequired,
-        accessibilityGuardEnabled = accessibilityGuardEnabled,
-        onRequestSectionReport = actions.session.onRequestSectionReport
-    )
-    PreparationRuntimeStaticSecuritySection(
-        runtimeSecurity = state.runtimeSecurity,
-        bypass = state.bypass,
-        text = text,
-        sendingSection = state.session.sendingSection,
-        onRequestSectionReport = actions.session.onRequestSectionReport
-    )
 }

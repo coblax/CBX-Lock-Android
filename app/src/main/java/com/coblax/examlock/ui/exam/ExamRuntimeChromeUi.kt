@@ -7,7 +7,6 @@ import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
-import androidx.compose.foundation.layout.navigationBarsPadding
 import androidx.compose.foundation.layout.padding
 import androidx.compose.material3.LinearProgressIndicator
 import androidx.compose.runtime.Composable
@@ -62,7 +61,7 @@ private fun ExamRuntimeChromeContent(
             .background(AppColors.current.background)
     ) {
         if (showRuntimeChrome) {
-            ExamRuntimeStatusStrip(
+            ExamRuntimeHeader(
                 examDisplayName = state.examDisplayName,
                 networkStatus = state.networkStatus,
                 serverStatus = state.serverStatus,
@@ -71,13 +70,7 @@ private fun ExamRuntimeChromeContent(
             )
 
             if (connectionNotice != null) {
-                RuntimeConnectionWarningBanner(
-                    noticeKind = connectionNotice,
-                    modifier = Modifier.padding(
-                        horizontal = tokens.spaceSmall,
-                        vertical = tokens.spaceXSmall
-                    )
-                )
+                RuntimeConnectionWarningBanner(noticeKind = connectionNotice)
             }
         }
 
@@ -144,19 +137,13 @@ private fun ExamRuntimeChromeContent(
         }
 
         if (showRuntimeChrome) {
-            ExamWebViewBottomBar(
+            // Owns the navigation-bar inset, so a fullscreen video still reaches the edge.
+            ExamRuntimeFooter(
                 showArrowControls = state.showSideArrowControls,
                 isRefreshing = pageLoading,
                 onToggleArrowControls = actions.onToggleSideArrowControls,
                 onRefresh = actions.onRefreshPage,
-                onGoHome = actions.onGoHome,
-                modifier = Modifier
-                    .fillMaxWidth()
-                    .navigationBarsPadding()
-                    .padding(
-                        horizontal = tokens.spaceSmall,
-                        vertical = tokens.spaceXSmall
-                    )
+                onGoHome = actions.onGoHome
             )
         }
     }

@@ -27,7 +27,9 @@ import com.coblax.examlock.config.AdminPreferencesName
 import com.coblax.examlock.config.FastExamName
 import com.coblax.examlock.config.SecretTapWindowMs
 import com.coblax.examlock.model.ThemeMode
+import com.coblax.examlock.model.UiLanguage
 import com.coblax.examlock.persistence.readSavedThemeMode
+import com.coblax.examlock.persistence.readSavedUiLanguage
 import com.coblax.examlock.ui.app.AppContent
 import com.coblax.examlock.ui.app.applyLowRamRuntimeDetectorBudget
 import com.coblax.examlock.ui.theme.LocalWindowSizeClass
@@ -105,8 +107,10 @@ class MainActivity : ComponentActivity() {
         val cardBorder: Int,
         val textPrimary: Int,
         val textSecondary: Int,
+        val textStrong: Int,
         val logoTile: Int,
         val accent: Int,
+        val onAccent: Int,
         val chipBackground: Int,
         val glyphTint: Int
     )
@@ -118,8 +122,11 @@ class MainActivity : ComponentActivity() {
             cardBorder = Color.rgb(51, 55, 82),
             textPrimary = Color.rgb(111, 162, 255),
             textSecondary = Color.rgb(155, 163, 181),
+            textStrong = Color.rgb(232, 234, 240),
             logoTile = Color.rgb(26, 59, 122),
-            accent = Color.rgb(61, 122, 245),
+            // Same contrast-safe pairs as primaryActionColors() in Compose.
+            accent = Color.rgb(111, 162, 255),
+            onAccent = Color.rgb(15, 17, 23),
             chipBackground = Color.rgb(34, 38, 58),
             glyphTint = Color.argb(40, 111, 162, 255)
         )
@@ -130,8 +137,10 @@ class MainActivity : ComponentActivity() {
             cardBorder = Color.rgb(212, 222, 233),
             textPrimary = Color.rgb(16, 46, 106),
             textSecondary = Color.rgb(86, 96, 107),
+            textStrong = Color.rgb(27, 34, 48),
             logoTile = Color.rgb(16, 46, 106),
-            accent = Color.rgb(61, 122, 245),
+            accent = Color.rgb(42, 94, 196),
+            onAccent = Color.WHITE,
             chipBackground = Color.rgb(244, 247, 251),
             glyphTint = Color.argb(12, 61, 122, 245)
         )
@@ -189,156 +198,247 @@ class MainActivity : ComponentActivity() {
         }
     }
 
+    /**
+     * View-based twin of the Compose home dashboard for the lowest-memory phones. It
+     * mirrors the same layout (header, greeting, scan card, two tiles) so the switch to
+     * Compose after the first tap does not look like a different app.
+     */
     private fun showNativeLowRamHomeThenCompose() {
         StartupTrace.mark("home_compose_start", "shell=native_survival")
         val lowRamProfile = initialLowRamProfile ?: resolveLowRamProfile(this)
         val shell = nativeShellPalette()
+        val english = readSavedUiLanguage() == UiLanguage.English
+        fun t(en: String, id: String): String = if (english) en else id
+        fun matchWidth() = LinearLayout.LayoutParams(
+            LinearLayout.LayoutParams.MATCH_PARENT,
+            LinearLayout.LayoutParams.WRAP_CONTENT
+        )
         val root = LinearLayout(this).apply {
             orientation = LinearLayout.VERTICAL
-            gravity = Gravity.CENTER_HORIZONTAL
-            setPadding(dp(20), dp(32), dp(20), dp(16))
+            setPadding(dp(16), dp(32), dp(16), dp(16))
             setBackgroundColor(shell.background)
         }
 
-        // Brand container
-        val brandCard = LinearLayout(this).apply {
-            orientation = LinearLayout.VERTICAL
-            gravity = Gravity.CENTER_HORIZONTAL
-            setPadding(dp(20), dp(16), dp(20), dp(16))
-            background = roundedBackground(shell.cardBackground, shell.cardBorder)
+        // Header: logo tile, product name, profile badge (Secret Admin trigger), gear.
+        val header = LinearLayout(this).apply {
+            orientation = LinearLayout.HORIZONTAL
+            gravity = Gravity.CENTER_VERTICAL
         }
-
-        // Lightweight profile badge and hidden Secret Admin trigger
-        brandCard.addView(
-            createNativeProfileControls(lowRamProfile),
-            LinearLayout.LayoutParams(
-                LinearLayout.LayoutParams.WRAP_CONTENT,
-                LinearLayout.LayoutParams.WRAP_CONTENT
-            )
-        )
-
-        brandCard.addView(space(dp(14)))
-
-        // Logo mark
-        val logoMark = TextView(this).apply {
-            text = "CBX"
-            setTextColor(Color.WHITE)
-            textSize = 20f
-            typeface = android.graphics.Typeface.DEFAULT_BOLD
-            gravity = Gravity.CENTER
-            setPadding(dp(20), dp(14), dp(20), dp(14))
-            background = roundedBackground(shell.logoTile, Color.TRANSPARENT)
-        }
-        brandCard.addView(
-            logoMark,
-            LinearLayout.LayoutParams(
-                LinearLayout.LayoutParams.WRAP_CONTENT,
-                LinearLayout.LayoutParams.WRAP_CONTENT
-            ).apply { gravity = Gravity.CENTER_HORIZONTAL }
-        )
-
-        brandCard.addView(space(dp(10)))
-
-        brandCard.addView(
+        header.addView(
             TextView(this).apply {
-                text = "EXAM LOCK"
-                setTextColor(shell.textPrimary)
-                textSize = 18f
+                text = "CBX"
+                setTextColor(Color.WHITE)
+                textSize = 13f
                 typeface = android.graphics.Typeface.DEFAULT_BOLD
                 gravity = Gravity.CENTER
+                background = roundedBackground(shell.logoTile, Color.TRANSPARENT, radiusDp = 12)
             },
-            LinearLayout.LayoutParams(
-                LinearLayout.LayoutParams.MATCH_PARENT,
-                LinearLayout.LayoutParams.WRAP_CONTENT
+            LinearLayout.LayoutParams(dp(44), dp(44))
+        )
+        val titleColumn = LinearLayout(this).apply {
+            orientation = LinearLayout.VERTICAL
+            addView(
+                TextView(this@MainActivity).apply {
+                    text = "CBX Lock"
+                    setTextColor(shell.textPrimary)
+                    textSize = 16f
+                    typeface = android.graphics.Typeface.DEFAULT_BOLD
+                    maxLines = 1
+                }
             )
+            addView(
+                TextView(this@MainActivity).apply {
+                    text = "Coblax Exam Lock"
+                    setTextColor(shell.textSecondary)
+                    textSize = 12f
+                    maxLines = 1
+                }
+            )
+        }
+        header.addView(
+            titleColumn,
+            LinearLayout.LayoutParams(0, LinearLayout.LayoutParams.WRAP_CONTENT, 1f).apply {
+                leftMargin = dp(12)
+                rightMargin = dp(8)
+            }
         )
+        header.addView(createNativeProfileControls(lowRamProfile))
+        root.addView(header, matchWidth())
 
-        brandCard.addView(
-            TextView(this).apply {
-                text = "Secure exam browser"
-                setTextColor(shell.textSecondary)
-                textSize = 12f
-                gravity = Gravity.CENTER
-            },
-            LinearLayout.LayoutParams(
-                LinearLayout.LayoutParams.MATCH_PARENT,
-                LinearLayout.LayoutParams.WRAP_CONTENT
-            ).apply { topMargin = dp(4) }
-        )
-
+        root.addView(space(dp(24)))
         root.addView(
-            brandCard,
-            LinearLayout.LayoutParams(
-                LinearLayout.LayoutParams.MATCH_PARENT,
-                LinearLayout.LayoutParams.WRAP_CONTENT
-            )
+            TextView(this).apply {
+                text = t("Ready for your exam?", "Siap ujian?")
+                setTextColor(shell.textStrong)
+                textSize = 24f
+                typeface = android.graphics.Typeface.DEFAULT_BOLD
+            },
+            matchWidth()
         )
-
+        root.addView(
+            TextView(this).apply {
+                text = t(
+                    "Scan the QR from your proctor, or open the saved exam link.",
+                    "Pindai QR dari pengawas, atau buka link ujian yang tersimpan."
+                )
+                setTextColor(shell.textSecondary)
+                textSize = 14f
+            },
+            matchWidth().apply { topMargin = dp(4) }
+        )
         root.addView(space(dp(16)))
 
-        val nativeActions = listOf(
-            Triple("QR", "SCAN QR UJIAN", NativeActionScanExam),
-            Triple("AD", "CUSTOM QR (ADMIN)", NativeActionCustomQrAdmin),
-            Triple("GO", "DIRECT LINK", NativeActionDirectLink)
-        )
-        var directLinkButton: TextView? = null
-        nativeActions.forEach { (glyph, label, action) ->
-            val buttonRow = LinearLayout(this).apply {
-                orientation = LinearLayout.HORIZONTAL
-                gravity = Gravity.CENTER_VERTICAL
-                setPadding(dp(16), dp(14), dp(16), dp(14))
-                background = if (action == NativeActionScanExam) {
-                    roundedBackground(shell.accent, Color.TRANSPARENT)
-                } else {
-                    roundedBackground(shell.cardBackground, shell.cardBorder)
-                }
-                setOnClickListener { startComposeContent(action) }
-            }
-
-            val glyphView = TextView(this).apply {
-                text = glyph
-                setTextColor(
-                    if (action == NativeActionScanExam) Color.WHITE
-                    else shell.textPrimary
-                )
-                textSize = 12f
+        // Primary action: scan the exam QR.
+        val scanCard = LinearLayout(this).apply {
+            orientation = LinearLayout.HORIZONTAL
+            gravity = Gravity.CENTER_VERTICAL
+            minimumHeight = dp(96)
+            setPadding(dp(16), dp(16), dp(16), dp(16))
+            background = roundedBackground(shell.accent, Color.TRANSPARENT, radiusDp = 20)
+            isClickable = true
+            setOnClickListener { startComposeContent(NativeActionScanExam) }
+        }
+        scanCard.addView(
+            TextView(this).apply {
+                text = "QR"
+                setTextColor(shell.onAccent)
+                textSize = 16f
                 typeface = android.graphics.Typeface.DEFAULT_BOLD
                 gravity = Gravity.CENTER
-                setPadding(dp(10), dp(8), dp(10), dp(8))
                 background = roundedBackground(
-                    if (action == NativeActionScanExam) Color.argb(35, 255, 255, 255)
-                    else shell.glyphTint,
-                    Color.TRANSPARENT
+                    Color.argb(
+                        36,
+                        Color.red(shell.onAccent),
+                        Color.green(shell.onAccent),
+                        Color.blue(shell.onAccent)
+                    ),
+                    Color.TRANSPARENT,
+                    radiusDp = 16
                 )
-            }
-            buttonRow.addView(glyphView)
-
-            val labelView = TextView(this).apply {
-                text = label
-                setTextColor(
-                    if (action == NativeActionScanExam) Color.WHITE
-                    else shell.textPrimary
-                )
-                textSize = 15f
-                typeface = android.graphics.Typeface.DEFAULT_BOLD
-                setPadding(dp(12), 0, 0, 0)
-            }
-            if (action == NativeActionDirectLink) {
-                directLinkButton = labelView
-            }
-            buttonRow.addView(labelView)
-
-            root.addView(
-                buttonRow,
-                LinearLayout.LayoutParams(
-                    LinearLayout.LayoutParams.MATCH_PARENT,
-                    LinearLayout.LayoutParams.WRAP_CONTENT
-                ).apply {
-                    topMargin = dp(10)
+            },
+            LinearLayout.LayoutParams(dp(56), dp(56))
+        )
+        val scanText = LinearLayout(this).apply {
+            orientation = LinearLayout.VERTICAL
+            addView(
+                TextView(this@MainActivity).apply {
+                    text = t("Scan exam QR", "Pindai QR ujian")
+                    setTextColor(shell.onAccent)
+                    textSize = 20f
+                    typeface = android.graphics.Typeface.DEFAULT_BOLD
+                }
+            )
+            addView(
+                TextView(this@MainActivity).apply {
+                    text = t(
+                        "Point the camera at the QR from your proctor.",
+                        "Arahkan kamera ke QR dari pengawas."
+                    )
+                    setTextColor(shell.onAccent)
+                    textSize = 14f
                 }
             )
         }
-        setContentView(root)
+        scanCard.addView(
+            scanText,
+            LinearLayout.LayoutParams(0, LinearLayout.LayoutParams.WRAP_CONTENT, 1f).apply {
+                leftMargin = dp(14)
+                rightMargin = dp(8)
+            }
+        )
+        scanCard.addView(
+            TextView(this).apply {
+                text = "→"
+                setTextColor(shell.onAccent)
+                textSize = 20f
+            }
+        )
+        root.addView(scanCard, matchWidth())
+        root.addView(space(dp(12)))
+
+        // Secondary tiles: saved link and admin QR. They stack when the font is large or
+        // the screen is narrow, like the Compose dashboard.
+        val stackTiles = resources.configuration.fontScale > 1.3f ||
+            resources.configuration.screenWidthDp < 340
+        fun tile(glyph: String, label: String, value: String, action: String): Pair<View, TextView> {
+            val valueView = TextView(this).apply {
+                setTextColor(shell.textStrong)
+                typeface = android.graphics.Typeface.DEFAULT_BOLD
+                ellipsize = android.text.TextUtils.TruncateAt.END
+            }
+            setNativeTileValue(valueView, value)
+            val tileView = LinearLayout(this).apply {
+                orientation = LinearLayout.VERTICAL
+                minimumHeight = dp(104)
+                setPadding(dp(14), dp(14), dp(14), dp(14))
+                background = roundedBackground(shell.cardBackground, shell.cardBorder, radiusDp = 20)
+                isClickable = true
+                setOnClickListener { startComposeContent(action) }
+                addView(
+                    TextView(this@MainActivity).apply {
+                        text = glyph
+                        setTextColor(shell.textPrimary)
+                        textSize = 12f
+                        typeface = android.graphics.Typeface.DEFAULT_BOLD
+                        gravity = Gravity.CENTER
+                        background = pillBackground(shell.glyphTint, Color.TRANSPARENT)
+                    },
+                    LinearLayout.LayoutParams(dp(40), dp(40))
+                )
+                addView(space(dp(10)))
+                addView(
+                    TextView(this@MainActivity).apply {
+                        text = label
+                        setTextColor(shell.textSecondary)
+                        textSize = 12f
+                    }
+                )
+                addView(valueView)
+            }
+            return tileView to valueView
+        }
+        val (directLinkTile, directLinkValue) = tile(
+            glyph = "GO",
+            label = t("Saved exam link", "Link ujian tersimpan"),
+            value = "…",
+            action = NativeActionDirectLink
+        )
+        val (adminTile, _) = tile(
+            glyph = "AD",
+            label = t("For admins", "Untuk admin"),
+            value = "Custom QR",
+            action = NativeActionCustomQrAdmin
+        )
+        val tiles = LinearLayout(this).apply {
+            orientation = if (stackTiles) LinearLayout.VERTICAL else LinearLayout.HORIZONTAL
+        }
+        if (stackTiles) {
+            tiles.addView(directLinkTile, matchWidth())
+            tiles.addView(adminTile, matchWidth().apply { topMargin = dp(12) })
+        } else {
+            tiles.addView(
+                directLinkTile,
+                LinearLayout.LayoutParams(0, LinearLayout.LayoutParams.MATCH_PARENT, 1f).apply {
+                    rightMargin = dp(6)
+                }
+            )
+            tiles.addView(
+                adminTile,
+                LinearLayout.LayoutParams(0, LinearLayout.LayoutParams.MATCH_PARENT, 1f).apply {
+                    leftMargin = dp(6)
+                }
+            )
+        }
+        root.addView(tiles, matchWidth())
+
+        // Scrollable so large fonts and short screens never cut off the tiles.
+        setContentView(
+            android.widget.ScrollView(this).apply {
+                isFillViewport = true
+                setBackgroundColor(shell.background)
+                addView(root)
+            }
+        )
         StartupTrace.mark("native_home_view_ready")
         root.post {
             StartupTrace.mark("native_home_main_idle")
@@ -351,9 +451,10 @@ class MainActivity : ComponentActivity() {
                     }
                     StartupTrace.mark("home_first_frame", "shell=native_survival")
                     StartupTrace.mark("native_survival_idle_ready")
-                    directLinkButton?.let { button ->
-                        root.postDelayed({ updateNativeDirectLinkLabelAfterIdle(button) }, NativeLabelLoadDelayMillis)
-                    }
+                    root.postDelayed(
+                        { updateNativeDirectLinkLabelAfterIdle(directLinkValue) },
+                        NativeLabelLoadDelayMillis
+                    )
                     return true
                 }
             }
@@ -513,14 +614,41 @@ class MainActivity : ComponentActivity() {
                 ?.ifBlank { FastExamName }
                 ?: FastExamName
         }.getOrDefault(FastExamName)
-        button.text = label
+        setNativeTileValue(button, label)
         StartupTrace.mark("native_home_direct_link_label_loaded")
     }
 
-    private fun roundedBackground(fillColor: Int, strokeColor: Int): android.graphics.drawable.GradientDrawable =
+    /**
+     * Same rule as the Compose tile: a one-word name such as EXAM_SKANSATP has no break
+     * point, so it shrinks to fit one line instead of wrapping mid-word.
+     */
+    private fun setNativeTileValue(view: TextView, value: String) {
+        view.text = value
+        view.setTextSize(android.util.TypedValue.COMPLEX_UNIT_SP, NativeTileValueMaxSp)
+        if (value.any { it.isWhitespace() }) {
+            view.maxLines = 2
+            return
+        }
+        view.maxLines = 1
+        view.post {
+            val available = view.width - view.paddingLeft - view.paddingRight
+            if (available <= 0) return@post
+            var size = NativeTileValueMaxSp
+            while (size > NativeTileValueMinSp && view.paint.measureText(value) > available) {
+                size -= 1f
+                view.setTextSize(android.util.TypedValue.COMPLEX_UNIT_SP, size)
+            }
+        }
+    }
+
+    private fun roundedBackground(
+        fillColor: Int,
+        strokeColor: Int,
+        radiusDp: Int = 14
+    ): android.graphics.drawable.GradientDrawable =
         android.graphics.drawable.GradientDrawable().apply {
             shape = android.graphics.drawable.GradientDrawable.RECTANGLE
-            cornerRadius = dp(14).toFloat()
+            cornerRadius = dp(radiusDp).toFloat()
             setColor(fillColor)
             if (strokeColor != Color.TRANSPARENT) {
                 setStroke(dp(1), strokeColor)
@@ -714,5 +842,7 @@ class MainActivity : ComponentActivity() {
         const val NativePreflightAvailableMemoryBytes = 512L * 1024L * 1024L
         const val NativeSecretTapRequiredCount = 4
         const val NativePerformanceProfileGear = "\u2699"
+        const val NativeTileValueMaxSp = 16f
+        const val NativeTileValueMinSp = 11f
     }
 }
