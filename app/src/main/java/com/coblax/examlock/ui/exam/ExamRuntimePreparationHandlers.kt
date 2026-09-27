@@ -56,6 +56,7 @@ import com.coblax.examlock.WebViewCompatibilityStatus
 
 import kotlinx.coroutines.CoroutineExceptionHandler
 import kotlinx.coroutines.CoroutineScope
+import kotlinx.coroutines.delay
 import kotlinx.coroutines.launch
 
 internal class ExamRuntimePreparationRefreshCallbacks(
@@ -661,6 +662,35 @@ internal class ExamRuntimePreparationActionOps(
             details = "source=preparation | acknowledged_count=$count",
             level = DiagnosticEventLevel.SECURITY
         )
+    }
+
+    /**
+     * A fix needs Android Settings while the screen is already pinned in preparation, where
+     * Android refuses to open them. Before the exam starts the pin is only a setup step, so it
+     * is let go here and [then] opens the Settings page; Start asks for the pin again.
+     */
+    fun handleReleaseScreenPinningThen(then: () -> Unit) {
+        if (flowUiState.examSessionStarted.value) {
+            return
+        }
+        if (!lockTaskBridge.active()) {
+            then()
+            return
+        }
+        runtimeDiagnosticsOps.recordAction(
+            code = "SCREEN_PINNING_RELEASED_FOR_SETTINGS",
+            details = "source=preparation | state=${lockTaskBridge.stateLabel()}",
+            level = DiagnosticEventLevel.INFO
+        )
+        lockTaskBridge.disengage()
+        flowUiState.pinningActivationState.value = PinningActivationState.Idle
+        flowUiState.pinningActivationStartedAtElapsedMs.value = null
+        runtimeSecurityOps.refreshScreenPinningDiagnostics()
+        coroutineScope.launch {
+            // Android ends the pin asynchronously on some devices; a launch too early is refused.
+            delay(ScreenPinningReleaseSettleMillis)
+            then()
+        }
     }
 
     fun handleReinstallOfficialApk() {

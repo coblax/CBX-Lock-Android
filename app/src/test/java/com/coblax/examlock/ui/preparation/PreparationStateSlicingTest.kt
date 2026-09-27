@@ -179,8 +179,12 @@ class PreparationStateSlicingTest {
         assertFalse(actions.any { it.code == QuickFixScreenPinningDeferredCode })
     }
 
+    /**
+     * Android will not open Settings over a pinned screen. The fix used to sit disabled asking
+     * for an unpin gesture most students do not know; now it lets go of the pin, then opens.
+     */
     @Test
-    fun quickFixDisablesExternalSettingsActionsWhenScreenPinningAlreadyActive() {
+    fun settingsFixWhilePinnedUnpinsFirstThenOpensSettings() {
         val state = preparationState(
             device = deviceState().copy(
                 screenPinningAvailable = true,
@@ -189,13 +193,31 @@ class PreparationStateSlicingTest {
             runtimeSecurity = runtimeSecurityState().copy(accessibilityServiceEnabled = true)
         )
 
-        val actions = quickFixActionsFor(state)
+        val calls = mutableListOf<String>()
+        val actions = quickFixActionsFor(state, calls)
         val accessibilityFix = actions.first { it.priority == 35 }
 
         assertTrue(accessibilityFix.opensExternalSettings)
-        assertFalse(accessibilityFix.enabled)
-        assertTrue(accessibilityFix.text.contains("Turn off Screen Pinning first"))
+        assertTrue(accessibilityFix.enabled)
+        assertTrue(accessibilityFix.text, accessibilityFix.text.contains("unpins the screen first"))
         assertEquals(PreparationSection.RuntimeInteraction, accessibilityFix.section)
+
+        accessibilityFix.onClick()
+        assertEquals(listOf("release_screen_pinning", "open_accessibility_settings"), calls)
+    }
+
+    @Test
+    fun settingsFixWithoutPinningOpensSettingsDirectly() {
+        val state = preparationState(
+            device = deviceState().copy(screenPinningAvailable = true, isScreenPinningActive = false),
+            runtimeSecurity = runtimeSecurityState().copy(accessibilityServiceEnabled = true)
+        )
+        val calls = mutableListOf<String>()
+        val accessibilityFix = quickFixActionsFor(state, calls).first { it.priority == 35 }
+
+        assertFalse(accessibilityFix.text.contains("unpins"))
+        accessibilityFix.onClick()
+        assertEquals(listOf("open_accessibility_settings"), calls)
     }
 
     @Test
@@ -1215,10 +1237,13 @@ class PreparationStateSlicingTest {
         )
     }
 
-    private fun quickFixActionsFor(state: PreparationScreenState): List<PreparationQuickFixAction> {
+    private fun quickFixActionsFor(
+        state: PreparationScreenState,
+        calls: MutableList<String> = mutableListOf()
+    ): List<PreparationQuickFixAction> {
         return buildPreparationQuickFixActions(
             state = state,
-            actions = preparationActions(),
+            actions = preparationActions(calls),
             uiLanguage = UiLanguage.English,
             accessibilityGuardRequired = false,
             accessibilityGuardEnabled = false,
@@ -1230,8 +1255,9 @@ class PreparationStateSlicingTest {
         )
     }
 
-    private fun preparationActions(): PreparationScreenActions {
+    private fun preparationActions(calls: MutableList<String> = mutableListOf()): PreparationScreenActions {
         val noOp = {}
+        val openAccessibility = { calls += "open_accessibility_settings" }
         return PreparationScreenActions(
             session = PreparationSessionActions(
                 onRefreshStatus = noOp,
@@ -1259,7 +1285,7 @@ class PreparationStateSlicingTest {
                 onOpenKeyboardSettings = noOp,
                 onGrantBluetoothPermission = noOp,
                 onOpenBluetoothSettings = noOp,
-                onOpenAccessibilitySettings = noOp,
+                onOpenAccessibilitySettings = openAccessibility,
                 onOpenOverlayAccessibilitySettings = noOp,
                 onOpenDeveloperOptionsSettings = noOp,
                 onOpenDateTimeSettings = noOp,
@@ -1279,12 +1305,16 @@ class PreparationStateSlicingTest {
                 onOpenFakeLocationDeveloperOptionsSettings = noOp
             ),
             runtimeSecurity = PreparationRuntimeSecurityActions(
-                onOpenAccessibilitySettings = noOp,
+                onOpenAccessibilitySettings = openAccessibility,
                 onOpenOverlayAccessibilitySettings = noOp,
                 onOpenOverlaySettings = noOp,
                 onOpenOverlayGuardSettings = noOp,
                 onOpenAppSettings = noOp,
-                onOpenCastSettings = noOp
+                onOpenCastSettings = noOp,
+                onReleaseScreenPinningThen = { then ->
+                    calls += "release_screen_pinning"
+                    then()
+                }
             )
         )
     }

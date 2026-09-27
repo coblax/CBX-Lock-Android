@@ -68,4 +68,30 @@ class AdminFlowViewModelTest {
         assertNull(viewModel.uiState.value.draftAdminSettings)
         assertEquals(AdminApplyState.Idle, viewModel.uiState.value.adminApplyState)
     }
+
+    /** A stray Back used to throw away the URL, schedule, drawn exam area and bypasses. */
+    @Test
+    fun leavingCustomQrKeepsTheDraftUntilStartingOver() {
+        val viewModel = AdminFlowViewModel()
+        val draft = CustomQrDraftState(examUrl = "https://exam.example", examName = "UTS")
+        viewModel.dispatch(AdminFlowUiAction.OpenCustomQrAdmin)
+        assertFalse(viewModel.uiState.value.customQrDraftResumed)
+        viewModel.dispatch(AdminFlowUiAction.SetCustomQrDraft(draft))
+        viewModel.dispatch(AdminFlowUiAction.SetGeneratedQrPayload("CBXEL2:qr"))
+
+        viewModel.dispatch(AdminFlowUiAction.CloseCustomQrAdmin)
+        viewModel.dispatch(AdminFlowUiAction.OpenCustomQrAdmin)
+
+        var state = viewModel.uiState.value
+        assertEquals(draft, state.customQrDraft)
+        assertEquals("CBXEL2:qr", state.generatedQrPayload)
+        assertTrue(state.customQrDraftResumed)
+
+        viewModel.dispatch(AdminFlowUiAction.ResetCustomQrDraft)
+
+        state = viewModel.uiState.value
+        assertFalse(state.customQrDraft.hasContent)
+        assertNull(state.generatedQrPayload)
+        assertFalse(state.customQrDraftResumed)
+    }
 }

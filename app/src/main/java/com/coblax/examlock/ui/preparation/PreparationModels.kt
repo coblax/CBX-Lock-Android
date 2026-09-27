@@ -1,6 +1,7 @@
 package com.coblax.examlock.ui.preparation
 
 import com.coblax.examlock.AdbBypassState
+import com.coblax.examlock.ExamQrSecurityBypass
 import com.coblax.examlock.AdbInspection
 import com.coblax.examlock.AppSwitchStatus
 import com.coblax.examlock.ClipboardBypassState
@@ -40,7 +41,11 @@ internal data class PreparationSessionState(
     val showChecklistDetails: Boolean,
     /** Exam window end (epoch ms), or null when the schedule has none. */
     val examEndsAtMillis: Long? = null,
-    val examEndDateTime: String = ""
+    val examEndDateTime: String = "",
+    /** Checks the exam QR turns off for this exam. */
+    val qrSecurityBypasses: Set<ExamQrSecurityBypass> = emptySet(),
+    /** The device has Secret Admin bypasses on beyond the ones the QR carries. */
+    val adminBypassBeyondQr: Boolean = false
 )
 
 internal data class PreparationNetworkState(
@@ -288,7 +293,9 @@ internal data class PreparationRuntimeSecurityActions(
     val onOpenAppSettings: () -> Unit,
     val onOpenCastSettings: () -> Unit,
     /** Marks the floating-app touches seen so far as handled; later ones block again. */
-    val onAcknowledgeOverlayViolation: () -> Unit = {}
+    val onAcknowledgeOverlayViolation: () -> Unit = {},
+    /** Lets go of the preparation pin, then runs the Settings fix it was blocking. */
+    val onReleaseScreenPinningThen: (() -> Unit) -> Unit = { it() }
 )
 
 internal data class PreparationScreenActions(
@@ -322,6 +329,7 @@ internal data class PreparationScreenActions(
     val onStartScreenPinning: () -> Unit get() = device.onStartScreenPinning
     val onOpenOverlaySettings: () -> Unit get() = device.onOpenOverlaySettings
     val onAcknowledgeOverlayViolation: () -> Unit get() = runtimeSecurity.onAcknowledgeOverlayViolation
+    val onReleaseScreenPinningThen: (() -> Unit) -> Unit get() = runtimeSecurity.onReleaseScreenPinningThen
     val onOpenAppSettings: () -> Unit get() = device.onOpenAppSettings
     val onOpenCastSettings: () -> Unit get() = device.onOpenCastSettings
     val onOpenWebViewProviderSettings: () -> Unit get() = device.onOpenWebViewProviderSettings
@@ -406,6 +414,7 @@ internal fun forwardingPreparationActions(
         onOpenOverlayGuardSettings = { latest().runtimeSecurity.onOpenOverlayGuardSettings() },
         onOpenAppSettings = { latest().runtimeSecurity.onOpenAppSettings() },
         onOpenCastSettings = { latest().runtimeSecurity.onOpenCastSettings() },
-        onAcknowledgeOverlayViolation = { latest().runtimeSecurity.onAcknowledgeOverlayViolation() }
+        onAcknowledgeOverlayViolation = { latest().runtimeSecurity.onAcknowledgeOverlayViolation() },
+        onReleaseScreenPinningThen = { then -> latest().runtimeSecurity.onReleaseScreenPinningThen(then) }
     )
 )

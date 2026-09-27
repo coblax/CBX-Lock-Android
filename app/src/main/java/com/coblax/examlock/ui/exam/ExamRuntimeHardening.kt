@@ -8,6 +8,7 @@ internal const val ExamRuntimeHardeningLogTag = "ExamRuntimeHardening"
 /** First-pass static security scan: tries before preparation stops waiting on it. */
 internal const val InitialStaticSecurityScanAttempts = 3
 internal const val InitialStaticSecurityScanRetryDelayMillis = 1_000L
+internal const val ScreenPinningReleaseSettleMillis = 400L
 
 internal enum class ExamRuntimeRecoveryState {
     Idle,

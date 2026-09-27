@@ -25,7 +25,9 @@ data class ExamQrPayload(
     val issuedAt: Long = System.currentTimeMillis(),
     val locationPolicy: ExamQrLocationPolicy? = null,
     val locationPolicySource: LocationPolicySource = LocationPolicySource.DisabledNoPolicy,
-    val timezoneId: String = TimeZone.getDefault().id
+    val timezoneId: String = TimeZone.getDefault().id,
+    /** Checks this exam runs without, on top of the device's own Secret Admin bypasses. */
+    val securityBypasses: Set<ExamQrSecurityBypass> = emptySet()
 )
 
 enum class GeofenceShapeType {
@@ -70,6 +72,8 @@ object ExamQrCodec {
     private const val IV_LENGTH = 12
     private const val AUTH_TAG_LENGTH_BITS = 128
     private const val PAYLOAD_VERSION = "7"
+    // v8 adds the bypass bitmask. A QR without bypasses stays v7 so older apps still read it.
+    private const val BYPASS_PAYLOAD_VERSION = "8"
     private const val KotlinQrSeedXorKeyPartOne = 0x23
     private const val KotlinQrSeedXorKeyPartTwo = 0x47
     private const val KotlinQrSeedXorKeyPartThree = 0x6D
@@ -151,6 +155,17 @@ object ExamQrCodec {
         fun encryptReference(payload: ExamQrPayload): String =
             PAYLOAD_PREFIX + encodeBase64Url(encryptPayloadKotlin(payload.serialize().toByteArray(StandardCharsets.UTF_8)))
 
+        /** The decrypted `|`-separated fields, to check the wire format itself. */
+        fun plaintextOf(rawValue: String): String =
+            String(
+                decryptPayloadKotlin(decodeBase64Url(rawValue.removePrefix(PAYLOAD_PREFIX))),
+                StandardCharsets.UTF_8
+            )
+
+        /** A QR holding [plaintext] as is, to feed the decoder fields the encoder never writes. */
+        fun encryptPlaintext(plaintext: String): String =
+            PAYLOAD_PREFIX + encodeBase64Url(encryptPayloadKotlin(plaintext.toByteArray(StandardCharsets.UTF_8)))
+
         fun decryptReference(rawValue: String): ExamQrPayload {
             require(!rawValue.startsWith(LEGACY_PAYLOAD_PREFIX)) {
                 "Format QR lama tidak lagi didukung. Buat ulang QR dari aplikasi terbaru."
@@ -168,8 +183,8 @@ object ExamQrCodec {
 
     private fun ExamQrPayload.serialize(): String {
         val qrLocationPolicy = locationPolicy ?: ExamQrLocationPolicy()
-        return listOf(
-            PAYLOAD_VERSION,
+        val fields = listOf(
+            if (securityBypasses.isEmpty()) PAYLOAD_VERSION else BYPASS_PAYLOAD_VERSION,
             encodeBase64Url(examUrl.toByteArray(StandardCharsets.UTF_8)),
             encodeBase64Url(examName.toByteArray(StandardCharsets.UTF_8)),
             encodeBase64Url(startDateTime.toByteArray(StandardCharsets.UTF_8)),
@@ -183,18 +198,25 @@ object ExamQrCodec {
             encodeBase64Url(serializeVertices(qrLocationPolicy.vertices).toByteArray(StandardCharsets.UTF_8)),
             encodeBase64Url(serializeVertices(qrLocationPolicy.effectiveCircleCenters).toByteArray(StandardCharsets.UTF_8)),
             encodeBase64Url(timezoneId.toByteArray(StandardCharsets.UTF_8))
-        ).joinToString("|")
+        )
+        val bypassFields = if (securityBypasses.isEmpty()) {
+            emptyList()
+        } else {
+            listOf(ExamQrSecurityBypass.toMask(securityBypasses).toString(16))
+        }
+        return (fields + bypassFields).joinToString("|")
     }
 
     private fun deserialize(serialized: String): ExamQrPayload {
         val parts = serialized.split("|")
         val version = parts.getOrNull(0).orEmpty()
-        require(version == "6" || version == "7") {
+        require(version == "6" || version == "7" || version == BYPASS_PAYLOAD_VERSION) {
             "Versi payload QR tidak didukung."
         }
         require(
             (version == "6" && parts.size == 13) ||
-                (version == "7" && parts.size == 14)
+                (version == "7" && parts.size == 14) ||
+                (version == BYPASS_PAYLOAD_VERSION && parts.size == 15)
         ) {
             "Format payload QR tidak dikenal."
         }
@@ -222,11 +244,20 @@ object ExamQrCodec {
                 emptyList()
             }
         )
-        // v7 includes timezone; v6 falls back to device timezone
-        val timezoneId = if (version == "7") {
+        // v7 and later include timezone; v6 falls back to device timezone
+        val timezoneId = if (version != "6") {
             decodeField(parts[13]).ifBlank { TimeZone.getDefault().id }
         } else {
             TimeZone.getDefault().id
+        }
+        val securityBypasses = if (version == BYPASS_PAYLOAD_VERSION) {
+            val mask = parts[14].toLongOrNull(16)
+            require(mask != null && mask >= 0L) {
+                "Format payload QR tidak dikenal."
+            }
+            ExamQrSecurityBypass.fromMask(mask)
+        } else {
+            emptySet()
         }
 
         return ExamQrPayload(
@@ -238,7 +269,8 @@ object ExamQrCodec {
             issuedAt = parts[6].toLongOrNull()?.coerceAtLeast(0L) ?: 0L,
             locationPolicy = locationPolicy,
             locationPolicySource = LocationPolicySource.CustomQr,
-            timezoneId = timezoneId
+            timezoneId = timezoneId,
+            securityBypasses = securityBypasses
         )
     }
 

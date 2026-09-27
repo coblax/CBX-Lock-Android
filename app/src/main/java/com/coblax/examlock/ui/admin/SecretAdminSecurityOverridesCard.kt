@@ -20,6 +20,7 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.platform.testTag
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
+import com.coblax.examlock.ExamQrSecurityBypass
 import com.coblax.examlock.i18n.LocalUiLanguage
 import com.coblax.examlock.i18n.localized
 import com.coblax.examlock.i18n.tr
@@ -277,6 +278,16 @@ internal fun securityOverrideGroups(uiLanguage: UiLanguage, settings: AdminSetti
             )
         )
     )
+}
+
+/** The Secret Admin names of [bypasses], in the order the switches are listed. */
+internal fun examQrBypassTitles(uiLanguage: UiLanguage, bypasses: Set<ExamQrSecurityBypass>): List<String> {
+    if (bypasses.isEmpty()) return emptyList()
+    val keys = bypasses.mapTo(hashSetOf()) { it.key }
+    return securityOverrideGroups(uiLanguage, AdminSettings())
+        .flatMap { it.items }
+        .filter { it.key in keys }
+        .map { it.title }
 }
 
 @Composable

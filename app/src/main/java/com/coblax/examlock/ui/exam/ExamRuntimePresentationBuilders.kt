@@ -354,6 +354,7 @@ internal fun buildPreparationScreenActions(
     onOpenWebViewProviderSettings: () -> Unit,
     onReinstallOfficialApk: () -> Unit,
     onAcknowledgeOverlayViolation: () -> Unit,
+    onReleaseScreenPinningThen: (() -> Unit) -> Unit,
     onRefreshStatus: () -> Unit,
     onRefreshAllSecurityChecks: () -> Unit,
     onRefreshHealthCheck: () -> Unit,
@@ -419,7 +420,8 @@ internal fun buildPreparationScreenActions(
             onOpenOverlayGuardSettings = onOpenOverlaySettings,
             onOpenAppSettings = onOpenAppSettings,
             onOpenCastSettings = onOpenCastSettings,
-            onAcknowledgeOverlayViolation = onAcknowledgeOverlayViolation
+            onAcknowledgeOverlayViolation = onAcknowledgeOverlayViolation,
+            onReleaseScreenPinningThen = onReleaseScreenPinningThen
         )
     )
 }

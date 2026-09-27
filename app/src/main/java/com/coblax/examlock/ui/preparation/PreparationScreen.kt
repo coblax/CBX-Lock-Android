@@ -51,6 +51,7 @@ import androidx.lifecycle.LifecycleEventObserver
 import com.coblax.examlock.LocalLowRamProfile
 import com.coblax.examlock.PinningActivationState
 import com.coblax.examlock.i18n.LocalUiLanguage
+import com.coblax.examlock.ui.admin.examQrBypassTitles
 import com.coblax.examlock.i18n.localized
 import com.coblax.examlock.i18n.tr
 import com.coblax.examlock.model.UiLanguage
@@ -241,6 +242,9 @@ internal fun ExamSecurityPreparationScreen(
     }
 
     val examTitle = state.examName.ifBlank { tr("Exam Session", "Sesi Ujian") }
+    val qrBypassTitles = remember(state.session.qrSecurityBypasses, uiLanguage) {
+        examQrBypassTitles(uiLanguage, state.session.qrSecurityBypasses)
+    }
     val isRefreshing = state.isRefreshingGeofence || state.isRefreshingNetwork
     val screenPadding = adaptiveScreenPadding()
     val tokens = ScopedUiTokens.current
@@ -294,6 +298,8 @@ internal fun ExamSecurityPreparationScreen(
                         PreparationStatusCard(
                             overview = overview,
                             hasBypassIndicators = readiness.hasBypassIndicators,
+                            qrBypassTitles = qrBypassTitles,
+                            adminBypassBeyondQr = state.session.adminBypassBeyondQr,
                             modifier = itemModifier
                         )
                     }
@@ -368,6 +374,7 @@ internal fun ExamSecurityPreparationScreen(
                     isStartingExam = state.isStartingExam,
                     webViewSessionResetInFlight = state.webViewSessionResetInFlight,
                     hasBypassIndicators = readiness.hasBypassIndicators,
+                    bypassFromQrOnly = qrBypassTitles.isNotEmpty() && !state.session.adminBypassBeyondQr,
                     onStartExam = screenActions.onStartExam
                 )
             }

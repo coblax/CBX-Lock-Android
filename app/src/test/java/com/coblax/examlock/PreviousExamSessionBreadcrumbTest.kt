@@ -79,4 +79,26 @@ class PreviousExamSessionBreadcrumbTest {
 
         assertTrue(entries.size < 80)
     }
+
+    /** elapsedRealtime restarts at reboot; a clean exit after one must still clear the hint. */
+    @Test
+    fun cleanExitAfterARebootClearsTheRecoveryHint() {
+        val entries = listOf(
+            PreviousExamSessionBreadcrumbEntry(
+                code = PreviousExamSessionBreadcrumbCodes.RendererGone,
+                details = "-",
+                elapsedRealtimeMs = 5_000_000L,
+                wallClockMs = 1_000L
+            ),
+            PreviousExamSessionBreadcrumbEntry(
+                code = PreviousExamSessionBreadcrumbCodes.ExitCompleted,
+                details = "-",
+                elapsedRealtimeMs = 90_000L,
+                wallClockMs = 2_000L
+            )
+        )
+
+        assertTrue(PreviousExamSessionBreadcrumb(entries).latestRecoveryHint == null)
+        assertNotNull(PreviousExamSessionBreadcrumb(entries.reversed()).latestRecoveryHint)
+    }
 }

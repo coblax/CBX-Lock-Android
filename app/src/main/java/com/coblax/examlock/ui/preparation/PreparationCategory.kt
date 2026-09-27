@@ -1,5 +1,7 @@
 package com.coblax.examlock.ui.preparation
 
+import com.coblax.examlock.DeviceTimeBypassState
+import com.coblax.examlock.DeviceTimeSecurityVerdict
 import com.coblax.examlock.DpcProtectionTier
 import com.coblax.examlock.GeofenceSecurityVerdict
 import com.coblax.examlock.LocationSpoofSecurityVerdict
@@ -459,12 +461,31 @@ private fun buildPreparationIssues(
         )
     }
     if (!readiness.deviceTimeReady) {
-        blocking(
-            PreparationCategory.DeviceHealth,
-            "device_time",
-            t("Automatic date and time is off", "Tanggal dan waktu otomatis belum aktif"),
-            t("Turn on automatic date and time.", "Aktifkan tanggal dan waktu otomatis.")
-        )
+        // Named by cause: telling a student whose automatic time is already on to turn it on
+        // left them with nothing to do.
+        val deviceTime = state.deviceTimeSecurityStatus
+        val (title, message) = when {
+            deviceTime.bypassState == DeviceTimeBypassState.Tampered -> Pair(
+                t("Device time bypass was tampered with", "Bypass waktu perangkat dimanipulasi"),
+                t("Ask the proctor to check Secret Admin.", "Minta pengawas memeriksa Secret Admin.")
+            )
+            deviceTime.finalVerdict == DeviceTimeSecurityVerdict.AutoTimeZoneDisabled -> Pair(
+                t("Automatic time zone is off", "Zona waktu otomatis belum aktif"),
+                t("Turn on automatic time zone.", "Aktifkan zona waktu otomatis.")
+            )
+            deviceTime.finalVerdict == DeviceTimeSecurityVerdict.ClockDriftDetected -> Pair(
+                t("The clock changed while the app was open", "Jam HP berubah saat aplikasi terbuka"),
+                t(
+                    "Keep automatic time on and stay online so the clock can be confirmed, then check again.",
+                    "Pastikan waktu otomatis aktif dan HP terhubung internet agar jam bisa dicek, lalu cek ulang."
+                )
+            )
+            else -> Pair(
+                t("Automatic date and time is off", "Tanggal dan waktu otomatis belum aktif"),
+                t("Turn on automatic date and time.", "Aktifkan tanggal dan waktu otomatis.")
+            )
+        }
+        blocking(PreparationCategory.DeviceHealth, "device_time", title, message)
     }
     val webViewHealth = state.preExamHealthCheckSnapshot.items
         .firstOrNull { it.category == PreExamHealthCategory.WebView }

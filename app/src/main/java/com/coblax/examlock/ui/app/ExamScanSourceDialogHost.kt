@@ -20,6 +20,7 @@ import com.coblax.examlock.i18n.localized
 import com.coblax.examlock.model.UiLanguage
 import com.coblax.examlock.runtime.decodeQrPayloadFromImageUri
 import com.coblax.examlock.ui.admin.ScanSourceDialog
+import com.google.zxing.client.android.Intents
 import com.journeyapps.barcodescanner.ScanContract
 import com.journeyapps.barcodescanner.ScanIntentResult
 import com.journeyapps.barcodescanner.ScanOptions
@@ -47,7 +48,23 @@ internal fun ExamScanSourceDialogHost(
 
     val scanLauncher = rememberLauncherForActivityResult(contract = ScanContract()) { result: ScanIntentResult ->
         dismissHost()
-        val rawPayload = result.contents ?: return@rememberLauncherForActivityResult
+        val rawPayload = result.contents
+        if (rawPayload == null) {
+            // The scanner closes on its own when the camera permission is refused; without this
+            // the student was dropped back on Home with no idea why scanning did nothing.
+            val cameraRefused = result.originalIntent
+                ?.getBooleanExtra(Intents.Scan.MISSING_CAMERA_PERMISSION, false) == true
+            if (cameraRefused) {
+                onScanError(
+                    localized(
+                        uiLanguage,
+                        "CBX Lock is not allowed to use the camera. Allow it in Settings > Apps > CBX Lock > Permissions > Camera, or scan the QR from a picture instead.",
+                        "CBX Lock belum diizinkan memakai kamera. Izinkan di Setelan > Aplikasi > CBX Lock > Izin > Kamera, atau pindai QR dari gambar."
+                    )
+                )
+            }
+            return@rememberLauncherForActivityResult
+        }
         onRawPayload(rawPayload)
     }
     val fileScanLauncher = rememberLauncherForActivityResult(

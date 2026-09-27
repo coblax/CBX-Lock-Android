@@ -64,8 +64,8 @@ internal fun deviceTimeBlockedMessage(
         )
         status.finalVerdict == DeviceTimeSecurityVerdict.ClockDriftDetected -> localized(
             uiLanguage,
-            "A suspicious clock change was detected. Turn automatic date & time back on, then try again.",
-            "Terdeteksi perubahan jam yang mencurigakan. Aktifkan kembali tanggal & waktu otomatis, lalu coba lagi."
+            "The clock changed while the app was open. Keep automatic date & time on and stay online so the clock can be confirmed, then try again.",
+            "Jam HP berubah saat aplikasi terbuka. Pastikan tanggal & waktu otomatis aktif dan HP terhubung internet agar jam bisa dicek, lalu coba lagi."
         )
         else -> localized(
             uiLanguage,

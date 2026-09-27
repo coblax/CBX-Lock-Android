@@ -1,9 +1,11 @@
 package com.coblax.examlock.ui.exam
 
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.remember
 import androidx.compose.ui.Modifier
 import com.coblax.examlock.ExamQrPayload
 import com.coblax.examlock.model.AdminSettings
+import com.coblax.examlock.withExamQrBypasses
 
 @Composable
 internal fun ExamRuntimeSessionScreen(
@@ -20,10 +22,15 @@ internal fun ExamRuntimeSessionScreen(
     onExit: () -> Unit,
     modifier: Modifier = Modifier
 ) {
+    // Everything below reads the bypasses from here, so the ones the exam QR carries apply
+    // to every check of this session without touching the saved Secret Admin switches.
+    val sessionAdminSettings = remember(adminSettings, payload.securityBypasses) {
+        adminSettings.withExamQrBypasses(payload.securityBypasses)
+    }
     ExamRuntimeSessionScreenImpl(
         inputs = ExamRuntimeSessionInputs(
             payload = payload,
-            adminSettings = adminSettings,
+            adminSettings = sessionAdminSettings,
             pendingDirectLinkSaveLog = pendingDirectLinkSaveLog,
             pendingRecoveryEventDetails = pendingRecoveryEventDetails,
             examSessionRecoveryNonce = examSessionRecoveryNonce,

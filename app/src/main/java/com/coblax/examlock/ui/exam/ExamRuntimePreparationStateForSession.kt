@@ -1,6 +1,7 @@
 package com.coblax.examlock.ui.exam
 
 import com.coblax.examlock.AdbBypassState
+import com.coblax.examlock.activeSecurityBypasses
 import com.coblax.examlock.AppSwitchStatus
 import com.coblax.examlock.ClipboardBypassState
 import com.coblax.examlock.ClipboardRuntimeStatus
@@ -107,7 +108,9 @@ internal fun buildPreparationStateForSession(
             webViewSessionResetError = flowUiState.webViewSessionResetError.value,
             showChecklistDetails = adminSettings.showChecklistDetails,
             examEndsAtMillis = ExamScheduleValidator.scheduleEndMillis(payload),
-            examEndDateTime = payload.endDateTime
+            examEndDateTime = payload.endDateTime,
+            qrSecurityBypasses = payload.securityBypasses,
+            adminBypassBeyondQr = (adminSettings.activeSecurityBypasses() - payload.securityBypasses).isNotEmpty()
         ),
         network = PreparationNetworkState(
             networkReadinessStatus = networkReadinessStatus,

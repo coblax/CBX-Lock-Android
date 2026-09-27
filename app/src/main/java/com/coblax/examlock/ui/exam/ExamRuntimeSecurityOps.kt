@@ -3,6 +3,7 @@ package com.coblax.examlock.ui.exam
 import android.content.Context
 import androidx.compose.runtime.MutableState
 import com.coblax.examlock.AccessibilityInspectionResult
+import com.coblax.examlock.examOverridesSummary
 import com.coblax.examlock.AccessibilityBypassState
 import com.coblax.examlock.ActivityLockTaskBridge
 import com.coblax.examlock.AdbInspection
@@ -622,7 +623,7 @@ internal class ExamRuntimeSecurityOps(
             accessibilityGuardAlarmSeverity = accessibilityGuardAlarmSeverityState.value,
             examSessionStarted = examSessionStarted,
             examGuardArmed = examGuardArmed,
-            adminOverridesSummary = adminSettings.overrideSummary(),
+            adminOverridesSummary = examOverridesSummary(adminSettings, payload.securityBypasses),
             currentKeyboardPackage = flowUiState.currentKeyboardPackage.value,
             isKeyboardAllowed = isKeyboardAllowed,
             useBuiltInExamKeyboard = flowUiState.useBuiltInExamKeyboard.value,

@@ -247,3 +247,33 @@ internal object ExamDeviceOwnerController {
 
 private fun Throwable.shortDiagnostic(): String =
     message?.take(160) ?: javaClass.simpleName.take(160)
+
+/**
+ * Undoes device-wide state an exam leaves on only while it runs, when that exam ended without
+ * its own cleanup: a crash, a force stop, or a restore that could not bring the session back.
+ * Left alone, a device owner kept blocking every app's overlays and toasts, and a debug build's
+ * accessibility guard kept throwing the student back into CBX. Call only when no exam is open.
+ * Returns what was cleared, for the diagnostic log.
+ */
+internal fun clearStaleExamDeviceState(context: Context): List<String> {
+    val cleared = mutableListOf<String>()
+    val status = ExamDeviceOwnerController.readStatus(context)
+    if (shouldClearStaleCreateWindowsRestriction(status)) {
+        val result = ExamDeviceOwnerController.clearCreateWindowsRestrictionIfSessionApplied(
+            context = context,
+            sessionAppliedRestriction = true
+        )
+        if (result.createWindowsRestrictionCleared) {
+            cleared += "dpc_create_windows_restriction"
+        }
+    }
+    if (AccessibilityExamGuardStore.snapshot(context).armed) {
+        AccessibilityExamGuardStore.disarm(context)
+        cleared += "accessibility_guard_armed"
+    }
+    return cleared
+}
+
+/** Only the device owner can have set the restriction, and only an exam in progress needs it. */
+internal fun shouldClearStaleCreateWindowsRestriction(status: DpcRuntimeStatus): Boolean =
+    status.deviceOwner && status.createWindowsRestrictionActive

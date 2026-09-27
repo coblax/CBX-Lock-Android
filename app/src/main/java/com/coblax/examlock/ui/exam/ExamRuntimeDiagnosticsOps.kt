@@ -7,6 +7,7 @@ import android.util.Log
 import androidx.compose.runtime.MutableState
 
 import com.coblax.examlock.AccessibilityExamGuardStore
+import com.coblax.examlock.TrustedNetworkTimeCoordinator
 import com.coblax.examlock.ActivityLockTaskBridge
 import com.coblax.examlock.AppSwitchBypassState
 import com.coblax.examlock.AppSwitchMonitor
@@ -605,6 +606,28 @@ internal class ExamRuntimeDiagnosticsOps(
         trigger: String,
         emitDiagnosticEvent: Boolean = true
     ): DeviceTimeSecurityStatus {
+        val refreshedStatus = refreshDeviceTimeSecurityOnce(trigger, emitDiagnosticEvent)
+        // A clock change with automatic time on is usually the fix itself; once network time
+        // confirms the clock, the check accepts it and the block clears without a restart.
+        val nowElapsed = SystemClock.elapsedRealtime()
+        if (
+            refreshedStatus.clockChangeMayBeAFix &&
+            nowElapsed - lastClockChangeNetworkCheckAtElapsedMs >= ClockChangeNetworkCheckIntervalMillis
+        ) {
+            lastClockChangeNetworkCheckAtElapsedMs = nowElapsed
+            coroutineScope.launch(launchExceptionHandler) {
+                if (TrustedNetworkTimeCoordinator.currentNetworkNowMillis(context, forceRefresh = true) != null) {
+                    refreshDeviceTimeSecurityOnce("_network_confirm", emitDiagnosticEvent)
+                }
+            }
+        }
+        return refreshedStatus
+    }
+
+    private fun refreshDeviceTimeSecurityOnce(
+        trigger: String,
+        emitDiagnosticEvent: Boolean
+    ): DeviceTimeSecurityStatus {
         val refreshedStatus = inspectDeviceTimeSecurity(
             context = context,
             baseline = deviceTimeBaseline,
@@ -1109,3 +1132,10 @@ internal class ExamRuntimeDiagnosticsOps(
         }
     }
 }
+
+private const val ClockChangeNetworkCheckIntervalMillis = 30_000L
+
+// Shared by every ops instance so recompositions cannot turn one clock change into a burst
+// of network time requests.
+@Volatile
+private var lastClockChangeNetworkCheckAtElapsedMs: Long = Long.MIN_VALUE / 2

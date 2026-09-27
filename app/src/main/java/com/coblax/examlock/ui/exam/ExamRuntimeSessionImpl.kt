@@ -39,6 +39,7 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.platform.LocalContext
 
 import com.coblax.examlock.AccessibilityBypassResolver
+import com.coblax.examlock.examOverridesSummary
 import com.coblax.examlock.AccessibilityBypassState
 import com.coblax.examlock.AccessibilityExamGuardStore
 import com.coblax.examlock.ActivityLockTaskBridge
@@ -345,7 +346,7 @@ internal fun ExamRuntimeSessionScreenImpl(
     val bypassScreenRecorder = adminSettings.bypassScreenRecorder
     val bypassDisplayMirror = adminSettings.bypassDisplayMirror
     val bypassMultiWindow = adminSettings.bypassMultiWindow
-    val adminOverridesSummary = adminSettings.overrideSummary()
+    val adminOverridesSummary = examOverridesSummary(adminSettings, payload.securityBypasses)
     val effectiveLocationPolicy = payload.locationPolicy ?: ExamQrLocationPolicy()
     val effectiveLocationPolicySource = if (bypassGeofence) {
         LocationPolicySource.Bypassed
@@ -1580,6 +1581,10 @@ internal fun ExamRuntimeSessionScreenImpl(
         }
 
         suspend fun prepareCleanExamWebViewSessionForStart(): Boolean {
+            // Cancel on the dialog must stop the exam from starting, before and after the reset.
+            if (flowUiState.startExamPreflight.cancelRequested.value) {
+                return false
+            }
             updateStartExamPreflight(StartExamPreflightStep.PreparingWebView)
             val prepared = prepareCleanExamWebViewSessionForStart(
                 context = context,
@@ -1628,6 +1633,14 @@ internal fun ExamRuntimeSessionScreenImpl(
             )
             if (!prepared) {
                 hideStartExamPreflight()
+            }
+            if (prepared && flowUiState.startExamPreflight.cancelRequested.value) {
+                recordAction(
+                    code = "START_EXAM_CANCELLED_BY_STUDENT",
+                    details = "stage=preparing_webview",
+                    level = DiagnosticEventLevel.INFO
+                )
+                return false
             }
             return prepared
         }
@@ -1799,6 +1812,9 @@ internal fun ExamRuntimeSessionScreenImpl(
                                 startExamPressedAt = startExamPressedAt,
                                 callbacks = ExamRuntimeStartLocationValidationCallbacks(
                                     isGeofenceStartValidationInFlight = { geofenceStartValidationInFlight },
+                                    isStartCancelledByStudent = {
+                                        flowUiState.startExamPreflight.cancelRequested.value
+                                    },
                                     setGeofenceStartValidationInFlight = { geofenceStartValidationInFlight = it },
                                     resolveStartExamLocationValidation = { resolveStartExamLocationValidation() },
                                     currentGeofenceEventDetails = { trigger, geofenceStatus ->
@@ -2292,6 +2308,8 @@ internal fun ExamRuntimeSessionScreenImpl(
     fun handleOpenWebViewProviderSettings() = preparationActionOps.handleOpenWebViewProviderSettings()
     fun handleReinstallOfficialApk() = preparationActionOps.handleReinstallOfficialApk()
     fun handleAcknowledgeOverlayViolation() = preparationActionOps.handleAcknowledgeOverlayViolation()
+    fun handleReleaseScreenPinningThen(then: () -> Unit) =
+        preparationActionOps.handleReleaseScreenPinningThen(then)
     fun refreshPreparationStatusChecks() = preparationActionOps.refreshPreparationStatusChecks()
     fun handleRefreshPreparationStatus() = preparationActionOps.handleRefreshPreparationStatus()
     fun handleRefreshAllSecurityChecks() = preparationActionOps.handleRefreshAllSecurityChecks()
@@ -2654,6 +2672,7 @@ internal fun ExamRuntimeSessionScreenImpl(
         onOpenWebViewProviderSettings = { handleOpenWebViewProviderSettings() },
         onReinstallOfficialApk = { handleReinstallOfficialApk() },
         onAcknowledgeOverlayViolation = { handleAcknowledgeOverlayViolation() },
+        onReleaseScreenPinningThen = { then -> handleReleaseScreenPinningThen(then) },
         onRefreshStatus = { handleRefreshPreparationStatus() },
         onRefreshAllSecurityChecks = { handleRefreshAllSecurityChecks() },
         onRefreshHealthCheck = { handleRefreshPreExamHealthCheck() },

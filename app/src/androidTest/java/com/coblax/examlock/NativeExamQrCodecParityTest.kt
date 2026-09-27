@@ -103,6 +103,22 @@ class NativeExamQrCodecParityTest {
         )
     }
 
+    /** A bypass QR made on one backend must relax the same checks when read on the other. */
+    @Test
+    fun bypassQrReadsTheSameOnBothBackends() {
+        val payload = samplePayload().copy(
+            securityBypasses = setOf(ExamQrSecurityBypass.ScreenPinning, ExamQrSecurityBypass.DisplayMirror)
+        )
+        val native = ExamQrCodec.ParityAccess.encryptWithBackend(payload, NativeBridgeBackendMode.ForceNative)
+        val fallback = ExamQrCodec.ParityAccess.encryptReference(payload)
+
+        assertEquals(expectedPayload(payload), ExamQrCodec.ParityAccess.decryptReference(native))
+        assertEquals(
+            expectedPayload(payload),
+            ExamQrCodec.ParityAccess.decryptWithBackend(fallback, NativeBridgeBackendMode.ForceNative)
+        )
+    }
+
     private fun samplePayload(): ExamQrPayload {
         return ExamQrPayload(
             examUrl = "https://example.com/ujian?id=42",

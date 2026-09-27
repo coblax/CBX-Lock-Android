@@ -8,10 +8,12 @@ import androidx.compose.foundation.border
 import androidx.compose.foundation.BorderStroke
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
+import androidx.compose.foundation.layout.PaddingValues
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
+import androidx.compose.foundation.layout.heightIn
 import androidx.compose.foundation.layout.navigationBarsPadding
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.Row
@@ -37,6 +39,7 @@ import androidx.compose.material3.DatePickerDialog
 import androidx.compose.material3.Icon
 import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
+import androidx.compose.material3.TextButton
 import androidx.compose.material3.TimePicker
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.runtime.Composable
@@ -48,6 +51,7 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.platform.testTag
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.input.KeyboardType
 import androidx.compose.ui.tooling.preview.Preview
@@ -109,6 +113,10 @@ internal fun canOpenCustomQrStep(
     }
 }
 
+// Narrower than the Material default so "Kembali" with its arrow fits on a small phone at a
+// large font size instead of breaking mid-word.
+private val StepButtonPadding = PaddingValues(horizontal = 12.dp, vertical = 8.dp)
+
 @Composable
 @Suppress("AssignedValueIsNeverRead")
 internal fun CustomQrAdminScreen(
@@ -128,7 +136,9 @@ internal fun CustomQrAdminScreen(
     generationStatus: String? = null,
     onGenerationStatusChange: (String?) -> Unit = {},
     generationIsError: Boolean = false,
-    onGenerationIsErrorChange: (Boolean) -> Unit = {}
+    onGenerationIsErrorChange: (Boolean) -> Unit = {},
+    draftResumed: Boolean = false,
+    onStartNewDraft: () -> Unit = {}
 ) {
     val missingFieldsMessage = tr(
         "Complete the URL, exam name, start time, and end time.",
@@ -283,7 +293,8 @@ internal fun CustomQrAdminScreen(
                         endDateTime = endTime,
                         saveToDirectLink = showSaveToDirectLinkOption && saveToDirectLink,
                         locationPolicy = currentLocationPolicy,
-                        locationPolicySource = LocationPolicySource.CustomQr
+                        locationPolicySource = LocationPolicySource.CustomQr,
+                        securityBypasses = draft.securityBypasses
                     )
                     onGeneratedQrPayloadChange(ExamQrCodec.encrypt(payload))
                     onGenerationStatusChange(qrCreatedMessage)
@@ -377,6 +388,11 @@ internal fun CustomQrAdminScreen(
             color = AppColors.current.textSecondary,
             fontSize = 13.sp
         )
+
+        if (draftResumed) {
+            Spacer(modifier = Modifier.height(10.dp))
+            CustomQrResumedDraftBanner(onStartNewDraft = onStartNewDraft)
+        }
 
         Spacer(modifier = Modifier.height(14.dp))
 
@@ -876,6 +892,14 @@ internal fun CustomQrAdminScreen(
                     }
 
                 CustomQrAdminTab.Generate -> {
+                    CustomQrBypassSection(
+                        selected = draft.securityBypasses,
+                        onSelectedChange = { bypasses ->
+                            updateDraft { current -> current.copy(securityBypasses = bypasses) }
+                            clearGeneratedQr()
+                        }
+                    )
+
                     if (showSaveToDirectLinkOption) {
                         Surface(
                             modifier = Modifier.fillMaxWidth(),
@@ -940,7 +964,8 @@ internal fun CustomQrAdminScreen(
                             examName = examName,
                             startTime = startTime,
                             endTime = endTime,
-                            locationPolicy = currentLocationPolicy
+                            locationPolicy = currentLocationPolicy,
+                            securityBypasses = draft.securityBypasses
                         )
                     }
                 }
@@ -971,6 +996,7 @@ internal fun CustomQrAdminScreen(
                         },
                         modifier = Modifier.weight(1f),
                         shape = RoundedCornerShape(UiTokens.RadiusMd),
+                        contentPadding = StepButtonPadding,
                         colors = ButtonDefaults.buttonColors(
                             containerColor = AppColors.current.surfaceSoft,
                             contentColor = AppColors.current.textPrimary
@@ -1006,6 +1032,7 @@ internal fun CustomQrAdminScreen(
                     },
                     modifier = Modifier.weight(1f),
                     shape = RoundedCornerShape(UiTokens.RadiusMd),
+                    contentPadding = StepButtonPadding,
                     colors = ButtonDefaults.buttonColors(
                         containerColor = AppColors.current.blue,
                         contentColor = AppColors.current.onDark
@@ -1092,5 +1119,44 @@ internal fun CustomQrAdminScreen(
             }
         )
     }
+    }
+}
+
+internal const val CustomQrStartNewDraftTestTag = "custom_qr_start_new_draft"
+
+/** Leaving Custom QR keeps the draft; this says so and is the one way to start over. */
+@Composable
+private fun CustomQrResumedDraftBanner(onStartNewDraft: () -> Unit) {
+    Surface(
+        modifier = Modifier.fillMaxWidth(),
+        shape = RoundedCornerShape(UiTokens.RadiusMd),
+        color = AppColors.current.blueTint,
+        border = BorderStroke(1.dp, AppColors.current.blue.copy(alpha = 0.16f))
+    ) {
+        Row(
+            modifier = Modifier.padding(start = 12.dp, end = 4.dp, top = 2.dp, bottom = 2.dp),
+            verticalAlignment = Alignment.CenterVertically
+        ) {
+            Text(
+                text = tr("Continuing your last draft.", "Melanjutkan draf terakhir."),
+                modifier = Modifier.weight(1f),
+                color = AppColors.current.textPrimary,
+                fontSize = 12.sp,
+                fontWeight = FontWeight.SemiBold,
+                lineHeight = 16.sp
+            )
+            TextButton(
+                onClick = onStartNewDraft,
+                modifier = Modifier
+                    .heightIn(min = 48.dp)
+                    .testTag(CustomQrStartNewDraftTestTag)
+            ) {
+                Text(
+                    text = tr("Start new", "Mulai baru"),
+                    color = AppColors.current.brandText,
+                    fontWeight = FontWeight.Bold
+                )
+            }
+        }
     }
 }

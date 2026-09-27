@@ -99,7 +99,7 @@ import com.coblax.examlock.GeofenceShapeType
 import com.coblax.examlock.i18n.localized
 import com.coblax.examlock.i18n.LocalUiLanguage
 import com.coblax.examlock.i18n.tr
-import com.coblax.examlock.inspectDeviceTimeSecurity
+import com.coblax.examlock.inspectDeviceTimeSecurityConfirmingClockChange
 import com.coblax.examlock.LocalDeviceCompatibilityProfile
 import com.coblax.examlock.LocalLowRamProfile
 import com.coblax.examlock.ui.LocalTelegramDiagnosticsEnabled
@@ -134,11 +134,14 @@ import com.coblax.examlock.save.ExamQrPayloadSaver
 import com.coblax.examlock.SecureStrings
 import com.coblax.examlock.StartupTrace
 import com.coblax.examlock.TrustedNetworkTimeCoordinator
+import com.coblax.examlock.clearStaleExamDeviceState
+import com.coblax.examlock.withExamQrBypasses
 import com.coblax.examlock.ui.admin.AdminPasswordDialog
 import com.coblax.examlock.ui.admin.ExamLockHomeScreen
 import com.coblax.examlock.ui.admin.InfoDialog
 import com.coblax.examlock.ui.admin.PublicPerformanceProfileDialog
 import com.coblax.examlock.ui.admin.ScanSourceDialog
+import com.coblax.examlock.ui.admin.examQrBypassTitles
 import com.coblax.examlock.ui.exam.ExamRuntimeHardeningDiagnostics
 import com.coblax.examlock.ui.exam.ExamRuntimeHardeningLogTag
 import com.coblax.examlock.ui.theme.AppColors
@@ -246,8 +249,8 @@ private fun deviceTimeQrBlockMessage(
         )
         status.finalVerdict == DeviceTimeSecurityVerdict.ClockDriftDetected -> localized(
             uiLanguage,
-            "A suspicious clock change was detected. Turn automatic date & time back on, then scan again.",
-            "Terdeteksi perubahan jam yang mencurigakan. Aktifkan kembali tanggal & waktu otomatis, lalu pindai lagi."
+            "The clock changed while the app was open. Keep automatic date & time on and stay online so the clock can be confirmed, then scan again.",
+            "Jam HP berubah saat aplikasi terbuka. Pastikan tanggal & waktu otomatis aktif dan HP terhubung internet agar jam bisa dicek, lalu pindai lagi."
         )
         else -> localized(
             uiLanguage,
@@ -816,10 +819,12 @@ internal fun AppHostRuntimeContent(
                         loadCurrentAdminSettings()
                     }
                     val recoveryDeviceTimeStatus = if (payload != null && recoveryAdminSettings != null) {
-                        inspectDeviceTimeSecurity(
+                        inspectDeviceTimeSecurityConfirmingClockChange(
                             context = context,
                             baseline = deviceTimeBaseline,
-                            bypassState = currentDeviceTimeBypassState(recoveryAdminSettings)
+                            bypassState = currentDeviceTimeBypassState(
+                                recoveryAdminSettings.withExamQrBypasses(payload.securityBypasses)
+                            )
                         )
                     } else {
                         null
@@ -925,7 +930,8 @@ internal fun AppHostRuntimeContent(
 
             try {
                 val activeSettings = loadCurrentAdminSettings()
-                val deviceTimeStatus = inspectDeviceTimeSecurity(
+                    .withExamQrBypasses(payload.securityBypasses)
+                val deviceTimeStatus = inspectDeviceTimeSecurityConfirmingClockChange(
                     context = context,
                     baseline = deviceTimeBaseline,
                     bypassState = currentDeviceTimeBypassState(activeSettings)
@@ -1110,6 +1116,19 @@ internal fun AppHostRuntimeContent(
             }
 
             null -> Unit
+        }
+    }
+
+    // Home means no exam is open, so anything an exam leaves on only while it runs is stale here.
+    LaunchedEffect(adminFlowUiState.currentScreen == AppScreen.Home, processDeathRecoveryPending) {
+        if (adminFlowUiState.currentScreen != AppScreen.Home || processDeathRecoveryPending) {
+            return@LaunchedEffect
+        }
+        val cleared = withContext(Dispatchers.IO) {
+            runCatching { clearStaleExamDeviceState(context) }.getOrDefault(emptyList())
+        }
+        if (cleared.isNotEmpty()) {
+            Log.w("AppHostExamCleanup", "STALE_EXAM_DEVICE_STATE_CLEARED ${cleared.joinToString(",")}")
         }
     }
 
@@ -1307,6 +1326,9 @@ internal fun AppHostRuntimeContent(
                 GeofenceShapeType.Polygon -> "Polygon | ${payload.locationPolicy.vertices.size} points"
                 else -> "Disabled"
             }
+            val qrBypassTitles = remember(payload.securityBypasses, uiLanguage) {
+                examQrBypassTitles(uiLanguage, payload.securityBypasses)
+            }
             AlertDialog(
                 onDismissRequest = {},
                 properties = DialogProperties(
@@ -1432,6 +1454,25 @@ internal fun AppHostRuntimeContent(
                                         fontSize = 12.sp,
                                         lineHeight = 16.sp
                                     )
+                                }
+                                if (qrBypassTitles.isNotEmpty()) {
+                                    Column(verticalArrangement = Arrangement.spacedBy(2.dp)) {
+                                        Text(
+                                            text = tr(
+                                                "Checks this QR turns off",
+                                                "Pengamanan yang dilonggarkan QR ini"
+                                            ),
+                                            color = AppColors.current.goldDark,
+                                            fontSize = 10.sp,
+                                            fontWeight = FontWeight.Bold
+                                        )
+                                        Text(
+                                            text = qrBypassTitles.joinToString(),
+                                            color = AppColors.current.textPrimary,
+                                            fontSize = 12.sp,
+                                            lineHeight = 16.sp
+                                        )
+                                    }
                                 }
                             }
                         }

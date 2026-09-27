@@ -67,8 +67,10 @@ import com.coblax.examlock.calculateQrExportBitmapSpec
 import com.coblax.examlock.config.PickerDialogColorScheme
 import com.coblax.examlock.ExamQrExportHelper
 import com.coblax.examlock.ExamQrLocationPolicy
+import com.coblax.examlock.ExamQrSecurityBypass
 import com.coblax.examlock.formatExamScheduleDateTime
 import com.coblax.examlock.GeofenceShapeType
+import com.coblax.examlock.i18n.LocalUiLanguage
 import com.coblax.examlock.i18n.tr
 import com.coblax.examlock.LocalLowRamProfile
 import com.coblax.examlock.QrCodeGenerator
@@ -299,8 +301,13 @@ internal fun GeneratedQrCard(
     examName: String,
     startTime: String,
     endTime: String,
-    locationPolicy: ExamQrLocationPolicy
+    locationPolicy: ExamQrLocationPolicy,
+    securityBypasses: Set<ExamQrSecurityBypass> = emptySet()
 ) {
+    val uiLanguage = LocalUiLanguage.current
+    val bypassTitles = remember(securityBypasses, uiLanguage) {
+        examQrBypassTitles(uiLanguage, securityBypasses)
+    }
     val context = LocalContext.current
     val lowRamProfile = LocalLowRamProfile.current
     val previewBitmapSize = when {
@@ -393,6 +400,12 @@ internal fun GeneratedQrCard(
                 GeofenceShapeType.Disabled -> tr("Disabled", "Nonaktif")
             }
         )
+        if (bypassTitles.isNotEmpty()) {
+            ExamDetailLine(
+                label = tr("Checks turned off", "Pengamanan dilonggarkan"),
+                value = bypassTitles.joinToString()
+            )
+        }
 
         Spacer(modifier = Modifier.height(20.dp))
 

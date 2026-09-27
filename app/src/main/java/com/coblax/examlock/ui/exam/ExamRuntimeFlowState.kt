@@ -15,6 +15,7 @@ import com.coblax.examlock.model.UiLanguage
 import com.coblax.examlock.runtime.getCurrentInputMethodPackage
 import com.coblax.examlock.runtime.isAllowedExamKeyboard
 import com.coblax.examlock.runtime.resolveKeyboardAppLabel
+import kotlinx.coroutines.CancellationException
 
 internal enum class StartExamPreflightStep {
     Idle,
@@ -38,7 +39,9 @@ internal class StartExamPreflightUiState(
     val step: MutableState<StartExamPreflightStep>,
     val detail: MutableState<String?>,
     val startedAtElapsedMs: MutableState<Long?>,
-    val slowHintVisible: MutableState<Boolean>
+    val slowHintVisible: MutableState<Boolean>,
+    /** The student pressed Cancel; the running start stops at its next step instead of going on. */
+    val cancelRequested: MutableState<Boolean> = mutableStateOf(false)
 )
 
 internal fun showStartExamPreflight(
@@ -49,6 +52,7 @@ internal fun showStartExamPreflight(
 ) {
     if (!state.visible.value) {
         state.startedAtElapsedMs.value = startedAtElapsedMs
+        state.cancelRequested.value = false
     }
     state.visible.value = true
     state.step.value = step
@@ -68,6 +72,24 @@ internal fun updateStartExamPreflightStep(
     state.detail.value = detail
     state.slowHintVisible.value = false
 }
+
+/**
+ * Cancel on the "Preparing exam" dialog. It used to only hide the dialog while the start kept
+ * running, so the exam could still start after the student had cancelled it.
+ */
+internal fun cancelStartExamPreflight(state: StartExamPreflightUiState) {
+    state.cancelRequested.value = true
+    hideStartExamPreflight(state)
+}
+
+/** Ends the running start (a coroutine) when the student cancelled it. */
+internal fun StartExamPreflightUiState.throwIfCancelledByStudent() {
+    if (cancelRequested.value) {
+        throw CancellationException(StartExamCancelledByStudent)
+    }
+}
+
+internal const val StartExamCancelledByStudent = "start_cancelled_by_student"
 
 internal fun hideStartExamPreflight(state: StartExamPreflightUiState) {
     state.visible.value = false

@@ -144,18 +144,14 @@ internal fun buildPreparationQuickFixActions(
                     onClick: () -> Unit = {}
                 ) {
                     val actionCode = code.ifBlank { "quick_fix_$priority" }
-                    val externalBlockedByPinning = isScreenPinningActive && opensExternalSettings
-                    val resolvedText = if (externalBlockedByPinning) {
-                        "$text - ${t("Turn off Screen Pinning first", "Matikan Screen Pinning dulu")}"
-                    } else {
-                        text
-                    }
+                    // Android will not open Settings over a pinned screen. Before the exam the pin
+                    // is only a setup step, so the button lets go of it and then opens Settings,
+                    // instead of sitting disabled and asking for a gesture most students do not know.
+                    val unpinsFirst = isScreenPinningActive && opensExternalSettings
+                    val unpinNote = t("unpins the screen first", "pin layar dilepas dulu")
+                    val resolvedText = if (unpinsFirst) "$text ($unpinNote)" else text
                     val resolvedFieldText = fieldText?.let { label ->
-                        if (externalBlockedByPinning) {
-                            "$label - ${t("Turn off Screen Pinning first", "Matikan Screen Pinning dulu")}"
-                        } else {
-                            label
-                        }
+                        if (unpinsFirst) "$label ($unpinNote)" else label
                     }
                     add(
                         PreparationQuickFixAction(
@@ -169,14 +165,24 @@ internal fun buildPreparationQuickFixActions(
                             fieldText = resolvedFieldText,
                             filled = filled,
                             loading = loading,
-                            enabled = enabled && !externalBlockedByPinning,
+                            enabled = enabled,
                             opensExternalSettings = opensExternalSettings,
                             isNotice = isNotice,
                             diagnosticDetails = diagnosticDetails,
-                            onClick = if (isNotice) {
-                                {}
-                            } else {
-                                { runQuickFix(target, actionCode, opensExternalSettings, onClick) }
+                            onClick = when {
+                                isNotice -> {
+                                    {}
+                                }
+                                unpinsFirst -> {
+                                    {
+                                        onReleaseScreenPinningThen {
+                                            runQuickFix(target, actionCode, opensExternalSettings, onClick)
+                                        }
+                                    }
+                                }
+                                else -> {
+                                    { runQuickFix(target, actionCode, opensExternalSettings, onClick) }
+                                }
                             }
                         )
                     )

@@ -1,5 +1,6 @@
 package com.coblax.examlock.viewmodel
 import com.coblax.examlock.ExamScheduleDefaults
+import com.coblax.examlock.ExamQrSecurityBypass
 import com.coblax.examlock.GeofenceShapeType
 import com.coblax.examlock.GeofenceVertex
 import com.coblax.examlock.model.AdminSettings
@@ -41,6 +42,8 @@ internal data class AdminFlowUiState(
     val selectedSecretTab: String = "setup",
     val selectedCustomQrTab: String = "exam",
     val customQrDraft: CustomQrDraftState = CustomQrDraftState(),
+    /** Custom QR reopened on the draft left last time, so the screen offers to start over. */
+    val customQrDraftResumed: Boolean = false,
     val showCircleMapEditor: Boolean = false,
     val showPolygonMapEditor: Boolean = false,
     val generatedQrPayload: String? = null,
@@ -71,8 +74,19 @@ internal data class CustomQrDraftState(
     val geofenceRadiusMeters: String = "",
     val polygonVertices: List<GeofenceVertex> = emptyList(),
     val geofenceCircleCenters: List<GeofenceVertex> = emptyList(),
-    val saveToDirectLink: Boolean = false
-)
+    val saveToDirectLink: Boolean = false,
+    val securityBypasses: Set<ExamQrSecurityBypass> = emptySet()
+) {
+    /** Whether this holds anything the admin typed or placed, as opposed to the defaults. */
+    val hasContent: Boolean
+        get() = examUrl.isNotBlank() ||
+            examName.isNotBlank() ||
+            geofenceEnabled ||
+            polygonVertices.isNotEmpty() ||
+            geofenceCircleCenters.isNotEmpty() ||
+            saveToDirectLink ||
+            securityBypasses.isNotEmpty()
+}
 
 internal sealed interface AdminFlowUiAction {
     data class SetCurrentScreen(val screen: AppScreen) : AdminFlowUiAction
@@ -142,31 +156,25 @@ internal class AdminFlowViewModel : ViewModel() {
                     selectedSecretTab = "setup"
                 )
             }
+            // Leaving Custom QR used to throw the whole draft away (URL, schedule, drawn exam area,
+            // bypasses) with no way back, so a stray Back cost all of it. The draft now waits for
+            // the admin; starting over is an explicit choice (ResetCustomQrDraft).
             AdminFlowUiAction.OpenCustomQrAdmin -> _uiState.update {
                 it.copy(
                     currentScreen = AppScreen.CustomQrAdmin,
                     showCustomQrAdmin = true,
                     showSecretAdmin = false,
-                    selectedCustomQrTab = "exam",
-                    customQrDraft = CustomQrDraftState(),
+                    customQrDraftResumed = it.customQrDraft.hasContent,
                     showCircleMapEditor = false,
-                    showPolygonMapEditor = false,
-                    generatedQrPayload = null,
-                    generationStatus = null,
-                    generationIsError = false
+                    showPolygonMapEditor = false
                 )
             }
             AdminFlowUiAction.CloseCustomQrAdmin -> _uiState.update {
                 it.copy(
                     currentScreen = AppScreen.Home,
                     showCustomQrAdmin = false,
-                    selectedCustomQrTab = "exam",
-                    customQrDraft = CustomQrDraftState(),
                     showCircleMapEditor = false,
-                    showPolygonMapEditor = false,
-                    generatedQrPayload = null,
-                    generationStatus = null,
-                    generationIsError = false
+                    showPolygonMapEditor = false
                 )
             }
             AdminFlowUiAction.ShowScanSourceDialog -> _uiState.update { it.copy(showScanSourceDialog = true) }
@@ -222,7 +230,18 @@ internal class AdminFlowViewModel : ViewModel() {
             is AdminFlowUiAction.SelectSecretTab -> _uiState.update { it.copy(selectedSecretTab = action.tab) }
             is AdminFlowUiAction.SelectCustomQrTab -> _uiState.update { it.copy(selectedCustomQrTab = action.tab) }
             is AdminFlowUiAction.SetCustomQrDraft -> _uiState.update { it.copy(customQrDraft = action.draft) }
-            AdminFlowUiAction.ResetCustomQrDraft -> _uiState.update { it.copy(customQrDraft = CustomQrDraftState()) }
+            AdminFlowUiAction.ResetCustomQrDraft -> _uiState.update {
+                it.copy(
+                    selectedCustomQrTab = "exam",
+                    customQrDraft = CustomQrDraftState(),
+                    customQrDraftResumed = false,
+                    showCircleMapEditor = false,
+                    showPolygonMapEditor = false,
+                    generatedQrPayload = null,
+                    generationStatus = null,
+                    generationIsError = false
+                )
+            }
             is AdminFlowUiAction.SetShowCircleMapEditor -> _uiState.update {
                 it.copy(showCircleMapEditor = action.show)
             }

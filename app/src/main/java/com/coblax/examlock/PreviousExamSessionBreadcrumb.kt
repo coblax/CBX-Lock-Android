@@ -31,15 +31,22 @@ internal data class PreviousExamSessionBreadcrumb(
 ) {
     val latestRecoveryHint: String?
         get() {
-            val lastRecovery = entries.lastOrNull {
+            // Entries are appended in order, so position says which came last. elapsedRealtime
+            // restarts at every reboot: compared across one, a clean exit after the reboot looked
+            // older than the crash before it, and the recovery hint never went away.
+            val lastRecoveryIndex = entries.indexOfLast {
                 it.code == PreviousExamSessionBreadcrumbCodes.RendererGone ||
                     it.code == PreviousExamSessionBreadcrumbCodes.CleanupTimeout
-            } ?: return null
-            val lastCleanExit = entries.lastOrNull {
+            }
+            if (lastRecoveryIndex < 0) {
+                return null
+            }
+            val lastRecovery = entries[lastRecoveryIndex]
+            val lastCleanExitIndex = entries.indexOfLast {
                 it.code == PreviousExamSessionBreadcrumbCodes.CleanupSucceeded ||
                     it.code == PreviousExamSessionBreadcrumbCodes.ExitCompleted
             }
-            if (lastCleanExit != null && lastCleanExit.elapsedRealtimeMs >= lastRecovery.elapsedRealtimeMs) {
+            if (lastCleanExitIndex > lastRecoveryIndex) {
                 return null
             }
             return when (lastRecovery.code) {

@@ -407,7 +407,7 @@ internal fun ExamRuntimeSessionRenderedUi(
                 onRefreshNetworkStatus = onRefreshNetworkStatus,
                 onDismissBugReportFeedback = onDismissBugReportFeedback,
                 onCancelPreflight = {
-                    hideStartExamPreflight(startExamPreflightState)
+                    cancelStartExamPreflight(startExamPreflightState)
                 },
                 lockTaskRequestPending = lockTaskRequestPending
             )

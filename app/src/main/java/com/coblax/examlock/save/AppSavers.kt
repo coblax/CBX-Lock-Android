@@ -2,10 +2,12 @@ package com.coblax.examlock.save
 
 import androidx.compose.runtime.saveable.Saver
 import com.coblax.examlock.ExamQrPayload
+import com.coblax.examlock.ExamQrSecurityBypass
 import com.coblax.examlock.LocationPolicySource
 import com.coblax.examlock.model.DiagnosticEvent
 import com.coblax.examlock.persistence.deserializeExamLocationPolicy
 import com.coblax.examlock.persistence.serializeExamLocationPolicy
+import java.util.TimeZone
 
 internal val DiagnosticEventLogSaver = Saver<List<DiagnosticEvent>, Any>(
     save = { events ->
@@ -47,7 +49,9 @@ internal val ExamQrPayloadSaver = Saver<ExamQrPayload?, Any>(
                 it.issuedAt,
                 it.saveToDirectLink,
                 it.locationPolicy?.let(::serializeExamLocationPolicy),
-                it.locationPolicySource.name
+                it.locationPolicySource.name,
+                it.timezoneId,
+                ExamQrSecurityBypass.toMask(it.securityBypasses)
             )
         }
     },
@@ -71,7 +75,9 @@ internal val ExamQrPayloadSaver = Saver<ExamQrPayload?, Any>(
                     LocationPolicySource.CustomQr
                 } else {
                     LocationPolicySource.DisabledNoPolicy
-                }
+                },
+            timezoneId = values.getOrNull(8) as? String ?: TimeZone.getDefault().id,
+            securityBypasses = ExamQrSecurityBypass.fromMask(values.getOrNull(9) as? Long ?: 0L)
         )
     }
 )

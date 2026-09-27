@@ -156,8 +156,8 @@ internal fun buildPreparationChecklistStatusText(
             "Aktifkan zona waktu otomatis, lalu tekan Refresh."
         )
         deviceTimeSecurityStatus.finalVerdict == DeviceTimeSecurityVerdict.ClockDriftDetected -> t(
-            "Enable automatic time, then refresh the check before starting the exam.",
-            "Aktifkan waktu otomatis, lalu refresh pemeriksaan sebelum mulai ujian."
+            "Keep automatic time on and stay online so the clock can be confirmed, then refresh the check.",
+            "Pastikan waktu otomatis aktif dan HP terhubung internet agar jam bisa dicek, lalu refresh pemeriksaan."
         )
         else -> null
     }

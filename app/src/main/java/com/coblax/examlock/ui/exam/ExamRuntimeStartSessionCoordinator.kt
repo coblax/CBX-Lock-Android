@@ -182,10 +182,13 @@ internal suspend fun runExamRuntimeStartPrechecks(
         return
     }
     fun updatePreflight(step: StartExamPreflightStep, detail: String? = null) {
+        // Cancel on the dialog ends the start here, at the next step.
+        flowUiState.startExamPreflight.throwIfCancelledByStudent()
         callbacks.updateStartExamPreflight(step, detail)
     }
 
     fun applyBlock(message: StartExamBlockMessage) {
+        flowUiState.startExamPreflight.throwIfCancelledByStudent()
         callbacks.hideStartExamPreflight()
         callbacks.applyStartExamBlockMessage(message)
     }
@@ -250,6 +253,24 @@ internal suspend fun runExamRuntimeStartPrechecks(
     }
 }
 
+/**
+ * The device time check for Start. A clock change is first checked against network time, so
+ * a student who just turned automatic time back on is not refused for the jump that caused.
+ */
+private suspend fun refreshDeviceTimeConfirmingClockChange(
+    context: Context,
+    trigger: String,
+    emitDiagnosticEvent: Boolean,
+    refresh: (String, Boolean) -> DeviceTimeSecurityStatus
+): DeviceTimeSecurityStatus {
+    val status = refresh(trigger, emitDiagnosticEvent)
+    if (!status.clockChangeMayBeAFix) {
+        return status
+    }
+    TrustedNetworkTimeCoordinator.currentNetworkNowMillis(context, forceRefresh = true) ?: return status
+    return refresh("_network_confirm", emitDiagnosticEvent)
+}
+
 private suspend fun runExamRuntimeStartPrechecksBody(
     context: Context,
     uiLanguage: com.coblax.examlock.model.UiLanguage,
@@ -292,7 +313,12 @@ private suspend fun runExamRuntimeStartPrechecksBody(
     applyBlock: (StartExamBlockMessage) -> Unit,
     callbacks: ExamRuntimeStartPrecheckCallbacks
 ) {
-    callbacks.recordAction("START_EXAM_PRESSED", "-", DiagnosticEventLevel.INFO)
+    val qrBypassDetail = if (payload.securityBypasses.isEmpty()) {
+        "-"
+    } else {
+        "qr_bypass=" + payload.securityBypasses.joinToString(",") { it.key }
+    }
+    callbacks.recordAction("START_EXAM_PRESSED", qrBypassDetail, DiagnosticEventLevel.INFO)
     updatePreflight(StartExamPreflightStep.TamperAndIntegrity, null)
     val startVirtualEnvironmentDiagnostics = getVirtualEnvironmentDiagnosticsOnIo(
         context = context,
@@ -410,7 +436,12 @@ private suspend fun runExamRuntimeStartPrechecksBody(
     }
 
     updatePreflight(StartExamPreflightStep.DeviceTime, null)
-    val startDeviceTimeStatus = callbacks.refreshDeviceTimeSecurity("start_exam_precheck", true)
+    val startDeviceTimeStatus = refreshDeviceTimeConfirmingClockChange(
+        context = context,
+        trigger = "start_exam_precheck",
+        emitDiagnosticEvent = true,
+        refresh = callbacks.refreshDeviceTimeSecurity
+    )
     val startDeviceTimeBlock = resolveStartExamDeviceTimeBlockMessage(
         uiLanguage = uiLanguage,
         trigger = "start_exam_precheck",
@@ -1030,7 +1061,8 @@ internal class ExamRuntimeStartLocationValidationCallbacks(
     val applyStartExamBlockMessage: (StartExamBlockMessage) -> Unit,
     val refreshDeviceTimeSecurity: (String, Boolean) -> DeviceTimeSecurityStatus,
     val completeStartExamSessionAfterPrechecks: () -> Unit,
-    val debugLogExamStart: (String) -> Unit
+    val debugLogExamStart: (String) -> Unit,
+    val isStartCancelledByStudent: () -> Boolean = { false }
 )
 
 internal fun launchExamRuntimeStartLocationValidation(
@@ -1055,11 +1087,19 @@ internal fun launchExamRuntimeStartLocationValidation(
         )
     }
 
+    fun throwIfCancelled() {
+        if (callbacks.isStartCancelledByStudent()) {
+            throw CancellationException(StartExamCancelledByStudent)
+        }
+    }
+
     fun updatePreflight(step: StartExamPreflightStep, detail: String? = null) {
+        throwIfCancelled()
         callbacks.updateStartExamPreflight(step, detail)
     }
 
     fun applyBlock(message: StartExamBlockMessage) {
+        throwIfCancelled()
         callbacks.hideStartExamPreflight()
         callbacks.applyStartExamBlockMessage(message)
     }
@@ -1090,9 +1130,11 @@ internal fun launchExamRuntimeStartLocationValidation(
             }
 
             updatePreflight(StartExamPreflightStep.DeviceTime)
-            val finalDeviceTimeStatus = callbacks.refreshDeviceTimeSecurity(
-                "start_exam_final",
-                false
+            val finalDeviceTimeStatus = refreshDeviceTimeConfirmingClockChange(
+                context = context,
+                trigger = "start_exam_final",
+                emitDiagnosticEvent = false,
+                refresh = callbacks.refreshDeviceTimeSecurity
             )
             val finalDeviceTimeBlock = resolveStartExamDeviceTimeBlockMessage(
                 uiLanguage = uiLanguage,
@@ -1137,6 +1179,9 @@ internal fun launchExamRuntimeStartLocationValidation(
                     throwable = throwable
                 )
             )
+        } finally {
+            // Cancelled or not, a validation left "in flight" kept Start disabled for good.
+            callbacks.setGeofenceStartValidationInFlight(false)
         }
     }
 }

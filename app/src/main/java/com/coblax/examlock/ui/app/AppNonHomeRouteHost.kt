@@ -76,7 +76,9 @@ internal fun AppNonHomeRouteHost(
                 generationIsError = uiState.generationIsError,
                 onGenerationIsErrorChange = {
                     dispatch(AdminFlowUiAction.SetGenerationIsError(it))
-                }
+                },
+                draftResumed = uiState.customQrDraftResumed,
+                onStartNewDraft = { dispatch(AdminFlowUiAction.ResetCustomQrDraft) }
             )
         }
 

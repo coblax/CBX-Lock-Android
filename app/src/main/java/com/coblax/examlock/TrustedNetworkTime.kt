@@ -63,6 +63,13 @@ internal object TrustedNetworkTimeCoordinator {
         return null
     }
 
+    /** The last network time fetched, while still fresh, without touching the network. */
+    fun cachedNowMillis(nowElapsedRealtimeMillis: Long = SystemClock.elapsedRealtime()): Long? {
+        return cachedSnapshot
+            ?.takeIf { it.isFresh(nowElapsedRealtimeMillis) }
+            ?.currentUnixTimeMillis(nowElapsedRealtimeMillis)
+    }
+
     fun clear() {
         cachedSnapshot = null
     }

@@ -72,7 +72,9 @@ import androidx.compose.ui.unit.Dp
 import androidx.compose.ui.unit.dp
 import com.coblax.examlock.LocalLowRamProfile
 import com.coblax.examlock.i18n.LocalUiLanguage
+import com.coblax.examlock.i18n.localized
 import com.coblax.examlock.i18n.tr
+import com.coblax.examlock.model.UiLanguage
 import com.coblax.examlock.ui.theme.AppColors
 import com.coblax.examlock.ui.theme.ActionColors
 import com.coblax.examlock.ui.theme.AppTextStyles
@@ -213,10 +215,41 @@ internal fun PreparationTopBar(
 // Overall status
 // ──────────────────────────────────────────────────────────────
 
+/**
+ * What the status card says about relaxed checks, or null when none are relaxed. Checks the
+ * exam QR turns off are named, so a proctor can tell them from a device-wide admin bypass.
+ */
+internal fun preparationBypassNote(
+    uiLanguage: UiLanguage,
+    hasBypassIndicators: Boolean,
+    qrBypassTitles: List<String>,
+    adminBypassBeyondQr: Boolean
+): String? {
+    fun t(english: String, indonesian: String) = localized(uiLanguage, english, indonesian)
+    val relaxedByQr = qrBypassTitles.joinToString()
+    return when {
+        qrBypassTitles.isEmpty() && !hasBypassIndicators -> null
+        qrBypassTitles.isEmpty() -> t(
+            "Admin bypass is active. Everything is still logged.",
+            "Bypass admin aktif. Semua tetap dicatat."
+        )
+        adminBypassBeyondQr -> t(
+            "Admin bypass is active, and the exam QR turns off: $relaxedByQr. Everything is still logged.",
+            "Bypass admin aktif, dan QR ujian melonggarkan: $relaxedByQr. Semua tetap dicatat."
+        )
+        else -> t(
+            "The exam QR turns off: $relaxedByQr. Everything is still logged.",
+            "QR ujian melonggarkan: $relaxedByQr. Semua tetap dicatat."
+        )
+    }
+}
+
 @Composable
 internal fun PreparationStatusCard(
     overview: PreparationOverview,
     hasBypassIndicators: Boolean,
+    qrBypassTitles: List<String> = emptyList(),
+    adminBypassBeyondQr: Boolean = false,
     modifier: Modifier = Modifier
 ) {
     val tokens = ScopedUiTokens.current
@@ -350,7 +383,13 @@ internal fun PreparationStatusCard(
         if (largeFont) {
             messageText()
         }
-        if (hasBypassIndicators) {
+        val bypassNote = preparationBypassNote(
+            uiLanguage = LocalUiLanguage.current,
+            hasBypassIndicators = hasBypassIndicators,
+            qrBypassTitles = qrBypassTitles,
+            adminBypassBeyondQr = adminBypassBeyondQr
+        )
+        if (bypassNote != null) {
             Row(
                 verticalAlignment = Alignment.CenterVertically,
                 horizontalArrangement = Arrangement.spacedBy(6.dp)
@@ -362,10 +401,7 @@ internal fun PreparationStatusCard(
                     modifier = Modifier.size(16.dp)
                 )
                 Text(
-                    text = tr(
-                        "Admin bypass is active. Everything is still logged.",
-                        "Bypass admin aktif. Semua tetap dicatat."
-                    ),
+                    text = bypassNote,
                     color = AppColors.current.textSecondary,
                     style = AppTextStyles.diagnostic
                 )
@@ -809,6 +845,7 @@ internal fun PreparationStartBar(
     webViewSessionResetInFlight: Boolean,
     hasBypassIndicators: Boolean,
     onStartExam: () -> Unit,
+    bypassFromQrOnly: Boolean = false,
     modifier: Modifier = Modifier
 ) {
     val tokens = ScopedUiTokens.current
@@ -823,6 +860,7 @@ internal fun PreparationStartBar(
             "Menyiapkan browser ujian yang bersih…"
         )
         busy -> null
+        canStart && bypassFromQrOnly -> tr("Exam QR bypass is active.", "Bypass dari QR ujian aktif.")
         canStart && hasBypassIndicators -> tr("Admin bypass is active.", "Bypass admin aktif.")
         canStart -> null
         blockingCount > 0 -> tr(
@@ -835,7 +873,8 @@ internal fun PreparationStartBar(
         )
     }
     val buttonColors = when {
-        hasBypassIndicators -> ActionColors(container = colors.gold, content = colors.blueDeep)
+        hasBypassIndicators || bypassFromQrOnly ->
+            ActionColors(container = colors.gold, content = colors.blueDeep)
         colors.isDark -> ActionColors(container = colors.safeEmphasis, content = colors.background)
         else -> ActionColors(container = colors.safeStrong, content = colors.onDark)
     }
