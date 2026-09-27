@@ -25,3 +25,4 @@ dependencyResolutionManagement {
 rootProject.name = "COBLAX EXAM LOCK"
 include(":app")
 include(":baselineprofile")
+include(":installer")

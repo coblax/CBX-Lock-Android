@@ -1,0 +1,13 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <color name="installer_background">#FFF4F6FB</color>
+    <color name="installer_surface">#FFFFFFFF</color>
+    <color name="installer_outline">#FFD6DCE8</color>
+    <color name="installer_text">#FF111827</color>
+    <color name="installer_text_secondary">#FF4B5563</color>
+    <color name="installer_accent">#FF2563EB</color>
+    <color name="installer_on_accent">#FFFFFFFF</color>
+    <color name="installer_success">#FF15803D</color>
+    <color name="installer_warning">#FFB45309</color>
+    <color name="installer_danger">#FFB91C1C</color>
+</resources>
