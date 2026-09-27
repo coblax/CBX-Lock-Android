@@ -159,6 +159,9 @@ android {
                 storePassword = releaseKeystorePassword
                 keyAlias = releaseKeyAlias
                 keyPassword = releaseKeyPassword
+                // Android 7+ verifies v2/v3 and ignores v1, so v1 costs nothing there; it is
+                // kept for installers and security scanners on some OEM phones that still read it.
+                enableV1Signing = true
                 enableV2Signing = true
                 enableV3Signing = true
                 enableV4Signing = true
