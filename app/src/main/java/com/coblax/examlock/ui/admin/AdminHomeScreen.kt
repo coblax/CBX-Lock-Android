@@ -9,6 +9,7 @@ import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.BoxWithConstraints
 import androidx.compose.foundation.layout.Column
+import androidx.compose.foundation.layout.FlowRow
 import androidx.compose.foundation.layout.IntrinsicSize
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
@@ -42,6 +43,7 @@ import androidx.compose.material.icons.rounded.BatteryChargingFull
 import androidx.compose.material.icons.rounded.BluetoothDisabled
 import androidx.compose.material.icons.rounded.BrightnessAuto
 import androidx.compose.material.icons.rounded.Close
+import androidx.compose.material.icons.rounded.Code
 import androidx.compose.material.icons.rounded.DarkMode
 import androidx.compose.material.icons.rounded.LightMode
 import androidx.compose.material.icons.rounded.Link
@@ -49,6 +51,8 @@ import androidx.compose.material.icons.rounded.LocationOn
 import androidx.compose.material.icons.rounded.QrCodeScanner
 import androidx.compose.material.icons.rounded.Settings
 import androidx.compose.material.icons.rounded.Speed
+import androidx.compose.material.icons.rounded.TaskAlt
+import androidx.compose.material.icons.rounded.Verified
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
 import androidx.compose.material3.Text
@@ -156,7 +160,7 @@ internal fun ExamLockHomeScreen(
             val itemModifier = Modifier
                 .widthIn(max = HomeContentMaxWidth)
                 .fillMaxWidth()
-            Column(
+            BoxWithConstraints(
                 modifier = Modifier
                     .fillMaxSize()
                     // While settings are open the sheet is modal for TalkBack too.
@@ -164,37 +168,47 @@ internal fun ExamLockHomeScreen(
                     .statusBarsPadding()
                     .navigationBarsPadding()
                     .windowInsetsPadding(WindowInsets.displayCutout.only(WindowInsetsSides.Horizontal))
-                    .verticalScroll(rememberScrollState())
-                    .padding(horizontal = adaptiveScreenPadding(), vertical = 12.dp),
-                horizontalAlignment = Alignment.CenterHorizontally
             ) {
-                HomeTopBar(
-                    uiLanguage = uiLanguage,
-                    onUiLanguageChange = onUiLanguageChange,
-                    onOpenSettings = { settingsOpen = true },
-                    modifier = itemModifier
-                )
-                Spacer(modifier = Modifier.height(24.dp))
-                HomeGreeting(modifier = itemModifier)
-                Spacer(modifier = Modifier.height(16.dp))
-                HomeScanCard(onClick = onScanExam, modifier = itemModifier)
-                Spacer(modifier = Modifier.height(12.dp))
-                HomeSecondaryActions(
-                    directLinkLabel = directLinkLabel,
-                    onOpenFastExam = onOpenFastExam,
-                    onOpenAdmin = onOpenAdmin,
-                    modifier = itemModifier
-                )
-                if (showDeferredChrome) {
-                    Spacer(modifier = Modifier.height(20.dp))
-                    HomeTipsCard(modifier = itemModifier)
+                val viewportHeight = maxHeight
+                Column(
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .verticalScroll(rememberScrollState())
+                        // At least one screen tall, so the footer rests on the bottom edge when the
+                        // content is short and simply follows it when the content scrolls.
+                        .heightIn(min = viewportHeight)
+                        .padding(horizontal = adaptiveScreenPadding(), vertical = 12.dp),
+                    horizontalAlignment = Alignment.CenterHorizontally
+                ) {
+                    HomeTopBar(
+                        uiLanguage = uiLanguage,
+                        onUiLanguageChange = onUiLanguageChange,
+                        onOpenSettings = { settingsOpen = true },
+                        modifier = itemModifier
+                    )
+                    Spacer(modifier = Modifier.height(24.dp))
+                    HomeGreeting(modifier = itemModifier)
+                    Spacer(modifier = Modifier.height(16.dp))
+                    HomeScanCard(onClick = onScanExam, modifier = itemModifier)
+                    Spacer(modifier = Modifier.height(12.dp))
+                    HomeSecondaryActions(
+                        directLinkLabel = directLinkLabel,
+                        onOpenFastExam = onOpenFastExam,
+                        onOpenAdmin = onOpenAdmin,
+                        modifier = itemModifier
+                    )
+                    if (showDeferredChrome) {
+                        Spacer(modifier = Modifier.height(20.dp))
+                        HomeTipsCard(modifier = itemModifier)
+                    }
+                    Spacer(modifier = Modifier.height(24.dp))
+                    Spacer(modifier = Modifier.weight(1f))
+                    HomeFooter(
+                        onSecretTap = onSecretTap,
+                        showDeveloperLink = showDeferredChrome,
+                        modifier = itemModifier
+                    )
                 }
-                Spacer(modifier = Modifier.height(24.dp))
-                HomeFooter(
-                    onSecretTap = onSecretTap,
-                    showDeveloperLink = showDeferredChrome,
-                    modifier = itemModifier
-                )
             }
 
             InScreenSheetHost(
@@ -568,42 +582,61 @@ private fun HomeActionTile(
 @Composable
 private fun HomeTipsCard(modifier: Modifier = Modifier) {
     val tokens = ScopedUiTokens.current
+    val colors = AppColors.current
     val shape = RoundedCornerShape(tokens.radiusLarge)
+    val tips = listOf(
+        Icons.Rounded.BatteryChargingFull to tr(
+            "Make sure the battery is charged, or plug in a charger.",
+            "Pastikan baterai cukup, atau pasang charger."
+        ),
+        Icons.Rounded.BluetoothDisabled to tr(
+            "Turn off Bluetooth, VPN, and screen recorders.",
+            "Matikan Bluetooth, VPN, dan perekam layar."
+        ),
+        Icons.Rounded.LocationOn to tr(
+            "Allow location if the app asks for it.",
+            "Izinkan lokasi jika aplikasi memintanya."
+        )
+    )
     Column(
         modifier = modifier
             .clip(shape)
-            .background(AppColors.current.surfaceSoft)
-            .border(1.dp, AppColors.current.outlineSubtle, shape)
-            .padding(horizontal = 16.dp, vertical = 14.dp),
-        verticalArrangement = Arrangement.spacedBy(10.dp)
+            .background(colors.cardBg)
+            .border(1.dp, colors.outlineSubtle, shape)
+            .padding(vertical = 6.dp)
     ) {
-        Text(
-            text = tr("Before the exam", "Sebelum ujian"),
-            color = AppColors.current.textSecondary,
-            style = AppTextStyles.label.copy(fontWeight = FontWeight.SemiBold),
-            modifier = Modifier.semantics { heading() }
-        )
-        HomeTipRow(
-            icon = Icons.Rounded.BatteryChargingFull,
-            text = tr(
-                "Make sure the battery is charged, or plug in a charger.",
-                "Pastikan baterai cukup, atau pasang charger."
+        Row(
+            modifier = Modifier
+                .fillMaxWidth()
+                .padding(start = 16.dp, end = 16.dp, top = 8.dp, bottom = 4.dp),
+            verticalAlignment = Alignment.CenterVertically,
+            horizontalArrangement = Arrangement.spacedBy(8.dp)
+        ) {
+            Icon(
+                imageVector = Icons.Rounded.TaskAlt,
+                contentDescription = null,
+                tint = colors.brandText,
+                modifier = Modifier.size(18.dp)
             )
-        )
-        HomeTipRow(
-            icon = Icons.Rounded.BluetoothDisabled,
-            text = tr(
-                "Turn off Bluetooth, VPN, and screen recorders.",
-                "Matikan Bluetooth, VPN, dan perekam layar."
+            Text(
+                text = tr("Before the exam", "Sebelum ujian"),
+                color = colors.textSecondary,
+                style = AppTextStyles.label.copy(fontWeight = FontWeight.SemiBold),
+                modifier = Modifier.semantics { heading() }
             )
-        )
-        HomeTipRow(
-            icon = Icons.Rounded.LocationOn,
-            text = tr(
-                "Allow location if the app asks for it.",
-                "Izinkan lokasi jika aplikasi memintanya."
-            )
-        )
+        }
+        tips.forEachIndexed { index, (icon, text) ->
+            if (index > 0) {
+                Box(
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .padding(start = 64.dp, end = 16.dp)
+                        .height(1.dp)
+                        .background(colors.outlineSubtle)
+                )
+            }
+            HomeTipRow(icon = icon, text = text)
+        }
     }
 }
 
@@ -612,24 +645,42 @@ private fun HomeTipRow(
     icon: ImageVector,
     text: String
 ) {
+    val colors = AppColors.current
     Row(
+        modifier = Modifier
+            .fillMaxWidth()
+            .padding(horizontal = 16.dp, vertical = 10.dp),
         verticalAlignment = Alignment.CenterVertically,
         horizontalArrangement = Arrangement.spacedBy(12.dp)
     ) {
-        Icon(
-            imageVector = icon,
-            contentDescription = null,
-            tint = AppColors.current.brandText,
-            modifier = Modifier.size(20.dp)
-        )
+        Box(
+            modifier = Modifier
+                .size(36.dp)
+                .clip(RoundedCornerShape(10.dp))
+                .background(colors.blueTint),
+            contentAlignment = Alignment.Center
+        ) {
+            Icon(
+                imageVector = icon,
+                contentDescription = null,
+                tint = colors.brandText,
+                modifier = Modifier.size(20.dp)
+            )
+        }
         Text(
             text = text,
-            color = AppColors.current.textPrimary,
-            style = AppTextStyles.bodyCompact
+            color = colors.textPrimary,
+            style = AppTextStyles.bodyCompact,
+            modifier = Modifier.weight(1f)
         )
     }
 }
 
+/**
+ * The status line at the bottom: performance profile, version and the developer link as
+ * chips on one row. They wrap only when a narrow phone or a large font needs the room, so no
+ * label is ever cut short.
+ */
 @Composable
 private fun HomeFooter(
     onSecretTap: () -> Unit,
@@ -637,32 +688,39 @@ private fun HomeFooter(
     modifier: Modifier = Modifier
 ) {
     val context = LocalContext.current
-    Column(
+    val colors = AppColors.current
+    val pill = RoundedCornerShape(ScopedUiTokens.current.radiusPill)
+    val chip = Modifier
+        .clip(pill)
+        .background(colors.surfaceSoft)
+        .border(1.dp, colors.outlineSubtle, pill)
+    FlowRow(
         modifier = modifier,
-        horizontalAlignment = Alignment.CenterHorizontally,
-        verticalArrangement = Arrangement.spacedBy(4.dp)
+        horizontalArrangement = Arrangement.spacedBy(8.dp, Alignment.CenterHorizontally),
+        verticalArrangement = Arrangement.spacedBy(8.dp)
     ) {
-        Row(
-            verticalAlignment = Alignment.CenterVertically,
-            horizontalArrangement = Arrangement.spacedBy(10.dp)
-        ) {
-            HomeProfileBadge(onSecretTap = onSecretTap)
-            Text(
-                text = "v${BuildConfig.VERSION_NAME}",
-                color = AppColors.current.textMuted,
-                style = AppTextStyles.label
-            )
-        }
+        HomeProfileBadge(onSecretTap = onSecretTap, modifier = chip)
+        HomeVersionSegment(modifier = chip)
         if (showDeveloperLink) {
-            TextButton(onClick = { openExternalUrl(context, DeveloperGithubUrl) }) {
-                Text(
-                    text = "github.com/coblax",
-                    color = AppColors.current.brandText,
-                    style = AppTextStyles.label
-                )
-            }
+            HomeDeveloperSegment(onClick = { openExternalUrl(context, DeveloperGithubUrl) }, modifier = chip)
         }
     }
+}
+
+@Composable
+private fun HomeFooterSegmentContent(
+    leading: @Composable () -> Unit,
+    text: String,
+    color: Color
+) {
+    leading()
+    Text(
+        text = text,
+        color = color,
+        style = AppTextStyles.label.copy(fontWeight = FontWeight.SemiBold),
+        maxLines = 1,
+        overflow = TextOverflow.Ellipsis
+    )
 }
 
 /**
@@ -670,7 +728,7 @@ private fun HomeFooter(
  * (four quick taps), so it deliberately gives no visual tap feedback.
  */
 @Composable
-private fun HomeProfileBadge(onSecretTap: () -> Unit) {
+private fun HomeProfileBadge(onSecretTap: () -> Unit, modifier: Modifier = Modifier) {
     val colors = AppColors.current
     val lowRamProfile = LocalLowRamProfile.current
     val dotColor = when (lowRamProfile.tier) {
@@ -679,33 +737,86 @@ private fun HomeProfileBadge(onSecretTap: () -> Unit) {
         LowRamTier.Ultra -> colors.goldAccent
     }
     Row(
-        modifier = Modifier
+        modifier = modifier
             .testTag(HomeUiTestTags.ProfileBadge)
-            .clip(RoundedCornerShape(ScopedUiTokens.current.radiusPill))
-            .background(colors.surfaceSoft)
-            .border(1.dp, colors.outlineMedium, RoundedCornerShape(ScopedUiTokens.current.radiusPill))
             .clickable(
                 interactionSource = remember { MutableInteractionSource() },
                 indication = null,
                 role = Role.Button,
                 onClick = onSecretTap
             )
-            .heightIn(min = 32.dp)
-            .padding(horizontal = 10.dp, vertical = 6.dp),
+            .heightIn(min = 48.dp)
+            .padding(horizontal = 12.dp),
         verticalAlignment = Alignment.CenterVertically,
-        horizontalArrangement = Arrangement.spacedBy(6.dp)
+        horizontalArrangement = Arrangement.spacedBy(8.dp, Alignment.CenterHorizontally)
     ) {
-        Box(
-            modifier = Modifier
-                .size(7.dp)
-                .clip(CircleShape)
-                .background(dotColor)
-        )
-        Text(
+        HomeFooterSegmentContent(
+            leading = {
+                Box(
+                    modifier = Modifier
+                        .size(8.dp)
+                        .clip(CircleShape)
+                        .background(dotColor)
+                )
+            },
             text = lowRamProfileBadgeLabel(lowRamProfile),
-            color = colors.textSecondary,
-            style = AppTextStyles.label.copy(fontWeight = FontWeight.SemiBold),
-            maxLines = 1
+            color = colors.textSecondary
+        )
+    }
+}
+
+@Composable
+private fun HomeVersionSegment(modifier: Modifier = Modifier) {
+    val colors = AppColors.current
+    Row(
+        modifier = modifier
+            .heightIn(min = 48.dp)
+            .padding(horizontal = 14.dp)
+            .semantics(mergeDescendants = true) {},
+        verticalAlignment = Alignment.CenterVertically,
+        horizontalArrangement = Arrangement.spacedBy(6.dp, Alignment.CenterHorizontally)
+    ) {
+        HomeFooterSegmentContent(
+            leading = {
+                Icon(
+                    imageVector = Icons.Rounded.Verified,
+                    contentDescription = null,
+                    tint = colors.brandText,
+                    modifier = Modifier.size(16.dp)
+                )
+            },
+            text = "v${BuildConfig.VERSION_NAME}",
+            color = colors.textSecondary
+        )
+    }
+}
+
+@Composable
+private fun HomeDeveloperSegment(onClick: () -> Unit, modifier: Modifier = Modifier) {
+    val colors = AppColors.current
+    Row(
+        modifier = modifier
+            .clickable(
+                role = Role.Button,
+                onClickLabel = tr("Open the developer's GitHub", "Buka GitHub pengembang"),
+                onClick = onClick
+            )
+            .heightIn(min = 48.dp)
+            .padding(horizontal = 12.dp),
+        verticalAlignment = Alignment.CenterVertically,
+        horizontalArrangement = Arrangement.spacedBy(6.dp, Alignment.CenterHorizontally)
+    ) {
+        HomeFooterSegmentContent(
+            leading = {
+                Icon(
+                    imageVector = Icons.Rounded.Code,
+                    contentDescription = null,
+                    tint = colors.brandText,
+                    modifier = Modifier.size(16.dp)
+                )
+            },
+            text = "coblax",
+            color = colors.brandText
         )
     }
 }
