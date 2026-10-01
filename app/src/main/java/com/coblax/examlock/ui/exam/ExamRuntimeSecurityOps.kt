@@ -449,6 +449,15 @@ internal class ExamRuntimeSecurityOps(
             flowUiState.lockTaskRequestPending.value ||
             flowUiState.examSessionStarted.value
 
+    /**
+     * These checks also run on resume, possibly while a coded dialog (such as "exam network
+     * not ready") is open; its code must go, or the new message showed that dialog's buttons.
+     */
+    private fun showSecurityIssueTitle(title: String) {
+        adminUiState.securityIssueDialogCode.value = null
+        adminUiState.securityIssueDialogTitle.value = title
+    }
+
     fun refreshKeyboardSecurity(triggerViolation: Boolean) {
         refreshExamRuntimeKeyboardSecurity(
             context = context,
@@ -514,7 +523,7 @@ internal class ExamRuntimeSecurityOps(
             triggerViolation = triggerViolation,
             callbacks = ExamRuntimeSignatureCallbacks(
                 setSignatureMismatchDetected = { securityUiState.signatureMismatchDetected.value = it },
-                setSecurityIssueDialogTitle = { adminUiState.securityIssueDialogTitle.value = it },
+                setSecurityIssueDialogTitle = ::showSecurityIssueTitle,
                 setSecurityIssueDialogMessage = { adminUiState.securityIssueDialogMessage.value = it },
                 recordAction = { code, details, level -> runtimeDiagnosticsOps.recordAction(code, details, level) }
             )
@@ -534,7 +543,7 @@ internal class ExamRuntimeSecurityOps(
             callbacks = ExamRuntimeVirtualEnvironmentCallbacks(
                 getVirtualEnvironmentDetected = { securityUiState.virtualEnvironmentDetected.value },
                 setVirtualEnvironmentDetected = { securityUiState.virtualEnvironmentDetected.value = it },
-                setSecurityIssueDialogTitle = { adminUiState.securityIssueDialogTitle.value = it },
+                setSecurityIssueDialogTitle = ::showSecurityIssueTitle,
                 setSecurityIssueDialogMessage = { adminUiState.securityIssueDialogMessage.value = it },
                 recordAction = { code, details, level -> runtimeDiagnosticsOps.recordAction(code, details, level) }
             )
@@ -567,7 +576,7 @@ internal class ExamRuntimeSecurityOps(
                 setRootSecurityStatus = { securityUiState.rootSecurityStatus.value = it },
                 setRootDetected = { securityUiState.rootDetected.value = it },
                 setSelinuxPermissiveWarning = { securityUiState.selinuxPermissiveWarning.value = it },
-                setSecurityIssueDialogTitle = { adminUiState.securityIssueDialogTitle.value = it },
+                setSecurityIssueDialogTitle = ::showSecurityIssueTitle,
                 setSecurityIssueDialogMessage = { adminUiState.securityIssueDialogMessage.value = it },
                 checkSignatureIntegrity = { checkSignatureIntegrity(triggerViolation) },
                 applyVirtualEnvironmentDiagnostics = { diagnostics, triggerViolation ->

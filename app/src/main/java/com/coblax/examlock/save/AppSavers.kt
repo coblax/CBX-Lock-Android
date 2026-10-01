@@ -51,7 +51,10 @@ internal val ExamQrPayloadSaver = Saver<ExamQrPayload?, Any>(
                 it.locationPolicy?.let(::serializeExamLocationPolicy),
                 it.locationPolicySource.name,
                 it.timezoneId,
-                ExamQrSecurityBypass.toMask(it.securityBypasses)
+                ExamQrSecurityBypass.toMask(it.securityBypasses),
+                it.minAppVersionCode,
+                it.minAppVersionName,
+                it.appUpdateUrl
             )
         }
     },
@@ -77,7 +80,10 @@ internal val ExamQrPayloadSaver = Saver<ExamQrPayload?, Any>(
                     LocationPolicySource.DisabledNoPolicy
                 },
             timezoneId = values.getOrNull(8) as? String ?: TimeZone.getDefault().id,
-            securityBypasses = ExamQrSecurityBypass.fromMask(values.getOrNull(9) as? Long ?: 0L)
+            securityBypasses = ExamQrSecurityBypass.fromMask(values.getOrNull(9) as? Long ?: 0L),
+            minAppVersionCode = values.getOrNull(10) as? Int ?: 0,
+            minAppVersionName = values.getOrNull(11) as? String ?: "",
+            appUpdateUrl = values.getOrNull(12) as? String ?: ""
         )
     }
 )

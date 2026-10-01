@@ -88,6 +88,17 @@ internal fun evaluateGeofenceSecurity(
     )
 }
 
+/**
+ * A geofence position check applies to this exam. Anti fake-location only runs then too:
+ * with no geofence the position is never used, so there is nothing to fake, and asking
+ * for location permission, location services and a fix only held students up (indoors,
+ * on old phones, or after a denied prompt) for no gain.
+ */
+internal fun isGeofenceEnforced(
+    configResult: GeofenceConfigParseResult,
+    bypassState: GeofenceBypassState
+): Boolean = configResult.enabled && bypassState != GeofenceBypassState.Active
+
 internal fun evaluateFakeLocationSecurity(
     monitoringEnabled: Boolean,
     permissionGranted: Boolean,

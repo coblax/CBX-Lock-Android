@@ -52,6 +52,8 @@ import com.coblax.examlock.runtime.isInAnySplitMode
 import com.coblax.examlock.runtime.isLocationServicesEnabled
 import com.coblax.examlock.runtime.readNetworkReadinessStatusWithExamHostProbe
 import com.coblax.examlock.runtime.requiresBluetoothExamPermission
+import com.coblax.examlock.requiresAppUpdate
+import com.coblax.examlock.ui.preparation.PreExamHealthCategory
 import com.coblax.examlock.ui.preparation.PreExamHealthCheckInput
 import com.coblax.examlock.ui.preparation.buildPreExamHealthSnapshot
 import com.coblax.examlock.ui.preparation.preExamHealthStartBlocker
@@ -119,6 +121,47 @@ internal fun shouldRetryStartExamNetworkStatus(status: NetworkReadinessStatus): 
         NetworkReadinessUserVerdict.VpnActive,
         NetworkReadinessUserVerdict.Unstable -> false
     }
+}
+
+internal fun startHealthBlockerStudentMessage(
+    uiLanguage: com.coblax.examlock.model.UiLanguage,
+    category: PreExamHealthCategory
+): String = when (category) {
+    PreExamHealthCategory.ScreenPinning -> localized(
+        uiLanguage,
+        "Screen pinning is not active. Go back to Preparation and turn on Screen Pinning first.",
+        "Screen pinning belum aktif. Kembali ke Persiapan dan aktifkan Screen Pinning dulu."
+    )
+    PreExamHealthCategory.FloatingAppOverlay -> localized(
+        uiLanguage,
+        "A floating app is covering the screen. Close chat bubbles, floating windows and screen filters, then press Start again.",
+        "Ada aplikasi melayang yang menutupi layar. Tutup bubble chat, jendela melayang, dan filter layar, lalu tekan Mulai lagi."
+    )
+    PreExamHealthCategory.Network -> localized(
+        uiLanguage,
+        "The network is not ready for the exam. Turn off VPN and check the internet connection.",
+        "Jaringan belum siap untuk ujian. Matikan VPN dan periksa koneksi internet."
+    )
+    PreExamHealthCategory.WebView -> localized(
+        uiLanguage,
+        "The exam browser (Android System WebView) is not available. Enable or update it in Settings, then reopen CBX Lock.",
+        "Browser ujian (Android System WebView) tidak tersedia. Aktifkan atau perbarui di Setelan, lalu buka ulang CBX Lock."
+    )
+    PreExamHealthCategory.Location -> localized(
+        uiLanguage,
+        "The location check has not passed. Allow precise location, turn on location, and turn off fake GPS apps.",
+        "Pemeriksaan lokasi belum lulus. Izinkan lokasi presisi, nyalakan lokasi, dan matikan aplikasi GPS palsu."
+    )
+    PreExamHealthCategory.DeviceTime -> localized(
+        uiLanguage,
+        "The phone clock is not set automatically. Turn on automatic date, time and time zone.",
+        "Jam HP belum otomatis. Aktifkan tanggal, waktu, dan zona waktu otomatis."
+    )
+    PreExamHealthCategory.BatteryPower -> localized(
+        uiLanguage,
+        "The battery is too low for the exam. Charge the phone, then press Start again.",
+        "Baterai terlalu rendah untuk ujian. Isi daya HP, lalu tekan Mulai lagi."
+    )
 }
 
 internal suspend fun readStartExamNetworkStatusWithRecovery(
@@ -319,6 +362,24 @@ private suspend fun runExamRuntimeStartPrechecksBody(
         "qr_bypass=" + payload.securityBypasses.joinToString(",") { it.key }
     }
     callbacks.recordAction("START_EXAM_PRESSED", qrBypassDetail, DiagnosticEventLevel.INFO)
+    if (payload.requiresAppUpdate()) {
+        val required = payload.minAppVersionName.ifBlank { payload.minAppVersionCode.toString() }
+        applyBlock(
+            StartExamBlockMessage(
+                code = "START_EXAM_BLOCKED_APP_UPDATE_REQUIRED",
+                details = "required_code=${payload.minAppVersionCode} | required=$required | " +
+                    "installed_code=${com.coblax.examlock.BuildConfig.VERSION_CODE} | " +
+                    "installed=${com.coblax.examlock.BuildConfig.VERSION_NAME}",
+                title = localized(uiLanguage, "Update CBX Lock", "Perbarui CBX Lock"),
+                message = localized(
+                    uiLanguage,
+                    "This exam needs CBX Lock v$required or newer. Installed: v${com.coblax.examlock.BuildConfig.VERSION_NAME}. Download the latest version, install it, then scan the QR again.",
+                    "Ujian ini memerlukan CBX Lock v$required atau lebih baru. Terpasang: v${com.coblax.examlock.BuildConfig.VERSION_NAME}. Unduh versi terbaru, pasang, lalu scan QR lagi."
+                )
+            )
+        )
+        return
+    }
     updatePreflight(StartExamPreflightStep.TamperAndIntegrity, null)
     val startVirtualEnvironmentDiagnostics = getVirtualEnvironmentDiagnosticsOnIo(
         context = context,
@@ -551,19 +612,21 @@ private suspend fun runExamRuntimeStartPrechecksBody(
             "category=${healthBlocker.category.name} | verdict=${healthBlocker.verdict.name} | detail=${healthBlocker.detail}",
             DiagnosticEventLevel.WARNING
         )
+        adminUiState.securityIssueDialogCode.value = null
         adminUiState.securityIssueDialogTitle.value = localized(
             uiLanguage,
             "Pre-Exam Health Check",
             "Health Check Sebelum Ujian"
         )
         adminUiState.securityIssueDialogMessage.value = buildString {
-            append(healthBlocker.title)
+            // Health items are written in English for admins; the student gets the category
+            // and what to do in their language, with the admin text kept below it.
+            append(startHealthBlockerStudentMessage(uiLanguage, healthBlocker.category))
             append("\n\n")
+            append(localized(uiLanguage, "Technical detail: ", "Detail teknis: "))
+            append(healthBlocker.title)
+            append(" - ")
             append(healthBlocker.detail)
-            if (!healthBlocker.quickFix.isNullOrBlank()) {
-                append("\n\n")
-                append(healthBlocker.quickFix)
-            }
         }
         callbacks.hideStartExamPreflight()
         return
@@ -621,7 +684,6 @@ private suspend fun runExamRuntimeStartPrechecksBody(
         virtualEnvironmentDetected = securityUiState.virtualEnvironmentDetected.value,
         adbEnabled = securityUiState.adbEnabled.value,
         wirelessAdbEnabled = securityUiState.wirelessAdbEnabled.value,
-        adbInsecureSystemProperty = securityUiState.adbInspection.value.insecureSystemProperty,
         bypassRoot = bypassRoot,
         rootSecurityStatus = securityUiState.rootSecurityStatus.value,
         bypassScreenRecorder = bypassScreenRecorder,
@@ -665,13 +727,11 @@ private suspend fun runExamRuntimeStartPrechecksBody(
         return
     }
 
-    val coarseOrFineGranted = hasLocationPermissionForWifi(context)
     val preciseLocationGranted = hasFineLocationPermission(context)
+    // Location is only asked for when a geofence is enforced. Anti fake-location guards that
+    // geofence, so without one there is no position to check and nothing to ask the student.
     val preciseLocationRequiredForStart = geofenceEnabled && !bypassGeofence
-    if (
-        (preciseLocationRequiredForStart && !preciseLocationGranted) ||
-        (!preciseLocationRequiredForStart && !bypassFakeLocation && !coarseOrFineGranted)
-    ) {
+    if (preciseLocationRequiredForStart && !preciseLocationGranted) {
         updatePreflight(StartExamPreflightStep.LocationPermission, null)
         flowUiState.pendingStartExamAfterLocationPermission.value = true
         flowUiState.geofencePermissionRequestInFlight.value = true
@@ -708,7 +768,7 @@ private suspend fun runExamRuntimeStartPrechecksBody(
         return
     }
 
-    if (!bypassFakeLocation && !isLocationServicesEnabled(context)) {
+    if (preciseLocationRequiredForStart && !bypassFakeLocation && !isLocationServicesEnabled(context)) {
         val status = evaluateFakeLocationSecurity(
             monitoringEnabled = true,
             permissionGranted = hasLocationPermissionForWifi(context),
@@ -733,7 +793,9 @@ private suspend fun runExamRuntimeStartPrechecksBody(
         return
     }
 
-    updatePreflight(StartExamPreflightStep.LocationValidation, null)
+    if (preciseLocationRequiredForStart) {
+        updatePreflight(StartExamPreflightStep.LocationValidation, null)
+    }
     callbacks.launchFinalLocationValidation(startExamPressedAt)
 }
 
@@ -1073,6 +1135,7 @@ internal fun launchExamRuntimeStartLocationValidation(
     bypassGeofence: Boolean,
     bypassFakeLocation: Boolean,
     startExamPressedAt: Long,
+    locationCheckRequired: Boolean = true,
     callbacks: ExamRuntimeStartLocationValidationCallbacks
 ) {
     if (callbacks.isGeofenceStartValidationInFlight()) {
@@ -1104,7 +1167,10 @@ internal fun launchExamRuntimeStartLocationValidation(
         callbacks.applyStartExamBlockMessage(message)
     }
 
-    updatePreflight(StartExamPreflightStep.LocationValidation)
+    // Without a geofence no location is read here, so the student is not told it is.
+    updatePreflight(
+        if (locationCheckRequired) StartExamPreflightStep.LocationValidation else StartExamPreflightStep.DeviceTime
+    )
     callbacks.setGeofenceStartValidationInFlight(true)
     coroutineScope.launch(launchExceptionHandler) {
         try {

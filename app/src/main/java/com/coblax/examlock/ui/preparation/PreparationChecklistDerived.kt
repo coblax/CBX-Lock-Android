@@ -30,6 +30,8 @@ internal data class PreparationChecklistReadiness(
     val networkReachableReady: Boolean,
     /** False once the exam window has closed; Start Exam refuses then too. */
     val scheduleReady: Boolean,
+    /** False when the exam QR requires a newer CBX Lock than this one. */
+    val appVersionReady: Boolean = true,
     val staticSecurityInitialScanComplete: Boolean,
     val canStartExam: Boolean,
     val hasBypassIndicators: Boolean
@@ -77,7 +79,8 @@ internal fun buildPreparationChecklistReadiness(
     accessibilityGuardEnabled = accessibilityGuardEnabled
 ,
     preExamHealthSnapshot = state.preExamHealthCheckSnapshot,
-    examScheduleEnded = examScheduleEnded
+    examScheduleEnded = examScheduleEnded,
+    appUpdateRequired = state.session.requiredAppVersionName != null
 )
 
 internal fun buildPreparationChecklistReadiness(
@@ -91,7 +94,8 @@ internal fun buildPreparationChecklistReadiness(
     accessibilityGuardAvailable: Boolean,
     accessibilityGuardEnabled: Boolean,
     preExamHealthSnapshot: PreExamHealthSnapshot? = null,
-    examScheduleEnded: Boolean = false
+    examScheduleEnded: Boolean = false,
+    appUpdateRequired: Boolean = false
 ): PreparationChecklistReadiness {
     val keyboardReady = bypass.bypassKeyboardPolicy ||
         device.keyboardAllowed ||
@@ -100,12 +104,14 @@ internal fun buildPreparationChecklistReadiness(
         bypass.bypassBluetooth ||
             (!device.bluetoothEnabled && (!needsBluetoothPermission || device.bluetoothPermissionGranted))
     val accessibilityReady = bypass.bypassAccessibility || !runtimeSecurity.accessibilityServiceEnabled
-    val adbReady = bypass.bypassAdb ||
-        (!device.adbInspection.blocking && !device.adbInspection.insecureSystemProperty)
+    // ro.adb.secure=0 alone stays a warning: stock ROMs ship it and it is harmless while
+    // USB and wireless debugging are off, which `blocking` already requires.
+    val adbReady = bypass.bypassAdb || !device.adbInspection.blocking
     val rootReady = bypass.bypassRoot || !device.rootSecurityStatus.blocking
     val virtualEnvironmentReady = bypass.bypassVirtualEnvironment || !device.virtualEnvironmentDetected
     val vpnReady = network.bypassVpn || !network.networkReadinessStatus.diagnostics.isVpnActive
     val scheduleReady = !examScheduleEnded
+    val appVersionReady = !appUpdateRequired
     val networkReachableReady = network.networkReadinessStatus.verdict !in setOf(
         NetworkReadinessVerdict.Offline,
         NetworkReadinessVerdict.AirplaneMode
@@ -147,7 +153,8 @@ internal fun buildPreparationChecklistReadiness(
     val startHealthReady = preExamHealthSnapshot == null ||
         preExamHealthSnapshot.items.none { it.category in StartHealthGateCategories && it.verdict == PreExamHealthVerdict.Blocking }
     val canStartExam =
-        runtimeSecurity.staticSecurityInitialScanComplete &&
+        appVersionReady &&
+            runtimeSecurity.staticSecurityInitialScanComplete &&
             bluetoothReady &&
             accessibilityReady &&
             adbReady &&
@@ -217,6 +224,7 @@ internal fun buildPreparationChecklistReadiness(
         startHealthReady = startHealthReady,
         networkReachableReady = networkReachableReady,
         scheduleReady = scheduleReady,
+        appVersionReady = appVersionReady,
         staticSecurityInitialScanComplete = runtimeSecurity.staticSecurityInitialScanComplete,
         canStartExam = canStartExam,
         hasBypassIndicators = hasBypassIndicators
@@ -228,6 +236,7 @@ internal fun resolveFirstBlockingReason(
     en: Boolean = true
 ): String? {
     if (readiness.canStartExam) return null
+    if (!readiness.appVersionReady) return if (en) "CBX Lock needs an update" else "CBX Lock perlu diperbarui"
     if (!readiness.scheduleReady) return if (en) "The exam has ended" else "Waktu ujian sudah berakhir"
     if (!readiness.staticSecurityInitialScanComplete) return if (en) "Security scan in progress" else "Pemindaian keamanan sedang berlangsung"
     if (!readiness.adbReady) return if (en) "USB Debugging is active" else "USB Debugging masih aktif"

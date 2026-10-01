@@ -27,8 +27,21 @@ data class ExamQrPayload(
     val locationPolicySource: LocationPolicySource = LocationPolicySource.DisabledNoPolicy,
     val timezoneId: String = TimeZone.getDefault().id,
     /** Checks this exam runs without, on top of the device's own Secret Admin bypasses. */
-    val securityBypasses: Set<ExamQrSecurityBypass> = emptySet()
+    val securityBypasses: Set<ExamQrSecurityBypass> = emptySet(),
+    /**
+     * Oldest CBX Lock build (versionCode) allowed to sit this exam, or 0 for any. Lets an
+     * admin make sure students run a build that has the fixes the exam relies on.
+     */
+    val minAppVersionCode: Int = 0,
+    /** Display name of [minAppVersionCode], shown to the student who has to update. */
+    val minAppVersionName: String = "",
+    /** Where a student who has to update downloads CBX Lock; blank uses the device setting. */
+    val appUpdateUrl: String = ""
 )
+
+/** True when this device's CBX Lock is older than the exam QR allows. */
+internal fun ExamQrPayload.requiresAppUpdate(currentVersionCode: Int = BuildConfig.VERSION_CODE): Boolean =
+    minAppVersionCode > 0 && currentVersionCode < minAppVersionCode
 
 enum class GeofenceShapeType {
     Disabled,
@@ -74,6 +87,9 @@ object ExamQrCodec {
     private const val PAYLOAD_VERSION = "7"
     // v8 adds the bypass bitmask. A QR without bypasses stays v7 so older apps still read it.
     private const val BYPASS_PAYLOAD_VERSION = "8"
+    // v9 adds the minimum app version. Only a QR that asks for one uses it; builds from
+    // before v9 refuse it outright, which is the point: they are older than the minimum.
+    private const val MIN_VERSION_PAYLOAD_VERSION = "9"
     private const val KotlinQrSeedXorKeyPartOne = 0x23
     private const val KotlinQrSeedXorKeyPartTwo = 0x47
     private const val KotlinQrSeedXorKeyPartThree = 0x6D
@@ -183,8 +199,13 @@ object ExamQrCodec {
 
     private fun ExamQrPayload.serialize(): String {
         val qrLocationPolicy = locationPolicy ?: ExamQrLocationPolicy()
+        val payloadVersion = when {
+            minAppVersionCode > 0 -> MIN_VERSION_PAYLOAD_VERSION
+            securityBypasses.isNotEmpty() -> BYPASS_PAYLOAD_VERSION
+            else -> PAYLOAD_VERSION
+        }
         val fields = listOf(
-            if (securityBypasses.isEmpty()) PAYLOAD_VERSION else BYPASS_PAYLOAD_VERSION,
+            payloadVersion,
             encodeBase64Url(examUrl.toByteArray(StandardCharsets.UTF_8)),
             encodeBase64Url(examName.toByteArray(StandardCharsets.UTF_8)),
             encodeBase64Url(startDateTime.toByteArray(StandardCharsets.UTF_8)),
@@ -199,24 +220,37 @@ object ExamQrCodec {
             encodeBase64Url(serializeVertices(qrLocationPolicy.effectiveCircleCenters).toByteArray(StandardCharsets.UTF_8)),
             encodeBase64Url(timezoneId.toByteArray(StandardCharsets.UTF_8))
         )
-        val bypassFields = if (securityBypasses.isEmpty()) {
+        val bypassFields = if (payloadVersion == PAYLOAD_VERSION) {
             emptyList()
         } else {
             listOf(ExamQrSecurityBypass.toMask(securityBypasses).toString(16))
         }
-        return (fields + bypassFields).joinToString("|")
+        val minVersionFields = if (payloadVersion == MIN_VERSION_PAYLOAD_VERSION) {
+            listOf(
+                minAppVersionCode.toString(),
+                encodeBase64Url(minAppVersionName.toByteArray(StandardCharsets.UTF_8)),
+                encodeBase64Url(appUpdateUrl.toByteArray(StandardCharsets.UTF_8))
+            )
+        } else {
+            emptyList()
+        }
+        return (fields + bypassFields + minVersionFields).joinToString("|")
     }
 
     private fun deserialize(serialized: String): ExamQrPayload {
         val parts = serialized.split("|")
         val version = parts.getOrNull(0).orEmpty()
-        require(version == "6" || version == "7" || version == BYPASS_PAYLOAD_VERSION) {
+        require(
+            version == "6" || version == "7" || version == BYPASS_PAYLOAD_VERSION ||
+                version == MIN_VERSION_PAYLOAD_VERSION
+        ) {
             "Versi payload QR tidak didukung."
         }
         require(
             (version == "6" && parts.size == 13) ||
                 (version == "7" && parts.size == 14) ||
-                (version == BYPASS_PAYLOAD_VERSION && parts.size == 15)
+                (version == BYPASS_PAYLOAD_VERSION && parts.size == 15) ||
+                (version == MIN_VERSION_PAYLOAD_VERSION && parts.size == 18)
         ) {
             "Format payload QR tidak dikenal."
         }
@@ -250,7 +284,7 @@ object ExamQrCodec {
         } else {
             TimeZone.getDefault().id
         }
-        val securityBypasses = if (version == BYPASS_PAYLOAD_VERSION) {
+        val securityBypasses = if (version == BYPASS_PAYLOAD_VERSION || version == MIN_VERSION_PAYLOAD_VERSION) {
             val mask = parts[14].toLongOrNull(16)
             require(mask != null && mask >= 0L) {
                 "Format payload QR tidak dikenal."
@@ -259,6 +293,17 @@ object ExamQrCodec {
         } else {
             emptySet()
         }
+        val minAppVersionCode = if (version == MIN_VERSION_PAYLOAD_VERSION) {
+            val code = parts[15].toIntOrNull()
+            require(code != null && code >= 0) {
+                "Format payload QR tidak dikenal."
+            }
+            code
+        } else {
+            0
+        }
+        val minAppVersionName = if (version == MIN_VERSION_PAYLOAD_VERSION) decodeField(parts[16]) else ""
+        val appUpdateUrl = if (version == MIN_VERSION_PAYLOAD_VERSION) decodeField(parts[17]) else ""
 
         return ExamQrPayload(
             examUrl = decodeField(parts[1]),
@@ -270,7 +315,10 @@ object ExamQrCodec {
             locationPolicy = locationPolicy,
             locationPolicySource = LocationPolicySource.CustomQr,
             timezoneId = timezoneId,
-            securityBypasses = securityBypasses
+            securityBypasses = securityBypasses,
+            minAppVersionCode = minAppVersionCode,
+            minAppVersionName = minAppVersionName,
+            appUpdateUrl = appUpdateUrl
         )
     }
 

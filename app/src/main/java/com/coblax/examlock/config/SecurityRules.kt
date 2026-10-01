@@ -314,19 +314,27 @@ internal val VirtualValueSystemProperties = listOf(
     )
 )
 
+// Packages that only exist inside an emulator image: seeing one means this is the guest.
 internal val EmulatorPackagePrefixes = listOf(
     "com.bluestacks.",
     "com.genymotion.",
     "com.nox.mopen.app",
     "com.bignox.app",
     "com.microvirt.",
-    "com.vmos.",
     "com.ldmnq.",
-    "com.lbe.parallel.",
-    "com.excelliance.dualaid",
-    "com.ludashi.",
-    "me.weishu.exp",
     "com.tencent.gameloop",
     "com.x8bit.biern",
     "com.andydevelopers."
+)
+
+// Clone / virtual-space apps (Parallel Space, Dual Space, VMOS, VirtualXposed). Plenty of
+// students keep one for a second WhatsApp or game account, so having one installed is not
+// evidence: they used to refuse the exam as "emulator". They are only reported; running
+// inside one is caught by resolveVirtualContainerIndicators instead.
+internal val VirtualSpaceHostPackagePrefixes = listOf(
+    "com.vmos.",
+    "com.lbe.parallel.",
+    "com.excelliance.dualaid",
+    "com.ludashi.",
+    "me.weishu.exp"
 )

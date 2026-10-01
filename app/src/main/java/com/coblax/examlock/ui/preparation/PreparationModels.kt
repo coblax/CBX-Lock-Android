@@ -45,7 +45,9 @@ internal data class PreparationSessionState(
     /** Checks the exam QR turns off for this exam. */
     val qrSecurityBypasses: Set<ExamQrSecurityBypass> = emptySet(),
     /** The device has Secret Admin bypasses on beyond the ones the QR carries. */
-    val adminBypassBeyondQr: Boolean = false
+    val adminBypassBeyondQr: Boolean = false,
+    /** The CBX Lock version the exam QR asks for, when this build is older; else null. */
+    val requiredAppVersionName: String? = null
 )
 
 internal data class PreparationNetworkState(

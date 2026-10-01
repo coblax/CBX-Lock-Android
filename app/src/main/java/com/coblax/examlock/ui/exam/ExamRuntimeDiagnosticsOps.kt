@@ -27,6 +27,7 @@ import com.coblax.examlock.DeviceTimeSecurityVerdict
 import com.coblax.examlock.diagnosticLabel
 import com.coblax.examlock.evaluateFakeLocationSecurity
 import com.coblax.examlock.evaluateGeofenceSecurity
+import com.coblax.examlock.isGeofenceEnforced
 import com.coblax.examlock.FakeLocationBypassState
 import com.coblax.examlock.FakeLocationRuntimeStatus
 import com.coblax.examlock.format.diagnosticTimestamp
@@ -224,6 +225,15 @@ internal fun buildExamRuntimeClipboardStatus(
 
 internal fun latestNetworkTimelinePreview(networkTimeline: List<NetworkTimelineEntry>): List<NetworkTimelineEntry> =
     networkTimeline.takeLast(5).asReversed()
+
+private const val RuntimeLocationPendingEpisodePrefix = "pending:"
+
+/** Episode key for a weak location seen once during the exam and waiting for a recheck. */
+internal fun runtimeLocationPendingEpisodeKey(episodeKey: String): String =
+    RuntimeLocationPendingEpisodePrefix + episodeKey
+
+internal fun isRuntimeLocationPendingEpisodeKey(episodeKey: String?): Boolean =
+    episodeKey?.startsWith(RuntimeLocationPendingEpisodePrefix) == true
 
 internal class ExamRuntimeDiagnosticsOps(
     private val context: Context,
@@ -855,8 +865,11 @@ internal class ExamRuntimeDiagnosticsOps(
                 geofenceBypassState != GeofenceBypassState.Active &&
                 permissionGranted &&
                 servicesEnabled
+        val fakeLocationMonitoringActive =
+            isGeofenceEnforced(geofenceConfigParseResult, geofenceBypassState)
         val fakeLocationSnapshotRequired =
-            fakeLocationBypassState != FakeLocationBypassState.Active &&
+            fakeLocationMonitoringActive &&
+                fakeLocationBypassState != FakeLocationBypassState.Active &&
                 permissionGranted &&
                 servicesEnabled
         val locationSnapshot =
@@ -878,7 +891,7 @@ internal class ExamRuntimeDiagnosticsOps(
             bypassState = geofenceBypassState
         )
         val latestFakeLocationStatus = evaluateFakeLocationSecurity(
-            monitoringEnabled = true,
+            monitoringEnabled = fakeLocationMonitoringActive,
             permissionGranted = permissionGranted,
             locationServicesEnabled = servicesEnabled,
             locationSnapshot = locationSnapshot,
@@ -924,7 +937,24 @@ internal class ExamRuntimeDiagnosticsOps(
             return
         }
         val nextEpisodeKey = geofenceStatus.finalVerdict.diagnosticLabel()
-        if (flowUiState.geofenceRuntimeEpisodeKey.value == nextEpisodeKey) {
+        val currentEpisodeKey = flowUiState.geofenceRuntimeEpisodeKey.value
+        if (currentEpisodeKey == nextEpisodeKey) {
+            return
+        }
+        // Only a confirmed position outside the area proves anything on the first check.
+        // A weak, old or missing fix is what an indoor classroom gives from time to time;
+        // alarming on the first one stopped students mid-exam who had not moved. It has to
+        // repeat on the next check before it counts.
+        val weakFixOnly = geofenceStatus.finalVerdict != GeofenceSecurityVerdict.Outside &&
+            geofenceStatus.finalVerdict != GeofenceSecurityVerdict.PreciseRequired
+        if (weakFixOnly && !isRuntimeLocationPendingEpisodeKey(currentEpisodeKey)) {
+            flowUiState.geofenceRuntimeEpisodeKey.value = runtimeLocationPendingEpisodeKey(nextEpisodeKey)
+            recordAction(
+                code = "GEOFENCE_RUNTIME_LOCATION_WEAK",
+                details = currentGeofenceEventDetails(trigger = trigger, geofenceStatus = geofenceStatus) +
+                    " | action=recheck_before_alarm",
+                level = DiagnosticEventLevel.WARNING
+            )
             return
         }
         flowUiState.geofenceRuntimeEpisodeKey.value = nextEpisodeKey
@@ -972,7 +1002,22 @@ internal class ExamRuntimeDiagnosticsOps(
             append(':')
             append(fakeLocationStatus.confidenceTier.diagnosticLabel())
         }
-        if (flowUiState.fakeLocationRuntimeEpisodeKey.value == nextEpisodeKey) {
+        val currentEpisodeKey = flowUiState.fakeLocationRuntimeEpisodeKey.value
+        if (currentEpisodeKey == nextEpisodeKey) {
+            return
+        }
+        // A missing fix is not spoofing; like the geofence check, it must repeat first.
+        if (
+            fakeLocationStatus.finalVerdict == LocationSpoofSecurityVerdict.LocationUnavailable &&
+            !isRuntimeLocationPendingEpisodeKey(currentEpisodeKey)
+        ) {
+            flowUiState.fakeLocationRuntimeEpisodeKey.value = runtimeLocationPendingEpisodeKey(nextEpisodeKey)
+            recordAction(
+                code = "FAKE_LOCATION_RUNTIME_LOCATION_WEAK",
+                details = currentFakeLocationEventDetails(trigger, fakeLocationStatus) +
+                    " | action=recheck_before_alarm",
+                level = DiagnosticEventLevel.WARNING
+            )
             return
         }
         flowUiState.fakeLocationRuntimeEpisodeKey.value = nextEpisodeKey

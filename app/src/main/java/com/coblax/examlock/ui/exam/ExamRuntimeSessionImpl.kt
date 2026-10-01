@@ -115,6 +115,8 @@ import com.coblax.examlock.openCellularSettings
 import com.coblax.examlock.openDateTimeSettings
 import com.coblax.examlock.openDeveloperOptionsSettings
 import com.coblax.examlock.openKeyboardSettings
+import com.coblax.examlock.isGeofenceEnforced
+import com.coblax.examlock.isPermissionPromptBlocked
 import com.coblax.examlock.openLocationServicesSettings
 import com.coblax.examlock.openOverlaySettings
 import com.coblax.examlock.openScreenPinningSettings
@@ -386,7 +388,8 @@ internal fun ExamRuntimeSessionScreenImpl(
         )
     }
     val geofenceEnabled = geofenceConfigParseResult.enabled
-    val officialApkUrl = adminSettings.officialApkUrl.trim()
+    // The exam QR can say where to get the build it requires; students never set this up.
+    val officialApkUrl = payload.appUpdateUrl.trim().ifBlank { adminSettings.officialApkUrl.trim() }
     val webViewUiState = rememberExamRuntimeWebViewUiState(context)
     var loadingProgress by webViewUiState.loadingProgress
     var webViewStopRequested by webViewUiState.stopRequested
@@ -598,7 +601,8 @@ internal fun ExamRuntimeSessionScreenImpl(
                     locationServicesEnabled = isLocationServicesEnabled(context),
                     fixQualityStatus = geofenceSecurityStatus.fixQualityStatus,
                     developerOptionsEnabled = developerOptionsEnabled,
-                    fakeLocationBypassState = fakeLocationBypassState
+                    fakeLocationBypassState = fakeLocationBypassState,
+                    fakeLocationMonitoringEnabled = isGeofenceEnforced(geofenceConfigParseResult, geofenceBypassState)
                 )
                 return@LaunchedEffect
             }
@@ -1234,6 +1238,18 @@ internal fun ExamRuntimeSessionScreenImpl(
         }
     }
 
+    fun showBlockedPermissionDialog(kind: BlockedPermissionKind) {
+        val message = resolveBlockedPermissionMessage(uiLanguage, kind)
+        recordAction(
+            code = "PERMISSION_PROMPT_BLOCKED",
+            details = message.details,
+            level = DiagnosticEventLevel.WARNING
+        )
+        securityIssueDialogTitle = message.title
+        securityIssueDialogMessage = message.message
+        securityIssueDialogCode = message.code
+    }
+
     val locationPermissionLauncher =
         rememberLauncherForActivityResult(ActivityResultContracts.RequestMultiplePermissions()) { result ->
             geofencePermissionRequestInFlight = false
@@ -1243,7 +1259,30 @@ internal fun ExamRuntimeSessionScreenImpl(
             val anyGranted = result.values.any { it } || hasLocationPermissionForWifi(context)
             val preciseRequiredForStart = geofenceEnabled && !bypassGeofence
             val permissionReadyForStart = if (preciseRequiredForStart) fineGranted else anyGranted
-            if (permissionReadyForStart && pendingStartExamAfterLocationPermission) {
+            // Denied twice, Android answers at once without a prompt and "Allow" looked dead.
+            val blockedPermissionKind = when {
+                permissionReadyForStart -> null
+                preciseRequiredForStart &&
+                    isPermissionPromptBlocked(activity, Manifest.permission.ACCESS_FINE_LOCATION) ->
+                    BlockedPermissionKind.PreciseLocation
+                !preciseRequiredForStart &&
+                    isPermissionPromptBlocked(activity, Manifest.permission.ACCESS_COARSE_LOCATION) ->
+                    BlockedPermissionKind.Location
+                else -> null
+            }
+            if (blockedPermissionKind != null) {
+                val wasPendingStart = pendingStartExamAfterLocationPermission
+                pendingStartExamAfterLocationPermission = false
+                recordAction(
+                    code = "LOCATION_PERMISSION_PROMPT_BLOCKED",
+                    details = "kind=${blockedPermissionKind.name} | start_pending=$wasPendingStart",
+                    level = DiagnosticEventLevel.WARNING
+                )
+                showBlockedPermissionDialog(blockedPermissionKind)
+                if (!wasPendingStart) {
+                    launchLocationSecurityManualRefresh(trigger = "location_permission_quick_fix")
+                }
+            } else if (permissionReadyForStart && pendingStartExamAfterLocationPermission) {
                 pendingStartExamAfterLocationPermission = false
                 retryStartExamAfterLocationPermissionGrant = true
             } else if (pendingStartExamAfterLocationPermission) {
@@ -1262,6 +1301,7 @@ internal fun ExamRuntimeSessionScreenImpl(
                     },
                     level = DiagnosticEventLevel.WARNING
                 )
+                securityIssueDialogCode = null
                 securityIssueDialogTitle = localized(
                     uiLanguage,
                     if (blockedByGeofencePrecision) "Precise Location Required" else "Location Permission Required",
@@ -1297,6 +1337,14 @@ internal fun ExamRuntimeSessionScreenImpl(
                 isBluetoothEnabledForExam(context)
             } else {
                 false
+            }
+            // Denied twice, Android answers at once without a prompt: "Allow Bluetooth"
+            // looked dead and Start Exam stayed locked with nothing else to try.
+            if (
+                !bluetoothPermissionGranted &&
+                isPermissionPromptBlocked(activity, getBluetoothConnectPermission())
+            ) {
+                showBlockedPermissionDialog(BlockedPermissionKind.Bluetooth)
             }
         }
 
@@ -1810,6 +1858,8 @@ internal fun ExamRuntimeSessionScreenImpl(
                                 bypassGeofence = bypassGeofence,
                                 bypassFakeLocation = bypassFakeLocation,
                                 startExamPressedAt = startExamPressedAt,
+                                locationCheckRequired =
+                                    isGeofenceEnforced(geofenceConfigParseResult, geofenceBypassState),
                                 callbacks = ExamRuntimeStartLocationValidationCallbacks(
                                     isGeofenceStartValidationInFlight = { geofenceStartValidationInFlight },
                                     isStartCancelledByStudent = {
@@ -2304,6 +2354,7 @@ internal fun ExamRuntimeSessionScreenImpl(
     fun handleStartScreenPinning() = preparationActionOps.handleStartScreenPinning()
     fun handleOpenOverlaySettings() = preparationActionOps.handleOpenOverlaySettings()
     fun handleOpenAppSettings() = preparationActionOps.handleOpenAppSettings()
+    fun handleOpenAppPermissionSettings() = preparationActionOps.handleOpenAppPermissionSettings()
     fun handleOpenCastSettings() = preparationActionOps.handleOpenCastSettings()
     fun handleOpenWebViewProviderSettings() = preparationActionOps.handleOpenWebViewProviderSettings()
     fun handleReinstallOfficialApk() = preparationActionOps.handleReinstallOfficialApk()
@@ -2587,6 +2638,15 @@ internal fun ExamRuntimeSessionScreenImpl(
             writePreviousSessionBreadcrumb(code = code, details = details)
         }
     )
+    // The pin can end without any event reaching the app (swipe-and-hold to unpin), so the
+    // checklist kept saying "ready" until something else redrew it. Poll while preparing.
+    var preparationPinActive by remember { mutableStateOf(lockTaskBridge.active()) }
+    LaunchedEffect(examSessionStarted, lockTaskBridge, lowRamProfile) {
+        while (!examSessionStarted) {
+            preparationPinActive = lockTaskBridge.active()
+            delay(if (lowRamProfile.ultra) 2_000L else 1_000L)
+        }
+    }
     val preparationState = buildPreparationStateForSession(
         payload = payload,
         adminSettings = adminSettings,
@@ -2601,7 +2661,7 @@ internal fun ExamRuntimeSessionScreenImpl(
         networkUnstableRuntimeStatus = networkUnstableRuntimeStatus,
         networkTimelinePreview = networkTimelinePreview,
         screenPinningAvailable = screenPinningAvailable,
-        screenPinningActive = lockTaskBridge.active(),
+        screenPinningActive = if (examSessionStarted) lockTaskBridge.active() else preparationPinActive,
         screenPinningFixNeeded = screenPinningFixNeeded,
         clipboardRuntimeStatus = clipboardRuntimeStatus,
         clipboardBypassState = clipboardBypassState,
@@ -2767,6 +2827,7 @@ internal fun ExamRuntimeSessionScreenImpl(
         onRefreshStaticSecurityStatus = { handleRefreshPreparationStatus() },
         onSendStaticSecurityReport = { section -> launchTelegramSectionReport(section) },
         onRefreshNetworkStatus = preparationActions.onRefreshNetworkStatus,
+        onOpenAppPermissionSettings = { handleOpenAppPermissionSettings() },
         modifier = modifier
     )
 
@@ -2814,6 +2875,7 @@ private fun ExamRuntimeSessionRenderedUiSection(
     onRefreshStaticSecurityStatus: () -> Unit,
     onSendStaticSecurityReport: (DiagnosticSection) -> Unit,
     onRefreshNetworkStatus: () -> Unit,
+    onOpenAppPermissionSettings: () -> Unit,
     modifier: Modifier
 ) {
     ExamRuntimeSessionRenderedUi(
@@ -2874,6 +2936,7 @@ private fun ExamRuntimeSessionRenderedUiSection(
         onDismissScreenPinningMessage = { renderedUiCallbacks.onDismissScreenPinningMessage() },
         onDismissSecurityIssueDialog = { renderedUiCallbacks.onDismissSecurityIssueDialog() },
         onRefreshNetworkStatus = onRefreshNetworkStatus,
+        onOpenAppPermissionSettings = onOpenAppPermissionSettings,
         onDismissBugReportFeedback = { renderedUiCallbacks.onDismissBugReportFeedback() },
         modifier = modifier
     )

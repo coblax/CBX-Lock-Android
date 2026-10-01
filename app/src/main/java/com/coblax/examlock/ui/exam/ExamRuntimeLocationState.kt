@@ -147,8 +147,9 @@ internal fun PreparationLocationWarmupEffect(
     ) {
         val geofenceMonitoringActive =
             geofenceEnabled && geofenceBypassState != GeofenceBypassState.Active
+        // Anti fake-location only guards a geofence; with none, no location is read at all.
         val fakeLocationMonitoringActive =
-            fakeLocationBypassState != FakeLocationBypassState.Active
+            geofenceMonitoringActive && fakeLocationBypassState != FakeLocationBypassState.Active
 
         if (examSessionStarted || (!geofenceMonitoringActive && !fakeLocationMonitoringActive)) {
             updateLocationWarmupInFlight(false)

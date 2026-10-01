@@ -201,7 +201,9 @@ internal data class PreparationIssue(
 internal data class PreparationCategoryStatus(
     val category: PreparationCategory,
     val issues: List<PreparationIssue>,
-    val actions: List<PreparationQuickFixAction>
+    val actions: List<PreparationQuickFixAction>,
+    /** Nothing in this category applies to this exam (e.g. location with no geofence). */
+    val notRequired: Boolean = false
 ) {
     val blockingCount: Int get() = issues.count { it.blocking }
     val warningCount: Int get() = issues.count { !it.blocking }
@@ -277,10 +279,15 @@ internal fun buildPreparationOverview(
                     blocking = false
                 )
             }
+        val issues = explicitIssues + listOfNotNull(fallbackIssue)
         PreparationCategoryStatus(
             category = category,
-            issues = explicitIssues + listOfNotNull(fallbackIssue),
-            actions = categoryActions
+            issues = issues,
+            actions = categoryActions,
+            // Location is only read for a geofence; saying "passed" suggested it had been checked.
+            notRequired = category == PreparationCategory.Location &&
+                issues.isEmpty() &&
+                !state.location.geofenceRuntimeStatus.securityStatus.geofenceEvaluation.enabled
         )
     }.toMutableList()
 
@@ -447,6 +454,18 @@ private fun buildPreparationIssues(
     }
 
     // ── Device health ────────────────────────────────────────────
+    if (!readiness.appVersionReady) {
+        val required = state.session.requiredAppVersionName.orEmpty()
+        blocking(
+            PreparationCategory.DeviceHealth,
+            "app_update_required",
+            t("Update CBX Lock", "Perbarui CBX Lock"),
+            t(
+                "This exam needs CBX Lock v$required or newer. Download the latest version, install it, then scan the QR again.",
+                "Ujian ini memerlukan CBX Lock v$required atau lebih baru. Unduh versi terbaru, pasang, lalu scan QR lagi."
+            )
+        )
+    }
     if (!readiness.scheduleReady) {
         val endedAt = state.session.examEndDateTime.trim()
         blocking(
@@ -581,31 +600,34 @@ private fun buildPreparationIssues(
 
     // ── Device integrity ─────────────────────────────────────────
     if (!readiness.adbReady) {
-        if (device.adbInspection.blocking) {
-            // Start Exam refuses on Developer options alone, so turning off only USB
-            // debugging is not enough; switching Developer options off clears every case.
-            val adb = device.adbInspection
-            blocking(
-                PreparationCategory.DeviceIntegrity,
-                "adb_enabled",
-                when {
-                    adb.adbEnabled -> t("USB debugging is on", "USB debugging masih aktif")
-                    adb.wirelessAdbEnabled -> t("Wireless debugging is on", "Wireless debugging masih aktif")
-                    else -> t("Developer options are on", "Opsi pengembang masih aktif")
-                },
-                t(
-                    "Turn off the \"Developer options\" switch at the top of Developer options.",
-                    "Matikan tombol \"Opsi pengembang\" di bagian atas halaman Opsi pengembang."
-                )
+        // Start Exam refuses on Developer options alone, so turning off only USB
+        // debugging is not enough; switching Developer options off clears every case.
+        val adb = device.adbInspection
+        blocking(
+            PreparationCategory.DeviceIntegrity,
+            "adb_enabled",
+            when {
+                adb.adbEnabled -> t("USB debugging is on", "USB debugging masih aktif")
+                adb.wirelessAdbEnabled -> t("Wireless debugging is on", "Wireless debugging masih aktif")
+                else -> t("Developer options are on", "Opsi pengembang masih aktif")
+            },
+            t(
+                "Turn off the \"Developer options\" switch at the top of Developer options.",
+                "Matikan tombol \"Opsi pengembang\" di bagian atas halaman Opsi pengembang."
             )
-        } else {
-            blocking(
-                PreparationCategory.DeviceIntegrity,
-                "adb_insecure_property",
-                t("ADB system setting is not secure", "Pengaturan sistem ADB tidak aman"),
-                t("Check Developer options or ask the admin.", "Periksa Opsi pengembang atau hubungi admin.")
+        )
+    } else if (!bypass.bypassAdb && device.adbInspection.insecureSystemProperty) {
+        // Built into some stock ROMs and not something a student can change. It only
+        // matters while USB debugging is on, which is refused above, so it is a warning.
+        warning(
+            PreparationCategory.DeviceIntegrity,
+            "adb_insecure_property",
+            t("ADB system setting is not secure", "Pengaturan sistem ADB tidak aman"),
+            t(
+                "Built into this phone's system. The exam can continue while USB debugging stays off.",
+                "Bawaan sistem HP ini. Ujian tetap bisa dimulai selama USB debugging tetap mati."
             )
-        }
+        )
     }
     if (!readiness.rootReady) {
         blocking(

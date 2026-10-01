@@ -11,6 +11,7 @@ import com.coblax.examlock.DeviceTimeSecurityStatus
 import com.coblax.examlock.DpcRuntimeStatus
 import com.coblax.examlock.ExamQrPayload
 import com.coblax.examlock.ExamScheduleValidator
+import com.coblax.examlock.requiresAppUpdate
 import com.coblax.examlock.FakeLocationBypassState
 import com.coblax.examlock.FakeLocationRuntimeStatus
 import com.coblax.examlock.GeofenceBypassState
@@ -110,7 +111,10 @@ internal fun buildPreparationStateForSession(
             examEndsAtMillis = ExamScheduleValidator.scheduleEndMillis(payload),
             examEndDateTime = payload.endDateTime,
             qrSecurityBypasses = payload.securityBypasses,
-            adminBypassBeyondQr = (adminSettings.activeSecurityBypasses() - payload.securityBypasses).isNotEmpty()
+            adminBypassBeyondQr = (adminSettings.activeSecurityBypasses() - payload.securityBypasses).isNotEmpty(),
+            requiredAppVersionName = payload.minAppVersionName
+                .ifBlank { payload.minAppVersionCode.toString() }
+                .takeIf { payload.requiresAppUpdate() }
         ),
         network = PreparationNetworkState(
             networkReadinessStatus = networkReadinessStatus,

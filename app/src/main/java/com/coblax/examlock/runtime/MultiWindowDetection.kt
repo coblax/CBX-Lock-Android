@@ -2,6 +2,7 @@ package com.coblax.examlock.runtime
 
 import android.app.Activity
 import android.content.Context
+import android.content.ContextWrapper
 import android.os.Build
 
 /**
@@ -35,15 +36,31 @@ internal fun readMultiWindowModeInfo(context: Context): MultiWindowModeInfo {
     )
 }
 
+/**
+ * The Activity behind [context]. Compose can hand out a ContextWrapper around it, and a
+ * plain `as? Activity` then answered "not split" every time, silently skipping the check.
+ */
+internal fun Context.findHostActivity(): Activity? {
+    var current: Context? = this
+    repeat(8) {
+        when (current) {
+            is Activity -> return current as Activity
+            is ContextWrapper -> current = (current as ContextWrapper).baseContext
+            else -> return null
+        }
+    }
+    return null
+}
+
 internal fun isInMultiWindowMode(context: Context): Boolean {
     if (Build.VERSION.SDK_INT < Build.VERSION_CODES.N) return false
-    val activity = context as? Activity ?: return false
+    val activity = context.findHostActivity() ?: return false
     return runCatching { activity.isInMultiWindowMode }.getOrDefault(false)
 }
 
 internal fun isInPictureInPictureMode(context: Context): Boolean {
     if (Build.VERSION.SDK_INT < Build.VERSION_CODES.O) return false
-    val activity = context as? Activity ?: return false
+    val activity = context.findHostActivity() ?: return false
     return runCatching { activity.isInPictureInPictureMode }.getOrDefault(false)
 }
 

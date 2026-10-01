@@ -61,6 +61,16 @@ internal data class OverlayShieldStatus(
         get() = supported && requested && lastApplySucceeded == true
 }
 
+/**
+ * Whether the result of applying the overlay shield is a floating-app violation. Only a
+ * shield Android supports but failed to apply is. Before Android 12 there is no shield at
+ * all (null); the pre-exam health check reports that as a warning. Counting it used to show
+ * "floating app detected" with the alarm on every Android 7-11 phone, both when pinning in
+ * preparation and when the exam started, and left Start blocked as if a touch was covered.
+ */
+internal fun isOverlayShieldApplyViolation(requested: Boolean, applyResult: Boolean?): Boolean =
+    requested && applyResult == false
+
 internal data class OverlayRiskResult(
     val bypassed: Boolean,
     val confirmedInteractionDetected: Boolean,

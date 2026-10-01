@@ -21,8 +21,10 @@ import com.coblax.examlock.model.UiLanguage
 import kotlinx.coroutines.CancellationException
 import kotlinx.coroutines.CoroutineExceptionHandler
 import kotlinx.coroutines.CoroutineScope
+import kotlinx.coroutines.NonCancellable
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.launch
+import kotlinx.coroutines.withContext
 
 internal const val ScreenPinningMonitorWarmupIntervalMillis = 300L
 internal const val ScreenPinningMonitorSteadyIntervalMillis = 1_000L
@@ -231,44 +233,61 @@ internal fun RuntimeScreenPinningActivationEffect(
             adminUiState.screenPinningActivationDurationMs.value = screenPinningReport.activationDurationMs
 
             if (screenPinningReport.active) {
-                // Guard against immediate unpin on devices where the system dialog
-                // briefly drops lock task mode after confirmation (Samsung, etc.)
-                delay(500)
-                if (!lockTaskBridge.satisfies(lockTaskRequirement)) {
-                    recordAction(
-                        ExamRuntimeHardeningDiagnostics.ScreenPinningTransientLossRecheck,
-                        "state=${lockTaskBridge.stateLabel()} | action=post_confirm_reengage",
-                        DiagnosticEventLevel.WARNING
-                    )
-                    lockTaskBridge.engage(allowLockTask = true)
-                    delay(1_000)
+                // lockTaskRequestPending was cleared above, which restarts this effect and
+                // cancels this coroutine at its next suspension. The confirmation below used to
+                // stop at the first delay, so the re-engage guard never ran and the pin was
+                // never recorded as confirmed; it runs to the end now.
+                val preparationSetupConfirmed = withContext(NonCancellable) {
+                    // Guard against immediate unpin on devices where the system dialog
+                    // briefly drops lock task mode after confirmation (Samsung, etc.)
+                    delay(500)
                     if (!lockTaskBridge.satisfies(lockTaskRequirement)) {
                         recordAction(
                             ExamRuntimeHardeningDiagnostics.ScreenPinningTransientLossRecheck,
-                            "state=${lockTaskBridge.stateLabel()} | action=post_confirm_reengage_failed",
+                            "state=${lockTaskBridge.stateLabel()} | action=post_confirm_reengage",
                             DiagnosticEventLevel.WARNING
                         )
+                        lockTaskBridge.engage(allowLockTask = true)
+                        delay(1_000)
+                        if (!lockTaskBridge.satisfies(lockTaskRequirement)) {
+                            recordAction(
+                                ExamRuntimeHardeningDiagnostics.ScreenPinningTransientLossRecheck,
+                                "state=${lockTaskBridge.stateLabel()} | action=post_confirm_reengage_failed",
+                                DiagnosticEventLevel.WARNING
+                            )
+                        }
+                    }
+                    flowUiState.pinningActivationState.value = if (
+                        lockTaskBridge.satisfies(lockTaskRequirement)
+                    ) {
+                        PinningActivationState.ActiveConfirmed
+                    } else {
+                        PinningActivationState.TimeoutRetryReady
+                    }
+                    recordAction(
+                        ScreenPinningSignals.eventActive(),
+                        "Lock task state ${screenPinningReport.afterState}",
+                        DiagnosticEventLevel.INFO
+                    )
+                    recordAction(
+                        ExamRuntimeHardeningDiagnostics.PinningActiveConfirmed,
+                        "state=${screenPinningReport.afterState} | duration_ms=${screenPinningReport.activationDurationMs} | suppressed=${flowUiState.pinningSuppressedTransitionCount.value}",
+                        DiagnosticEventLevel.INFO
+                    )
+                    adminUiState.examSessionCancelledByPinningFailure.value = false
+                    flowUiState.pinningActivationStartedAtElapsedMs.value = null
+                    flowUiState.screenPinningMessage.value = null
+                    flowUiState.webViewErrorMessage.value = null
+                    adminUiState.exitOnSecurityIssueDialogDismiss.value = false
+                    if (pinningActivationPurpose == PinningActivationPurpose.PreparationSetup) {
+                        flowUiState.pinningActivationPurpose.value = PinningActivationPurpose.ExamStart
+                        clearAppSwitchSuppression()
+                        true
+                    } else {
+                        false
                     }
                 }
-                flowUiState.pinningActivationState.value = PinningActivationState.ActiveConfirmed
-                recordAction(
-                    ScreenPinningSignals.eventActive(),
-                    "Lock task state ${screenPinningReport.afterState}",
-                    DiagnosticEventLevel.INFO
-                )
-                recordAction(
-                    ExamRuntimeHardeningDiagnostics.PinningActiveConfirmed,
-                    "state=${screenPinningReport.afterState} | duration_ms=${screenPinningReport.activationDurationMs} | suppressed=${flowUiState.pinningSuppressedTransitionCount.value}",
-                    DiagnosticEventLevel.INFO
-                )
-                adminUiState.examSessionCancelledByPinningFailure.value = false
-                flowUiState.pinningActivationStartedAtElapsedMs.value = null
-                flowUiState.screenPinningMessage.value = null
-                flowUiState.webViewErrorMessage.value = null
-                adminUiState.exitOnSecurityIssueDialogDismiss.value = false
-                if (pinningActivationPurpose == PinningActivationPurpose.PreparationSetup) {
-                    flowUiState.pinningActivationPurpose.value = PinningActivationPurpose.ExamStart
-                    clearAppSwitchSuppression()
+                if (preparationSetupConfirmed) {
                     return@LaunchedEffect
                 }
                 resetPreparationSecurityEpisodes()

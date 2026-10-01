@@ -340,6 +340,7 @@ internal fun ExamRuntimeSessionRenderedUi(
     onDismissScreenPinningMessage: () -> Unit,
     onDismissSecurityIssueDialog: () -> Unit,
     onRefreshNetworkStatus: () -> Unit,
+    onOpenAppPermissionSettings: () -> Unit,
     onDismissBugReportFeedback: () -> Unit,
     modifier: Modifier = Modifier
 ) {
@@ -405,6 +406,7 @@ internal fun ExamRuntimeSessionRenderedUi(
                 onDismissScreenPinningMessage = onDismissScreenPinningMessage,
                 onDismissSecurityIssueDialog = onDismissSecurityIssueDialog,
                 onRefreshNetworkStatus = onRefreshNetworkStatus,
+                onOpenAppPermissionSettings = onOpenAppPermissionSettings,
                 onDismissBugReportFeedback = onDismissBugReportFeedback,
                 onCancelPreflight = {
                     cancelStartExamPreflight(startExamPreflightState)

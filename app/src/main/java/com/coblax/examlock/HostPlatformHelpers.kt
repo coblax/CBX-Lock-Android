@@ -169,6 +169,7 @@ import androidx.compose.ui.unit.sp
 import androidx.compose.ui.viewinterop.AndroidView
 import androidx.compose.ui.window.Dialog
 import androidx.compose.ui.window.DialogProperties
+import androidx.core.app.ActivityCompat
 import androidx.core.content.ContextCompat
 import androidx.core.content.edit
 import androidx.core.net.toUri
@@ -657,6 +658,37 @@ internal fun openLocationServicesSettings(context: Context) {
             Intent(Settings.ACTION_SETTINGS)
         )
     )
+}
+
+/** This app's info page, where a permission Android no longer prompts for can be allowed. */
+internal fun openAppPermissionSettings(context: Context) {
+    launchFirstPlatformIntentSafely(
+        context,
+        listOf(
+            Intent(
+                Settings.ACTION_APPLICATION_DETAILS_SETTINGS,
+                "package:${context.packageName}".toUri()
+            ),
+            Intent(Settings.ACTION_APPLICATION_SETTINGS),
+            Intent(Settings.ACTION_SETTINGS)
+        )
+    )
+}
+
+/**
+ * Read right after a permission request came back denied. Once a permission is denied twice,
+ * Android stops showing the prompt and denies at once, so an "Allow" button looked dead.
+ * No rationale after a denial means the prompt will not come back (or was closed without a
+ * choice); either way the app info page is the way left to allow it.
+ */
+internal fun isPermissionPromptBlocked(activity: Activity?, permission: String): Boolean {
+    if (activity == null) {
+        return false
+    }
+    if (ContextCompat.checkSelfPermission(activity, permission) == PackageManager.PERMISSION_GRANTED) {
+        return false
+    }
+    return !ActivityCompat.shouldShowRequestPermissionRationale(activity, permission)
 }
 
 internal fun openDateTimeSettings(context: Context) {

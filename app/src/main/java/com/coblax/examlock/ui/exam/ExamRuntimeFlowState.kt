@@ -99,6 +99,51 @@ internal fun hideStartExamPreflight(state: StartExamPreflightUiState) {
     state.slowHintVisible.value = false
 }
 
+/**
+ * The few phases the student sees as a checklist while Start runs. The steps underneath
+ * are too many and too technical to list; the final clock check runs again at the end,
+ * so the phase shown never goes back (see [resolveStartExamPreflightPhaseIndex]).
+ */
+internal enum class StartExamPreflightPhase {
+    AppSecurity,
+    TimeAndNetwork,
+    DeviceChecks,
+    ExamBrowser
+}
+
+internal fun StartExamPreflightStep.preflightPhase(): StartExamPreflightPhase = when (this) {
+    StartExamPreflightStep.Idle,
+    StartExamPreflightStep.Starting,
+    StartExamPreflightStep.TamperAndIntegrity,
+    StartExamPreflightStep.DeviceSecurity -> StartExamPreflightPhase.AppSecurity
+    StartExamPreflightStep.DeviceTime,
+    StartExamPreflightStep.NetworkDns,
+    StartExamPreflightStep.ServerProbe -> StartExamPreflightPhase.TimeAndNetwork
+    StartExamPreflightStep.HealthSnapshot,
+    StartExamPreflightStep.StaticSecurity,
+    StartExamPreflightStep.LocationPermission,
+    StartExamPreflightStep.LocationValidation,
+    StartExamPreflightStep.Failed -> StartExamPreflightPhase.DeviceChecks
+    StartExamPreflightStep.PreparingWebView,
+    StartExamPreflightStep.Complete -> StartExamPreflightPhase.ExamBrowser
+}
+
+/** The phase to show: never lower than one already reached in this run. */
+internal fun resolveStartExamPreflightPhaseIndex(
+    step: StartExamPreflightStep,
+    highestReachedIndex: Int
+): Int = maxOf(step.preflightPhase().ordinal, highestReachedIndex)
+
+internal fun startExamPreflightPhaseLabel(
+    phase: StartExamPreflightPhase,
+    uiLanguage: UiLanguage
+): String = when (phase) {
+    StartExamPreflightPhase.AppSecurity -> localized(uiLanguage, "App and screen lock", "Aplikasi & kunci layar")
+    StartExamPreflightPhase.TimeAndNetwork -> localized(uiLanguage, "Clock and network", "Jam & jaringan")
+    StartExamPreflightPhase.DeviceChecks -> localized(uiLanguage, "Phone checks", "Pemeriksaan HP")
+    StartExamPreflightPhase.ExamBrowser -> localized(uiLanguage, "Exam browser", "Browser ujian")
+}
+
 internal fun startExamPreflightStepLabel(
     step: StartExamPreflightStep,
     uiLanguage: UiLanguage

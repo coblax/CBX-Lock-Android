@@ -15,6 +15,7 @@ import com.coblax.examlock.buildRootSecurityStatus
 import com.coblax.examlock.evaluateFakeLocationSecurity
 import com.coblax.examlock.evaluateGeofence
 import com.coblax.examlock.evaluateGeofenceSecurity
+import com.coblax.examlock.isGeofenceEnforced
 import com.coblax.examlock.FakeLocationBypassState
 import com.coblax.examlock.GeofenceBypassState
 import com.coblax.examlock.GeofenceConfigParseResult
@@ -238,7 +239,7 @@ internal fun rememberExamRuntimeSecurityUiState(
         fakeLocationBypassState
     ) {
         evaluateFakeLocationSecurity(
-            monitoringEnabled = true,
+            monitoringEnabled = isGeofenceEnforced(geofenceConfigParseResult, geofenceBypassState),
             permissionGranted = hasLocationPermissionForWifi(context),
             locationServicesEnabled = isLocationServicesEnabled(context),
             locationSnapshot = null,

@@ -12,8 +12,10 @@ import android.os.StatFs
 import android.provider.Settings
 import android.view.accessibility.AccessibilityManager
 import androidx.webkit.WebViewCompat
+import com.coblax.examlock.BuildConfig
 import com.coblax.examlock.RuntimeStringDecoder
 import com.coblax.examlock.config.EmulatorPackagePrefixes
+import com.coblax.examlock.config.VirtualSpaceHostPackagePrefixes
 import com.coblax.examlock.config.MagiskIndicatorPaths
 import com.coblax.examlock.config.RootBinaryIndicatorPaths
 import com.coblax.examlock.config.RootPackageNames
@@ -450,16 +452,75 @@ internal fun findRootPackagesFromInventory(
 
 internal fun findEmulatorPackagesFromInventory(
     inventory: InstalledPackageInventory
+): List<String> = findPackagesWithPrefixes(inventory, EmulatorPackagePrefixes)
+
+internal fun findVirtualSpaceHostPackagesFromInventory(
+    inventory: InstalledPackageInventory
+): List<String> = findPackagesWithPrefixes(inventory, VirtualSpaceHostPackagePrefixes)
+
+private fun findPackagesWithPrefixes(
+    inventory: InstalledPackageInventory,
+    prefixes: List<String>
 ): List<String> {
     return inventory.records
         .asSequence()
         .map { record -> record.packageName }
         .filter { packageName ->
-            EmulatorPackagePrefixes.any { prefix ->
-        packageName.startsWith(prefix, ignoreCase = true)
-            }
+            prefixes.any { prefix -> packageName.startsWith(prefix, ignoreCase = true) }
         }
         .toList()
+}
+
+private val InstalledDataDirPattern = Regex(
+    "^/(data/data|data/user(_de)?/\\d+|mnt/expand/[^/]+/user(_de)?/\\d+)/([^/]+)/?$"
+)
+private val InstalledSourceDirPrefixes = listOf("/data/app/", "/mnt/expand/")
+
+/**
+ * Evidence that this app is running inside a clone / virtual-space app rather than as
+ * itself. Those hosts load the APK into their own process and redirect its storage into
+ * their own data folder, which a normal install never has. Separate Android users (OEM
+ * "dual apps", work profiles) keep the standard layout and are not flagged.
+ */
+internal fun resolveVirtualContainerIndicators(
+    expectedPackageName: String,
+    dataDir: String?,
+    sourceDir: String?,
+    processName: String?
+): List<String> = buildList {
+    val data = dataDir?.trim().orEmpty()
+    if (data.isNotEmpty()) {
+        val owner = InstalledDataDirPattern.matchEntire(data)?.groupValues?.lastOrNull()
+        if (owner != expectedPackageName) {
+            add("data_dir:$data")
+        }
+    }
+    val source = sourceDir?.trim().orEmpty()
+    if (source.isNotEmpty() && InstalledSourceDirPrefixes.none { source.startsWith(it) }) {
+        add("source_dir:$source")
+    }
+    val process = processName?.trim().orEmpty()
+    if (
+        process.isNotEmpty() &&
+        process != expectedPackageName &&
+        !process.startsWith("$expectedPackageName:")
+    ) {
+        add("process:$process")
+    }
+}
+
+private fun readCurrentProcessName(): String? {
+    if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.P) {
+        runCatching { android.app.Application.getProcessName() }
+            .getOrNull()
+            ?.takeIf { it.isNotBlank() }
+            ?.let { return it }
+    }
+    return runCatching {
+        java.io.File("/proc/self/cmdline").readText()
+            .substringBefore('\u0000')
+            .trim()
+    }.getOrNull()?.takeIf { it.isNotBlank() }
 }
 
 /**
@@ -617,6 +678,25 @@ private fun computeVirtualEnvironmentDiagnostics(
         indicators.add("packages:${emulatorPackages.joinToString()}")
         score += 2
         strongCount++
+    }
+
+    // --- Running inside a clone / virtual-space app (strong signal, +2) ---
+    // Installed clone apps are only reported below; this is what makes one matter.
+
+    val containerIndicators = resolveVirtualContainerIndicators(
+        expectedPackageName = BuildConfig.APPLICATION_ID,
+        dataDir = runCatching { context.applicationInfo.dataDir }.getOrNull(),
+        sourceDir = runCatching { context.applicationInfo.sourceDir }.getOrNull(),
+        processName = readCurrentProcessName()
+    )
+    if (containerIndicators.isNotEmpty()) {
+        indicators.add("virtual_container:${containerIndicators.joinToString()}")
+        score += 2
+        strongCount++
+    }
+    val virtualSpaceHostPackages = findVirtualSpaceHostPackagesFromInventory(packageInventory)
+    if (virtualSpaceHostPackages.isNotEmpty()) {
+        indicators.add("clone_app_installed_info:${virtualSpaceHostPackages.joinToString()}")
     }
 
     // --- Hardware sensor count (weak signal, +1) ---

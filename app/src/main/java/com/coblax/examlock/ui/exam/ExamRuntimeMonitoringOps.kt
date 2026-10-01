@@ -268,6 +268,7 @@ internal class ExamRuntimeMonitoringOps(
         flowUiState.screenPinningMessage.value = null
         flowUiState.showBuiltInExamKeyboard.value = false
         flowUiState.hasEditableFocus.value = false
+        adminUiState.securityIssueDialogCode.value = null
         adminUiState.securityIssueDialogTitle.value = signal.title
         adminUiState.securityIssueDialogMessage.value = signal.message
         adminUiState.exitOnSecurityIssueDialogDismiss.value = true
@@ -507,7 +508,10 @@ internal class ExamRuntimeMonitoringOps(
                 setWebViewErrorMessage = { flowUiState.webViewErrorMessage.value = it },
                 setWebViewSessionResetInFlight = { flowUiState.webViewSessionResetInFlight.value = it },
                 setWebViewSessionResetError = { flowUiState.webViewSessionResetError.value = it },
-                setSecurityIssueDialogTitle = { adminUiState.securityIssueDialogTitle.value = it },
+                setSecurityIssueDialogTitle = {
+                    adminUiState.securityIssueDialogCode.value = null
+                    adminUiState.securityIssueDialogTitle.value = it
+                },
                 setSecurityIssueDialogMessage = { adminUiState.securityIssueDialogMessage.value = it },
                 recordAction = callbacks.recordAction
             ),

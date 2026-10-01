@@ -585,11 +585,6 @@ class PreparationStateSlicingTest {
                 )
             ),
             PreparationCategory.DeviceIntegrity to preparationState(
-                device = deviceState().copy(
-                    adbInspection = deviceState().adbInspection.copy(adbSecureProperty = "0")
-                )
-            ),
-            PreparationCategory.DeviceIntegrity to preparationState(
                 device = deviceState().copy(virtualEnvironmentDetected = true)
             ),
             PreparationCategory.DeviceIntegrity to preparationState(
@@ -651,6 +646,37 @@ class PreparationStateSlicingTest {
             )
             assertEquals("$label is listed first", category, overview.attention.first().category)
         }
+    }
+
+    @Test
+    fun stockRomAdbSecurePropertyIsAWarningNotABlocker() {
+        // ro.adb.secure=0 is baked into some stock ROMs and cannot be changed by a student;
+        // with USB and wireless debugging off it gives nothing to exploit.
+        val state = preparationState(
+            device = deviceState().copy(
+                adbInspection = deviceState().adbInspection.copy(adbSecureProperty = "0")
+            )
+        )
+        val (readiness, overview) = overviewFor(state)
+        assertTrue(readiness.adbReady)
+        assertTrue(readiness.canStartExam)
+        assertEquals(0, overview.status(PreparationCategory.DeviceIntegrity).blockingCount)
+        assertTrue(overview.status(PreparationCategory.DeviceIntegrity).warningCount > 0)
+    }
+
+    @Test
+    fun insecureAdbPropertyAloneIsAWarningNotABlocker() {
+        // ro.adb.secure=0 ships on some stock ROMs and the student cannot change it; it only
+        // matters with USB debugging on, which is refused on its own.
+        val state = preparationState(
+            device = deviceState().copy(
+                adbInspection = deviceState().adbInspection.copy(adbSecureProperty = "0")
+            )
+        )
+        val (readiness, overview) = overviewFor(state)
+        assertTrue(readiness.canStartExam)
+        assertEquals(0, overview.status(PreparationCategory.DeviceIntegrity).blockingCount)
+        assertTrue(overview.status(PreparationCategory.DeviceIntegrity).warningCount > 0)
     }
 
     @Test

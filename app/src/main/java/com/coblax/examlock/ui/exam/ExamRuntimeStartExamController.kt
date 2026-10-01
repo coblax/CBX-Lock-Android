@@ -144,6 +144,7 @@ internal suspend fun prepareCleanExamWebViewSessionForStart(
     )
     recordAction("WEBVIEW_SESSION_RESET_FAILED", failureDetails, DiagnosticEventLevel.ERROR)
     flowUiState.webViewSessionResetError.value = userMessage
+    adminUiState.securityIssueDialogCode.value = null
     adminUiState.securityIssueDialogTitle.value = localized(
         uiLanguage,
         "Unable to Prepare Clean Exam Session",

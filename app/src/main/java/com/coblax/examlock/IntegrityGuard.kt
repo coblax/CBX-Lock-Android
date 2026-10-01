@@ -78,6 +78,24 @@ object IntegrityGuard {
         else -> DexHashVerdict(issue = null, unreadable = false)
     }
 
+    /**
+     * System build properties, reported but not counted as APK tampering. They describe the
+     * phone, not this APK: test-keys ships on genuine budget ROMs, ro.adb.secure=0 on some
+     * stock ROMs, and root detection already weighs every one of them with corroboration.
+     * Counting them here refused those phones as "APK integrity failed" anyway.
+     */
+    internal fun resolveSystemPropertyNotes(
+        debuggable: String,
+        secure: String,
+        adbSecure: String,
+        buildTags: String
+    ): List<String> = buildList {
+        if (debuggable == "1") add("sysprop_debuggable")
+        if (secure == "0") add("sysprop_secure")
+        if (adbSecure == "0") add("sysprop_adb_secure")
+        if (buildTags.contains("test-keys")) add("test_keys")
+    }
+
     fun check(context: Context, baselineFingerprint: String?): IntegrityCheckResult {
         val issues = mutableListOf<String>()
         val expectedHash = expectedDexHash(context)
@@ -104,18 +122,12 @@ object IntegrityGuard {
         val debuggable = getSystemProperty("ro.debuggable")
         val secure = getSystemProperty("ro.secure")
         val adbSecure = getSystemProperty("ro.adb.secure")
-        if (debuggable == "1") {
-            issues.add("sysprop_debuggable")
-        }
-        if (secure == "0") {
-            issues.add("sysprop_secure")
-        }
-        if (adbSecure == "0") {
-            issues.add("sysprop_adb_secure")
-        }
-        if (Build.TAGS?.contains("test-keys") == true) {
-            issues.add("test_keys")
-        }
+        val systemNotes = resolveSystemPropertyNotes(
+            debuggable = debuggable,
+            secure = secure,
+            adbSecure = adbSecure,
+            buildTags = Build.TAGS.orEmpty()
+        )
 
         if (hasHookClasses(context)) {
             issues.add("hook_class")
@@ -127,10 +139,12 @@ object IntegrityGuard {
                 // Carried so an admin can see the hash check did not run, without it
                 // counting as an issue and refusing the exam.
                 if (dexHashUnreadable) append(" | dex_hash_unreadable")
+                if (systemNotes.isNotEmpty()) append(" | system_notes=").append(systemNotes.joinToString())
                 return@buildString
             }
             append("issues=").append(issues.joinToString())
             if (dexHashUnreadable) append(" | dex_hash_unreadable")
+            if (systemNotes.isNotEmpty()) append(" | system_notes=").append(systemNotes.joinToString())
             if (issues.any { it.startsWith("dex_hash_") }) {
                 append(" | dex=").append(shorten(actualHash))
                 append("/exp=").append(shorten(expectedHash))
@@ -139,7 +153,7 @@ object IntegrityGuard {
                 append(" | sig=").append(shorten(currentFingerprint))
                 append("/base=").append(shorten(baselineFingerprint.orEmpty()))
             }
-            if (issues.any { it.startsWith("sysprop_") } || issues.contains("test_keys")) {
+            if (systemNotes.isNotEmpty()) {
                 append(" | props=")
                 append("dbg=").append(debuggable.ifBlank { "-" })
                 append(",sec=").append(secure.ifBlank { "-" })

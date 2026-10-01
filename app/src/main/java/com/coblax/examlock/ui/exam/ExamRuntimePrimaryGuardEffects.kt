@@ -17,6 +17,7 @@ import com.coblax.examlock.AppSwitchSuppressionReason
 import com.coblax.examlock.ClipboardBypassState
 import com.coblax.examlock.diagnosticLabel
 import com.coblax.examlock.format.diagnosticTimestamp
+import com.coblax.examlock.isOverlayShieldApplyViolation
 import com.coblax.examlock.MainActivity
 import com.coblax.examlock.model.DiagnosticEventLevel
 import com.coblax.examlock.model.DiagnosticSection
@@ -106,7 +107,7 @@ internal fun RuntimePrimaryGuardEffects(
                     DiagnosticEventLevel.INFO
                 }
             )
-            if (shieldShouldBeRequested && applyResult != true) {
+            if (isOverlayShieldApplyViolation(shieldShouldBeRequested, applyResult)) {
                 securityUiState.overlayViolationCount.intValue += 1
                 securityUiState.lastOverlayTrigger.value = OverlaySignal.OverlayShieldUnsupported.diagnosticLabel()
                 securityUiState.lastOverlayAt.value = diagnosticTimestamp()

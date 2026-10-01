@@ -314,17 +314,28 @@ internal fun ExamNetworkStatus.toTransportLabel(): String {
     }
 }
 
+internal fun resolveNetworkReadinessVerdict(
+    connected: Boolean,
+    diagnostics: NetworkDiagnostics
+): NetworkReadinessVerdict = when {
+    // Airplane mode only explains a missing connection. Students often turn it on to
+    // silence calls and then turn Wi-Fi back on; that phone is online and used to be
+    // refused the exam as "turn off airplane mode".
+    diagnostics.isAirplaneModeEnabled && !connected -> NetworkReadinessVerdict.AirplaneMode
+    !connected -> NetworkReadinessVerdict.Offline
+    diagnostics.isVpnActive -> NetworkReadinessVerdict.VpnActive
+    diagnostics.isCaptivePortal -> NetworkReadinessVerdict.CaptivePortal
+    diagnostics.hasInternetCapability && !diagnostics.isValidated -> NetworkReadinessVerdict.Unvalidated
+    else -> NetworkReadinessVerdict.ConnectedStable
+}
+
 internal fun readNetworkReadinessStatus(context: Context): NetworkReadinessStatus {
     val examStatus = readExamNetworkStatus(context)
     val diagnostics = getNetworkDiagnostics(context)
-    val verdict = when {
-        diagnostics.isAirplaneModeEnabled -> NetworkReadinessVerdict.AirplaneMode
-        !examStatus.isConnected -> NetworkReadinessVerdict.Offline
-        diagnostics.isVpnActive -> NetworkReadinessVerdict.VpnActive
-        diagnostics.isCaptivePortal -> NetworkReadinessVerdict.CaptivePortal
-        diagnostics.hasInternetCapability && !diagnostics.isValidated -> NetworkReadinessVerdict.Unvalidated
-        else -> NetworkReadinessVerdict.ConnectedStable
-    }
+    val verdict = resolveNetworkReadinessVerdict(
+        connected = examStatus.isConnected,
+        diagnostics = diagnostics
+    )
     val quickFixReason = when (verdict) {
         NetworkReadinessVerdict.Offline -> "offline"
         NetworkReadinessVerdict.Unvalidated -> "unvalidated"

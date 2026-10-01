@@ -148,7 +148,7 @@ internal fun ExamSecurityPreparationScreen(
     val readiness = remember(
         state.network, state.device, state.location,
         state.runtimeSecurity, state.bypass, state.preExamHealthCheckSnapshot,
-        examScheduleEnded,
+        examScheduleEnded, state.session.requiredAppVersionName,
         needsBluetoothPermission,
         accessibilityGuardRequired, accessibilityGuardAvailable,
         accessibilityGuardEnabled
@@ -164,7 +164,8 @@ internal fun ExamSecurityPreparationScreen(
             accessibilityGuardAvailable = accessibilityGuardAvailable,
             accessibilityGuardEnabled = accessibilityGuardEnabled,
             preExamHealthSnapshot = state.preExamHealthCheckSnapshot,
-            examScheduleEnded = examScheduleEnded
+            examScheduleEnded = examScheduleEnded,
+            appUpdateRequired = state.session.requiredAppVersionName != null
         )
     }
     val quickFixActions = remember(
@@ -535,7 +536,10 @@ private fun PreparationSessionNotices(
         }
 
         val pinningPending = state.pinningActivationState.isPending()
-        val pinningRetryReady = state.pinningActivationState == PinningActivationState.TimeoutRetryReady
+        // A pin confirmed after the wait timed out left "not active yet" on screen, telling the
+        // student to tap a button that was already gone; the actual lock state decides.
+        val pinningRetryReady = state.pinningActivationState == PinningActivationState.TimeoutRetryReady &&
+            !state.isScreenPinningActive
         if ((pinningPending || pinningRetryReady) && !state.bypassScreenPinning) {
             StatusBanner(
                 title = if (pinningRetryReady) {

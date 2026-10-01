@@ -27,6 +27,60 @@ internal data class StartExamBlockMessage(
     val message: String
 )
 
+internal enum class BlockedPermissionKind {
+    Bluetooth,
+    Location,
+    PreciseLocation
+}
+
+/**
+ * Shown with [PermissionSettingsRequiredDialogCode] when Android denied a permission without
+ * showing its prompt, so the only way left is the app's own info page in Settings.
+ */
+internal fun resolveBlockedPermissionMessage(
+    uiLanguage: UiLanguage,
+    kind: BlockedPermissionKind
+): StartExamBlockMessage = when (kind) {
+    BlockedPermissionKind.Bluetooth -> StartExamBlockMessage(
+        code = PermissionSettingsRequiredDialogCode,
+        details = "permission=bluetooth_connect",
+        title = localized(uiLanguage, "Allow Bluetooth in Settings", "Izinkan Bluetooth di Setelan"),
+        message = localized(
+            uiLanguage,
+            "Android no longer shows the Bluetooth permission prompt for CBX Lock, so it cannot check " +
+                "for Bluetooth devices.\n\nOpen App Settings > Permissions > Nearby devices > Allow, then come back here.",
+            "Android tidak lagi menampilkan permintaan izin Bluetooth untuk CBX Lock, sehingga perangkat " +
+                "Bluetooth belum bisa diperiksa.\n\nBuka Setelan Aplikasi > Izin > Perangkat di sekitar > Izinkan, lalu kembali ke sini."
+        )
+    )
+    BlockedPermissionKind.Location -> StartExamBlockMessage(
+        code = PermissionSettingsRequiredDialogCode,
+        details = "permission=location",
+        title = localized(uiLanguage, "Allow Location in Settings", "Izinkan Lokasi di Setelan"),
+        message = localized(
+            uiLanguage,
+            "Android no longer shows the location permission prompt for CBX Lock.\n\n" +
+                "Open App Settings > Permissions > Location > Allow only while using the app, then come back here.",
+            "Android tidak lagi menampilkan permintaan izin lokasi untuk CBX Lock.\n\n" +
+                "Buka Setelan Aplikasi > Izin > Lokasi > Izinkan hanya saat aplikasi digunakan, lalu kembali ke sini."
+        )
+    )
+    BlockedPermissionKind.PreciseLocation -> StartExamBlockMessage(
+        code = PermissionSettingsRequiredDialogCode,
+        details = "permission=precise_location",
+        title = localized(uiLanguage, "Allow Precise Location in Settings", "Izinkan Lokasi Presisi di Setelan"),
+        message = localized(
+            uiLanguage,
+            "This exam checks your position, but Android no longer shows the precise location prompt for CBX Lock.\n\n" +
+                "Open App Settings > Permissions > Location > Allow only while using the app, turn on " +
+                "Use precise location, then come back here.",
+            "Ujian ini memeriksa posisi Anda, tetapi Android tidak lagi menampilkan permintaan lokasi presisi untuk CBX Lock.\n\n" +
+                "Buka Setelan Aplikasi > Izin > Lokasi > Izinkan hanya saat aplikasi digunakan, nyalakan " +
+                "Gunakan lokasi akurat, lalu kembali ke sini."
+        )
+    )
+}
+
 internal fun resolveStartExamUnexpectedFailureBlockMessage(
     uiLanguage: UiLanguage,
     phase: String,
@@ -375,7 +429,6 @@ internal fun resolveStartExamStaticSecurityBlockMessage(
     virtualEnvironmentDetected: Boolean,
     adbEnabled: Boolean,
     wirelessAdbEnabled: Boolean,
-    adbInsecureSystemProperty: Boolean,
     bypassRoot: Boolean,
     rootSecurityStatus: RootSecurityStatus,
     bypassScreenRecorder: Boolean,
@@ -436,15 +489,9 @@ internal fun resolveStartExamStaticSecurityBlockMessage(
                 )
             )
 
-        !bypassAdb && adbInsecureSystemProperty ->
-            StartExamBlockMessage(
-                code = "START_EXAM_BLOCKED_ADB_INSECURE_PROPERTY",
-                title = localized(uiLanguage, "ADB Security Property Unsafe", "ADB Security Property Tidak Aman"),
-                message = localized(uiLanguage,
-                    "The ADB system security property is detected in an unsafe state. Restart the device and make sure USB debugging is disabled.",
-                    "Properti keamanan ADB sistem terdeteksi dalam kondisi tidak aman. Restart perangkat dan pastikan USB debugging dinonaktifkan."
-                )
-            )
+        // ro.adb.secure=0 is not blocked on its own: it is baked into some stock ROMs, a
+        // student cannot change it, and it only matters while USB debugging is on, which
+        // the checks above already refuse.
 
         !bypassRoot && rootSecurityStatus.detected ->
             StartExamBlockMessage(

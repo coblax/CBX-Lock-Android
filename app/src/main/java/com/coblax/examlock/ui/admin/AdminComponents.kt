@@ -302,7 +302,8 @@ internal fun GeneratedQrCard(
     startTime: String,
     endTime: String,
     locationPolicy: ExamQrLocationPolicy,
-    securityBypasses: Set<ExamQrSecurityBypass> = emptySet()
+    securityBypasses: Set<ExamQrSecurityBypass> = emptySet(),
+    minAppVersionName: String? = null
 ) {
     val uiLanguage = LocalUiLanguage.current
     val bypassTitles = remember(securityBypasses, uiLanguage) {
@@ -404,6 +405,12 @@ internal fun GeneratedQrCard(
             ExamDetailLine(
                 label = tr("Checks turned off", "Pengamanan dilonggarkan"),
                 value = bypassTitles.joinToString()
+            )
+        }
+        if (!minAppVersionName.isNullOrBlank()) {
+            ExamDetailLine(
+                label = tr("Minimum CBX Lock", "CBX Lock minimal"),
+                value = "v$minAppVersionName"
             )
         }
 

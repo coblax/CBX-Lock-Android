@@ -202,6 +202,20 @@ internal fun buildPreparationQuickFixActions(
                         onClick = onOpenDateTimeSettings
                     )
                 }
+                if (state.session.requiredAppVersionName != null) {
+                    addQuickFix(
+                        code = "app_update_required",
+                        text = t("Download the Latest CBX Lock", "Unduh CBX Lock Terbaru"),
+                        severity = QuickFixSeverity.Blocking,
+                        target = null,
+                        priority = 5,
+                        section = PreparationSection.DeviceHealth,
+                        fieldText = t("Download Latest Version", "Unduh Versi Terbaru"),
+                        filled = true,
+                        opensExternalSettings = true,
+                        onClick = onReinstallOfficialApk
+                    )
+                }
                 if (reinstallApkFixNeeded) {
                     addQuickFix(
                         text = t("Install Official APK Again", "Instal Ulang APK Resmi"),
@@ -234,7 +248,9 @@ internal fun buildPreparationQuickFixActions(
                             "ADB system property insecure — contact your admin or check Developer Options",
                             "Properti sistem ADB tidak aman — hubungi admin atau periksa Developer Options"
                         ),
-                        severity = QuickFixSeverity.Blocking,
+                        // Warning, like the issue: a Blocking action here also deferred
+                        // Screen Pinning forever on phones that ship this property.
+                        severity = QuickFixSeverity.Warning,
                         target = QuickFixTarget.All,
                         priority = 21,
                         section = PreparationSection.DeviceIntegrity,

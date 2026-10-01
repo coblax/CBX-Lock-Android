@@ -1,6 +1,7 @@
 package com.coblax.examlock.ui.admin
 
 import android.location.Location
+import com.coblax.examlock.BuildConfig
 import android.net.Uri
 import android.view.View
 import androidx.compose.foundation.background
@@ -294,7 +295,10 @@ internal fun CustomQrAdminScreen(
                         saveToDirectLink = showSaveToDirectLinkOption && saveToDirectLink,
                         locationPolicy = currentLocationPolicy,
                         locationPolicySource = LocationPolicySource.CustomQr,
-                        securityBypasses = draft.securityBypasses
+                        securityBypasses = draft.securityBypasses,
+                        minAppVersionCode = if (draft.requireCurrentAppVersion) BuildConfig.VERSION_CODE else 0,
+                        minAppVersionName = if (draft.requireCurrentAppVersion) BuildConfig.VERSION_NAME else "",
+                        appUpdateUrl = if (draft.requireCurrentAppVersion) draft.appUpdateUrl.trim() else ""
                     )
                     onGeneratedQrPayloadChange(ExamQrCodec.encrypt(payload))
                     onGenerationStatusChange(qrCreatedMessage)
@@ -900,6 +904,36 @@ internal fun CustomQrAdminScreen(
                         }
                     )
 
+                    CustomQrToggleCard(
+                        title = tr(
+                            "Require CBX Lock v${BuildConfig.VERSION_NAME} or newer",
+                            "Wajibkan CBX Lock v${BuildConfig.VERSION_NAME} atau lebih baru"
+                        ),
+                        description = tr(
+                            "Students on an older build are asked to update before they can start. Builds older than 3.3.3 cannot read this QR at all.",
+                            "Siswa dengan versi lama diminta memperbarui dulu sebelum bisa mulai. Versi di bawah 3.3.3 tidak bisa membaca QR ini sama sekali."
+                        ),
+                        checked = draft.requireCurrentAppVersion,
+                        onCheckedChange = {
+                            updateDraft { current -> current.copy(requireCurrentAppVersion = it) }
+                            clearGeneratedQr()
+                        }
+                    )
+                    if (draft.requireCurrentAppVersion) {
+                        AdminInputField(
+                            value = draft.appUpdateUrl,
+                            onValueChange = {
+                                updateDraft { current -> current.copy(appUpdateUrl = it) }
+                                clearGeneratedQr()
+                            },
+                            placeholder = tr(
+                                "Installer download link (optional, e.g. Google Drive)",
+                                "Link unduh installer (opsional, mis. Google Drive)"
+                            ),
+                            keyboardType = KeyboardType.Uri
+                        )
+                    }
+
                     if (showSaveToDirectLinkOption) {
                         Surface(
                             modifier = Modifier.fillMaxWidth(),
@@ -965,7 +999,8 @@ internal fun CustomQrAdminScreen(
                             startTime = startTime,
                             endTime = endTime,
                             locationPolicy = currentLocationPolicy,
-                            securityBypasses = draft.securityBypasses
+                            securityBypasses = draft.securityBypasses,
+                            minAppVersionName = BuildConfig.VERSION_NAME.takeIf { draft.requireCurrentAppVersion }
                         )
                     }
                 }
@@ -1157,6 +1192,54 @@ private fun CustomQrResumedDraftBanner(onStartNewDraft: () -> Unit) {
                     fontWeight = FontWeight.Bold
                 )
             }
+        }
+    }
+}
+
+@Composable
+private fun CustomQrToggleCard(
+    title: String,
+    description: String,
+    checked: Boolean,
+    onCheckedChange: (Boolean) -> Unit
+) {
+    Surface(
+        modifier = Modifier.fillMaxWidth(),
+        shape = RoundedCornerShape(UiTokens.RadiusMd),
+        color = MaterialTheme.colorScheme.surface,
+        border = BorderStroke(1.dp, AppColors.current.outlineStrong)
+    ) {
+        Row(
+            modifier = Modifier.padding(horizontal = 14.dp, vertical = 12.dp),
+            horizontalArrangement = Arrangement.spacedBy(12.dp),
+            verticalAlignment = Alignment.CenterVertically
+        ) {
+            Column(
+                modifier = Modifier.weight(1f),
+                verticalArrangement = Arrangement.spacedBy(4.dp)
+            ) {
+                Text(
+                    text = title,
+                    color = AppColors.current.textPrimary,
+                    fontSize = 14.sp,
+                    fontWeight = FontWeight.Bold
+                )
+                Text(
+                    text = description,
+                    color = AppColors.current.textSecondary,
+                    fontSize = 11.sp,
+                    lineHeight = 14.sp
+                )
+            }
+            Checkbox(
+                checked = checked,
+                onCheckedChange = onCheckedChange,
+                colors = CheckboxDefaults.colors(
+                    checkedColor = AppColors.current.blue,
+                    uncheckedColor = AppColors.current.outlineStrong,
+                    checkmarkColor = Color.White
+                )
+            )
         }
     }
 }

@@ -11,6 +11,7 @@ import android.os.Build
 import android.os.CancellationSignal
 import android.provider.Settings
 import androidx.core.content.ContextCompat
+import androidx.core.location.LocationManagerCompat
 import com.coblax.examlock.GeofenceConfig
 import com.coblax.examlock.LocationSnapshot
 import com.coblax.examlock.config.GeofenceCurrentLocationTimeoutMillis
@@ -241,22 +242,28 @@ internal suspend fun requestCurrentLocationSnapshot(
     locationManager: LocationManager,
     provider: String
 ): LocationSnapshot? {
-    if (Build.VERSION.SDK_INT < Build.VERSION_CODES.R) {
-        return null
-    }
-
+    // The compat call asks for a single fresh update on Android 7-10 too. This used to
+    // return null there, so those phones only ever had the last cached fix: once it aged
+    // past the freshness limit, geofence exams were stuck on "location too old" and a
+    // phone with no cached fix could never pass anti-fake-location, whatever "refresh" did.
     return withTimeoutOrNull(GeofenceCurrentLocationTimeoutMillis) {
         suspendCancellableCoroutine { continuation ->
             val cancellationSignal = CancellationSignal()
             continuation.invokeOnCancellation { cancellationSignal.cancel() }
-            locationManager.getCurrentLocation(
-                provider,
-                cancellationSignal,
-                ContextCompat.getMainExecutor(context)
-            ) { location ->
-                if (continuation.isActive) {
-                    continuation.resume(location?.toLocationSnapshot())
+            val started = runCatching {
+                LocationManagerCompat.getCurrentLocation(
+                    locationManager,
+                    provider,
+                    cancellationSignal,
+                    ContextCompat.getMainExecutor(context)
+                ) { location ->
+                    if (continuation.isActive) {
+                        continuation.resume(location?.toLocationSnapshot())
+                    }
                 }
+            }
+            if (started.isFailure && continuation.isActive) {
+                continuation.resume(null)
             }
         }
     }

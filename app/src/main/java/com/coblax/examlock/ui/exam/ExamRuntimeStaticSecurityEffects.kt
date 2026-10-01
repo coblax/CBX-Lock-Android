@@ -117,7 +117,8 @@ internal fun applyInitialStaticSecuritySnapshot(
     locationServicesEnabled: Boolean,
     fixQualityStatus: LocationFixQualityStatus,
     developerOptionsEnabled: Boolean,
-    fakeLocationBypassState: FakeLocationBypassState
+    fakeLocationBypassState: FakeLocationBypassState,
+    fakeLocationMonitoringEnabled: Boolean
 ) {
     securityUiState.rootSecurityStatus.setIfChanged(snapshot.rootSecurityStatus)
     securityUiState.rootDetected.setIfChanged(snapshot.rootSecurityStatus.detected)
@@ -130,7 +131,7 @@ internal fun applyInitialStaticSecuritySnapshot(
     securityUiState.showOverlayAppViolationDialog.setIfChanged(false)
     securityUiState.fakeLocationSecurityStatus.setIfChanged(
         evaluateFakeLocationSecurity(
-            monitoringEnabled = true,
+            monitoringEnabled = fakeLocationMonitoringEnabled,
             permissionGranted = permissionGranted,
             locationServicesEnabled = locationServicesEnabled,
             locationSnapshot = fixQualityStatus.snapshot,

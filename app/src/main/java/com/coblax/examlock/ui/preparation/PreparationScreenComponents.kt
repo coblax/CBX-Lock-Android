@@ -131,7 +131,7 @@ internal fun preparationStatusColors(tone: UiStatusTone): UiStatusColors {
 
 @Composable
 internal fun preparationToneLabel(status: PreparationCategoryStatus): String = when (status.tone) {
-    PreparationTone.Clear -> tr("Passed", "Aman")
+    PreparationTone.Clear -> if (status.notRequired) tr("Not needed", "Tak perlu") else tr("Passed", "Aman")
     PreparationTone.Blocking -> tr(
         if (status.blockingCount == 1) "1 issue" else "${status.blockingCount} issues",
         "${status.blockingCount} masalah"

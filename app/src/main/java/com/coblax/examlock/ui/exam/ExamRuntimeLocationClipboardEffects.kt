@@ -83,7 +83,8 @@ internal fun RuntimeLocationAndClipboardEffects(
         lowRamProfile
     ) {
         val geofenceMonitoringActive = geofenceEnabled && !bypassGeofence
-        val fakeLocationMonitoringActive = !bypassFakeLocation
+        // Anti fake-location only guards a geofence; with none, location is never checked.
+        val fakeLocationMonitoringActive = geofenceMonitoringActive && !bypassFakeLocation
         if (!examSessionStarted || (!geofenceMonitoringActive && !fakeLocationMonitoringActive)) {
             flowUiState.geofenceRuntimeEpisodeKey.value = null
             flowUiState.fakeLocationRuntimeEpisodeKey.value = null

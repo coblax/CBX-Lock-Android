@@ -200,6 +200,212 @@ class PreparationFalsePositiveTest {
         assertTrue(findScreenRecorderMatchesFromInventory(records).isEmpty())
     }
 
+    // --- Airplane mode -----------------------------------------------------------
+
+    private fun network(airplane: Boolean) = com.coblax.examlock.model.NetworkDiagnostics(
+        activeNetworkAvailable = true,
+        transports = listOf("WIFI"),
+        hasInternetCapability = true,
+        isValidated = true,
+        isCaptivePortal = false,
+        isMetered = false,
+        isVpnActive = false,
+        isAirplaneModeEnabled = airplane,
+        notRoaming = null,
+        interfaceName = "wlan0",
+        wifi = null,
+        cellular = null
+    )
+
+    @Test
+    fun airplaneModeWithWifiBackOnIsOnline() {
+        // Students switch airplane mode on to silence calls, then turn Wi-Fi back on.
+        assertEquals(
+            com.coblax.examlock.model.NetworkReadinessVerdict.ConnectedStable,
+            resolveNetworkReadinessVerdict(connected = true, diagnostics = network(airplane = true))
+        )
+    }
+
+    @Test
+    fun airplaneModeStillExplainsANoConnection() {
+        assertEquals(
+            com.coblax.examlock.model.NetworkReadinessVerdict.AirplaneMode,
+            resolveNetworkReadinessVerdict(connected = false, diagnostics = network(airplane = true))
+        )
+        assertEquals(
+            com.coblax.examlock.model.NetworkReadinessVerdict.Offline,
+            resolveNetworkReadinessVerdict(connected = false, diagnostics = network(airplane = false))
+        )
+    }
+
+    // --- Clone apps and virtual containers ---------------------------------------
+
+    private val pkg = "com.coblax.examlock"
+
+    @Test
+    fun installedCloneAppsAreNotEmulatorEvidence() {
+        val records = inventory(
+            userApp("com.lbe.parallel.intl"),
+            userApp("com.excelliance.dualaid"),
+            userApp("com.ludashi.benchmark")
+        )
+        assertTrue(findEmulatorPackagesFromInventory(records).isEmpty())
+        assertEquals(3, findVirtualSpaceHostPackagesFromInventory(records).size)
+    }
+
+    @Test
+    fun emulatorGuestPackagesAreStillCaught() {
+        val records = inventory(userApp("com.bluestacks.home"))
+        assertEquals(listOf("com.bluestacks.home"), findEmulatorPackagesFromInventory(records))
+    }
+
+    @Test
+    fun normalInstallLayoutsAreNotAContainer() {
+        for (dataDir in listOf(
+            "/data/user/0/$pkg",
+            "/data/data/$pkg",
+            "/data/user/10/$pkg",   // work profile
+            "/data/user/999/$pkg",  // OEM dual apps
+            "/data/user_de/0/$pkg",
+            "/mnt/expand/1234-abcd/user/0/$pkg"  // adopted storage
+        )) {
+            assertTrue(
+                dataDir,
+                resolveVirtualContainerIndicators(
+                    expectedPackageName = pkg,
+                    dataDir = dataDir,
+                    sourceDir = "/data/app/~~abc==/$pkg-xyz==/base.apk",
+                    processName = pkg
+                ).isEmpty()
+            )
+        }
+        assertTrue(
+            resolveVirtualContainerIndicators(pkg, null, null, "$pkg:remote").isEmpty()
+        )
+    }
+
+    @Test
+    fun androidSevenToNineInstallLayoutIsNotAContainer() {
+        // Before Android 8.1 the APK sits in /data/app/<pkg>-1 and, below Android 9, the
+        // process name comes from /proc/self/cmdline rather than Application.getProcessName.
+        for (sourceDir in listOf(
+            "/data/app/$pkg-1/base.apk",
+            "/data/app/$pkg-2/base.apk",
+            "/mnt/expand/1234-abcd/app/$pkg-1/base.apk"
+        )) {
+            assertTrue(
+                sourceDir,
+                resolveVirtualContainerIndicators(
+                    expectedPackageName = pkg,
+                    dataDir = "/data/user/0/$pkg",
+                    sourceDir = sourceDir,
+                    processName = pkg
+                ).isEmpty()
+            )
+        }
+    }
+
+    @Test
+    fun missingReadingsNeverCountAsAContainer() {
+        // A field Android would not give us is unknown, not suspicious.
+        assertTrue(resolveVirtualContainerIndicators(pkg, null, null, null).isEmpty())
+        assertTrue(resolveVirtualContainerIndicators(pkg, "", " ", "").isEmpty())
+    }
+
+    @Test
+    fun runningInsideACloneAppIsCaught() {
+        assertFalse(
+            resolveVirtualContainerIndicators(
+                expectedPackageName = pkg,
+                dataDir = "/data/user/0/com.lbe.parallel.intl/parallel_intl/0/$pkg",
+                sourceDir = "/data/app/~~abc==/$pkg-xyz==/base.apk",
+                processName = pkg
+            ).isEmpty()
+        )
+        assertFalse(
+            resolveVirtualContainerIndicators(
+                expectedPackageName = pkg,
+                dataDir = "/data/user/0/$pkg",
+                sourceDir = "/data/user/0/io.va.exposed/virtual/data/app/$pkg/base.apk",
+                processName = pkg
+            ).isEmpty()
+        )
+        assertFalse(
+            resolveVirtualContainerIndicators(
+                expectedPackageName = pkg,
+                dataDir = "/data/user/0/$pkg",
+                sourceDir = "/data/app/$pkg-1/base.apk",
+                processName = "com.lbe.parallel.intl:p0"
+            ).isEmpty()
+        )
+    }
+
+    // --- Location without a geofence ---------------------------------------------
+
+    private fun fakeLocation(
+        monitoringEnabled: Boolean,
+        permissionGranted: Boolean = true,
+        servicesEnabled: Boolean = true
+    ) = com.coblax.examlock.evaluateFakeLocationSecurity(
+        monitoringEnabled = monitoringEnabled,
+        permissionGranted = permissionGranted,
+        locationServicesEnabled = servicesEnabled,
+        locationSnapshot = null,
+        fixQualityStatus = com.coblax.examlock.evaluateLocationFixQuality(null),
+        developerOptionsEnabled = false,
+        suspiciousFakeLocationPackages = emptyList(),
+        bypassState = com.coblax.examlock.LocationBypassState.Inactive
+    )
+
+    private fun geofence(enabled: Boolean) = com.coblax.examlock.GeofenceConfigParseResult(
+        enabled = enabled,
+        config = null,
+        error = null
+    )
+
+    @Test
+    fun anExamWithoutGeofenceNeverAsksForLocation() {
+        // With no geofence the position is never used, so anti fake-location is off and
+        // permission, location services and a fix are all not needed.
+        assertFalse(
+            com.coblax.examlock.isGeofenceEnforced(
+                geofence(enabled = false),
+                com.coblax.examlock.LocationBypassState.Inactive
+            )
+        )
+        assertFalse(
+            com.coblax.examlock.isGeofenceEnforced(
+                geofence(enabled = true),
+                com.coblax.examlock.LocationBypassState.Active
+            )
+        )
+        for (status in listOf(
+            fakeLocation(monitoringEnabled = false, permissionGranted = false),
+            fakeLocation(monitoringEnabled = false, servicesEnabled = false),
+            fakeLocation(monitoringEnabled = false)
+        )) {
+            assertEquals(com.coblax.examlock.LocationSpoofSecurityVerdict.Disabled, status.finalVerdict)
+            assertFalse(status.blocking)
+        }
+    }
+
+    @Test
+    fun aGeofenceExamStillRequiresAUsableLocation() {
+        assertTrue(
+            com.coblax.examlock.isGeofenceEnforced(
+                geofence(enabled = true),
+                com.coblax.examlock.LocationBypassState.Inactive
+            )
+        )
+        val status = fakeLocation(monitoringEnabled = true)
+        assertEquals(
+            com.coblax.examlock.LocationSpoofSecurityVerdict.LocationUnavailable,
+            status.finalVerdict
+        )
+        assertTrue(status.blocking)
+        assertTrue(fakeLocation(monitoringEnabled = true, permissionGranted = false).blocking)
+    }
+
     // --- External display -------------------------------------------------------
 
     @Test

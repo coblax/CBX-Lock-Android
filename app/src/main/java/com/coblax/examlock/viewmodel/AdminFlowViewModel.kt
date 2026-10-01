@@ -75,7 +75,11 @@ internal data class CustomQrDraftState(
     val polygonVertices: List<GeofenceVertex> = emptyList(),
     val geofenceCircleCenters: List<GeofenceVertex> = emptyList(),
     val saveToDirectLink: Boolean = false,
-    val securityBypasses: Set<ExamQrSecurityBypass> = emptySet()
+    val securityBypasses: Set<ExamQrSecurityBypass> = emptySet(),
+    /** Students must run this CBX Lock build or newer to sit the exam. */
+    val requireCurrentAppVersion: Boolean = false,
+    /** Where those students download the update (installer link); optional. */
+    val appUpdateUrl: String = ""
 ) {
     /** Whether this holds anything the admin typed or placed, as opposed to the defaults. */
     val hasContent: Boolean
@@ -85,7 +89,8 @@ internal data class CustomQrDraftState(
             polygonVertices.isNotEmpty() ||
             geofenceCircleCenters.isNotEmpty() ||
             saveToDirectLink ||
-            securityBypasses.isNotEmpty()
+            securityBypasses.isNotEmpty() ||
+            requireCurrentAppVersion
 }
 
 internal sealed interface AdminFlowUiAction {

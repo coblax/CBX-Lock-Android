@@ -72,4 +72,14 @@ class OverlayHardeningTest {
         assertFalse(result.confirmedInteractionDetected)
         assertFalse(result.hasBlockingRisk)
     }
+
+    @Test
+    fun missingOverlayShieldBeforeAndroid12IsNotAViolation() {
+        // setOverlayShieldMode returns null below Android 12: nothing to apply, nothing failed.
+        assertFalse(isOverlayShieldApplyViolation(requested = true, applyResult = null))
+        assertFalse(isOverlayShieldApplyViolation(requested = true, applyResult = true))
+        assertFalse(isOverlayShieldApplyViolation(requested = false, applyResult = null))
+        assertFalse(isOverlayShieldApplyViolation(requested = false, applyResult = false))
+        assertTrue(isOverlayShieldApplyViolation(requested = true, applyResult = false))
+    }
 }

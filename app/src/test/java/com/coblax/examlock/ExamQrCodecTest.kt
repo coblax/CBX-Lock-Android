@@ -51,6 +51,45 @@ class ExamQrCodecTest {
     }
 
     @Test
+    fun minimumAppVersionTravelsOnlyWhenAsked() {
+        val original = samplePayload().copy(
+            securityBypasses = setOf(ExamQrSecurityBypass.Bluetooth),
+            minAppVersionCode = 375,
+            minAppVersionName = "3.3.3",
+            appUpdateUrl = "https://drive.google.com/file/d/abc/view"
+        )
+        val encrypted = ExamQrCodec.encrypt(original)
+        val fields = ExamQrCodec.ParityAccess.plaintextOf(encrypted).split("|")
+        val decrypted = ExamQrCodec.decrypt(encrypted)
+
+        assertEquals("9", fields.first())
+        assertEquals(18, fields.size)
+        assertEquals(375, decrypted.minAppVersionCode)
+        assertEquals("3.3.3", decrypted.minAppVersionName)
+        assertEquals(original.appUpdateUrl, decrypted.appUpdateUrl)
+        assertEquals(original.securityBypasses, decrypted.securityBypasses)
+    }
+
+    @Test
+    fun minimumVersionWithoutBypassesStillRoundTrips() {
+        val original = samplePayload().copy(minAppVersionCode = 375, minAppVersionName = "3.3.3")
+        val decrypted = ExamQrCodec.decrypt(ExamQrCodec.encrypt(original))
+
+        assertEquals(emptySet<ExamQrSecurityBypass>(), decrypted.securityBypasses)
+        assertEquals(375, decrypted.minAppVersionCode)
+        assertEquals("", decrypted.appUpdateUrl)
+    }
+
+    @Test
+    fun onlyAnOlderBuildHasToUpdate() {
+        val payload = samplePayload().copy(minAppVersionCode = 375)
+        assertTrue(payload.requiresAppUpdate(currentVersionCode = 374))
+        assertEquals(false, payload.requiresAppUpdate(currentVersionCode = 375))
+        assertEquals(false, payload.requiresAppUpdate(currentVersionCode = 400))
+        assertEquals(false, samplePayload().requiresAppUpdate(currentVersionCode = 1))
+    }
+
+    @Test
     fun everyBypassSurvivesTheRoundTrip() {
         val original = samplePayload().copy(securityBypasses = ExamQrSecurityBypass.entries.toSet())
         val decrypted = ExamQrCodec.decrypt(ExamQrCodec.encrypt(original))

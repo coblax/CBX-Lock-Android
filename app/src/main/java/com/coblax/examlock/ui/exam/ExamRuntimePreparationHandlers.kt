@@ -29,6 +29,7 @@ import com.coblax.examlock.model.NetworkReadinessStatus
 import com.coblax.examlock.model.UiLanguage
 import com.coblax.examlock.openAccessibilitySettings
 import com.coblax.examlock.openAirplaneModeSettings
+import com.coblax.examlock.openAppPermissionSettings
 import com.coblax.examlock.openBluetoothSettings
 import com.coblax.examlock.openCellularSettings
 import com.coblax.examlock.openDateTimeSettings
@@ -511,6 +512,7 @@ internal class ExamRuntimePreparationActionOps(
                 details = "source=preparation_start_screen_pinning | screen_pinning_available=false",
                 level = DiagnosticEventLevel.WARNING
             )
+            adminUiState.securityIssueDialogCode.value = null
             adminUiState.securityIssueDialogTitle.value = localized(
                 uiLanguage,
                 "Screen Pinning Unavailable",
@@ -620,6 +622,12 @@ internal class ExamRuntimePreparationActionOps(
         )
     }
 
+    /** From the "permission needed" dialog: Android no longer shows that permission's prompt. */
+    fun handleOpenAppPermissionSettings() {
+        runtimeDiagnosticsOps.recordAction(code = "APP_PERMISSION_SETTINGS_OPENED")
+        handleReleaseScreenPinningThen { openAppPermissionSettings(context) }
+    }
+
     fun handleOpenCastSettings() {
         runtimeDiagnosticsOps.recordAction(code = "CAST_SETTINGS_OPENED", details = "quick_fix=display_mirror")
         // Some vendors (e.g. Samsung Smart View) have no ACTION_CAST_SETTINGS screen.
@@ -694,8 +702,24 @@ internal class ExamRuntimePreparationActionOps(
     }
 
     fun handleReinstallOfficialApk() {
-        runtimeDiagnosticsOps.recordAction(code = "OFFICIAL_APK_REINSTALL_OPENED")
-        openExternalUrl(context, officialApkUrl)
+        runtimeDiagnosticsOps.recordAction(
+            code = "OFFICIAL_APK_REINSTALL_OPENED",
+            details = "url_set=${officialApkUrl.isNotBlank()}"
+        )
+        if (officialApkUrl.isBlank()) {
+            // No link on this phone or in the QR: opening "" did nothing and the button
+            // looked broken, so say where the installer comes from instead.
+            adminUiState.securityIssueDialogCode.value = null
+            adminUiState.securityIssueDialogTitle.value =
+                localized(uiLanguage, "Get the latest CBX Lock", "Dapatkan CBX Lock terbaru")
+            adminUiState.securityIssueDialogMessage.value = localized(
+                uiLanguage,
+                "Ask the proctor for the latest CBX Lock installer file, install it, then scan the exam QR again.",
+                "Minta file installer CBX Lock terbaru ke pengawas, pasang, lalu scan QR ujian lagi."
+            )
+            return
+        }
+        handleReleaseScreenPinningThen { openExternalUrl(context, officialApkUrl) }
     }
 
     fun refreshPreparationStatusChecks() {
