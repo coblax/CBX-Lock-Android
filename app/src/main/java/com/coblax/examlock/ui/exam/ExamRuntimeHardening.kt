@@ -239,6 +239,7 @@ internal object ExamRuntimeHardeningDiagnostics {
     const val PinningTransitionViolationSuppressed = "PINNING_TRANSITION_VIOLATION_SUPPRESSED"
     const val PinningRetryReady = "PINNING_RETRY_READY"
     const val PinningCancelledByStudent = "PINNING_CANCELLED_BY_STUDENT"
+    const val SideCheckPausedForMemory = "SIDE_CHECK_PAUSED_MEMORY"
     const val DpcStatusResolved = "DPC_STATUS_RESOLVED"
     const val DpcLockTaskAllowlistApplied = "DPC_LOCK_TASK_ALLOWLIST_APPLIED"
     const val DpcLockTaskUpgradeRequested = "DPC_LOCK_TASK_UPGRADE_REQUESTED"
@@ -320,6 +321,7 @@ internal object ExamRuntimeHardeningDiagnostics {
         PinningTransitionViolationSuppressed,
         PinningRetryReady,
         PinningCancelledByStudent,
+        SideCheckPausedForMemory,
         DpcStatusResolved,
         DpcLockTaskAllowlistApplied,
         DpcLockTaskUpgradeRequested,

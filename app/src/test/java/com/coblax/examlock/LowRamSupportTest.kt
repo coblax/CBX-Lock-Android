@@ -150,6 +150,69 @@ class LowRamSupportTest {
     }
 
     @Test
+    @Suppress("DEPRECATION")
+    fun criticalTrimPausesSideChecksForAWhile() {
+        val now = 100_000L
+        val critical = nextSideCheckPauseDeadline(
+            level = android.content.ComponentCallbacks2.TRIM_MEMORY_RUNNING_CRITICAL,
+            nowElapsedMs = now,
+            currentDeadlineElapsedMs = 0L
+        )
+        assertEquals(now + SideCheckMemoryPauseMillis, critical)
+        assertTrue(isSideCheckPauseActive(critical, now + 60_000L))
+        assertFalse(isSideCheckPauseActive(critical, critical))
+
+        // Milder trims leave the window alone; a later critical one extends it.
+        assertEquals(
+            critical,
+            nextSideCheckPauseDeadline(
+                level = android.content.ComponentCallbacks2.TRIM_MEMORY_RUNNING_LOW,
+                nowElapsedMs = now + 10_000L,
+                currentDeadlineElapsedMs = critical
+            )
+        )
+        assertEquals(
+            now + 30_000L + SideCheckMemoryPauseMillis,
+            nextSideCheckPauseDeadline(
+                level = android.content.ComponentCallbacks2.TRIM_MEMORY_COMPLETE,
+                nowElapsedMs = now + 30_000L,
+                currentDeadlineElapsedMs = critical
+            )
+        )
+        assertFalse(isSideCheckPauseActive(0L, now))
+    }
+
+    @Test
+    fun androidSevenWithTwoGbGetsTheLightestTier() {
+        // Before Android 8 the exam WebView renders inside the app process.
+        val twoGb = 1_900L * 1024L * 1024L
+        val androidSeven = calculateLowRamProfile(
+            isLowRamDevice = false,
+            totalMemoryBytes = twoGb,
+            memoryClassMb = 192,
+            webViewSharesAppProcess = true
+        )
+        assertTrue(androidSeven.ultra)
+
+        val androidEight = calculateLowRamProfile(
+            isLowRamDevice = false,
+            totalMemoryBytes = twoGb,
+            memoryClassMb = 192,
+            webViewSharesAppProcess = false
+        )
+        assertTrue(androidEight.enabled)
+        assertFalse(androidEight.ultra)
+
+        val androidSevenThreeGb = calculateLowRamProfile(
+            isLowRamDevice = false,
+            totalMemoryBytes = 3_072L * 1024L * 1024L,
+            memoryClassMb = 192,
+            webViewSharesAppProcess = true
+        )
+        assertFalse(androidSevenThreeGb.enabled)
+    }
+
+    @Test
     fun exactlyTwoGbEnablesLowRamPolicy() {
         val profile = calculateLowRamProfile(
             isLowRamDevice = false,

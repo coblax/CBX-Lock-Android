@@ -1,5 +1,6 @@
 package com.coblax.examlock.ui.exam
 
+import com.coblax.examlock.MemoryPressureCoordinator
 import android.content.BroadcastReceiver
 import android.content.Context
 import android.content.Intent
@@ -239,6 +240,11 @@ internal fun RuntimeConnectivityEffects(
         delay(900L)
         while (true) {
             delay(currentNetworkPollingIntervalMillis())
+            // Connectivity callbacks keep reporting changes; only the backup poll waits.
+            if (MemoryPressureCoordinator.sideChecksPaused()) {
+                recordSideCheckMemoryPause("network_poll", recordAction)
+                continue
+            }
             updateNetworkReadiness("poll")
         }
     }

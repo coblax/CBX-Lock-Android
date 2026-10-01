@@ -3,6 +3,8 @@ package com.coblax.examlock
 import android.app.ActivityManager
 import android.content.ComponentCallbacks2
 import android.content.Context
+import android.os.Build
+import android.os.SystemClock
 import com.coblax.examlock.config.AdminKeyLowRamProfileOverride
 import com.coblax.examlock.config.AdminPreferencesName
 import com.coblax.examlock.runtime.SecurityDetectorCache
@@ -280,7 +282,8 @@ internal fun calculateLowRamProfile(
     totalMemoryBytes: Long?,
     memoryClassMb: Int?,
     availableMemoryBytes: Long? = null,
-    memoryLow: Boolean = false
+    memoryLow: Boolean = false,
+    webViewSharesAppProcess: Boolean = false
 ): LowRamProfile {
     val totalMemoryMb = totalMemoryBytes
         ?.takeIf { it > 0L }
@@ -297,7 +300,11 @@ internal fun calculateLowRamProfile(
         normalizedMemoryClassMb?.let { it <= SevereLowRamMemoryClassMb } == true
     val availableMemoryUltra = availableMemoryMb?.let { it <= UltraLowRamAvailableMemoryMb } == true
 
-    val ultra = totalMemorySevere || memoryClassSevere || availableMemoryUltra || memoryLow
+    // Before Android 8 the exam WebView renders inside CBX's own process, so on a 2 GB
+    // phone the page and the app compete for one heap; such phones get the lightest tier.
+    val sharedWebViewOnLowRam = webViewSharesAppProcess && totalMemoryLow
+    val ultra = totalMemorySevere || memoryClassSevere || availableMemoryUltra || memoryLow ||
+        sharedWebViewOnLowRam
     val severe = ultra
     val enabled = isLowRamDevice || totalMemoryLow || memoryClassLow || severe
 
@@ -467,7 +474,8 @@ internal fun resolveDetectedLowRamProfile(context: Context): LowRamProfile {
         totalMemoryBytes = memoryInfo?.totalMem,
         memoryClassMb = activityManager?.memoryClass,
         availableMemoryBytes = memoryInfo?.availMem,
-        memoryLow = memoryInfo?.lowMemory == true
+        memoryLow = memoryInfo?.lowMemory == true,
+        webViewSharesAppProcess = Build.VERSION.SDK_INT < Build.VERSION_CODES.O
     )
 }
 
@@ -481,11 +489,55 @@ internal fun resolveEffectiveLowRamProfile(context: Context): LowRamProfile {
 internal fun resolveLowRamProfile(context: Context): LowRamProfile =
     resolveEffectiveLowRamProfile(context)
 
+/** How long side checks stay paused after the system reports critical memory. */
+internal const val SideCheckMemoryPauseMillis = 90_000L
+
+/**
+ * When a critical trim arrives, side checks (server reachability probe, network
+ * re-poll, screen-recorder package scan) pause until the returned deadline. They are
+ * the ones that re-read whole package lists or open sockets, exactly when the phone
+ * has no memory to spare; pinning, overlay, app-switch and clipboard guards keep running.
+ */
+@Suppress("DEPRECATION")
+internal fun nextSideCheckPauseDeadline(
+    level: Int,
+    nowElapsedMs: Long,
+    currentDeadlineElapsedMs: Long
+): Long {
+    val critical = level == ComponentCallbacks2.TRIM_MEMORY_RUNNING_CRITICAL ||
+        level == ComponentCallbacks2.TRIM_MEMORY_COMPLETE
+    return if (critical) {
+        maxOf(currentDeadlineElapsedMs, nowElapsedMs + SideCheckMemoryPauseMillis)
+    } else {
+        currentDeadlineElapsedMs
+    }
+}
+
+internal fun isSideCheckPauseActive(deadlineElapsedMs: Long, nowElapsedMs: Long): Boolean =
+    nowElapsedMs < deadlineElapsedMs
+
 internal object MemoryPressureCoordinator {
     private val listeners = CopyOnWriteArraySet<(Int) -> Unit>()
 
     @Volatile
     private var lastTrimLevel: Int? = null
+
+    @Volatile
+    private var sideChecksPausedUntilElapsedMs: Long = 0L
+
+    /** True while side checks should skip their round; see [nextSideCheckPauseDeadline]. */
+    fun sideChecksPaused(nowElapsedMs: Long = SystemClock.elapsedRealtime()): Boolean =
+        isSideCheckPauseActive(sideChecksPausedUntilElapsedMs, nowElapsedMs)
+
+    fun sideChecksPausedUntilElapsedMs(): Long = sideChecksPausedUntilElapsedMs
+
+    private val loggedSideCheckPauses = java.util.concurrent.ConcurrentHashMap<String, Long>()
+
+    /** True once per pause window for [check], so a skipped round is logged only once. */
+    fun claimSideCheckPauseLog(check: String): Boolean {
+        val deadline = sideChecksPausedUntilElapsedMs
+        return loggedSideCheckPauses.put(check, deadline) != deadline
+    }
 
     fun addListener(listener: (Int) -> Unit) {
         listeners.add(listener)
@@ -500,6 +552,11 @@ internal object MemoryPressureCoordinator {
 
     fun dispatchTrimMemory(level: Int) {
         lastTrimLevel = level
+        sideChecksPausedUntilElapsedMs = nextSideCheckPauseDeadline(
+            level = level,
+            nowElapsedMs = SystemClock.elapsedRealtime(),
+            currentDeadlineElapsedMs = sideChecksPausedUntilElapsedMs
+        )
         runCatching {
             executeAggressiveCleanup(level)
         }

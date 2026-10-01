@@ -18,6 +18,7 @@ import com.coblax.examlock.ClipboardChangeDecision
 import com.coblax.examlock.ClipboardSnapshot
 import com.coblax.examlock.DeviceTimeSecurityStatus
 import com.coblax.examlock.FatalSecuritySignal
+import com.coblax.examlock.MemoryPressureCoordinator
 import com.coblax.examlock.format.diagnosticTimestamp
 import com.coblax.examlock.model.DiagnosticEventLevel
 import com.coblax.examlock.model.NetworkReadinessStatus
@@ -317,11 +318,17 @@ internal fun ExamRuntimeSessionEffects(
         }
         var firstProbe = true
         while (true) {
-            runExamServerProbe(
-                trigger = if (firstProbe) "exam_start" else "periodic",
-                markChecking = examServerStatus == ExamServerFooterStatus.Checking
-            )
-            firstProbe = false
+            if (MemoryPressureCoordinator.sideChecksPaused()) {
+                recordSideCheckMemoryPause("exam_server_probe") { code, details, level ->
+                    recordAction(code, details, level)
+                }
+            } else {
+                runExamServerProbe(
+                    trigger = if (firstProbe) "exam_start" else "periodic",
+                    markChecking = examServerStatus == ExamServerFooterStatus.Checking
+                )
+                firstProbe = false
+            }
             delay(examServerProbeIntervalMillis(lowRamProfile))
         }
     }

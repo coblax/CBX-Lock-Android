@@ -1,5 +1,6 @@
 package com.coblax.examlock.ui.exam
 
+import com.coblax.examlock.MemoryPressureCoordinator
 import android.content.Context
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.DisposableEffect
@@ -322,6 +323,12 @@ internal fun RuntimeStaticSecurityEffects(
         delay(600L)
         while (true) {
             delay(runtimeScreenRecorderPollIntervalMillis(lowRamProfile))
+            // Critical trims empty the detector caches, so this round would re-read the
+            // whole package list at the worst moment; it resumes once the pause ends.
+            if (MemoryPressureCoordinator.sideChecksPaused()) {
+                recordSideCheckMemoryPause("screen_recorder_poll", recordAction)
+                continue
+            }
             refreshRuntimeScreenRecorder("runtime_screen_recorder_poll")
         }
     }
