@@ -61,13 +61,6 @@ internal enum class LowRamProfileOverride {
     Ultra
 }
 
-internal data class LowRamProfileBadgePalette(
-    val containerColorArgb: Int,
-    val contentColorArgb: Int,
-    val borderColorArgb: Int,
-    val dotColorArgb: Int
-)
-
 internal data class LowRamProfile(
     val enabled: Boolean = false,
     val severe: Boolean = false,
@@ -272,32 +265,14 @@ internal fun applyLowRamProfileOverride(
 }
 
 internal fun lowRamProfileBadgeLabel(profile: LowRamProfile): String =
-    when (profile.tier) {
-        LowRamTier.Normal -> "Profil Normal"
-        LowRamTier.Low -> "Profil Low"
-        LowRamTier.Ultra -> "Profil Ultra"
-    }
+    "Profil ${lowRamProfileTierName(profile)}"
 
-internal fun lowRamProfileBadgePalette(profile: LowRamProfile): LowRamProfileBadgePalette =
+/** The tier on its own ("Low"), for places that already say "Profile" next to it. */
+internal fun lowRamProfileTierName(profile: LowRamProfile): String =
     when (profile.tier) {
-        LowRamTier.Normal -> LowRamProfileBadgePalette(
-            containerColorArgb = 0xFFF4F7FB.toInt(),
-            contentColorArgb = 0xFF102E6A.toInt(),
-            borderColorArgb = 0xFFD4DEE9.toInt(),
-            dotColorArgb = 0xFF3D7AF5.toInt()
-        )
-        LowRamTier.Low -> LowRamProfileBadgePalette(
-            containerColorArgb = 0xFFFFF7E6.toInt(),
-            contentColorArgb = 0xFF6F4700.toInt(),
-            borderColorArgb = 0xFFE6D3A3.toInt(),
-            dotColorArgb = 0xFFD99200.toInt()
-        )
-        LowRamTier.Ultra -> LowRamProfileBadgePalette(
-            containerColorArgb = 0xFF102E6A.toInt(),
-            contentColorArgb = 0xFFFFFFFF.toInt(),
-            borderColorArgb = 0xFF244B91.toInt(),
-            dotColorArgb = 0xFFFFC247.toInt()
-        )
+        LowRamTier.Normal -> "Normal"
+        LowRamTier.Low -> "Low"
+        LowRamTier.Ultra -> "Ultra"
     }
 
 internal fun calculateLowRamProfile(

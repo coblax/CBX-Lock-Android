@@ -19,17 +19,20 @@ import androidx.activity.compose.setContent
 import androidx.activity.enableEdgeToEdge
 import androidx.compose.material3.windowsizeclass.calculateWindowSizeClass
 import androidx.compose.runtime.CompositionLocalProvider
+import androidx.core.view.ViewCompat
 import androidx.core.view.WindowCompat
 import androidx.core.view.WindowInsetsCompat
 import androidx.core.view.WindowInsetsControllerCompat
 import com.coblax.examlock.config.AdminKeyFastExamLabel
 import com.coblax.examlock.config.AdminPreferencesName
+import com.coblax.examlock.config.DeveloperGithubUrl
 import com.coblax.examlock.config.FastExamName
 import com.coblax.examlock.config.SecretTapWindowMs
 import com.coblax.examlock.model.ThemeMode
 import com.coblax.examlock.model.UiLanguage
 import com.coblax.examlock.persistence.readSavedThemeMode
 import com.coblax.examlock.persistence.readSavedUiLanguage
+import com.coblax.examlock.platform.openExternalUrl
 import com.coblax.examlock.ui.app.AppContent
 import com.coblax.examlock.ui.app.applyLowRamRuntimeDetectorBudget
 import com.coblax.examlock.ui.theme.LocalWindowSizeClass
@@ -215,11 +218,11 @@ class MainActivity : ComponentActivity() {
         )
         val root = LinearLayout(this).apply {
             orientation = LinearLayout.VERTICAL
-            setPadding(dp(16), dp(32), dp(16), dp(16))
+            setPadding(dp(16), dp(12), dp(16), dp(12))
             setBackgroundColor(shell.background)
         }
 
-        // Header: logo tile, product name, profile badge (Secret Admin trigger), gear.
+        // Header: logo tile, product name and the performance-profile gear.
         val header = LinearLayout(this).apply {
             orientation = LinearLayout.HORIZONTAL
             gravity = Gravity.CENTER_VERTICAL
@@ -262,7 +265,7 @@ class MainActivity : ComponentActivity() {
                 rightMargin = dp(8)
             }
         )
-        header.addView(createNativeProfileControls(lowRamProfile))
+        header.addView(createNativePerformanceProfileButton(), LinearLayout.LayoutParams(dp(48), dp(48)))
         root.addView(header, matchWidth())
 
         root.addView(space(dp(24)))
@@ -381,7 +384,7 @@ class MainActivity : ComponentActivity() {
                         textSize = 12f
                         typeface = android.graphics.Typeface.DEFAULT_BOLD
                         gravity = Gravity.CENTER
-                        background = pillBackground(shell.glyphTint, Color.TRANSPARENT)
+                        background = roundedBackground(shell.glyphTint, Color.TRANSPARENT, radiusDp = 12)
                     },
                     LinearLayout.LayoutParams(dp(40), dp(40))
                 )
@@ -430,15 +433,32 @@ class MainActivity : ComponentActivity() {
             )
         }
         root.addView(tiles, matchWidth())
+        root.addView(space(dp(24)))
+        // Takes the leftover height so the footer rests on the bottom edge.
+        root.addView(View(this), LinearLayout.LayoutParams(LinearLayout.LayoutParams.MATCH_PARENT, 0, 1f))
+        root.addView(createNativeFooter(lowRamProfile, english), matchWidth())
 
         // Scrollable so large fonts and short screens never cut off the tiles.
-        setContentView(
-            android.widget.ScrollView(this).apply {
-                isFillViewport = true
-                setBackgroundColor(shell.background)
-                addView(root)
-            }
-        )
+        val scroll = android.widget.ScrollView(this).apply {
+            isFillViewport = true
+            setBackgroundColor(shell.background)
+            addView(root)
+        }
+        // Android 15+ draws every window edge to edge, so the shell keeps itself clear of
+        // the status and navigation bars like the Compose home does; otherwise the footer
+        // sits under the navigation buttons. Older releases report no bar insets here.
+        ViewCompat.setOnApplyWindowInsetsListener(scroll) { _, insets ->
+            val bars = insets.getInsets(
+                WindowInsetsCompat.Type.systemBars() or WindowInsetsCompat.Type.displayCutout()
+            )
+            root.setPadding(dp(16) + bars.left, dp(12) + bars.top, dp(16) + bars.right, dp(12) + bars.bottom)
+            insets
+        }
+        setContentView(scroll)
+        WindowCompat.getInsetsController(window, window.decorView).apply {
+            isAppearanceLightStatusBars = !isDarkThemeActive()
+            isAppearanceLightNavigationBars = !isDarkThemeActive()
+        }
         StartupTrace.mark("native_home_view_ready")
         root.post {
             StartupTrace.mark("native_home_main_idle")
@@ -461,58 +481,90 @@ class MainActivity : ComponentActivity() {
         )
     }
 
-    private fun createNativeProfileControls(lowRamProfile: LowRamProfile): View =
-        LinearLayout(this).apply {
-            orientation = LinearLayout.HORIZONTAL
-            gravity = Gravity.CENTER
-            addView(createNativeProfileBadge(lowRamProfile))
-            addView(horizontalSpace(dp(8)))
-            addView(createNativePerformanceProfileButton())
-        }
-
-    private fun createNativeProfileBadge(lowRamProfile: LowRamProfile): View {
-        val palette = lowRamProfileBadgePalette(lowRamProfile)
+    /**
+     * View twin of the Compose footer panel: profile, version and developer as columns in
+     * one squared-off card, or as a short list when the font is large or the screen narrow.
+     * The profile cell keeps the hidden four-tap Secret Admin gesture.
+     */
+    private fun createNativeFooter(lowRamProfile: LowRamProfile, english: Boolean): View {
         val shell = nativeShellPalette()
-        // lowRamProfileBadgePalette() only defines light tiers; keep its tier dot as the
-        // accent but take the pill surface from the shell palette so the badge is not a
-        // bright white chip on the dark shell.
-        val dark = isDarkThemeActive()
-        val containerColor = if (dark) shell.chipBackground else palette.containerColorArgb
-        val borderColor = if (dark) shell.cardBorder else palette.borderColorArgb
-        val contentColor = if (dark) shell.textSecondary else palette.contentColorArgb
-        return LinearLayout(this).apply {
-            orientation = LinearLayout.HORIZONTAL
-            gravity = Gravity.CENTER
-            setMinimumHeight(dp(30))
-            setPadding(dp(10), dp(6), dp(10), dp(6))
-            background = pillBackground(containerColor, borderColor)
-            setOnClickListener { registerNativeSecretTap() }
-
-            addView(
-                View(this@MainActivity).apply {
-                    background = pillBackground(palette.dotColorArgb, Color.TRANSPARENT)
-                },
-                LinearLayout.LayoutParams(dp(7), dp(7)).apply {
-                    rightMargin = dp(6)
-                    gravity = Gravity.CENTER_VERTICAL
+        fun t(en: String, id: String): String = if (english) en else id
+        val asList = resources.configuration.fontScale > 1.3f ||
+            resources.configuration.screenWidthDp < 340
+        val panel = LinearLayout(this).apply {
+            orientation = if (asList) LinearLayout.VERTICAL else LinearLayout.HORIZONTAL
+            background = roundedBackground(shell.cardBackground, shell.cardBorder, radiusDp = 12)
+            // Drawn dividers, not separator Views: a plain View asked to match the height
+            // of a wrap-content row takes every pixel it is offered and blows the panel up.
+            dividerDrawable = android.graphics.drawable.GradientDrawable().apply {
+                setColor(shell.cardBorder)
+                setSize(dp(1), dp(1))
+            }
+            showDividers = LinearLayout.SHOW_DIVIDER_MIDDLE
+            dividerPadding = dp(if (asList) 14 else 12)
+        }
+        val cells = listOf(
+            Triple(
+                t("Profile", "Profil"),
+                lowRamProfileTierName(lowRamProfile),
+                View.OnClickListener { registerNativeSecretTap() }
+            ),
+            Triple(t("Version", "Versi"), BuildConfig.VERSION_NAME, null),
+            Triple(
+                t("Developer", "Pengembang"),
+                "coblax",
+                View.OnClickListener { openExternalUrl(this, DeveloperGithubUrl) }
+            )
+        )
+        cells.forEachIndexed { index, (caption, value, onClick) ->
+            val captionView = TextView(this).apply {
+                text = caption
+                setTextColor(shell.textSecondary)
+                textSize = 12f
+                maxLines = 1
+            }
+            val valueView = TextView(this).apply {
+                text = value
+                // The developer link reads as a link, like the Compose footer.
+                setTextColor(if (index == cells.lastIndex) shell.textPrimary else shell.textStrong)
+                textSize = 14f
+                typeface = android.graphics.Typeface.DEFAULT_BOLD
+                maxLines = 1
+                ellipsize = android.text.TextUtils.TruncateAt.END
+            }
+            val cell = LinearLayout(this).apply {
+                orientation = if (asList) LinearLayout.HORIZONTAL else LinearLayout.VERTICAL
+                gravity = Gravity.CENTER_VERTICAL
+                minimumHeight = dp(48)
+                setPadding(dp(if (asList) 14 else 12), dp(10), dp(if (asList) 14 else 12), dp(10))
+                if (onClick != null) {
+                    isClickable = true
+                    setOnClickListener(onClick)
+                }
+            }
+            if (asList) {
+                cell.addView(
+                    captionView,
+                    LinearLayout.LayoutParams(0, LinearLayout.LayoutParams.WRAP_CONTENT, 1f)
+                )
+                cell.addView(valueView)
+            } else {
+                cell.addView(captionView)
+                cell.addView(valueView)
+            }
+            panel.addView(
+                cell,
+                if (asList) {
+                    LinearLayout.LayoutParams(
+                        LinearLayout.LayoutParams.MATCH_PARENT,
+                        LinearLayout.LayoutParams.WRAP_CONTENT
+                    )
+                } else {
+                    LinearLayout.LayoutParams(0, LinearLayout.LayoutParams.MATCH_PARENT, 1f)
                 }
             )
-
-            addView(
-                TextView(this@MainActivity).apply {
-                    text = lowRamProfileBadgeLabel(lowRamProfile)
-                    setTextColor(contentColor)
-                    textSize = 10f
-                    typeface = android.graphics.Typeface.DEFAULT_BOLD
-                    gravity = Gravity.CENTER
-                    includeFontPadding = false
-                },
-                LinearLayout.LayoutParams(
-                    LinearLayout.LayoutParams.WRAP_CONTENT,
-                    LinearLayout.LayoutParams.WRAP_CONTENT
-                ).apply { gravity = Gravity.CENTER_VERTICAL }
-            )
         }
+        return panel
     }
 
     private fun createNativePerformanceProfileButton(): View {
@@ -521,13 +573,11 @@ class MainActivity : ComponentActivity() {
             text = NativePerformanceProfileGear
             contentDescription = "Buka pengaturan profil performa"
             setTextColor(shell.textPrimary)
-            textSize = 16f
+            textSize = 18f
             typeface = android.graphics.Typeface.DEFAULT_BOLD
             gravity = Gravity.CENTER
             includeFontPadding = false
-            setMinWidth(dp(32))
-            setMinimumHeight(dp(32))
-            background = pillBackground(shell.chipBackground, shell.cardBorder)
+            background = roundedBackground(shell.chipBackground, shell.cardBorder, radiusDp = 12)
             setOnClickListener { showNativePerformanceProfileDialog() }
         }
     }
@@ -540,9 +590,31 @@ class MainActivity : ComponentActivity() {
         val labels = overrideOptions
             .map { option -> nativePerformanceProfileOptionLabel(option) }
             .toTypedArray()
-        AlertDialog.Builder(this)
-            .setTitle("Profil Performa")
-            .setMessage(nativePerformanceProfileSummary(detectedProfile, effectiveProfile))
+        val builder = AlertDialog.Builder(this)
+        // AlertDialog drops the choice list whenever a message is set, so the summary
+        // rides in a custom title instead; otherwise the dialog offered no options at all.
+        val header = LinearLayout(builder.context).apply {
+            orientation = LinearLayout.VERTICAL
+            setPadding(dp(24), dp(20), dp(24), dp(4))
+            addView(
+                TextView(builder.context).apply {
+                    setTextAppearance(android.R.style.TextAppearance_DeviceDefault_DialogWindowTitle)
+                    text = "Profil Performa"
+                }
+            )
+            addView(
+                TextView(builder.context).apply {
+                    setTextAppearance(android.R.style.TextAppearance_DeviceDefault_Small)
+                    text = nativePerformanceProfileSummary(detectedProfile, effectiveProfile)
+                },
+                LinearLayout.LayoutParams(
+                    LinearLayout.LayoutParams.MATCH_PARENT,
+                    LinearLayout.LayoutParams.WRAP_CONTENT
+                ).apply { topMargin = dp(8) }
+            )
+        }
+        builder
+            .setCustomTitle(header)
             .setSingleChoiceItems(labels, checkedIndex) { dialog, which ->
                 val selectedOverride = overrideOptions[which]
                 saveLowRamProfileOverride(this, selectedOverride)
@@ -655,27 +727,12 @@ class MainActivity : ComponentActivity() {
             }
         }
 
-    private fun pillBackground(fillColor: Int, strokeColor: Int): android.graphics.drawable.GradientDrawable =
-        android.graphics.drawable.GradientDrawable().apply {
-            shape = android.graphics.drawable.GradientDrawable.RECTANGLE
-            cornerRadius = dp(999).toFloat()
-            setColor(fillColor)
-            if (strokeColor != Color.TRANSPARENT) {
-                setStroke(dp(1), strokeColor)
-            }
-        }
-
     private fun dp(value: Int): Int =
         (value * resources.displayMetrics.density).toInt().coerceAtLeast(value)
 
     private fun space(heightPx: Int): View =
         View(this).apply {
             layoutParams = LinearLayout.LayoutParams(1, heightPx)
-        }
-
-    private fun horizontalSpace(widthPx: Int): View =
-        View(this).apply {
-            layoutParams = LinearLayout.LayoutParams(widthPx, 1)
         }
 
     fun setOnUserLeaveExamHandler(handler: (() -> Unit)?) {

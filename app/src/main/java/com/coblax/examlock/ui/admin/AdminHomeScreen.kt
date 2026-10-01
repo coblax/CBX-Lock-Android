@@ -9,7 +9,6 @@ import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.BoxWithConstraints
 import androidx.compose.foundation.layout.Column
-import androidx.compose.foundation.layout.FlowRow
 import androidx.compose.foundation.layout.IntrinsicSize
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
@@ -26,12 +25,12 @@ import androidx.compose.foundation.layout.only
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.statusBarsPadding
+import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.layout.widthIn
 import androidx.compose.foundation.layout.windowInsetsPadding
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.selection.selectable
 import androidx.compose.foundation.selection.selectableGroup
-import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.text.BasicText
 import androidx.compose.foundation.text.TextAutoSize
@@ -57,7 +56,6 @@ import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
 import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
-import androidx.compose.material3.minimumInteractiveComponentSize
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
@@ -95,6 +93,7 @@ import com.coblax.examlock.StartupTrace
 import com.coblax.examlock.config.DeveloperGithubUrl
 import com.coblax.examlock.i18n.tr
 import com.coblax.examlock.lowRamProfileBadgeLabel
+import com.coblax.examlock.lowRamProfileTierName
 import com.coblax.examlock.model.ThemeMode
 import com.coblax.examlock.model.UiLanguage
 import com.coblax.examlock.platform.openExternalUrl
@@ -259,6 +258,7 @@ private fun HomeTopBar(
         Column(
             modifier = Modifier
                 .weight(1f)
+                .padding(end = 8.dp)
                 .semantics(mergeDescendants = true) { heading() }
         ) {
             Text(
@@ -283,19 +283,35 @@ private fun HomeTopBar(
                 currentLanguage = uiLanguage,
                 onLanguageChange = onUiLanguageChange
             )
+            Spacer(modifier = Modifier.size(8.dp))
         }
-        IconButton(
-            onClick = onOpenSettings,
-            modifier = Modifier
-                .size(tokens.touchTarget)
-                .testTag(HomeUiTestTags.SettingsAction)
-        ) {
-            Icon(
-                imageVector = Icons.Rounded.Settings,
-                contentDescription = tr("Settings", "Pengaturan"),
-                tint = AppColors.current.brandText
-            )
-        }
+        HomeSettingsButton(onClick = onOpenSettings)
+    }
+}
+
+@Composable
+private fun HomeSettingsButton(onClick: () -> Unit) {
+    val tokens = ScopedUiTokens.current
+    val colors = AppColors.current
+    val shape = RoundedCornerShape(tokens.radiusSmall)
+    val label = tr("Settings", "Pengaturan")
+    Box(
+        modifier = Modifier
+            .testTag(HomeUiTestTags.SettingsAction)
+            .size(tokens.touchTarget)
+            .clip(shape)
+            .background(colors.surfaceSoft)
+            .border(1.dp, colors.outlineSubtle, shape)
+            .clickable(role = Role.Button, onClick = onClick)
+            .semantics { contentDescription = label },
+        contentAlignment = Alignment.Center
+    ) {
+        Icon(
+            imageVector = Icons.Rounded.Settings,
+            contentDescription = null,
+            tint = colors.brandText,
+            modifier = Modifier.size(22.dp)
+        )
     }
 }
 
@@ -305,12 +321,14 @@ private fun HomeLanguageSwitch(
     onLanguageChange: (UiLanguage) -> Unit
 ) {
     val tokens = ScopedUiTokens.current
+    val shape = RoundedCornerShape(tokens.radiusSmall)
+    // Same height as the settings button next to it; each segment keeps a full 48 dp
+    // touch target and draws its highlight inset inside it.
     Row(
         modifier = Modifier
-            .clip(RoundedCornerShape(tokens.radiusPill))
+            .clip(shape)
             .background(AppColors.current.surfaceSoft)
-            .border(1.dp, AppColors.current.outlineMedium, RoundedCornerShape(tokens.radiusPill))
-            .padding(3.dp)
+            .border(1.dp, AppColors.current.outlineSubtle, shape)
             .selectableGroup(),
         verticalAlignment = Alignment.CenterVertically
     ) {
@@ -322,16 +340,20 @@ private fun HomeLanguageSwitch(
             val colors = primaryActionColors()
             Box(
                 modifier = Modifier
-                    .minimumInteractiveComponentSize()
-                    .clip(RoundedCornerShape(tokens.radiusPill))
-                    .background(if (selected) colors.container else Color.Transparent)
+                    // heightIn/widthIn (unlike minimumInteractiveComponentSize) pass the
+                    // minimum on, so the highlight below fills the segment.
+                    .heightIn(min = tokens.touchTarget)
+                    .widthIn(min = tokens.touchTarget)
                     .selectable(
                         selected = selected,
                         role = Role.RadioButton,
                         onClick = { onLanguageChange(language) }
                     )
                     .semantics { contentDescription = description }
-                    .padding(horizontal = 10.dp, vertical = 6.dp),
+                    .padding(4.dp)
+                    .clip(RoundedCornerShape(8.dp))
+                    .background(if (selected) colors.container else Color.Transparent)
+                    .padding(horizontal = 10.dp),
                 contentAlignment = Alignment.Center
             ) {
                 Text(
@@ -519,7 +541,7 @@ private fun HomeActionTile(
             Box(
                 modifier = Modifier
                     .size(40.dp)
-                    .clip(CircleShape)
+                    .clip(RoundedCornerShape(12.dp))
                     .background(AppColors.current.blueTint),
                 contentAlignment = Alignment.Center
             ) {
@@ -676,10 +698,26 @@ private fun HomeTipRow(
     }
 }
 
+/** Narrowest column the footer panel accepts before it switches to a list. */
+private val HomeFooterMinCellWidth = 96.dp
+
+private class HomeFooterItem(
+    val icon: ImageVector,
+    val iconTint: Color,
+    val caption: String,
+    val value: String,
+    val valueColor: Color? = null,
+    val testTag: String? = null,
+    /** Taps without any visual feedback, for the hidden Secret Admin gesture. */
+    val silentTap: (() -> Unit)? = null,
+    val onClick: (() -> Unit)? = null,
+    val onClickLabel: String? = null
+)
+
 /**
- * The status line at the bottom: performance profile, version and the developer link as
- * chips on one row. They wrap only when a narrow phone or a large font needs the room, so no
- * label is ever cut short.
+ * The info panel at the bottom: performance profile, version and developer in one
+ * squared-off card split into columns. A narrow phone or a large font gets the same
+ * items as a short list instead, so no value is ever cut short.
  */
 @Composable
 private fun HomeFooter(
@@ -689,135 +727,176 @@ private fun HomeFooter(
 ) {
     val context = LocalContext.current
     val colors = AppColors.current
-    val pill = RoundedCornerShape(ScopedUiTokens.current.radiusPill)
-    val chip = Modifier
-        .clip(pill)
-        .background(colors.surfaceSoft)
-        .border(1.dp, colors.outlineSubtle, pill)
-    FlowRow(
-        modifier = modifier,
-        horizontalArrangement = Arrangement.spacedBy(8.dp, Alignment.CenterHorizontally),
-        verticalArrangement = Arrangement.spacedBy(8.dp)
-    ) {
-        HomeProfileBadge(onSecretTap = onSecretTap, modifier = chip)
-        HomeVersionSegment(modifier = chip)
+    val lowRamProfile = LocalLowRamProfile.current
+    val shape = RoundedCornerShape(ScopedUiTokens.current.radiusSmall)
+    val items = listOfNotNull(
+        HomeFooterItem(
+            icon = Icons.Rounded.Speed,
+            iconTint = when (lowRamProfile.tier) {
+                LowRamTier.Normal -> colors.brandText
+                LowRamTier.Low -> colors.gold
+                LowRamTier.Ultra -> colors.goldAccent
+            },
+            caption = tr("Profile", "Profil"),
+            value = lowRamProfileTierName(lowRamProfile),
+            testTag = HomeUiTestTags.ProfileBadge,
+            silentTap = onSecretTap
+        ),
+        HomeFooterItem(
+            icon = Icons.Rounded.Verified,
+            iconTint = colors.brandText,
+            caption = tr("Version", "Versi"),
+            value = BuildConfig.VERSION_NAME
+        ),
         if (showDeveloperLink) {
-            HomeDeveloperSegment(onClick = { openExternalUrl(context, DeveloperGithubUrl) }, modifier = chip)
+            HomeFooterItem(
+                icon = Icons.Rounded.Code,
+                iconTint = colors.brandText,
+                caption = tr("Developer", "Pengembang"),
+                value = "coblax",
+                valueColor = colors.brandText,
+                onClick = { openExternalUrl(context, DeveloperGithubUrl) },
+                onClickLabel = tr("Open the developer's GitHub", "Buka GitHub pengembang")
+            )
+        } else {
+            null
+        }
+    )
+    val fontScale = LocalDensity.current.fontScale.coerceIn(1f, 2f)
+    BoxWithConstraints(
+        modifier = modifier
+            .clip(shape)
+            .background(colors.cardBg)
+            .border(1.dp, colors.outlineSubtle, shape)
+    ) {
+        if (maxWidth >= HomeFooterMinCellWidth * fontScale * items.size) {
+            Row(
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .height(IntrinsicSize.Min)
+            ) {
+                items.forEachIndexed { index, item ->
+                    if (index > 0) {
+                        Box(
+                            modifier = Modifier
+                                .fillMaxHeight()
+                                .padding(vertical = 12.dp)
+                                .width(1.dp)
+                                .background(colors.outlineSubtle)
+                        )
+                    }
+                    HomeFooterCell(
+                        item = item,
+                        asColumn = true,
+                        modifier = Modifier
+                            .weight(1f)
+                            .fillMaxHeight()
+                    )
+                }
+            }
+        } else {
+            Column(modifier = Modifier.fillMaxWidth()) {
+                items.forEachIndexed { index, item ->
+                    if (index > 0) {
+                        Box(
+                            modifier = Modifier
+                                .fillMaxWidth()
+                                .padding(horizontal = 14.dp)
+                                .height(1.dp)
+                                .background(colors.outlineSubtle)
+                        )
+                    }
+                    HomeFooterCell(
+                        item = item,
+                        asColumn = false,
+                        modifier = Modifier.fillMaxWidth()
+                    )
+                }
+            }
         }
     }
 }
 
 @Composable
-private fun HomeFooterSegmentContent(
-    leading: @Composable () -> Unit,
-    text: String,
-    color: Color
+private fun HomeFooterCell(
+    item: HomeFooterItem,
+    asColumn: Boolean,
+    modifier: Modifier = Modifier
 ) {
-    leading()
-    Text(
-        text = text,
-        color = color,
-        style = AppTextStyles.label.copy(fontWeight = FontWeight.SemiBold),
-        maxLines = 1,
-        overflow = TextOverflow.Ellipsis
-    )
-}
-
-/**
- * Shows the active performance profile. It is also the hidden Secret Admin trigger
- * (four quick taps), so it deliberately gives no visual tap feedback.
- */
-@Composable
-private fun HomeProfileBadge(onSecretTap: () -> Unit, modifier: Modifier = Modifier) {
     val colors = AppColors.current
-    val lowRamProfile = LocalLowRamProfile.current
-    val dotColor = when (lowRamProfile.tier) {
-        LowRamTier.Normal -> colors.blue
-        LowRamTier.Low -> colors.gold
-        LowRamTier.Ultra -> colors.goldAccent
+    val interaction = when {
+        item.silentTap != null -> Modifier.clickable(
+            interactionSource = remember { MutableInteractionSource() },
+            indication = null,
+            role = Role.Button,
+            onClick = item.silentTap
+        )
+        item.onClick != null -> Modifier.clickable(
+            role = Role.Button,
+            onClickLabel = item.onClickLabel,
+            onClick = item.onClick
+        )
+        else -> Modifier.semantics(mergeDescendants = true) {}
     }
-    Row(
-        modifier = modifier
-            .testTag(HomeUiTestTags.ProfileBadge)
-            .clickable(
-                interactionSource = remember { MutableInteractionSource() },
-                indication = null,
-                role = Role.Button,
-                onClick = onSecretTap
-            )
-            .heightIn(min = 48.dp)
-            .padding(horizontal = 12.dp),
-        verticalAlignment = Alignment.CenterVertically,
-        horizontalArrangement = Arrangement.spacedBy(8.dp, Alignment.CenterHorizontally)
-    ) {
-        HomeFooterSegmentContent(
-            leading = {
-                Box(
-                    modifier = Modifier
-                        .size(8.dp)
-                        .clip(CircleShape)
-                        .background(dotColor)
-                )
-            },
-            text = lowRamProfileBadgeLabel(lowRamProfile),
-            color = colors.textSecondary
+    val cellModifier = modifier
+        .then(if (item.testTag != null) Modifier.testTag(item.testTag) else Modifier)
+        .then(interaction)
+        .heightIn(min = 48.dp)
+    val valueText: @Composable (Modifier) -> Unit = { valueModifier ->
+        Text(
+            text = item.value,
+            color = item.valueColor ?: colors.textPrimary,
+            style = AppTextStyles.bodyCompact.copy(fontWeight = FontWeight.SemiBold),
+            maxLines = 1,
+            overflow = TextOverflow.Ellipsis,
+            modifier = valueModifier
         )
     }
-}
-
-@Composable
-private fun HomeVersionSegment(modifier: Modifier = Modifier) {
-    val colors = AppColors.current
-    Row(
-        modifier = modifier
-            .heightIn(min = 48.dp)
-            .padding(horizontal = 14.dp)
-            .semantics(mergeDescendants = true) {},
-        verticalAlignment = Alignment.CenterVertically,
-        horizontalArrangement = Arrangement.spacedBy(6.dp, Alignment.CenterHorizontally)
-    ) {
-        HomeFooterSegmentContent(
-            leading = {
+    if (asColumn) {
+        Column(
+            modifier = cellModifier.padding(horizontal = 12.dp, vertical = 10.dp),
+            verticalArrangement = Arrangement.spacedBy(2.dp, Alignment.CenterVertically)
+        ) {
+            Row(
+                verticalAlignment = Alignment.CenterVertically,
+                horizontalArrangement = Arrangement.spacedBy(6.dp)
+            ) {
                 Icon(
-                    imageVector = Icons.Rounded.Verified,
+                    imageVector = item.icon,
                     contentDescription = null,
-                    tint = colors.brandText,
-                    modifier = Modifier.size(16.dp)
+                    tint = item.iconTint,
+                    modifier = Modifier.size(14.dp)
                 )
-            },
-            text = "v${BuildConfig.VERSION_NAME}",
-            color = colors.textSecondary
-        )
-    }
-}
-
-@Composable
-private fun HomeDeveloperSegment(onClick: () -> Unit, modifier: Modifier = Modifier) {
-    val colors = AppColors.current
-    Row(
-        modifier = modifier
-            .clickable(
-                role = Role.Button,
-                onClickLabel = tr("Open the developer's GitHub", "Buka GitHub pengembang"),
-                onClick = onClick
+                Text(
+                    text = item.caption,
+                    color = colors.textSecondary,
+                    style = AppTextStyles.label,
+                    maxLines = 1,
+                    overflow = TextOverflow.Ellipsis
+                )
+            }
+            valueText(Modifier)
+        }
+    } else {
+        Row(
+            modifier = cellModifier.padding(horizontal = 14.dp, vertical = 10.dp),
+            verticalAlignment = Alignment.CenterVertically,
+            horizontalArrangement = Arrangement.spacedBy(10.dp)
+        ) {
+            Icon(
+                imageVector = item.icon,
+                contentDescription = null,
+                tint = item.iconTint,
+                modifier = Modifier.size(18.dp)
             )
-            .heightIn(min = 48.dp)
-            .padding(horizontal = 12.dp),
-        verticalAlignment = Alignment.CenterVertically,
-        horizontalArrangement = Arrangement.spacedBy(6.dp, Alignment.CenterHorizontally)
-    ) {
-        HomeFooterSegmentContent(
-            leading = {
-                Icon(
-                    imageVector = Icons.Rounded.Code,
-                    contentDescription = null,
-                    tint = colors.brandText,
-                    modifier = Modifier.size(16.dp)
-                )
-            },
-            text = "coblax",
-            color = colors.brandText
-        )
+            Text(
+                text = item.caption,
+                color = colors.textSecondary,
+                style = AppTextStyles.label,
+                modifier = Modifier.weight(1f)
+            )
+            valueText(Modifier)
+        }
     }
 }
 
