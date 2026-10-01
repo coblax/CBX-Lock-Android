@@ -6,6 +6,7 @@ import com.coblax.examlock.GeofenceVertex
 import com.coblax.examlock.LowRamProfileOverride
 import com.coblax.examlock.SecureStrings
 import com.coblax.examlock.config.DefaultExamUserAgent
+import com.coblax.examlock.config.DefaultTelegramDiagnosticsEnabled
 import com.coblax.examlock.config.FastExamName
 import com.coblax.examlock.persistence.deserializeExamLocationPolicy
 import com.coblax.examlock.persistence.serializeExamLocationPolicy
@@ -97,7 +98,7 @@ internal data class AdminSettings(
     val bypassApkIntegrity: Boolean = false,
     val apkIntegrityBypassTampered: Boolean = false,
     val showChecklistDetails: Boolean = false,
-    val telegramDiagnosticsEnabled: Boolean = true,
+    val telegramDiagnosticsEnabled: Boolean = DefaultTelegramDiagnosticsEnabled,
     val bypassMigrationResetNotice: Boolean = false
 ) {
     fun hasAnyBypass(): Boolean {

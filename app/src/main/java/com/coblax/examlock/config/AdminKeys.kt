@@ -13,6 +13,8 @@ internal const val AdminKeyCustomQrSaveToDirectLinkEnabled =
     "admin_custom_qr_save_to_direct_link_enabled"
 internal const val AdminKeyShowChecklistDetails = "admin_show_checklist_details"
 internal const val AdminKeyTelegramDiagnosticsEnabled = "admin_telegram_diagnostics_enabled"
+/** "Send to Telegram" stays hidden until an admin turns it on in Secret Admin. */
+internal const val DefaultTelegramDiagnosticsEnabled = false
 internal const val AdminKeyExamUserAgent = "admin_exam_user_agent"
 internal const val AdminKeyLowRamProfileOverride = "admin_low_ram_profile_override"
 internal const val AdminKeyDirectLinkLocationPolicySaved = "admin_fast_exam_location_policy_saved"

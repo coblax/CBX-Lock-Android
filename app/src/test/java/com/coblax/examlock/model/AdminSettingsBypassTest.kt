@@ -16,6 +16,12 @@ class AdminSettingsBypassTest {
     }
 
     @Test
+    fun telegramDiagnosticsStayOffUntilAnAdminTurnsThemOn() {
+        assertFalse(AdminSettings().telegramDiagnosticsEnabled)
+        assertFalse(com.coblax.examlock.persistence.HomeAdminSettings().telegramDiagnosticsEnabled)
+    }
+
+    @Test
     fun reverseEngineeringAndApkIntegrityBypassesAppearInOverrideSummary() {
         val settings = AdminSettings(
             bypassReverseEngineering = true,

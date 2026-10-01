@@ -24,6 +24,7 @@ import com.coblax.examlock.config.AdminKeyLowRamProfileOverride
 import com.coblax.examlock.config.AdminKeyOfficialApkUrl
 import com.coblax.examlock.config.AdminKeyShowChecklistDetails
 import com.coblax.examlock.config.AdminKeyTelegramDiagnosticsEnabled
+import com.coblax.examlock.config.DefaultTelegramDiagnosticsEnabled
 import com.coblax.examlock.config.AdminPreferencesName
 import com.coblax.examlock.config.DefaultExamUserAgent
 import com.coblax.examlock.config.FastExamName
@@ -68,7 +69,7 @@ internal fun Context.saveThemeMode(mode: ThemeMode) {
 internal data class HomeAdminSettings(
     val fastExamUrl: String = SecureStrings.fastExamUrl,
     val fastExamLabel: String = FastExamName,
-    val telegramDiagnosticsEnabled: Boolean = true
+    val telegramDiagnosticsEnabled: Boolean = DefaultTelegramDiagnosticsEnabled
 )
 
 internal fun Context.readHomeAdminSettings(): HomeAdminSettings {
@@ -79,7 +80,7 @@ internal fun Context.readHomeAdminSettings(): HomeAdminSettings {
         fastExamLabel = preferences.getString(AdminKeyFastExamLabel, FastExamName)
             ?: FastExamName,
         telegramDiagnosticsEnabled = preferences.getBoolean(
-            AdminKeyTelegramDiagnosticsEnabled, true
+            AdminKeyTelegramDiagnosticsEnabled, DefaultTelegramDiagnosticsEnabled
         )
     )
 }
@@ -184,7 +185,7 @@ internal fun Context.readAdminSettings(): AdminSettings {
         bypassApkIntegrity = apkIntegrityBypassResolution.enabled,
         apkIntegrityBypassTampered = apkIntegrityBypassResolution.tampered,
         showChecklistDetails = preferences.getBoolean(AdminKeyShowChecklistDetails, false),
-        telegramDiagnosticsEnabled = preferences.getBoolean(AdminKeyTelegramDiagnosticsEnabled, true),
+        telegramDiagnosticsEnabled = preferences.getBoolean(AdminKeyTelegramDiagnosticsEnabled, DefaultTelegramDiagnosticsEnabled),
         bypassMigrationResetNotice = bypassSnapshot.migrationResetNotice
     )
 }
