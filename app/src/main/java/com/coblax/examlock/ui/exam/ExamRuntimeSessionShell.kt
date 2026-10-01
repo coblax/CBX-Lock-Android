@@ -342,6 +342,7 @@ internal fun ExamRuntimeSessionRenderedUi(
     onRefreshNetworkStatus: () -> Unit,
     onOpenAppPermissionSettings: () -> Unit,
     onDismissBugReportFeedback: () -> Unit,
+    onCancelPinningActivation: () -> Unit,
     modifier: Modifier = Modifier
 ) {
     Box(modifier = modifier.fillMaxSize()) {
@@ -425,6 +426,7 @@ internal fun ExamRuntimeSessionRenderedUi(
         // zIndex ensures it covers everything including dialogs.
         if (preparationState.pinningActivationState.isPending()) {
             PinningActivationOverlay(
+                onCancel = onCancelPinningActivation,
                 modifier = Modifier
                     .fillMaxSize()
                     .zIndex(10f)

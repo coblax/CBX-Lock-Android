@@ -196,6 +196,7 @@ internal fun RuntimeScreenPinningActivationEffect(
             }
 
             flowUiState.pinningActivationState.value = PinningActivationState.WaitingForLockTaskActive
+            flowUiState.pinningActivationCancelRequested.value = false
             if (flowUiState.pinningActivationStartedAtElapsedMs.value == null) {
                 flowUiState.pinningActivationStartedAtElapsedMs.value = SystemClock.elapsedRealtime()
             }
@@ -208,8 +209,11 @@ internal fun RuntimeScreenPinningActivationEffect(
                 bridge = lockTaskBridge,
                 isIndonesian = isIndonesian,
                 requirement = lockTaskRequirement,
-                windowHasFocus = { mainActivity.hasWindowFocus() }
+                windowHasFocus = { mainActivity.hasWindowFocus() },
+                cancelRequested = { flowUiState.pinningActivationCancelRequested.value }
             )
+            val cancelledByStudent = flowUiState.pinningActivationCancelRequested.value
+            flowUiState.pinningActivationCancelRequested.value = false
             if (screenPinningReport.dialogLikelyShown) {
                 flowUiState.pinningActivationState.value = PinningActivationState.WaitingForSystemDialog
                 recordAction(
@@ -353,6 +357,13 @@ internal fun RuntimeScreenPinningActivationEffect(
                 }
             } else {
                 flowUiState.pinningActivationState.value = PinningActivationState.TimeoutRetryReady
+                if (cancelledByStudent && !screenPinningReport.active) {
+                    recordAction(
+                        ExamRuntimeHardeningDiagnostics.PinningCancelledByStudent,
+                        "state=${screenPinningReport.afterState} | duration_ms=${screenPinningReport.activationDurationMs}",
+                        DiagnosticEventLevel.WARNING
+                    )
+                }
                 recordAction(
                     ScreenPinningSignals.eventFailed(),
                     "Timeout atau ditolak pengguna | attempts=${screenPinningReport.engageAttemptCount} | state=${screenPinningReport.afterState}",

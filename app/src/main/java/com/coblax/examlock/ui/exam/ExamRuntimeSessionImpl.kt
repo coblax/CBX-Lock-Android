@@ -2828,6 +2828,7 @@ internal fun ExamRuntimeSessionScreenImpl(
         onSendStaticSecurityReport = { section -> launchTelegramSectionReport(section) },
         onRefreshNetworkStatus = preparationActions.onRefreshNetworkStatus,
         onOpenAppPermissionSettings = { handleOpenAppPermissionSettings() },
+        onCancelPinningActivation = { flowUiState.pinningActivationCancelRequested.value = true },
         modifier = modifier
     )
 
@@ -2876,6 +2877,7 @@ private fun ExamRuntimeSessionRenderedUiSection(
     onSendStaticSecurityReport: (DiagnosticSection) -> Unit,
     onRefreshNetworkStatus: () -> Unit,
     onOpenAppPermissionSettings: () -> Unit,
+    onCancelPinningActivation: () -> Unit,
     modifier: Modifier
 ) {
     ExamRuntimeSessionRenderedUi(
@@ -2938,6 +2940,7 @@ private fun ExamRuntimeSessionRenderedUiSection(
         onRefreshNetworkStatus = onRefreshNetworkStatus,
         onOpenAppPermissionSettings = onOpenAppPermissionSettings,
         onDismissBugReportFeedback = { renderedUiCallbacks.onDismissBugReportFeedback() },
+        onCancelPinningActivation = onCancelPinningActivation,
         modifier = modifier
     )
 }

@@ -310,7 +310,8 @@ internal object ScreenPinningEnforcer {
         bridge: LockTaskBridge,
         isIndonesian: Boolean,
         requirement: LockTaskSecurityRequirement = LockTaskSecurityRequirement.AnyActive,
-        windowHasFocus: () -> Boolean? = { null }
+        windowHasFocus: () -> Boolean? = { null },
+        cancelRequested: () -> Boolean = { false }
     ): ScreenPinningActivationReport {
         if (bridge.satisfies(requirement)) {
             return alreadyActiveReport(bridge)
@@ -351,6 +352,21 @@ internal object ScreenPinningEnforcer {
                     userActionInference = ScreenPinningSignals.successUserAction(),
                     activationDurationMs = SystemClock.elapsedRealtime() - startedAt,
                     guidanceMessage = null,
+                    engageAttemptCount = engageAttemptCount
+                )
+            }
+            // Android 16 shows the pin confirmation without taking window focus, so
+            // "No thanks" leaves no trace the focus check below can see; the student
+            // cancels the wait from the overlay instead.
+            if (cancelRequested()) {
+                return ScreenPinningActivationReport(
+                    active = false,
+                    afterState = bridge.stateLabel(),
+                    dialogLikelyShown = dialogLikelyShown,
+                    outcome = ScreenPinningSignals.failureOutcome(),
+                    userActionInference = ScreenPinningSignals.rejectedUserAction(),
+                    activationDurationMs = SystemClock.elapsedRealtime() - startedAt,
+                    guidanceMessage = localizedScreenPinningGuidance(isIndonesian),
                     engageAttemptCount = engageAttemptCount
                 )
             }

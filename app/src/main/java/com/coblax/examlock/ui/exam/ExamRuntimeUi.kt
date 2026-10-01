@@ -1,5 +1,13 @@
 package com.coblax.examlock.ui.exam
 
+import androidx.compose.foundation.BorderStroke
+import androidx.compose.foundation.gestures.awaitEachGesture
+import androidx.compose.foundation.gestures.awaitFirstDown
+import androidx.compose.foundation.layout.heightIn
+import androidx.compose.foundation.rememberScrollState
+import androidx.compose.foundation.verticalScroll
+import androidx.compose.material3.OutlinedButton
+import androidx.compose.ui.input.pointer.pointerInput
 import androidx.compose.foundation.background
 import androidx.compose.foundation.border
 import androidx.compose.foundation.layout.Arrangement
@@ -108,15 +116,31 @@ internal fun ExamWebErrorOverlay(
 
 /**
  * Full-screen overlay shown while screen pinning is being activated.
- * Blocks all touches — prevents accidental Home/Recent presses.
+ * Blocks touches on the screen behind it — prevents accidental taps mid-request.
  * No animations: safe for API 24 / 768MB RAM.
+ *
+ * [onCancel] ends the wait at once. Android 16 shows its pin confirmation without
+ * taking window focus, so a "No thanks" there cannot be detected and the overlay
+ * would otherwise sit unclosable until the 20 s activation timeout.
  */
 @Composable
-internal fun PinningActivationOverlay(modifier: Modifier = Modifier) {
+internal fun PinningActivationOverlay(
+    onCancel: () -> Unit,
+    modifier: Modifier = Modifier
+) {
     Box(
         modifier = modifier
             .fillMaxSize()
-            .background(Color(0xE6101827)),
+            .background(Color(0xE6101827))
+            .pointerInput(Unit) {
+                awaitEachGesture {
+                    awaitFirstDown(requireUnconsumed = false).consume()
+                    do {
+                        val event = awaitPointerEvent()
+                        event.changes.forEach { it.consume() }
+                    } while (event.changes.any { it.pressed })
+                }
+            },
         contentAlignment = Alignment.Center
     ) {
         Box(
@@ -128,7 +152,9 @@ internal fun PinningActivationOverlay(modifier: Modifier = Modifier) {
                 .border(1.dp, AppColors.current.goldDark.copy(alpha = 0.30f), RoundedCornerShape(22.dp))
         ) {
             Column(
-                modifier = Modifier.padding(horizontal = 24.dp, vertical = 28.dp),
+                modifier = Modifier
+                    .verticalScroll(rememberScrollState())
+                    .padding(horizontal = 24.dp, vertical = 28.dp),
                 horizontalAlignment = Alignment.CenterHorizontally,
                 verticalArrangement = Arrangement.spacedBy(16.dp)
             ) {
@@ -213,6 +239,31 @@ internal fun PinningActivationOverlay(modifier: Modifier = Modifier) {
                         fontSize = 12.sp,
                         fontWeight = FontWeight.Bold,
                         lineHeight = 17.sp
+                    )
+                }
+                Text(
+                    text = tr(
+                        "Tapped \"No thanks\", or the Android dialog is gone? Cancel and try again.",
+                        "Menekan \"No thanks\" atau dialog Android sudah hilang? Batalkan lalu coba lagi."
+                    ),
+                    color = Color(0xFFB0BED0),
+                    fontSize = 12.sp,
+                    lineHeight = 17.sp,
+                    textAlign = TextAlign.Center
+                )
+                OutlinedButton(
+                    onClick = onCancel,
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .heightIn(min = 48.dp),
+                    shape = RoundedCornerShape(12.dp),
+                    border = BorderStroke(1.dp, Color.White.copy(alpha = 0.35f)),
+                    colors = ButtonDefaults.outlinedButtonColors(contentColor = Color.White)
+                ) {
+                    Text(
+                        text = tr("Cancel", "Batal"),
+                        fontSize = 14.sp,
+                        fontWeight = FontWeight.Bold
                     )
                 }
             }

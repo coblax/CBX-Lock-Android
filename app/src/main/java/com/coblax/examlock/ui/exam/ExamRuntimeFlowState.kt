@@ -194,6 +194,8 @@ internal class ExamRuntimeFlowUiState(
     val startExamPreflight: StartExamPreflightUiState,
     val pinningActivationPurpose: MutableState<PinningActivationPurpose>,
     val pinningActivationState: MutableState<PinningActivationState>,
+    /** Set by the overlay's Cancel button; the activation wait polls it. */
+    val pinningActivationCancelRequested: MutableState<Boolean>,
     val pinningActivationStartedAtElapsedMs: MutableState<Long?>,
     val pinningSuppressedTransitionCount: MutableIntState,
     val screenPinningMessage: MutableState<String?>,
@@ -259,6 +261,7 @@ internal fun rememberExamRuntimeFlowUiState(
     val pinningActivationState = rememberSaveable {
         mutableStateOf(PinningActivationState.Idle)
     }
+    val pinningActivationCancelRequested = rememberSaveable { mutableStateOf(false) }
     val pinningActivationStartedAtElapsedMs = rememberSaveable { mutableStateOf<Long?>(null) }
     val pinningSuppressedTransitionCount = rememberSaveable { mutableIntStateOf(0) }
     val screenPinningMessage = rememberSaveable { mutableStateOf<String?>(null) }
@@ -310,6 +313,7 @@ internal fun rememberExamRuntimeFlowUiState(
             startExamPreflight = startExamPreflight,
             pinningActivationPurpose = pinningActivationPurpose,
             pinningActivationState = pinningActivationState,
+            pinningActivationCancelRequested = pinningActivationCancelRequested,
             pinningActivationStartedAtElapsedMs = pinningActivationStartedAtElapsedMs,
             pinningSuppressedTransitionCount = pinningSuppressedTransitionCount,
             screenPinningMessage = screenPinningMessage,
