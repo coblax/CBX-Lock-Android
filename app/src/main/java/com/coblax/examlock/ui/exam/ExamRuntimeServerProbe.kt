@@ -4,7 +4,10 @@ import android.os.SystemClock
 import com.coblax.examlock.LowRamProfile
 import com.coblax.examlock.model.DiagnosticEventLevel
 import java.net.HttpURLConnection
+import java.net.InetSocketAddress
+import java.net.Socket
 import java.net.URL
+import javax.net.ssl.SSLException
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.withContext
 
@@ -18,11 +21,13 @@ private const val ExamServerProbeUserAgent =
 internal fun examServerProbeIntervalMillis(lowRamProfile: LowRamProfile): Long =
     lowRamProfile.examServerProbeIntervalMillis
 
-private data class ExamServerHttpProbeOutcome(
+internal data class ExamServerHttpProbeOutcome(
     val method: String,
     val code: Int?,
     val latencyMs: Long,
-    val failure: String?
+    val failure: String?,
+    val tlsFailure: Boolean = false,
+    val reachableWithoutHttp: Boolean = false
 )
 
 internal data class ExamServerProbeResult(
@@ -105,19 +110,57 @@ private fun executeExamServerHttpProbe(
             method = method,
             code = null,
             latencyMs = (SystemClock.elapsedRealtime() - startedAt).coerceAtLeast(0L),
-            failure = throwable.javaClass.simpleName.ifBlank { "connection_failed" }
+            failure = throwable.javaClass.simpleName.ifBlank { "connection_failed" },
+            tlsFailure = throwable is SSLException
         )
     } finally {
         connection?.disconnect()
     }
 }
 
-private fun classifyExamServerProbeOutcome(
+/**
+ * Android 7.0's TLS stack cannot complete a handshake with some current certificates
+ * (Let's Encrypt P-384 ECDSA, for one) that the exam WebView, which ships its own TLS,
+ * loads fine. The HTTPS probe then failed on every round and the footer kept telling the
+ * student the server was unreachable while the exam worked. A server that got as far as
+ * the TLS handshake is up, so that case is re-checked with a plain TCP connect.
+ */
+private fun executeExamServerTcpProbe(url: URL): ExamServerHttpProbeOutcome {
+    val startedAt = SystemClock.elapsedRealtime()
+    val port = if (url.port > 0) url.port else url.defaultPort
+    return try {
+        Socket().use { socket ->
+            socket.connect(InetSocketAddress(url.host, port), ExamServerProbeTimeoutMillis)
+        }
+        ExamServerHttpProbeOutcome(
+            method = "TCP",
+            code = null,
+            latencyMs = (SystemClock.elapsedRealtime() - startedAt).coerceAtLeast(0L),
+            failure = null,
+            reachableWithoutHttp = true
+        )
+    } catch (throwable: Exception) {
+        ExamServerHttpProbeOutcome(
+            method = "TCP",
+            code = null,
+            latencyMs = (SystemClock.elapsedRealtime() - startedAt).coerceAtLeast(0L),
+            failure = throwable.javaClass.simpleName.ifBlank { "connection_failed" }
+        )
+    }
+}
+
+internal fun classifyExamServerProbeOutcome(
     host: String,
     outcome: ExamServerHttpProbeOutcome
 ): ExamServerProbeResult {
     val code = outcome.code
     val status = when {
+        outcome.reachableWithoutHttp ->
+            if (outcome.latencyMs > ExamServerProbeSlowThresholdMillis) {
+                ExamServerFooterStatus.Warning
+            } else {
+                ExamServerFooterStatus.Online
+            }
         code == null -> ExamServerFooterStatus.Offline
         code in 200..399 || code == HttpURLConnection.HTTP_UNAUTHORIZED || code == HttpURLConnection.HTTP_FORBIDDEN ->
             if (outcome.latencyMs > ExamServerProbeSlowThresholdMillis) {
@@ -130,6 +173,7 @@ private fun classifyExamServerProbeOutcome(
         else -> ExamServerFooterStatus.Warning
     }
     val reason = when {
+        outcome.reachableWithoutHttp -> "reachable_tls_unsupported"
         code == null -> outcome.failure ?: "connection_failed"
         status == ExamServerFooterStatus.Online -> "reachable"
         outcome.latencyMs > ExamServerProbeSlowThresholdMillis &&
@@ -162,14 +206,21 @@ internal suspend fun probeExamServerFooterStatus(examUrl: String): ExamServerPro
             )
         val host = url.host.orEmpty().ifBlank { "-" }
         val headOutcome = executeExamServerHttpProbe(url, method = "HEAD")
-        val finalOutcome =
-            if (headOutcome.code == null ||
-                headOutcome.code == HttpURLConnection.HTTP_BAD_METHOD ||
-                headOutcome.code == HttpURLConnection.HTTP_NOT_IMPLEMENTED
+        val httpOutcome =
+            if (!headOutcome.tlsFailure &&
+                (headOutcome.code == null ||
+                    headOutcome.code == HttpURLConnection.HTTP_BAD_METHOD ||
+                    headOutcome.code == HttpURLConnection.HTTP_NOT_IMPLEMENTED)
             ) {
                 executeExamServerHttpProbe(url, method = "GET")
             } else {
                 headOutcome
             }
+        // A GET would fail the same handshake, so a TLS failure goes straight to TCP.
+        val finalOutcome = if (httpOutcome.tlsFailure) {
+            executeExamServerTcpProbe(url)
+        } else {
+            httpOutcome
+        }
         classifyExamServerProbeOutcome(host, finalOutcome)
     }

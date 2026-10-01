@@ -10,6 +10,9 @@ import android.os.BatteryManager
 import android.os.Build
 import android.os.StatFs
 import android.provider.Settings
+import android.system.ErrnoException
+import android.system.Os
+import android.system.OsConstants
 import android.view.accessibility.AccessibilityManager
 import androidx.webkit.WebViewCompat
 import com.coblax.examlock.BuildConfig
@@ -380,14 +383,45 @@ internal fun readSelinuxEnabled(): Boolean? {
     }.getOrNull()
 }
 
-@SuppressLint("PrivateApi")
+private const val SelinuxEnforceNode = "/sys/fs/selinux/enforce"
+
+/**
+ * android.os.SELinux.isSELinuxEnforced() reads [SelinuxEnforceNode] and answers false
+ * whenever that read fails. Apps lost read access to the node in Android 9, so the
+ * hidden call reported every enforcing Android 9+ phone as permissive (and, on test-keys
+ * ROMs, as rooted). Reading the node directly tells the two apart.
+ */
 internal fun readSelinuxEnforced(): Boolean? {
-    return runCatching {
-        val selinuxClass = Class.forName("android.os.SELinux")
-        val method = selinuxClass.getMethod("isSELinuxEnforced")
-        method.invoke(null) as? Boolean
-    }.getOrNull()
+    var nodeValue: String? = null
+    var accessDenied = false
+    try {
+        val fd = Os.open(SelinuxEnforceNode, OsConstants.O_RDONLY, 0)
+        try {
+            val buffer = ByteArray(4)
+            val count = Os.read(fd, buffer, 0, buffer.size)
+            if (count > 0) nodeValue = String(buffer, 0, count, Charsets.US_ASCII)
+        } finally {
+            runCatching { Os.close(fd) }
+        }
+    } catch (error: ErrnoException) {
+        accessDenied = error.errno == OsConstants.EACCES
+    } catch (_: Exception) {
+        // Unreadable for another reason: leave the reading unknown.
+    }
+    return resolveSelinuxEnforced(nodeValue, accessDenied)
 }
+
+/**
+ * The node is world-readable, so only the SELinux policy itself can refuse the read, and
+ * a permissive policy merely logs that refusal and lets the read through. A denied read
+ * therefore means enforcing.
+ */
+internal fun resolveSelinuxEnforced(nodeValue: String?, accessDenied: Boolean): Boolean? =
+    when (nodeValue?.trim()) {
+        "1" -> true
+        "0" -> false
+        else -> if (accessDenied) true else null
+    }
 
 @SuppressLint("PrivateApi")
 internal fun getSystemProperty(key: String): String {

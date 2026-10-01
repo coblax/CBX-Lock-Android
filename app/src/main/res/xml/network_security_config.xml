@@ -4,6 +4,12 @@
     <base-config cleartextTrafficPermitted="false">
         <trust-anchors>
             <certificates src="system" />
+            <!-- Let's Encrypt roots, for exam servers using its certificates. Android 7.0
+                 ships neither, so the exam page failed there with a certificate error.
+                 X2 also covers servers that send the short ECDSA chain without its X1
+                 cross-sign, which Android 7.1-13 cannot verify on their own. -->
+            <certificates src="@raw/isrg_root_x1" />
+            <certificates src="@raw/isrg_root_x2" />
         </trust-anchors>
     </base-config>
     <!-- Allow HTTP (cleartext) for local/intranet exam servers.

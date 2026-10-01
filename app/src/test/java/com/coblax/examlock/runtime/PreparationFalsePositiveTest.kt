@@ -111,6 +111,27 @@ class PreparationFalsePositiveTest {
     }
 
     @Test
+    fun anUnreadableEnforceFlagMeansEnforcing() {
+        // Android 9+ refuses apps a read of /sys/fs/selinux/enforce; only an enforcing
+        // policy can do that, a permissive one just logs it.
+        assertEquals(true, resolveSelinuxEnforced(nodeValue = null, accessDenied = true))
+        assertEquals(true, resolveSelinuxEnforced(nodeValue = "1\n", accessDenied = false))
+        assertEquals(false, resolveSelinuxEnforced(nodeValue = "0", accessDenied = false))
+        assertNull(resolveSelinuxEnforced(nodeValue = null, accessDenied = false))
+        assertNull(resolveSelinuxEnforced(nodeValue = "", accessDenied = false))
+    }
+
+    @Test
+    fun testKeysOnAnAndroid9PhoneThatHidesTheEnforceFlagIsNotRooted() {
+        val stock = details(
+            hasTestKeys = true,
+            selinuxEnforced = resolveSelinuxEnforced(nodeValue = null, accessDenied = true)
+        )
+        assertFalse(isDeviceRooted(stock))
+        assertFalse(isSelinuxPermissive(stock))
+    }
+
+    @Test
     fun genuineRootEvidenceIsStillCaught() {
         assertTrue("su binary", isDeviceRooted(details(hasSuBinary = true)))
         assertTrue(
