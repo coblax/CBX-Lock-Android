@@ -1,5 +1,21 @@
 package com.coblax.examlock.ui.admin
 
+import android.graphics.Bitmap
+import androidx.compose.runtime.CompositionLocalProvider
+import androidx.compose.ui.graphics.asAndroidBitmap
+import androidx.compose.ui.test.captureToImage
+import androidx.compose.ui.test.onAllNodesWithText
+import androidx.compose.ui.test.onFirst
+import androidx.compose.ui.test.onNodeWithTag
+import androidx.compose.ui.test.onRoot
+import androidx.compose.ui.test.performScrollTo
+import androidx.test.platform.app.InstrumentationRegistry
+import com.coblax.examlock.testsupport.canCaptureScreenshots
+import com.coblax.examlock.GeofenceShapeType
+import com.coblax.examlock.GeofenceVertex
+import com.coblax.examlock.i18n.LocalUiLanguage
+import com.coblax.examlock.model.UiLanguage
+import java.io.File
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.width
@@ -87,11 +103,85 @@ class CustomQrAdminScreenUiTest {
         }
 
         composeRule.onNodeWithText("Location").performClick()
-        composeRule.onNodeWithText("Location / Geofence").assertIsDisplayed()
+        composeRule.onNodeWithText("Exam location").assertIsDisplayed()
         composeRule.onNodeWithText("Next").performClick()
         composeRule.onNodeWithText("Generate QR").assertIsDisplayed()
         composeRule.runOnIdle {
             assertEquals(CustomQrAdminTab.Generate.name, selectedTab)
+        }
+    }
+
+    @Test
+    fun anEndBeforeTheStartIsShownAndBlocksTheNextStep() {
+        var selectedTab by mutableStateOf(CustomQrAdminTab.Exam.name)
+        val draft = CustomQrDraftState(
+            examUrl = "cbt.sekolah.sch.id",
+            examName = "PAS",
+            startTime = "30/07/2026 10:00",
+            endTime = "30/07/2026 08:00"
+        )
+
+        composeRule.setContent {
+            COBLAXEXAMLOCKTheme(themeMode = ThemeMode.Light) {
+                CustomQrAdminScreen(
+                    showSaveToDirectLinkOption = false,
+                    onBack = {},
+                    selectedTabName = selectedTab,
+                    onSelectedTabNameChange = { selectedTab = it },
+                    draft = draft
+                )
+            }
+        }
+
+        composeRule.onNodeWithText("Next").performClick()
+        composeRule.onAllNodesWithText("The end time must be after the start time.").onFirst().assertIsDisplayed()
+        composeRule.runOnIdle { assertEquals(CustomQrAdminTab.Exam.name, selectedTab) }
+    }
+
+    /** The location step on a 320 dp phone with large Indonesian text, saved for a look. */
+    @Test
+    fun locationStepFitsANarrowPhone() {
+        val draft = CustomQrDraftState(
+            examUrl = "https://exam.example",
+            examName = "Final Exam",
+            startTime = "30/07/2026 08:00",
+            endTime = "30/07/2026 10:00",
+            geofenceEnabled = true,
+            geofenceShapeTypeName = GeofenceShapeType.Polygon.name,
+            polygonVertices = listOf(
+                GeofenceVertex("-7.000000", "110.000000"),
+                GeofenceVertex("-7.000000", "110.001000"),
+                GeofenceVertex("-7.001000", "110.001000"),
+                GeofenceVertex("-7.001000", "110.000000"),
+                GeofenceVertex("-7.001500", "110.000500")
+            )
+        )
+        composeRule.setContent {
+            COBLAXEXAMLOCKTheme(themeMode = ThemeMode.Light) {
+                val density = LocalDensity.current
+                CompositionLocalProvider(
+                    LocalDensity provides Density(density.density, fontScale = 1.5f),
+                    LocalUiLanguage provides UiLanguage.Indonesian
+                ) {
+                    Box(modifier = Modifier.width(320.dp).height(640.dp)) {
+                        CustomQrAdminScreen(
+                            showSaveToDirectLinkOption = false,
+                            onBack = {},
+                            selectedTabName = CustomQrAdminTab.Location.name,
+                            draft = draft
+                        )
+                    }
+                }
+            }
+        }
+
+        composeRule.onNodeWithText("Polygon", useUnmergedTree = true).assertIsDisplayed()
+        composeRule.onNodeWithTag(CustomQrLocationEditTestTag).performScrollTo().assertIsDisplayed()
+        if (canCaptureScreenshots) {
+            val context = InstrumentationRegistry.getInstrumentation().targetContext
+            File(context.getExternalFilesDir(null), "custom_qr_location_320dp_id.png").outputStream().use {
+                composeRule.onRoot().captureToImage().asAndroidBitmap().compress(Bitmap.CompressFormat.PNG, 100, it)
+            }
         }
     }
 }

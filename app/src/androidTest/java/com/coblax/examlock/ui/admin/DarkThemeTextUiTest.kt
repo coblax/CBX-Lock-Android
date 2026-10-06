@@ -12,6 +12,7 @@ import androidx.compose.ui.test.junit4.createComposeRule
 import androidx.compose.ui.test.onNodeWithText
 import androidx.compose.ui.test.onRoot
 import androidx.test.platform.app.InstrumentationRegistry
+import com.coblax.examlock.testsupport.canCaptureScreenshots
 import com.coblax.examlock.i18n.LocalUiLanguage
 import com.coblax.examlock.model.ThemeMode
 import com.coblax.examlock.model.UiLanguage
@@ -66,10 +67,12 @@ class DarkThemeTextUiTest {
         }
         composeRule.onNodeWithText("2 masalah").assertIsDisplayed()
         composeRule.onNodeWithText("2 hal wajib diperbaiki").assertIsDisplayed()
-        val context = InstrumentationRegistry.getInstrumentation().targetContext
-        val screenshot = File(context.getExternalFilesDir(null), "dark-ui-regression.png")
-        screenshot.outputStream().use {
-            composeRule.onRoot().captureToImage().asAndroidBitmap().compress(Bitmap.CompressFormat.PNG, 100, it)
+        if (canCaptureScreenshots) {
+            val context = InstrumentationRegistry.getInstrumentation().targetContext
+            val screenshot = File(context.getExternalFilesDir(null), "dark-ui-regression.png")
+            screenshot.outputStream().use {
+                composeRule.onRoot().captureToImage().asAndroidBitmap().compress(Bitmap.CompressFormat.PNG, 100, it)
+            }
         }
     }
 }

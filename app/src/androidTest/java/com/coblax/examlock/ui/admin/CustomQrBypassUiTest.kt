@@ -34,6 +34,7 @@ import com.coblax.examlock.ui.preparation.PreparationOverview
 import com.coblax.examlock.ui.preparation.PreparationStartBar
 import com.coblax.examlock.ui.preparation.PreparationStatusCard
 import com.coblax.examlock.ui.theme.AppColors
+import com.coblax.examlock.testsupport.canCaptureScreenshots
 import com.coblax.examlock.ui.theme.COBLAXEXAMLOCKTheme
 import com.coblax.examlock.viewmodel.CustomQrDraftState
 import java.io.File
@@ -193,6 +194,7 @@ class CustomQrBypassUiTest {
     }
 
     private fun save(node: SemanticsNodeInteraction, name: String) {
+        if (!canCaptureScreenshots) return
         composeRule.waitForIdle()
         val context = InstrumentationRegistry.getInstrumentation().targetContext
         File(context.getExternalFilesDir(null), name).outputStream().use {

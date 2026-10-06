@@ -11,6 +11,8 @@ import androidx.compose.foundation.clickable
 import androidx.compose.foundation.Image
 import androidx.compose.foundation.interaction.MutableInteractionSource
 import androidx.compose.foundation.layout.Arrangement
+import androidx.compose.foundation.layout.aspectRatio
+import androidx.compose.foundation.layout.widthIn
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.fillMaxWidth
@@ -47,10 +49,25 @@ import androidx.compose.runtime.DisposableEffect
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
+import android.net.Uri
+import android.widget.Toast
+import androidx.activity.result.contract.ActivityResultContracts
+import androidx.activity.compose.rememberLauncherForActivityResult
+import androidx.compose.foundation.layout.fillMaxSize
+import androidx.compose.material3.CircularProgressIndicator
+import androidx.compose.runtime.LaunchedEffect
+import androidx.compose.runtime.mutableStateOf
+import androidx.compose.runtime.rememberCoroutineScope
+import com.coblax.examlock.LowRamProfile
+import com.coblax.examlock.QrExportBitmapSpec
+import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.launch
+import kotlinx.coroutines.withContext
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.asImageBitmap
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.graphics.FilterQuality
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.semantics.Role
@@ -295,6 +312,12 @@ internal fun StatusBanner(
     }
 }
 
+private sealed interface QrPreview {
+    data object Loading : QrPreview
+    data object TooLarge : QrPreview
+    data class Ready(val bitmap: Bitmap, val exportSpec: QrExportBitmapSpec) : QrPreview
+}
+
 @Composable
 internal fun GeneratedQrCard(
     encryptedPayload: String,
@@ -311,29 +334,116 @@ internal fun GeneratedQrCard(
     }
     val context = LocalContext.current
     val lowRamProfile = LocalLowRamProfile.current
-    val previewBitmapSize = when {
-        lowRamProfile.severe -> 384
-        lowRamProfile.enabled -> 512
-        else -> 640
-    }
-    val previewDisplaySize = when {
-        lowRamProfile.severe -> 180.dp
-        lowRamProfile.enabled -> 200.dp
-        else -> 220.dp
-    }
-    val exportBitmapSpec = remember(lowRamProfile) {
-        calculateQrExportBitmapSpec(lowRamProfile)
-    }
+    val coroutineScope = rememberCoroutineScope()
     val shareFailedMessage = tr("Failed to open the share menu.", "Gagal membuka menu bagikan.")
-    val saveSuccessPrefix = tr("Saved:", "Tersimpan:")
+    val saveSuccessPrefix = tr("Saved to Pictures/COBLAX EXAM LOCK:", "Tersimpan di Pictures/COBLAX EXAM LOCK:")
     val saveFailedMessage = tr("Failed to save the QR.", "Gagal menyimpan QR.")
-    val qrBitmap = remember(encryptedPayload, previewBitmapSize) {
-        QrCodeGenerator.generateBitmap(encryptedPayload, size = previewBitmapSize)
+    val savedToDocumentMessage = tr("QR saved.", "QR tersimpan.")
+    var preview by remember(encryptedPayload) { mutableStateOf<QrPreview>(QrPreview.Loading) }
+    var exportBusy by remember { mutableStateOf(false) }
+
+    // Picking a mask the scanner reads takes several trial decodes; on a slow phone that
+    // froze the screen when it ran during composition.
+    LaunchedEffect(encryptedPayload, lowRamProfile) {
+        preview = withContext(Dispatchers.Default) { buildQrPreview(encryptedPayload, lowRamProfile) }
     }
-    DisposableEffect(qrBitmap) {
+    val ready = preview as? QrPreview.Ready
+    DisposableEffect(ready) {
         onDispose {
-            if (!qrBitmap.isRecycled) {
-                qrBitmap.recycle()
+            ready?.bitmap?.let { bitmap -> if (!bitmap.isRecycled) bitmap.recycle() }
+        }
+    }
+    if (preview == QrPreview.TooLarge) {
+        StatusBanner(
+            message = tr(
+                "This QR holds too much to show as one code. Use fewer location points or a shorter link, then generate again.",
+                "Isi QR ini terlalu banyak untuk satu kode. Kurangi titik lokasi atau persingkat link, lalu generate lagi."
+            ),
+            isError = true
+        )
+        return
+    }
+
+    fun renderPoster(spec: QrExportBitmapSpec): Bitmap = ExamQrExportHelper.createShareBitmap(
+        encryptedPayload = encryptedPayload,
+        examName = examName,
+        startTime = startTime,
+        endTime = endTime,
+        locationPolicy = locationPolicy,
+        exportSpec = spec
+    )
+
+    val saveDocumentLauncher = rememberLauncherForActivityResult(
+        ActivityResultContracts.CreateDocument("image/png")
+    ) { uri ->
+        val spec = ready?.exportSpec
+        if (uri == null || spec == null) {
+            return@rememberLauncherForActivityResult
+        }
+        exportBusy = true
+        coroutineScope.launch {
+            val outcome = withContext(Dispatchers.Default) {
+                runCatching {
+                    val poster = renderPoster(spec)
+                    try {
+                        ExamQrExportHelper.writePng(context, poster, uri)
+                    } finally {
+                        if (!poster.isRecycled) poster.recycle()
+                    }
+                }
+            }
+            exportBusy = false
+            Toast.makeText(
+                context,
+                if (outcome.isSuccess) savedToDocumentMessage else saveFailedMessage,
+                Toast.LENGTH_SHORT
+            ).show()
+        }
+    }
+
+    fun export(share: Boolean) {
+        val spec = ready?.exportSpec ?: return
+        if (exportBusy) {
+            return
+        }
+        if (!share && !ExamQrExportHelper.canSaveToGalleryDirectly) {
+            runCatching { saveDocumentLauncher.launch(ExamQrExportHelper.suggestedFileName(examName)) }
+                .onFailure { Toast.makeText(context, saveFailedMessage, Toast.LENGTH_SHORT).show() }
+            return
+        }
+        exportBusy = true
+        coroutineScope.launch {
+            // Drawing and compressing the poster takes a few hundred milliseconds; keep it
+            // off the main thread and only hand the result to the share sheet there.
+            val outcome = withContext(Dispatchers.Default) {
+                runCatching {
+                    val exportBitmap = renderPoster(spec)
+                    try {
+                        if (share) {
+                            ExamQrExportHelper.writeShareFile(context, exportBitmap, examName).toString()
+                        } else {
+                            ExamQrExportHelper.saveToGallery(context, exportBitmap, examName)
+                        }
+                    } finally {
+                        if (!exportBitmap.isRecycled) {
+                            exportBitmap.recycle()
+                        }
+                    }
+                }
+            }
+            exportBusy = false
+            outcome.onSuccess { result ->
+                if (share) {
+                    runCatching {
+                        ExamQrExportHelper.launchShare(context, Uri.parse(result), examName)
+                    }.onFailure {
+                        Toast.makeText(context, shareFailedMessage, Toast.LENGTH_SHORT).show()
+                    }
+                } else {
+                    Toast.makeText(context, "$saveSuccessPrefix $result", Toast.LENGTH_LONG).show()
+                }
+            }.onFailure {
+                Toast.makeText(context, if (share) shareFailedMessage else saveFailedMessage, Toast.LENGTH_SHORT).show()
             }
         }
     }
@@ -370,16 +480,25 @@ internal fun GeneratedQrCard(
 
         Box(
             modifier = Modifier
+                .fillMaxWidth(0.92f)
+                .widthIn(max = 340.dp)
+                .aspectRatio(1f)
                 .clip(RoundedCornerShape(18.dp))
-                .background(MaterialTheme.colorScheme.surface)
+                .background(Color.White)
                 .border(1.dp, AppColors.current.outline, RoundedCornerShape(18.dp))
-                .padding(14.dp)
+                .padding(10.dp),
+            contentAlignment = Alignment.Center
         ) {
-            Image(
-                bitmap = qrBitmap.asImageBitmap(),
-                contentDescription = tr("Encrypted exam QR", "QR ujian terenkripsi"),
-                modifier = Modifier.size(previewDisplaySize)
-            )
+            if (ready != null) {
+                Image(
+                    bitmap = ready.bitmap.asImageBitmap(),
+                    contentDescription = tr("Encrypted exam QR", "QR ujian terenkripsi"),
+                    filterQuality = FilterQuality.None,
+                    modifier = Modifier.fillMaxSize()
+                )
+            } else {
+                CircularProgressIndicator(color = AppColors.current.blue)
+            }
         }
 
         Spacer(modifier = Modifier.height(18.dp))
@@ -388,17 +507,17 @@ internal fun GeneratedQrCard(
         ExamDetailLine(label = tr("Start", "Mulai"), value = startTime)
         ExamDetailLine(label = tr("End", "Selesai"), value = endTime)
         ExamDetailLine(
-            label = tr("Geofence", "Geofence"),
+            label = tr("Location", "Lokasi"),
             value = when (locationPolicy.shapeType) {
                 GeofenceShapeType.Circle -> tr(
-                    "Circle | ${locationPolicy.effectiveCircleCenters.size} centers | ${locationPolicy.radiusMeters} m",
-                    "Lingkaran | ${locationPolicy.effectiveCircleCenters.size} center | ${locationPolicy.radiusMeters} m"
+                    "Circle · ${locationPolicy.effectiveCircleCenters.size} ${if (locationPolicy.effectiveCircleCenters.size == 1) "center" else "centers"} · radius ${locationPolicy.radiusMeters} m",
+                    "Lingkaran · ${locationPolicy.effectiveCircleCenters.size} titik pusat · radius ${locationPolicy.radiusMeters} m"
                 )
                 GeofenceShapeType.Polygon -> tr(
-                    "Polygon | ${locationPolicy.vertices.size} points",
-                    "Polygon | ${locationPolicy.vertices.size} titik"
+                    "Polygon · ${locationPolicy.vertices.size} corners",
+                    "Polygon · ${locationPolicy.vertices.size} sudut"
                 )
-                GeofenceShapeType.Disabled -> tr("Disabled", "Nonaktif")
+                GeofenceShapeType.Disabled -> tr("Anywhere (no location check)", "Bebas (tanpa cek lokasi)")
             }
         )
         if (bypassTitles.isNotEmpty()) {
@@ -416,40 +535,14 @@ internal fun GeneratedQrCard(
 
         Spacer(modifier = Modifier.height(20.dp))
 
+        val actionsEnabled = ready != null && !exportBusy
         Row(
             modifier = Modifier.fillMaxWidth(),
             horizontalArrangement = Arrangement.spacedBy(12.dp)
         ) {
             Button(
-                onClick = {
-                    runCatching {
-                        val exportBitmap = ExamQrExportHelper.createShareBitmap(
-                            encryptedPayload = encryptedPayload,
-                            examName = examName,
-                            startTime = startTime,
-                            endTime = endTime,
-                            locationPolicy = locationPolicy,
-                            exportSpec = exportBitmapSpec
-                        )
-                        try {
-                            ExamQrExportHelper.shareBitmap(
-                                context = context,
-                                bitmap = exportBitmap,
-                                examName = examName
-                            )
-                        } finally {
-                            if (!exportBitmap.isRecycled) {
-                                exportBitmap.recycle()
-                            }
-                        }
-                    }.onFailure {
-                        android.widget.Toast.makeText(
-                            context,
-                            shareFailedMessage,
-                            android.widget.Toast.LENGTH_SHORT
-                        ).show()
-                    }
-                },
+                onClick = { export(share = true) },
+                enabled = actionsEnabled,
                 modifier = Modifier.weight(1f),
                 shape = RoundedCornerShape(UiTokens.RadiusMd),
                 colors = ButtonDefaults.buttonColors(
@@ -461,41 +554,8 @@ internal fun GeneratedQrCard(
             }
 
             Button(
-                onClick = {
-                    runCatching {
-                        val exportBitmap = ExamQrExportHelper.createShareBitmap(
-                            encryptedPayload = encryptedPayload,
-                            examName = examName,
-                            startTime = startTime,
-                            endTime = endTime,
-                            locationPolicy = locationPolicy,
-                            exportSpec = exportBitmapSpec
-                        )
-                        try {
-                            ExamQrExportHelper.saveToGallery(
-                                context = context,
-                                bitmap = exportBitmap,
-                                examName = examName
-                            )
-                        } finally {
-                            if (!exportBitmap.isRecycled) {
-                                exportBitmap.recycle()
-                            }
-                        }
-                    }.onSuccess { fileName ->
-                        android.widget.Toast.makeText(
-                            context,
-                            "$saveSuccessPrefix $fileName",
-                            android.widget.Toast.LENGTH_SHORT
-                        ).show()
-                    }.onFailure {
-                        android.widget.Toast.makeText(
-                            context,
-                            saveFailedMessage,
-                            android.widget.Toast.LENGTH_SHORT
-                        ).show()
-                    }
-                },
+                onClick = { export(share = false) },
+                enabled = actionsEnabled,
                 modifier = Modifier.weight(1f),
                 shape = RoundedCornerShape(UiTokens.RadiusMd),
                 colors = ButtonDefaults.buttonColors(
@@ -504,10 +564,28 @@ internal fun GeneratedQrCard(
                 ),
                 border = BorderStroke(1.dp, AppColors.current.blue.copy(alpha = 0.45f))
             ) {
-                Text(tr("Download", "Download"), fontWeight = FontWeight.SemiBold)
+                Text(tr("Save", "Simpan"), fontWeight = FontWeight.SemiBold)
             }
         }
     }
+}
+
+/** The preview bitmap and the export size for [encryptedPayload]; runs off the main thread. */
+private fun buildQrPreview(encryptedPayload: String, lowRamProfile: LowRamProfile): QrPreview {
+    val qrModules = QrCodeGenerator.moduleCount(encryptedPayload)
+    if (qrModules == 0) {
+        return QrPreview.TooLarge
+    }
+    // Students often scan this straight off the admin's screen, so a dense QR gets
+    // enough pixels (and screen width) for a phone camera to resolve each module.
+    val previewBitmapSize = when {
+        lowRamProfile.severe -> 384
+        lowRamProfile.enabled -> 512
+        else -> 640
+    }.coerceAtLeast(qrModules * 4).coerceAtMost(1024)
+    val bitmap = runCatching { QrCodeGenerator.generateBitmap(encryptedPayload, size = previewBitmapSize) }.getOrNull()
+        ?: return QrPreview.TooLarge
+    return QrPreview.Ready(bitmap, calculateQrExportBitmapSpec(lowRamProfile, qrModules))
 }
 
 @Composable

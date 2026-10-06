@@ -917,13 +917,7 @@ internal fun AppHostRuntimeContent(
                 }
             }.getOrElse {
                 adminFlowViewModel.dispatch(
-                    AdminFlowUiAction.SetScanErrorMessage(
-                        it.message ?: localized(
-                            uiLanguage,
-                            "The QR code could not be read.",
-                            "QR tidak dapat dibaca."
-                        )
-                    )
+                    AdminFlowUiAction.SetScanErrorMessage(examQrReadFailureMessage(it, uiLanguage))
                 )
                 return@launch
             }
@@ -1322,9 +1316,15 @@ internal fun AppHostRuntimeContent(
 
         pendingScanConfirmPayload?.let { payload ->
             val geofenceInfo = when (payload.locationPolicy?.shapeType) {
-                GeofenceShapeType.Circle -> "Circle | ${payload.locationPolicy.effectiveCircleCenters.size} centers | ${payload.locationPolicy.radiusMeters} m"
-                GeofenceShapeType.Polygon -> "Polygon | ${payload.locationPolicy.vertices.size} points"
-                else -> "Disabled"
+                GeofenceShapeType.Circle -> tr(
+                    "Circle · ${payload.locationPolicy.effectiveCircleCenters.size} ${if (payload.locationPolicy.effectiveCircleCenters.size == 1) "center" else "centers"} · radius ${payload.locationPolicy.radiusMeters} m",
+                    "Lingkaran · ${payload.locationPolicy.effectiveCircleCenters.size} titik pusat · radius ${payload.locationPolicy.radiusMeters} m"
+                )
+                GeofenceShapeType.Polygon -> tr(
+                    "Polygon · ${payload.locationPolicy.vertices.size} corners",
+                    "Polygon · ${payload.locationPolicy.vertices.size} sudut"
+                )
+                else -> tr("Anywhere (no location check)", "Bebas (tanpa cek lokasi)")
             }
             val qrBypassTitles = remember(payload.securityBypasses, uiLanguage) {
                 examQrBypassTitles(uiLanguage, payload.securityBypasses)

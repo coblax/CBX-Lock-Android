@@ -20,8 +20,9 @@ import kotlin.coroutines.resume
 import kotlin.coroutines.resumeWithException
 import kotlin.math.roundToInt
 
+/** Six decimals is about 11 cm: finer than any phone GPS, and shorter in the QR. */
 internal fun formatCoordinateForPolicy(value: Double): String {
-    return String.format(Locale.US, "%.7f", value)
+    return String.format(Locale.US, "%.6f", value)
 }
 
 internal fun summarizePolygonVertices(vertices: List<GeofencePoint>): String {
@@ -30,34 +31,6 @@ internal fun summarizePolygonVertices(vertices: List<GeofencePoint>): String {
     }
     val preview = vertices.take(4).joinToString("; ") { point ->
         formatCoordinates(point.latitude, point.longitude)
-    }
-    return if (vertices.size > 4) {
-        "$preview; ... +${vertices.size - 4}"
-    } else {
-        preview
-    }
-}
-
-internal fun summarizeCircleVertexList(vertices: List<GeofenceVertex>): String {
-    if (vertices.isEmpty()) {
-        return "-"
-    }
-    val preview = vertices.take(4).joinToString("; ") { vertex ->
-        "${vertex.latitude.trim()}, ${vertex.longitude.trim()}"
-    }
-    return if (vertices.size > 4) {
-        "$preview; ... +${vertices.size - 4}"
-    } else {
-        preview
-    }
-}
-
-internal fun summarizePolygonVertexList(vertices: List<GeofenceVertex>): String {
-    if (vertices.isEmpty()) {
-        return "-"
-    }
-    val preview = vertices.take(4).joinToString("; ") { vertex ->
-        "${vertex.latitude.trim()}, ${vertex.longitude.trim()}"
     }
     return if (vertices.size > 4) {
         "$preview; ... +${vertices.size - 4}"

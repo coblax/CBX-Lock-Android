@@ -8,13 +8,14 @@ import android.graphics.Canvas
 import android.graphics.Color
 import android.graphics.Paint
 import android.graphics.RectF
-import android.media.MediaScannerConnection
+import android.net.Uri
 import android.os.Build
 import android.os.Environment
 import android.provider.MediaStore
 import android.text.Layout
 import android.text.StaticLayout
 import android.text.TextPaint
+import android.text.TextUtils
 import androidx.core.content.FileProvider
 import androidx.core.graphics.createBitmap
 import androidx.core.graphics.toColorInt
@@ -22,6 +23,9 @@ import androidx.core.graphics.withTranslation
 import java.io.File
 import java.io.FileOutputStream
 
+
+private const val DetailStartX = 180f
+private const val DetailMinTextSize = 32f
 
 internal object ExamQrExportHelper {
     fun createShareBitmap(
@@ -47,6 +51,11 @@ internal object ExamQrExportHelper {
 
         canvas.drawColor(backgroundColor)
         canvas.scale(scale, scale)
+        // Everything below is laid out in the unscaled poster's units. Using the scaled
+        // bitmap size here pushed the whole poster left and cut the card short on
+        // low-RAM phones.
+        val logicalWidth = width / scale
+        val logicalHeight = height / scale
 
         val titlePaint = Paint(Paint.ANTI_ALIAS_FLAG).apply {
             color = accentColor
@@ -80,23 +89,23 @@ internal object ExamQrExportHelper {
             strokeWidth = 4f
         }
 
-        canvas.drawText("COBLAX EXAM LOCK", width / 2f, 120f, titlePaint)
-        canvas.drawText("QR Ujian Terenkripsi", width / 2f, 220f, headingPaint)
+        canvas.drawText("COBLAX EXAM LOCK", logicalWidth / 2f, 120f, titlePaint)
+        canvas.drawText("QR Ujian Terenkripsi", logicalWidth / 2f, 220f, headingPaint)
 
         val subtitlePaint = TextPaint(Paint.ANTI_ALIAS_FLAG).apply {
             color = subtitleColor
             textSize = 36f
         }
-        drawIntroParagraph(canvas = canvas, paint = subtitlePaint)
+        drawIntroParagraph(canvas = canvas, paint = subtitlePaint, logicalWidth = logicalWidth)
 
-        val cardRect = RectF(90f, 430f, width - 90f, height - 90f)
+        val cardRect = RectF(90f, 430f, logicalWidth - 90f, logicalHeight - 90f)
         canvas.drawRoundRect(cardRect, 34f, 34f, cardPaint)
         canvas.drawRoundRect(cardRect, 34f, 34f, borderPaint)
 
         val qrPadding = 40f
         val qrSize = 760f
         val qrContainerSize = qrSize + (qrPadding * 2f)
-        val qrContainerLeft = (width - qrContainerSize) / 2f
+        val qrContainerLeft = (logicalWidth - qrContainerSize) / 2f
         val qrContainerTop = 560f
         val qrContainer = RectF(
             qrContainerLeft,
@@ -118,80 +127,82 @@ internal object ExamQrExportHelper {
                 qrContainer.right - qrPadding,
                 qrContainer.bottom - qrPadding
             )
-            canvas.drawBitmap(qrBitmap, null, qrRect, null)
+            // No filtering: the bitmap is already at the drawn size, and smoothing would
+            // blur module edges the scanner needs.
+            canvas.drawBitmap(qrBitmap, null, qrRect, Paint().apply { isFilterBitmap = false })
         } finally {
             if (!qrBitmap.isRecycled) {
                 qrBitmap.recycle()
             }
         }
 
+        val valueMaxWidth = logicalWidth - 2 * DetailStartX
         var currentY = qrContainer.bottom + 110f
-        drawDetailLine(canvas, "Nama Ujian", examName, currentY, labelPaint, valuePaint)
+        drawDetailLine(canvas, "Nama Ujian", examName, currentY, labelPaint, valuePaint, valueMaxWidth)
         currentY += 145f
-        drawDetailLine(canvas, "Mulai", startTime, currentY, labelPaint, valuePaint)
+        drawDetailLine(canvas, "Mulai", startTime, currentY, labelPaint, valuePaint, valueMaxWidth)
         currentY += 145f
-        drawDetailLine(canvas, "Selesai", endTime, currentY, labelPaint, valuePaint)
+        drawDetailLine(canvas, "Selesai", endTime, currentY, labelPaint, valuePaint, valueMaxWidth)
         currentY += 145f
         val geofenceValue = when (locationPolicy.shapeType) {
-            GeofenceShapeType.Circle -> {
-                val primaryCenter = locationPolicy.effectiveCircleCenters.firstOrNull()
-                "Circle | ${locationPolicy.effectiveCircleCenters.size} centers | ${locationPolicy.radiusMeters} m | ${
-                    primaryCenter?.let { "${it.latitude}, ${it.longitude}" } ?: "-"
-                }"
-            }
+            GeofenceShapeType.Circle ->
+                "Lingkaran · ${locationPolicy.effectiveCircleCenters.size} titik pusat · radius ${locationPolicy.radiusMeters} m"
             GeofenceShapeType.Polygon ->
-                "Polygon | ${locationPolicy.vertices.size} points"
-            GeofenceShapeType.Disabled -> "Disabled"
+                "Polygon · ${locationPolicy.vertices.size} sudut"
+            GeofenceShapeType.Disabled -> "Bebas (tanpa cek lokasi)"
         }
-        drawDetailLine(canvas, "Geofence", geofenceValue, currentY, labelPaint, valuePaint)
+        drawDetailLine(canvas, "Lokasi", geofenceValue, currentY, labelPaint, valuePaint, valueMaxWidth)
 
         return bitmap
     }
 
+    /**
+     * Saves straight into Pictures/COBLAX EXAM LOCK on Android 10 and later. Older
+     * versions need a storage permission for that folder, so there the admin picks the
+     * place in the system save dialog ([writePng]); the app folder used before was
+     * hidden from the gallery and wiped on uninstall.
+     */
+    val canSaveToGalleryDirectly: Boolean
+        get() = Build.VERSION.SDK_INT >= Build.VERSION_CODES.Q
+
     fun saveToGallery(context: Context, bitmap: Bitmap, examName: String): String {
+        check(canSaveToGalleryDirectly) { "Direct gallery save needs Android 10." }
         val displayName = buildFileName(examName)
-        return if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.Q) {
-            val resolver = context.contentResolver
-            val contentValues = ContentValues().apply {
-                put(MediaStore.Images.Media.DISPLAY_NAME, displayName)
-                put(MediaStore.Images.Media.MIME_TYPE, "image/png")
-                put(
-                    MediaStore.Images.Media.RELATIVE_PATH,
-                    "${Environment.DIRECTORY_PICTURES}/COBLAX EXAM LOCK"
-                )
-                put(MediaStore.Images.Media.IS_PENDING, 1)
-            }
-
-            val uri = resolver.insert(MediaStore.Images.Media.EXTERNAL_CONTENT_URI, contentValues)
-                ?: error("Tidak bisa membuat file galeri.")
-
-            resolver.openOutputStream(uri)?.use { outputStream ->
-                bitmap.compress(Bitmap.CompressFormat.PNG, 100, outputStream)
-            } ?: error("Tidak bisa menulis file gambar.")
-
-            contentValues.clear()
-            contentValues.put(MediaStore.Images.Media.IS_PENDING, 0)
-            resolver.update(uri, contentValues, null, null)
-            displayName
-        } else {
-            val picturesDir = context.getExternalFilesDir(Environment.DIRECTORY_PICTURES)
-                ?: error("Folder gambar tidak tersedia.")
-            val exportDir = File(picturesDir, "COBLAX EXAM LOCK").apply { mkdirs() }
-            val file = File(exportDir, displayName)
-            FileOutputStream(file).use { outputStream ->
-                bitmap.compress(Bitmap.CompressFormat.PNG, 100, outputStream)
-            }
-            MediaScannerConnection.scanFile(
-                context,
-                arrayOf(file.absolutePath),
-                arrayOf("image/png"),
-                null
+        val resolver = context.contentResolver
+        val contentValues = ContentValues().apply {
+            put(MediaStore.Images.Media.DISPLAY_NAME, displayName)
+            put(MediaStore.Images.Media.MIME_TYPE, "image/png")
+            put(
+                MediaStore.Images.Media.RELATIVE_PATH,
+                "${Environment.DIRECTORY_PICTURES}/COBLAX EXAM LOCK"
             )
-            file.name
+            put(MediaStore.Images.Media.IS_PENDING, 1)
         }
+
+        val uri = resolver.insert(MediaStore.Images.Media.EXTERNAL_CONTENT_URI, contentValues)
+            ?: error("Tidak bisa membuat file galeri.")
+
+        resolver.openOutputStream(uri)?.use { outputStream ->
+            bitmap.compress(Bitmap.CompressFormat.PNG, 100, outputStream)
+        } ?: error("Tidak bisa menulis file gambar.")
+
+        contentValues.clear()
+        contentValues.put(MediaStore.Images.Media.IS_PENDING, 0)
+        resolver.update(uri, contentValues, null, null)
+        return displayName
     }
 
-    fun shareBitmap(context: Context, bitmap: Bitmap, examName: String) {
+    /** Writes the poster to a document the admin picked in the system save dialog. */
+    fun writePng(context: Context, bitmap: Bitmap, uri: Uri) {
+        context.contentResolver.openOutputStream(uri)?.use { outputStream ->
+            bitmap.compress(Bitmap.CompressFormat.PNG, 100, outputStream)
+        } ?: error("Tidak bisa menulis file gambar.")
+    }
+
+    fun suggestedFileName(examName: String): String = buildFileName(examName)
+
+    /** Writes the poster where the share sheet can read it; safe off the main thread. */
+    fun writeShareFile(context: Context, bitmap: Bitmap, examName: String): Uri {
         val shareDir = File(context.cacheDir, "shared_qr").apply {
             mkdirs()
             cleanupOldExportFiles(this)
@@ -200,13 +211,14 @@ internal object ExamQrExportHelper {
         FileOutputStream(shareFile).use { outputStream ->
             bitmap.compress(Bitmap.CompressFormat.PNG, 100, outputStream)
         }
-
-        val uri = FileProvider.getUriForFile(
+        return FileProvider.getUriForFile(
             context,
             "${context.packageName}.fileprovider",
             shareFile
         )
+    }
 
+    fun launchShare(context: Context, uri: Uri, examName: String) {
         val shareIntent = Intent(Intent.ACTION_SEND).apply {
             type = "image/png"
             putExtra(Intent.EXTRA_STREAM, uri)
@@ -247,22 +259,34 @@ internal object ExamQrExportHelper {
         }
     }
 
+    /** One label/value pair; a value too long for the card is shrunk, then shortened. */
     private fun drawDetailLine(
         canvas: Canvas,
         label: String,
         value: String,
         startY: Float,
         labelPaint: Paint,
-        valuePaint: Paint
+        valuePaint: Paint,
+        maxWidth: Float
     ) {
-        val startX = 180f
-        canvas.drawText(label, startX, startY, labelPaint)
-        canvas.drawText(value.ifBlank { "-" }, startX, startY + 62f, valuePaint)
+        canvas.drawText(label, DetailStartX, startY, labelPaint)
+        val fitted = Paint(valuePaint)
+        val text = value.ifBlank { "-" }
+        while (fitted.measureText(text) > maxWidth && fitted.textSize > DetailMinTextSize) {
+            fitted.textSize -= 2f
+        }
+        val shown = if (fitted.measureText(text) <= maxWidth) {
+            text
+        } else {
+            TextUtils.ellipsize(text, TextPaint(fitted), maxWidth, TextUtils.TruncateAt.END).toString()
+        }
+        canvas.drawText(shown, DetailStartX, startY + 62f, fitted)
     }
 
     private fun drawIntroParagraph(
         canvas: Canvas,
-        paint: TextPaint
+        paint: TextPaint,
+        logicalWidth: Float
     ) {
         val text =
             "Bagikan atau simpan QR ini. Aplikasi COBLAX EXAM LOCK akan membaca dan mendekripsi data ini saat dipindai."
@@ -274,7 +298,7 @@ internal object ExamQrExportHelper {
             .setIncludePad(false)
             .build()
 
-        canvas.withTranslation(((canvas.width - width) / 2f), startY) {
+        canvas.withTranslation(((logicalWidth - width) / 2f), startY) {
             layout.draw(this)
         }
     }
