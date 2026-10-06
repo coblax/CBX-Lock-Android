@@ -446,8 +446,8 @@ internal fun AppHostRuntimeContent(
 
                                 AdminSettingsValidationReason.SecureHttpsUrlRequired -> localized(
                                     uiLanguage,
-                                    "Direct Link URL must be a valid HTTPS URL.",
-                                    "URL Direct Link harus berupa URL HTTPS yang valid."
+                                    "Direct Link URL must be a valid http:// or https:// URL.",
+                                    "URL Direct Link harus berupa URL http:// atau https:// yang valid."
                                 )
                             }
 
@@ -579,8 +579,8 @@ internal fun AppHostRuntimeContent(
             ExamUrlValidationError.Invalid,
             null -> localized(
                 uiLanguage,
-                "Exam URL must start with https:// and include a domain.",
-                "URL ujian harus diawali https:// dan memiliki domain."
+                "Exam URL must start with http:// or https:// and include a domain.",
+                "URL ujian harus diawali http:// atau https:// dan memiliki domain."
             )
         }
     }

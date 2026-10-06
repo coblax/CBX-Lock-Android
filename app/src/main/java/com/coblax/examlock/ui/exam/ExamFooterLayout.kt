@@ -62,7 +62,8 @@ internal enum class ExamRuntimeConnectionNoticeKind {
     UnstableNetwork,
     ServerOffline,
     ServerUnstable,
-    ServerWarning
+    ServerWarning,
+    InsecureConnection
 }
 
 /**
@@ -128,7 +129,8 @@ internal fun resolveExamFooterConnectivityVisual(
             ExamServerFooterStatus.Checking -> ExamRuntimeConnectivityState.Checking
             ExamServerFooterStatus.Warning,
             ExamServerFooterStatus.Offline,
-            ExamServerFooterStatus.Unstable -> ExamRuntimeConnectivityState.Limited
+            ExamServerFooterStatus.Unstable,
+            ExamServerFooterStatus.Insecure -> ExamRuntimeConnectivityState.Limited
         }
     }
     val severity = when (state) {
@@ -187,6 +189,7 @@ internal fun resolveExamRuntimeConnectionNotice(
             ExamServerFooterStatus.Offline -> ExamRuntimeConnectionNoticeKind.ServerOffline
             ExamServerFooterStatus.Unstable -> ExamRuntimeConnectionNoticeKind.ServerUnstable
             ExamServerFooterStatus.Warning -> ExamRuntimeConnectionNoticeKind.ServerWarning
+            ExamServerFooterStatus.Insecure -> ExamRuntimeConnectionNoticeKind.InsecureConnection
             ExamServerFooterStatus.Checking,
             ExamServerFooterStatus.Online -> null
         }

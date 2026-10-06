@@ -1,13 +1,18 @@
 package com.coblax.examlock.ui.exam
 
+import android.os.Build
 import android.os.SystemClock
 import com.coblax.examlock.LowRamProfile
 import com.coblax.examlock.model.DiagnosticEventLevel
 import java.net.HttpURLConnection
 import java.net.InetSocketAddress
 import java.net.Socket
+import java.net.SocketTimeoutException
 import java.net.URL
+import java.security.cert.CertPathValidatorException
+import java.security.cert.CertificateException
 import javax.net.ssl.SSLException
+import javax.net.ssl.SSLPeerUnverifiedException
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.withContext
 
@@ -27,8 +32,31 @@ internal data class ExamServerHttpProbeOutcome(
     val latencyMs: Long,
     val failure: String?,
     val tlsFailure: Boolean = false,
+    val certificateRejected: Boolean = false,
+    val timedOut: Boolean = false,
     val reachableWithoutHttp: Boolean = false
 )
+
+/**
+ * Only Android 7.x lacks the handshake support some current certificates need, and only
+ * a handshake that failed outright says so. Elsewhere, or after a timeout, a TLS failure
+ * is a real failure: the TCP retry used to turn those into Online too.
+ */
+internal fun shouldRetryHandshakeOverTcp(outcome: ExamServerHttpProbeOutcome, sdkInt: Int): Boolean =
+    outcome.tlsFailure && !outcome.certificateRejected && !outcome.timedOut &&
+        sdkInt <= Build.VERSION_CODES.N_MR1
+
+/**
+ * The phone itself refuses the server's certificate: expired, issued for another host,
+ * or from an issuer it does not trust. The exam WebView checks against the same trust
+ * store and refuses it too, so such a server is not one the exam can open.
+ */
+internal fun isCertificateRejection(throwable: Throwable): Boolean =
+    generateSequence(throwable) { it.cause }.take(8).any { cause ->
+        cause is SSLPeerUnverifiedException ||
+            cause is CertificateException ||
+            cause is CertPathValidatorException
+    }
 
 internal data class ExamServerProbeResult(
     val status: ExamServerFooterStatus,
@@ -45,6 +73,7 @@ internal data class ExamServerProbeResult(
             ExamServerFooterStatus.Offline -> "EXAM_SERVER_PROBE_OFFLINE"
             ExamServerFooterStatus.Checking -> "EXAM_SERVER_PROBE_STARTED"
             ExamServerFooterStatus.Unstable -> "EXAM_SERVER_PROBE_UNSTABLE"
+            ExamServerFooterStatus.Insecure -> "EXAM_SERVER_PROBE_INSECURE"
         }
 
     val eventLevel: DiagnosticEventLevel
@@ -52,7 +81,8 @@ internal data class ExamServerProbeResult(
             ExamServerFooterStatus.Online,
             ExamServerFooterStatus.Checking -> DiagnosticEventLevel.INFO
             ExamServerFooterStatus.Warning,
-            ExamServerFooterStatus.Unstable -> DiagnosticEventLevel.WARNING
+            ExamServerFooterStatus.Unstable,
+            ExamServerFooterStatus.Insecure -> DiagnosticEventLevel.WARNING
             ExamServerFooterStatus.Offline -> DiagnosticEventLevel.ERROR
         }
 }
@@ -111,7 +141,10 @@ private fun executeExamServerHttpProbe(
             code = null,
             latencyMs = (SystemClock.elapsedRealtime() - startedAt).coerceAtLeast(0L),
             failure = throwable.javaClass.simpleName.ifBlank { "connection_failed" },
-            tlsFailure = throwable is SSLException
+            tlsFailure = throwable is SSLException,
+            certificateRejected = isCertificateRejection(throwable),
+            timedOut = generateSequence(throwable as Throwable) { it.cause }.take(8)
+                .any { it is SocketTimeoutException }
         )
     } finally {
         connection?.disconnect()
@@ -124,6 +157,9 @@ private fun executeExamServerHttpProbe(
  * loads fine. The HTTPS probe then failed on every round and the footer kept telling the
  * student the server was unreachable while the exam worked. A server that got as far as
  * the TLS handshake is up, so that case is re-checked with a plain TCP connect.
+ *
+ * Never for a certificate the phone rejected: that fallback used to report expired,
+ * self-signed and wrong-host servers Online while the exam page could not open.
  */
 private fun executeExamServerTcpProbe(url: URL): ExamServerHttpProbeOutcome {
     val startedAt = SystemClock.elapsedRealtime()
@@ -155,6 +191,8 @@ internal fun classifyExamServerProbeOutcome(
 ): ExamServerProbeResult {
     val code = outcome.code
     val status = when {
+        // The exam opens anyway (the WebView proceeds past it), with a warning.
+        outcome.certificateRejected -> ExamServerFooterStatus.Insecure
         outcome.reachableWithoutHttp ->
             if (outcome.latencyMs > ExamServerProbeSlowThresholdMillis) {
                 ExamServerFooterStatus.Warning
@@ -173,6 +211,7 @@ internal fun classifyExamServerProbeOutcome(
         else -> ExamServerFooterStatus.Warning
     }
     val reason = when {
+        outcome.certificateRejected -> "tls_certificate_rejected"
         outcome.reachableWithoutHttp -> "reachable_tls_unsupported"
         code == null -> outcome.failure ?: "connection_failed"
         status == ExamServerFooterStatus.Online -> "reachable"
@@ -216,11 +255,17 @@ internal suspend fun probeExamServerFooterStatus(examUrl: String): ExamServerPro
             } else {
                 headOutcome
             }
-        // A GET would fail the same handshake, so a TLS failure goes straight to TCP.
-        val finalOutcome = if (httpOutcome.tlsFailure) {
+        // A GET would fail the same handshake, so such a TLS failure goes straight to TCP.
+        val finalOutcome = if (shouldRetryHandshakeOverTcp(httpOutcome, Build.VERSION.SDK_INT)) {
             executeExamServerTcpProbe(url)
         } else {
             httpOutcome
         }
-        classifyExamServerProbeOutcome(host, finalOutcome)
+        val result = classifyExamServerProbeOutcome(host, finalOutcome)
+        // Plain http opens too, on a connection anyone on the network can read.
+        if (url.protocol.equals("http", ignoreCase = true) && result.status == ExamServerFooterStatus.Online) {
+            result.copy(status = ExamServerFooterStatus.Insecure, reason = "reachable_without_https")
+        } else {
+            result
+        }
     }

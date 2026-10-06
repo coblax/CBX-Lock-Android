@@ -42,6 +42,7 @@ internal fun connectionSemanticLabel(
         ExamServerFooterStatus.Warning -> tr("exam server warning", "peringatan server ujian")
         ExamServerFooterStatus.Offline -> tr("exam server offline", "server ujian offline")
         ExamServerFooterStatus.Unstable -> tr("exam server unstable", "server ujian tidak stabil")
+        ExamServerFooterStatus.Insecure -> tr("exam server online, not secure", "server ujian online, tidak aman")
     }
     return "$networkDescription, $serverDescription"
 }

@@ -16,7 +16,7 @@ class AdminSettingsTransactionTest {
     fun invalidDirectLinkIsRejectedBeforeStorageIsRead() {
         val store = FakeAdminSettingsStore(initial)
         val result = AdminSettingsTransactionCoordinator(store).apply(
-            proposedSettings = initial.copy(fastExamUrl = "http://insecure.example")
+            proposedSettings = initial.copy(fastExamUrl = "ftp://not-a-web.example")
         )
 
         assertTrue(result is AdminSettingsApplyResult.ValidationFailed)

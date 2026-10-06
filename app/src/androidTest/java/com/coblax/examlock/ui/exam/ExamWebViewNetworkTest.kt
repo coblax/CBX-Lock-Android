@@ -137,7 +137,8 @@ class ExamWebViewNetworkTest {
         open("$base/redirect")
         awaitHttpError()
         val probe = kotlinx.coroutines.runBlocking { probeExamServerFooterStatus("$base/redirect") }
-        assertEquals(ExamServerFooterStatus.Online, probe.status)
+        // Reachable, flagged unprotected because the test server speaks plain http.
+        assertEquals(ExamServerFooterStatus.Insecure, probe.status)
         composeRule.runOnIdle {
             val state = webView!!.navigationState
             assertEquals("$base/forbidden", state.failedUrl)

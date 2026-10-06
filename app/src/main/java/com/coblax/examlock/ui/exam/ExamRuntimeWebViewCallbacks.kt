@@ -46,7 +46,22 @@ internal fun handleExamRuntimeWebViewLoadFinish(
     recordAction("WEBVIEW_LOAD_FINISH", url ?: "tanpa URL", DiagnosticEventLevel.INFO)
     if (!url.isNullOrBlank() && url != "about:blank" && !url.startsWith("data:")) {
         // The client forwards finishes only for successful main-frame navigations.
-        setExamServerStatus(ExamServerFooterStatus.Online)
+        // A page past a certificate problem or over plain http is open but unprotected.
+        val navigationState = (view as? SecureExamWebView)?.navigationState
+        setExamServerStatus(
+            if (navigationState?.insecurityOf(url) != null) {
+                ExamServerFooterStatus.Insecure
+            } else {
+                ExamServerFooterStatus.Online
+            }
+        )
+        navigationState?.takeUnreportedInsecurity(url)?.let { insecurity ->
+            recordAction(
+                "WEBVIEW_INSECURE_PAGE_OPENED",
+                "reason=$insecurity | host=${examHostOf(url) ?: "-"}",
+                DiagnosticEventLevel.WARNING
+            )
+        }
         setWebViewErrorMessage(null)
     }
     view?.evaluateExamJavascriptSafely(
@@ -93,8 +108,18 @@ internal fun handleExamRuntimeWebViewLoadError(
     recordAction("WEBVIEW_LOAD_ERROR", description, DiagnosticEventLevel.ERROR)
     val userMessage = resolveWebViewLoadErrorMessage(description)
     setWebViewErrorMessage(userMessage)
-    setExamServerStatus(ExamServerFooterStatus.Offline)
+    // A page that arrived but renders blank came from a server that answered.
+    setExamServerStatus(
+        if (description.contains(BlankPageDetailMarker)) {
+            ExamServerFooterStatus.Warning
+        } else {
+            ExamServerFooterStatus.Offline
+        }
+    )
 }
+
+private const val CertificateDetailMarker = " (SSL: "
+private const val BlankPageDetailMarker = " (BLANK: "
 
 /**
  * Maps raw WebView error descriptions (e.g. `net::ERR_NAME_NOT_RESOLVED`)
@@ -103,6 +128,10 @@ internal fun handleExamRuntimeWebViewLoadError(
  */
 private fun resolveWebViewLoadErrorMessage(description: String): String {
     val desc = description.trim()
+    // The exam WebViewClient words these itself; only the technical tail is dropped.
+    listOf(CertificateDetailMarker, BlankPageDetailMarker).forEach { marker ->
+        if (desc.contains(marker)) return desc.substringBefore(marker)
+    }
     return when {
         desc.contains("ERR_NAME_NOT_RESOLVED", ignoreCase = true) ->
             "Server ujian tidak ditemukan. Periksa koneksi internet Anda, lalu tekan Refresh."

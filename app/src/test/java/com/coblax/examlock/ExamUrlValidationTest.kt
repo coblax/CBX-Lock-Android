@@ -14,12 +14,23 @@ class ExamUrlValidationTest {
         assertEquals("https://example.com/ujian", result.normalizedUrl)
     }
 
+    /** A school's own http server: the exam opens, with a warning to the student. */
     @Test
-    fun rejectsHttpUrlBecauseCleartextIsBlocked() {
-        val result = validateExamUrl("http://example.com/ujian")
+    fun acceptsHttpExamUrl() {
+        val result = validateExamUrl("http://192.168.1.100/ujian")
+
+        assertTrue(result.isValid)
+        assertEquals("http://192.168.1.100/ujian", result.normalizedUrl)
+    }
+
+    /** An APK fetched over http could be swapped on the way and installed as CBX Lock. */
+    @Test
+    fun downloadLinksStillNeedHttps() {
+        val result = validateExamUrl("http://example.com/cbx.apk", allowCleartext = false)
 
         assertFalse(result.isValid)
         assertEquals(ExamUrlValidationError.Invalid, result.error)
+        assertTrue(validateExamUrl("https://example.com/cbx.apk", allowCleartext = false).isValid)
     }
 
     @Test

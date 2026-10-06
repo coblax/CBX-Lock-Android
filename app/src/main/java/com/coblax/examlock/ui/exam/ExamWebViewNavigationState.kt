@@ -18,9 +18,83 @@ internal class ExamWebViewNavigationState {
     private var retryCount = 0
     private var automaticRetryPending = false
     private var pendingHttpError: PendingHttpError? = null
+    private var requestedUrl: String? = null
+    private var rejectedCertificate: PendingCertificateRejection? = null
+
+    /** Why the page that has started may render blank: failed scripts or styles, script errors. */
+    var pageBreakage: ExamPageBreakage = ExamPageBreakage()
+        private set
 
     fun prepareAutomaticRetry() {
         automaticRetryPending = true
+    }
+
+    /**
+     * A main-frame navigation to [url] was asked for. WebView only reports a navigation
+     * as started once a response commits, so a certificate it rejects arrives before any
+     * start and used to be dropped as if it belonged to some sub-resource.
+     */
+    fun request(url: String) {
+        if (isExamWebUrl(url)) requestedUrl = url
+    }
+
+    /** True when [url] is the main frame, whether it has started yet or not. */
+    fun isMainFrameNavigation(url: String?): Boolean =
+        isCurrentNavigation(url) || sameDocument(url, requestedUrl)
+
+    /**
+     * A rejected certificate that matched no known main-frame request (a form post, a
+     * script redirect). WebView finishes that main frame right after, which identifies it.
+     */
+    fun holdCertificateRejection(url: String, message: String) {
+        rejectedCertificate = PendingCertificateRejection(url, message)
+    }
+
+    fun takeCertificateRejection(url: String?): PendingCertificateRejection? {
+        val held = rejectedCertificate ?: return null
+        rejectedCertificate = null
+        return held.takeIf { sameDocument(it.url, url) }
+    }
+
+    private val insecureCertificateHosts = mutableMapOf<String, String>()
+    private val reportedInsecureHosts = mutableSetOf<String>()
+
+    /**
+     * The exam opens despite a certificate problem on [host] — the school's choice: the
+     * exam goes ahead whenever its server is online, and the student is told instead.
+     */
+    fun acceptInsecureCertificate(host: String, problem: String) {
+        insecureCertificateHosts.putIfAbsent(host.lowercase(Locale.US), problem)
+    }
+
+    fun isInsecureCertificateAccepted(host: String?): Boolean =
+        host != null && host.lowercase(Locale.US) in insecureCertificateHosts
+
+    /** Why the page at [url] is not on a protected connection, or null when it is. */
+    fun insecurityOf(url: String?): String? {
+        if (url?.startsWith("http://", ignoreCase = true) == true) return "cleartext_http"
+        return insecureCertificateHosts[examHostOf(url)]?.let { problem -> "certificate_$problem" }
+    }
+
+    /** [insecurityOf], once per host, for the admin's diagnostics. */
+    fun takeUnreportedInsecurity(url: String?): String? {
+        val insecurity = insecurityOf(url) ?: return null
+        val host = examHostOf(url) ?: return null
+        return insecurity.takeIf { reportedInsecureHosts.add(host) }
+    }
+
+    fun noteBrokenSubresource(description: String) {
+        pageBreakage = pageBreakage.copy(
+            failedResources = pageBreakage.failedResources + 1,
+            firstFailure = pageBreakage.firstFailure ?: description
+        )
+    }
+
+    fun noteScriptError(message: String) {
+        pageBreakage = pageBreakage.copy(
+            scriptErrors = pageBreakage.scriptErrors + 1,
+            firstScriptError = pageBreakage.firstScriptError ?: message
+        )
     }
 
     /** True while [url] is the main-frame navigation that has started and not finished. */
@@ -57,16 +131,19 @@ internal class ExamWebViewNavigationState {
         if (!automaticRetryPending) retryCount = 0
         automaticRetryPending = false
         currentUrl = url
+        requestedUrl = null
         failed = false
         failedUrl = null
         canRecoverOnConnection = false
+        pageBreakage = ExamPageBreakage()
     }
 
     fun fail(url: String?, recoverOnConnection: Boolean) {
         revision++
         loading = false
         failed = true
-        failedUrl = url?.takeIf(::isExamWebUrl) ?: currentUrl
+        failedUrl = url?.takeIf(::isExamWebUrl) ?: requestedUrl ?: currentUrl
+        requestedUrl = null
         canRecoverOnConnection = recoverOnConnection
     }
 
@@ -103,6 +180,30 @@ internal class ExamWebViewNavigationState {
 }
 
 internal data class PendingHttpError(val url: String, val statusCode: Int?)
+
+internal data class PendingCertificateRejection(val url: String, val message: String)
+
+internal data class ExamPageBreakage(
+    val failedResources: Int = 0,
+    val firstFailure: String? = null,
+    val scriptErrors: Int = 0,
+    val firstScriptError: String? = null
+) {
+    val any: Boolean
+        get() = failedResources > 0 || scriptErrors > 0
+}
+
+/** Scripts and styles: without them a modern exam page renders nothing at all. */
+internal fun isPageCriticalResource(url: String?): Boolean {
+    val path = url.orEmpty().substringBefore('?').substringBefore('#').lowercase(Locale.US)
+    return path.endsWith(".js") || path.endsWith(".mjs") || path.endsWith(".css") ||
+        path.contains("bundle") || path.contains("chunk")
+}
+
+internal fun examHostOf(url: String?): String? =
+    runCatching { java.net.URI(url).host }.getOrNull()
+        ?.lowercase(Locale.US)
+        ?.takeIf { it.isNotBlank() }
 
 internal fun isExamWebUrl(url: String?): Boolean =
     url?.startsWith("https://", ignoreCase = true) == true ||

@@ -11,5 +11,8 @@ internal enum class ExamServerFooterStatus {
     Online,
     Warning,
     Offline,
-    Unstable
+    Unstable,
+
+    /** Online, but not on a protected connection: a certificate problem or plain http. */
+    Insecure
 }

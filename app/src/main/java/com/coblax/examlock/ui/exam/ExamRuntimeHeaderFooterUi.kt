@@ -550,6 +550,10 @@ internal fun RuntimeConnectionWarningBanner(
             "Exam server needs attention. Continue on this page.",
             "Server ujian perlu diperiksa. Lanjutkan di halaman ini."
         )
+        ExamRuntimeConnectionNoticeKind.InsecureConnection -> tr(
+            "Exam site connection is not secure (certificate problem or http). Continue the exam; tell the proctor.",
+            "Koneksi situs ujian tidak aman (sertifikat bermasalah atau HTTP). Ujian tetap jalan; beri tahu pengawas."
+        )
     }
     Row(
         modifier = modifier

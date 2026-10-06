@@ -9,6 +9,7 @@ import android.os.Handler
 import android.os.Looper
 import android.util.AttributeSet
 import android.view.MotionEvent
+import android.webkit.ConsoleMessage
 import android.webkit.JavascriptInterface
 import android.webkit.ValueCallback
 import android.webkit.WebSettings
@@ -96,6 +97,20 @@ internal class SecureExamWebView @JvmOverloads constructor(
         pendingConnectionRetryCallbacks.clear()
     }
 
+    /**
+     * Set by the exam WebViewClient to arm its stall watchdog for a main-frame request.
+     * The watchdog used to start only once WebView reported the page as started, which a
+     * server that never answers or a rejected certificate never gets to, so those loads
+     * hung with no message at all.
+     */
+    var onMainFrameRequested: ((String) -> Unit)? = null
+    private var pendingBlankPageCheck: Runnable? = null
+
+    fun requestMainFrame(url: String) {
+        navigationState.request(url)
+        if (isExamWebUrl(url)) onMainFrameRequested?.invoke(url)
+    }
+
     // A held HTTP error belongs to a navigation that has not committed yet. Stopping it
     // or starting another one means it never will, so it must not mark a later page.
     override fun stopLoading() {
@@ -105,23 +120,45 @@ internal class SecureExamWebView @JvmOverloads constructor(
 
     override fun loadUrl(url: String) {
         navigationState.dropHeldHttpError()
+        requestMainFrame(url)
         super.loadUrl(url)
     }
 
     override fun loadUrl(url: String, additionalHttpHeaders: Map<String, String>) {
         navigationState.dropHeldHttpError()
+        requestMainFrame(url)
         super.loadUrl(url, additionalHttpHeaders)
+    }
+
+    /** Uncaught script errors are evidence when the page then renders nothing. */
+    fun noteConsoleMessage(level: ConsoleMessage.MessageLevel?, message: String?) {
+        if (level == ConsoleMessage.MessageLevel.ERROR && message?.startsWith("Uncaught") == true) {
+            navigationState.noteScriptError(message.take(160))
+        }
+    }
+
+    fun scheduleBlankPageCheck(callback: Runnable, delayMillis: Long) {
+        cancelBlankPageCheck()
+        pendingBlankPageCheck = callback
+        postDelayed(callback, delayMillis)
+    }
+
+    fun cancelBlankPageCheck() {
+        pendingBlankPageCheck?.let(::removeCallbacks)
+        pendingBlankPageCheck = null
     }
 
     override fun onDetachedFromWindow() {
         cancelPendingConnectionRetries()
         cancelNavigationTimeout()
+        cancelBlankPageCheck()
         super.onDetachedFromWindow()
     }
 
     override fun destroy() {
         cancelPendingConnectionRetries()
         cancelNavigationTimeout()
+        cancelBlankPageCheck()
         super.destroy()
     }
 

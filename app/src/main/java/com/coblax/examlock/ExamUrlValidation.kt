@@ -16,7 +16,12 @@ internal data class ExamUrlValidationResult(
         get() = error == null
 }
 
-internal fun validateExamUrl(rawUrl: String): ExamUrlValidationResult {
+/**
+ * An exam may be served over plain http (a school server on its own network) and still
+ * opens, with a warning to the student. [allowCleartext] is off for links that download
+ * an APK, where a swapped file on the way would be installed as CBX Lock.
+ */
+internal fun validateExamUrl(rawUrl: String, allowCleartext: Boolean = true): ExamUrlValidationResult {
     val trimmed = rawUrl.trim()
     if (trimmed.isBlank()) {
         return ExamUrlValidationResult(
@@ -33,7 +38,8 @@ internal fun validateExamUrl(rawUrl: String): ExamUrlValidationResult {
 
     val scheme = uri.scheme.orEmpty().lowercase(Locale.US)
     val host = uri.host.orEmpty()
-    if (scheme != "https" || host.isBlank()) {
+    val schemeAllowed = scheme == "https" || (allowCleartext && scheme == "http")
+    if (!schemeAllowed || host.isBlank()) {
         return ExamUrlValidationResult(
             normalizedUrl = null,
             error = ExamUrlValidationError.Invalid

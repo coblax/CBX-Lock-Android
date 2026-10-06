@@ -197,8 +197,13 @@ private fun ExamRuntimeSessionMainContent(
                             // here — many websites produce non-fatal console.error() calls (React dev
                             // warnings, analytics failures, CORS errors for tracking pixels, etc.)
                             // that would incorrectly trigger/clear the error overlay and confuse
-                            // students during active exams. This is truly log-only.
+                            // students during active exams. Uncaught errors are only kept as
+                            // evidence, used if the page then renders nothing at all.
                             override fun onConsoleMessage(consoleMessage: ConsoleMessage?): Boolean {
+                                this@apply.noteConsoleMessage(
+                                    consoleMessage?.messageLevel(),
+                                    consoleMessage?.message()
+                                )
                                 if (consoleMessage?.messageLevel() == ConsoleMessage.MessageLevel.ERROR) {
                                     android.util.Log.w(
                                         "ExamWebView",

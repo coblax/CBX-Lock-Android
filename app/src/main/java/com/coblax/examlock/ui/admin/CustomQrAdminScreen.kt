@@ -112,8 +112,8 @@ internal fun CustomQrAdminScreen(
         "QR terenkripsi berhasil dibuat. Pindai QR ini lewat menu scan."
     )
     val invalidExamUrlMessage = tr(
-        "Exam URL must start with https:// and include a domain.",
-        "URL ujian harus diawali https:// dan memiliki domain."
+        "Exam URL must start with http:// or https:// and include a domain.",
+        "URL ujian harus diawali http:// atau https:// dan memiliki domain."
     )
     val endNotAfterStartMessage = tr(
         "The end time must be after the start time.",
@@ -187,7 +187,7 @@ internal fun CustomQrAdminScreen(
         }
         locationIssue?.let { return failGeneration(geofenceIssueMessage(uiLanguage, draft.locationShape, it)) }
         val updateUrl = if (draft.requireCurrentAppVersion && draft.appUpdateUrl.isNotBlank()) {
-            validateExamUrl(normalizeAdminUrl(draft.appUpdateUrl)).normalizedUrl
+            validateExamUrl(normalizeAdminUrl(draft.appUpdateUrl), allowCleartext = false).normalizedUrl
                 ?: return failGeneration(invalidUpdateUrlMessage)
         } else {
             ""

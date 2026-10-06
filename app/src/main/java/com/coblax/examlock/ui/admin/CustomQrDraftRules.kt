@@ -17,7 +17,8 @@ internal enum class CustomQrScheduleProblem {
 
 /**
  * Admins type "cbt.sekolah.sch.id" far more often than the full address; without a
- * scheme it is read as https. An explicit http:// is left alone so it is still refused.
+ * scheme it is read as https. An explicit http:// is kept: such an exam opens with a
+ * warning to the student.
  */
 internal fun normalizeAdminUrl(raw: String): String {
     val trimmed = raw.trim()

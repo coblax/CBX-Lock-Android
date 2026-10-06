@@ -187,7 +187,7 @@ internal fun validateAdminSettingsForApply(
         )
     }
     if (normalized.officialApkUrl.isNotBlank()) {
-        val officialApkValidation = validateExamUrl(normalized.officialApkUrl)
+        val officialApkValidation = validateExamUrl(normalized.officialApkUrl, allowCleartext = false)
         if (!officialApkValidation.isValid) {
             issues += AdminSettingsValidationIssue(
                 field = AdminSettingsValidationField.OfficialApkUrl,

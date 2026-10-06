@@ -208,4 +208,79 @@ class ExamWebViewNavigationStateTest {
         }
         assertFalse(isNavigableExamScheme(null))
     }
+
+    /**
+     * WebView rejects a certificate before it reports the page as started, so the main
+     * frame must be recognised from the request alone.
+     */
+    @Test
+    fun aRequestedPageIsTheMainFrameBeforeItStarts() {
+        val state = ExamWebViewNavigationState()
+        assertFalse(state.isMainFrameNavigation(url))
+        state.request(url)
+        assertTrue(state.isMainFrameNavigation(url))
+        assertFalse(state.isMainFrameNavigation("https://cdn.example/app.js"))
+        state.fail(url, recoverOnConnection = false)
+        assertEquals(url, state.failedUrl)
+        assertFalse(state.isMainFrameNavigation(url))
+        assertFalse(state.canApplyServerProbe(state.revision))
+    }
+
+    @Test
+    fun onlyWebPagesCountAsMainFrameRequests() {
+        val state = ExamWebViewNavigationState()
+        state.request("about:blank")
+        assertFalse(state.isMainFrameNavigation("about:blank"))
+    }
+
+    @Test
+    fun aHeldCertificateRejectionOnlyMatchesItsOwnPage() {
+        val state = ExamWebViewNavigationState()
+        state.holdCertificateRejection(url, "expired")
+        assertNull(state.takeCertificateRejection("https://exam.example/other"))
+        state.holdCertificateRejection(url, "expired")
+        assertEquals("expired", state.takeCertificateRejection(url)?.message)
+        assertNull(state.takeCertificateRejection(url))
+    }
+
+    @Test
+    fun pageBreakageBelongsToOnePage() {
+        val state = ExamWebViewNavigationState()
+        state.start(url)
+        state.noteBrokenSubresource("app.4f2a.js (HTTP 404)")
+        state.noteScriptError("Uncaught SyntaxError: Unexpected token '.'")
+        assertTrue(state.pageBreakage.any)
+        assertEquals("app.4f2a.js (HTTP 404)", state.pageBreakage.firstFailure)
+        state.start("https://exam.example/questions/3")
+        assertFalse(state.pageBreakage.any)
+    }
+
+    @Test
+    fun pagesPastACertificateProblemOrOnHttpAreInsecure() {
+        val state = ExamWebViewNavigationState()
+        assertNull(state.insecurityOf(url))
+        state.acceptInsecureCertificate("EXAM.example", "SSL_EXPIRED")
+        assertTrue(state.isInsecureCertificateAccepted("exam.example"))
+        assertEquals("certificate_SSL_EXPIRED", state.insecurityOf(url))
+        assertNull(state.insecurityOf("https://other.example/"))
+        assertEquals("cleartext_http", state.insecurityOf("http://192.168.1.100/ujian"))
+    }
+
+    @Test
+    fun anInsecureHostIsReportedOnce() {
+        val state = ExamWebViewNavigationState()
+        state.acceptInsecureCertificate("exam.example", "SSL_UNTRUSTED")
+        assertEquals("certificate_SSL_UNTRUSTED", state.takeUnreportedInsecurity(url))
+        assertNull(state.takeUnreportedInsecurity("https://exam.example/questions/3"))
+        assertEquals("cleartext_http", state.takeUnreportedInsecurity("http://lan.school/ujian"))
+    }
+
+    @Test
+    fun scriptsAndStylesAreCriticalButImagesAreNot() {
+        assertTrue(isPageCriticalResource("https://exam.example/assets/app.4f2a.js?v=2"))
+        assertTrue(isPageCriticalResource("https://exam.example/assets/main.CSS"))
+        assertTrue(isPageCriticalResource("https://exam.example/static/chunk-vendors"))
+        assertFalse(isPageCriticalResource("https://exam.example/logo.png"))
+        assertFalse(isPageCriticalResource(null))
+    }
 }

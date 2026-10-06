@@ -270,14 +270,14 @@ internal fun WebView.applyExamWebViewSettings(examUserAgent: String, lowRamProfi
         // hardening stays in place, so this lint warning is intentionally suppressed.
         javaScriptEnabled = true
         domStorageEnabled = true
-        // Use LOAD_CACHE_ELSE_NETWORK instead of LOAD_DEFAULT:
-        // LOAD_DEFAULT forces cache revalidation with the server on every load.
-        // On congested school Wi-Fi (30+ students), this revalidation request itself
-        // can time out and produce NET_ERR_CONNECTION_TIMED_OUT even though internet
-        // is fine. LOAD_CACHE_ELSE_NETWORK serves cached content first and falls back
-        // to network, making the WebView far more resilient to transient slowdowns.
-        // Manual refresh overrides this with a browser-like revalidation reload.
-        cacheMode = WebSettings.LOAD_CACHE_ELSE_NETWORK
+        // Browser caching: cached files are used while the server says they are fresh.
+        // LOAD_CACHE_ELSE_NETWORK used to be the mode for the first load too, and it
+        // serves a cached page however old: a fresh app launch (whose cache nobody
+        // clears) reopened yesterday's exam page, naming scripts the server had since
+        // replaced, so it rendered blank while the connection and server checks passed.
+        // updateCacheModeForNetworkStability still switches to cache-first while the
+        // network is unstable.
+        cacheMode = WebSettings.LOAD_DEFAULT
         useWideViewPort = true
         loadWithOverviewMode = true
         builtInZoomControls = false
@@ -323,6 +323,10 @@ internal fun WebView.applyExamWebViewSettings(examUserAgent: String, lowRamProfi
             offscreenPreRaster = false
         }
     }
+    // As in Chrome: an exam embedded from another site (a form inside the school's own
+    // page) keeps its sign-in. WebView blocks those cookies by default, so such exams
+    // looped back to sign-in or stayed empty inside the frame.
+    runCatching { CookieManager.getInstance().setAcceptThirdPartyCookies(this, true) }
     // Enable Service Worker support if running on Nougat or above to support modern exam web applications/PWAs.
     if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.N) {
         val swController = android.webkit.ServiceWorkerController.getInstance()

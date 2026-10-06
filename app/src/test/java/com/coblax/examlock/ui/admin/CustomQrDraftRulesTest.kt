@@ -26,7 +26,9 @@ class CustomQrDraftRulesTest {
         assertEquals("http://cbt.sekolah.sch.id", normalizeAdminUrl("http://cbt.sekolah.sch.id"))
         assertEquals("", normalizeAdminUrl("  "))
         assertTrue(isCustomQrExamStepComplete(complete.copy(examUrl = "cbt.sekolah.sch.id")))
-        assertFalse(isCustomQrExamStepComplete(complete.copy(examUrl = "http://cbt.sekolah.sch.id")))
+        // A school's own http server is allowed; the exam opens with a warning.
+        assertTrue(isCustomQrExamStepComplete(complete.copy(examUrl = "http://cbt.sekolah.sch.id")))
+        assertFalse(isCustomQrExamStepComplete(complete.copy(examUrl = "ftp://cbt.sekolah.sch.id")))
     }
 
     @Test
