@@ -8,7 +8,7 @@ Aplikasi ini menjaga fungsi utama ujian tetap sederhana untuk siswa: scan QR ata
 
 - App label: `CBX Lock`
 - Package: `com.coblax.examlock`
-- Version: `3.3.5 (377)`
+- Version: `3.3.7 (379)`
 - Minimum Android: API 24 (Android 7.0)
 - Target Android: API 36
 - Diuji di emulator Android 7.0, 9, 11, dan 16
@@ -22,6 +22,7 @@ Aplikasi ini menjaga fungsi utama ujian tetap sederhana untuk siswa: scan QR ata
 - Dialog Mulai ujian dengan daftar tahap yang dicentang satu per satu.
 - Screen pinning / lock task flow, termasuk tombol Batal bila siswa menekan "No thanks".
 - WebView ujian dengan kontrol refresh, status jaringan dan server, dan fallback keyboard internal.
+- Ujian tetap terbuka selama servernya online, juga bila sertifikat HTTPS-nya bermasalah atau situsnya `http`; siswa diberi peringatan dan admin melihatnya di diagnostik.
 - Deteksi dan pemantauan keyboard, clipboard, Bluetooth, accessibility, ADB, root, overlay, split screen, perekam layar, mirroring, app switch, VPN, fake location, device time, emulator, dan aplikasi kloning.
 - Geofence circle/polygon untuk membatasi lokasi ujian. Tanpa geofence, aplikasi tidak meminta lokasi sama sekali.
 - Alarm dan dialog pelanggaran saat sesi ujian berjalan.
@@ -41,7 +42,7 @@ Aplikasi ini menjaga fungsi utama ujian tetap sederhana untuk siswa: scan QR ata
 ## Alur Admin
 
 1. Buka `Untuk admin · Custom QR` dari halaman utama.
-2. Isi URL ujian (wajib `https`), nama ujian, jadwal mulai, dan jadwal selesai.
+2. Isi URL ujian (`https`, atau `http` untuk server sekolah sendiri), nama ujian, jadwal mulai, dan jadwal selesai.
 3. Atur opsi lokasi jika diperlukan:
    - tanpa geofence
    - circle geofence
@@ -75,6 +76,13 @@ CBX Exam Lock memeriksa beberapa sinyal perangkat sebelum dan selama ujian:
 - versi CBX Lock (jika QR mewajibkan versi minimal)
 
 Item dikelompokkan menjadi `Perbaiki dulu` dan `Saran (opsional)`. Item yang tidak berlaku untuk ujian tersebut, misalnya Lokasi tanpa geofence, tertulis `Tak perlu`.
+
+## Halaman Ujian dan Koneksi
+
+- Sertifikat server bermasalah (kedaluwarsa, self-signed, domain tidak cocok) atau situs `http`: halaman ujian tetap dibuka. Di bawah header muncul peringatan "Koneksi situs ujian tidak aman", status server menjadi `online, tidak aman`, dan diagnostik mencatat penyebabnya. Koneksi seperti ini bisa disadap di jaringan yang sama, jadi perbarui sertifikat server secepatnya.
+- Sertifikat rusak milik situs pihak ketiga (CDN, analytics) tetap ditolak.
+- Halaman yang terbuka tetapi kosong karena file skrip/tampilan gagal dimuat, atau karena Android System WebView terlalu lama, menampilkan pesan dan tombol `Muat ulang`.
+- Pemuatan pertama selalu mengambil halaman terbaru dari server (cache lama hanya dipakai saat jaringan tidak stabil).
 
 ## Diagnostik Telegram
 
