@@ -1,8 +1,7 @@
 package com.coblax.examlock.ui.exam
 
 import androidx.compose.foundation.BorderStroke
-import androidx.compose.foundation.gestures.awaitEachGesture
-import androidx.compose.foundation.gestures.awaitFirstDown
+import androidx.compose.foundation.gestures.detectTapGestures
 import androidx.compose.foundation.layout.heightIn
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.verticalScroll
@@ -132,15 +131,11 @@ internal fun PinningActivationOverlay(
         modifier = modifier
             .fillMaxSize()
             .background(Color(0xE6101827))
-            .pointerInput(Unit) {
-                awaitEachGesture {
-                    awaitFirstDown(requireUnconsumed = false).consume()
-                    do {
-                        val event = awaitPointerEvent()
-                        event.changes.forEach { it.consume() }
-                    } while (event.changes.any { it.pressed })
-                }
-            },
+            // Being hit here keeps touches off the screen behind. Only touches nothing
+            // inside took are swallowed: consuming every move made the Cancel button drop
+            // a real finger's tap (fingers always drift a little) and froze the card's
+            // scroll, so on small phones Cancel could not even be reached.
+            .pointerInput(Unit) { detectTapGestures { } },
         contentAlignment = Alignment.Center
     ) {
         Box(
