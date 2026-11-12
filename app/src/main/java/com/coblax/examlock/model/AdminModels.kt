@@ -52,6 +52,8 @@ internal data class AdminSettings(
     val fastExamLabel: String = FastExamName,
     val officialApkUrl: String = "",
     val examUserAgent: String = DefaultExamUserAgent,
+    /** Sent as the X-CBX-App-Key header to the exam server; blank sends no header. */
+    val examAppKey: String = SecureStrings.defaultExamAppKey,
     val lowRamProfileOverride: LowRamProfileOverride = LowRamProfileOverride.Auto,
     val directLinkLocationPolicySaved: Boolean = false,
     val directLinkLocationPolicySerialized: String = "",
@@ -149,7 +151,7 @@ internal data class AdminSettings(
 }
 
 internal fun normalizeExamUserAgent(value: String?): String {
-    return value.orEmpty().trim().ifBlank { DefaultExamUserAgent }
+    return value.orEmpty().toHeaderSafeText().ifBlank { DefaultExamUserAgent }
 }
 
 internal fun AdminSettings.effectiveExamUserAgent(): String = normalizeExamUserAgent(examUserAgent)
@@ -157,6 +159,39 @@ internal fun AdminSettings.effectiveExamUserAgent(): String = normalizeExamUserA
 internal fun AdminSettings.usesDefaultExamUserAgent(): Boolean {
     return effectiveExamUserAgent() == DefaultExamUserAgent
 }
+
+/**
+ * The User-Agent the exam WebView sends: the WebView's own browser User-Agent with the
+ * configured marker appended, the way exam servers recognise CBX Lock.
+ *
+ * The default marker used to swap in the plain WebView User-Agent instead, so a server
+ * told to allow `CBXExamLockAndroid` never saw it. A configured value that is a whole
+ * browser User-Agent (it starts with `Mozilla/`) is still sent exactly as entered.
+ */
+internal fun composeExamWebViewUserAgent(
+    webViewDefaultUserAgent: String,
+    configuredUserAgent: String?
+): String {
+    val marker = normalizeExamUserAgent(configuredUserAgent)
+    if (marker.startsWith("Mozilla/", ignoreCase = true)) {
+        return marker
+    }
+    val base = webViewDefaultUserAgent.toHeaderSafeText()
+    return when {
+        base.isEmpty() -> marker
+        base.contains(marker) -> base
+        else -> "$base $marker"
+    }
+}
+
+/** Blank turns the X-CBX-App-Key header off, as on the exam server ("Kosong"). */
+internal fun normalizeExamAppKey(value: String?): String = value.orEmpty().toHeaderSafeText()
+
+internal fun AdminSettings.effectiveExamAppKey(): String = normalizeExamAppKey(examAppKey)
+
+/** HTTP header values cannot carry line breaks or other control characters. */
+private fun String.toHeaderSafeText(): String =
+    filter { it in ' '..'~' }.trim()
 
 internal fun AdminSettings.directLinkLocationPolicy(): ExamQrLocationPolicy? {
     if (!directLinkLocationPolicySaved) {

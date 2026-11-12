@@ -75,6 +75,7 @@ import com.coblax.examlock.buildRootSecurityStatus
 import com.coblax.examlock.ClipboardChangeDecision
 import com.coblax.examlock.ClipboardRuntimeStatus
 import com.coblax.examlock.config.DefaultExamUserAgent
+import com.coblax.examlock.config.ExamAppKeyHeaderName
 import com.coblax.examlock.config.FastExamName
 import com.coblax.examlock.DeviceCompatibilityProfile
 import com.coblax.examlock.DeviceSurvivalPolicy
@@ -115,6 +116,7 @@ import com.coblax.examlock.LowRamProfile
 import com.coblax.examlock.model.AdminSettings
 import com.coblax.examlock.model.DiagnosticSection
 import com.coblax.examlock.model.directLinkLocationPolicy
+import com.coblax.examlock.model.effectiveExamAppKey
 import com.coblax.examlock.model.effectiveExamUserAgent
 import com.coblax.examlock.model.ExamOfflineRuntimeStatus
 import com.coblax.examlock.model.SecretAdminTab
@@ -1202,6 +1204,23 @@ private fun SecretAdminSetupTab(
                 tr(
                     "Custom. Leave blank to go back to $DefaultExamUserAgent.",
                     "Custom. Kosongkan untuk kembali ke $DefaultExamUserAgent."
+                )
+            }
+        )
+        SecretAdminTextField(
+            label = ExamAppKeyHeaderName,
+            value = draft.examAppKey,
+            onValueChange = { onDraftChange(draft.copy(examAppKey = it)) },
+            placeholder = tr("Blank = no header", "Kosong = tanpa header"),
+            supportingText = if (draft.effectiveExamAppKey().isBlank()) {
+                tr(
+                    "Off. The exam server checks the User-Agent only.",
+                    "Mati. Server ujian hanya mengecek User-Agent."
+                )
+            } else {
+                tr(
+                    "Sent to the exam server only. Must match the key set on the server.",
+                    "Hanya dikirim ke server ujian. Harus sama dengan kunci di server."
                 )
             }
         )

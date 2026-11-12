@@ -181,10 +181,11 @@ import androidx.lifecycle.LifecycleEventObserver
 import androidx.lifecycle.ViewModelProvider
 import androidx.webkit.WebViewCompat
 import androidx.webkit.WebViewFeature
-import com.coblax.examlock.config.DefaultExamUserAgent
 import com.coblax.examlock.config.ExamNativeFullscreenBridgeInstallScript
-import com.coblax.examlock.model.normalizeExamUserAgent
+import com.coblax.examlock.model.composeExamWebViewUserAgent
+import com.coblax.examlock.ui.exam.ExamHostHeaders
 import com.coblax.examlock.ui.exam.ExamKeyboardBridge
+import com.coblax.examlock.ui.exam.buildExamAppKeyScript
 import com.coblax.examlock.ui.exam.ExamNativeFullscreenBridge
 import com.coblax.examlock.ui.exam.SecureExamWebView
 import com.coblax.examlock.ui.theme.COBLAXEXAMLOCKTheme
@@ -339,12 +340,8 @@ internal fun WebView.applyExamWebViewSettings(examUserAgent: String, lowRamProfi
 }
 
 internal fun resolveExamWebViewUserAgent(context: Context, examUserAgent: String): String {
-    val normalized = normalizeExamUserAgent(examUserAgent)
-    return if (normalized == DefaultExamUserAgent) {
-        WebSettings.getDefaultUserAgent(context)
-    } else {
-        normalized
-    }
+    val webViewDefault = runCatching { WebSettings.getDefaultUserAgent(context) }.getOrDefault("")
+    return composeExamWebViewUserAgent(webViewDefault, examUserAgent)
 }
 
 /**
@@ -486,6 +483,19 @@ internal fun WebView.installExamNativeFullscreenDocumentStartScriptIfSupported()
             )
         }
     }
+}
+
+/** True when the fetch/XHR header hook now runs before every exam-origin page script. */
+internal fun WebView.installExamAppKeyDocumentStartScriptIfSupported(headers: ExamHostHeaders): Boolean {
+    if (!WebViewFeature.isFeatureSupported(WebViewFeature.DOCUMENT_START_SCRIPT)) return false
+    return runCatching {
+        WebViewCompat.addDocumentStartJavaScript(
+            this,
+            buildExamAppKeyScript(headers),
+            headers.originRules()
+        )
+        true
+    }.getOrDefault(false)
 }
 
 internal fun WebView.detachExamParticipantCaptureBridge() {

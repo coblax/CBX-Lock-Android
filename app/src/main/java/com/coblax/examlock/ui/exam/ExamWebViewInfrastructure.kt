@@ -14,7 +14,8 @@ import android.webkit.JavascriptInterface
 import android.webkit.ValueCallback
 import android.webkit.WebSettings
 import android.webkit.WebView
-import com.coblax.examlock.config.DefaultExamUserAgent
+import com.coblax.examlock.installExamAppKeyDocumentStartScriptIfSupported
+import com.coblax.examlock.resolveExamWebViewUserAgent
 import java.util.concurrent.CountDownLatch
 import java.util.concurrent.TimeUnit
 
@@ -118,16 +119,57 @@ internal class SecureExamWebView @JvmOverloads constructor(
         super.stopLoading()
     }
 
+    /** The exam's X-CBX-App-Key header, or null when Secret Admin leaves it blank. */
+    var examHostHeaders: ExamHostHeaders? = null
+        private set
+    private var examAppKeyDocumentStartInstalled = false
+
+    fun installExamHostHeaders(headers: ExamHostHeaders?) {
+        examHostHeaders = headers
+        examAppKeyDocumentStartInstalled =
+            headers != null && installExamAppKeyDocumentStartScriptIfSupported(headers)
+    }
+
+    private fun examHeadersFor(url: String): Map<String, String> =
+        examHostHeaders?.takeIf { it.appliesTo(url) }?.headers.orEmpty()
+
     override fun loadUrl(url: String) {
         navigationState.dropHeldHttpError()
         requestMainFrame(url)
-        super.loadUrl(url)
+        val examHeaders = examHeadersFor(url)
+        if (examHeaders.isEmpty()) {
+            super.loadUrl(url)
+        } else {
+            super.loadUrl(url, examHeaders)
+        }
     }
 
     override fun loadUrl(url: String, additionalHttpHeaders: Map<String, String>) {
         navigationState.dropHeldHttpError()
         requestMainFrame(url)
-        super.loadUrl(url, additionalHttpHeaders)
+        super.loadUrl(url, additionalHttpHeaders + examHeadersFor(url))
+    }
+
+    /**
+     * A link or redirect inside the exam, which WebView would request without the
+     * X-CBX-App-Key header, sent again with it. No stall watchdog, as for any link: a
+     * download or a 204 never starts a page.
+     */
+    fun reissueWithExamHeadersIfNeeded(method: String?, url: String, requestHeaders: Map<String, String>?): Boolean {
+        val headers = examHostHeaders ?: return false
+        if (!method.equals("GET", ignoreCase = true) || !headers.appliesTo(url)) return false
+        if (requestHeaders.hasHeader(headers.headerName)) return false
+        navigationState.dropHeldHttpError()
+        navigationState.request(url)
+        super.loadUrl(url, headers.headers)
+        return true
+    }
+
+    /** Without document-start scripts, the fetch/XHR hook is added as the page loads. */
+    fun injectExamAppKeyScriptIfNeeded(url: String?) {
+        if (examAppKeyDocumentStartInstalled) return
+        val headers = examHostHeaders?.takeIf { it.appliesTo(url) } ?: return
+        evaluateExamJavascriptSafely(buildExamAppKeyScript(headers))
     }
 
     /** Uncaught script errors are evidence when the page then renders nothing. */
@@ -314,10 +356,9 @@ internal fun WebView.reloadExamUrlLikeBrowserSafely(fallbackUrl: String): Boolea
 
 internal fun WebView.updateExamUserAgentSafely(userAgent: String): Boolean {
     return runCatching {
-        settings.userAgentString = if (userAgent == DefaultExamUserAgent) {
-            WebSettings.getDefaultUserAgent(context)
-        } else {
-            userAgent
+        val resolved = resolveExamWebViewUserAgent(context, userAgent)
+        if (settings.userAgentString != resolved) {
+            settings.userAgentString = resolved
         }
         true
     }.getOrDefault(false)

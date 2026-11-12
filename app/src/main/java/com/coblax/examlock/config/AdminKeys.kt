@@ -16,6 +16,9 @@ internal const val AdminKeyTelegramDiagnosticsEnabled = "admin_telegram_diagnost
 /** "Send to Telegram" stays hidden until an admin turns it on in Secret Admin. */
 internal const val DefaultTelegramDiagnosticsEnabled = false
 internal const val AdminKeyExamUserAgent = "admin_exam_user_agent"
+internal const val AdminKeyExamAppKey = "admin_exam_app_key"
+/** Lets the exam server tell CBX Lock from an ordinary browser that copies its User-Agent. */
+internal const val ExamAppKeyHeaderName = "X-CBX-App-Key"
 internal const val AdminKeyLowRamProfileOverride = "admin_low_ram_profile_override"
 internal const val AdminKeyDirectLinkLocationPolicySaved = "admin_fast_exam_location_policy_saved"
 internal const val AdminKeyDirectLinkLocationPolicySerialized = "admin_fast_exam_location_policy_serialized"

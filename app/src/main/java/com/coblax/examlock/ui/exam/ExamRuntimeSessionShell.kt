@@ -66,6 +66,7 @@ private fun ExamRuntimeSessionMainContent(
     keyboardBridge: ExamKeyboardBridge,
     useBuiltInExamKeyboard: Boolean,
     effectiveExamUserAgent: String,
+    examAppKey: String,
     fullScreenContainer: FrameLayout,
     fullScreenCustomView: View?,
     nativeExamFullscreenActive: Boolean,
@@ -139,6 +140,7 @@ private fun ExamRuntimeSessionMainContent(
                         attachExamParticipantCaptureBridge(participantCaptureBridge)
                         attachExamNativeFullscreenBridge(nativeFullscreenBridge)
                         installExamNativeFullscreenDocumentStartScriptIfSupported()
+                        installExamHostHeaders(buildExamHostHeaders(payload.examUrl, examAppKey))
                         if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O) {
                             runCatching {
                                 val policy = resolveExamWebViewRendererPriorityPolicy()
@@ -304,6 +306,7 @@ internal fun ExamRuntimeSessionRenderedUi(
     keyboardBridge: ExamKeyboardBridge,
     useBuiltInExamKeyboard: Boolean,
     effectiveExamUserAgent: String,
+    examAppKey: String,
     fullScreenContainer: FrameLayout,
     fullScreenCustomView: View?,
     nativeExamFullscreenActive: Boolean,
@@ -375,6 +378,7 @@ internal fun ExamRuntimeSessionRenderedUi(
                 keyboardBridge = keyboardBridge,
                 useBuiltInExamKeyboard = useBuiltInExamKeyboard,
                 effectiveExamUserAgent = effectiveExamUserAgent,
+                examAppKey = examAppKey,
                 fullScreenContainer = fullScreenContainer,
                 fullScreenCustomView = fullScreenCustomView,
                 nativeExamFullscreenActive = nativeExamFullscreenActive,

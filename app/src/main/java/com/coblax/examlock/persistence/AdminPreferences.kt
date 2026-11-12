@@ -17,6 +17,7 @@ import com.coblax.examlock.config.AdminKeyDirectLinkGeofenceEnabled
 import com.coblax.examlock.config.AdminKeyDirectLinkGeofenceRadiusMeters
 import com.coblax.examlock.config.AdminKeyDirectLinkLocationPolicySaved
 import com.coblax.examlock.config.AdminKeyDirectLinkLocationPolicySerialized
+import com.coblax.examlock.config.AdminKeyExamAppKey
 import com.coblax.examlock.config.AdminKeyExamUserAgent
 import com.coblax.examlock.config.AdminKeyFastExamLabel
 import com.coblax.examlock.config.AdminKeyFastExamUrl
@@ -34,7 +35,9 @@ import com.coblax.examlock.config.UiPreferencesName
 import com.coblax.examlock.model.AdminSettings
 import com.coblax.examlock.model.ThemeMode
 import com.coblax.examlock.model.UiLanguage
+import com.coblax.examlock.model.effectiveExamAppKey
 import com.coblax.examlock.model.effectiveExamUserAgent
+import com.coblax.examlock.model.normalizeExamAppKey
 import com.coblax.examlock.model.normalizeExamUserAgent
 import com.coblax.examlock.lowRamProfileOverrideToRaw
 import com.coblax.examlock.parseLowRamProfileOverride
@@ -118,6 +121,9 @@ internal fun Context.readAdminSettings(): AdminSettings {
         officialApkUrl = preferences.getString(AdminKeyOfficialApkUrl, "") ?: "",
         examUserAgent = normalizeExamUserAgent(
             preferences.getString(AdminKeyExamUserAgent, DefaultExamUserAgent)
+        ),
+        examAppKey = normalizeExamAppKey(
+            preferences.getString(AdminKeyExamAppKey, SecureStrings.defaultExamAppKey)
         ),
         lowRamProfileOverride = parseLowRamProfileOverride(
             preferences.getString(AdminKeyLowRamProfileOverride, null)
@@ -247,6 +253,7 @@ private fun SharedPreferences.Editor.putOrdinaryAdminSettings(
         .putString(AdminKeyFastExamLabel, settings.fastExamLabel)
         .putString(AdminKeyOfficialApkUrl, settings.officialApkUrl)
         .putString(AdminKeyExamUserAgent, settings.effectiveExamUserAgent())
+        .putString(AdminKeyExamAppKey, settings.effectiveExamAppKey())
         .putString(
             AdminKeyLowRamProfileOverride,
             lowRamProfileOverrideToRaw(settings.lowRamProfileOverride)

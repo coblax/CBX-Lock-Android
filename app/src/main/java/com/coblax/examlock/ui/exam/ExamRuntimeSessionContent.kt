@@ -14,6 +14,7 @@ import com.coblax.examlock.ExamParticipantCaptureResult
 import com.coblax.examlock.i18n.tr
 import com.coblax.examlock.model.DiagnosticEventLevel
 import com.coblax.examlock.model.DiagnosticSection
+import com.coblax.examlock.model.effectiveExamAppKey
 import com.coblax.examlock.model.effectiveExamUserAgent
 import com.coblax.examlock.model.NetworkReadinessStatus
 import com.coblax.examlock.openVpnSettings
@@ -211,6 +212,7 @@ internal fun ExamRuntimeSessionContent(
     val networkStatus = core.networkReadinessStatus.examStatus
     val examDisplayName = core.payload.examName.ifBlank { tr("Exam Session", "Sesi Ujian") }
     val effectiveExamUserAgent = core.adminSettings.effectiveExamUserAgent()
+    val examAppKey = core.adminSettings.effectiveExamAppKey()
     val fullScreenContainer = core.webViewUiState.fullScreenContainer
 
     fun sendBuiltInKeyboardText(rawText: String) {
@@ -804,6 +806,7 @@ internal fun ExamRuntimeSessionContent(
         keyboardBridge = keyboardBridge,
         useBuiltInExamKeyboard = useBuiltInExamKeyboard,
         effectiveExamUserAgent = effectiveExamUserAgent,
+        examAppKey = examAppKey,
         fullScreenContainer = fullScreenContainer,
         fullScreenCustomView = fullScreenCustomView,
         nativeExamFullscreenActive = nativeExamFullscreenActive,

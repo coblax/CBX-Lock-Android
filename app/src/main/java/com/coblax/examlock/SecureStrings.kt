@@ -8,6 +8,13 @@ object SecureStrings {
         RuntimeStringDecoder.decodeBase64Xor(OBF_FAST_EXAM_URL)
     }
 
+    /** Default X-CBX-App-Key value; admins change it in Secret Admin. */
+    internal const val OBF_DEFAULT_EXAM_APP_KEY = "QUFARUJC"
+
+    val defaultExamAppKey: String by lazy {
+        RuntimeStringDecoder.decodeBase64Xor(OBF_DEFAULT_EXAM_APP_KEY)
+    }
+
     val telegramBotToken: String by lazy {
         RuntimeStringDecoder.decodeBase64Xor(BuildConfig.TELEGRAM_BOT_TOKEN_OBF)
     }

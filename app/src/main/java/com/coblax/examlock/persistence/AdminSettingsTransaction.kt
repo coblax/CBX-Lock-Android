@@ -4,6 +4,7 @@ import com.coblax.examlock.AdminAuthSession
 import com.coblax.examlock.ExamUrlValidationError
 import com.coblax.examlock.LowRamProfileOverride
 import com.coblax.examlock.model.AdminSettings
+import com.coblax.examlock.model.effectiveExamAppKey
 import com.coblax.examlock.model.effectiveExamUserAgent
 import com.coblax.examlock.validateExamUrl
 import kotlinx.coroutines.Dispatchers
@@ -65,6 +66,7 @@ internal data class AdminOrdinarySettingsSnapshot(
     val fastExamLabel: String,
     val officialApkUrl: String,
     val examUserAgent: String,
+    val examAppKey: String,
     val lowRamProfileOverride: LowRamProfileOverride,
     val directLinkLocationPolicySaved: Boolean,
     val directLinkLocationPolicySerialized: String,
@@ -110,6 +112,7 @@ internal fun AdminSettings.normalizedForAdminPersistence(): AdminSettings {
         fastExamLabel = fastExamLabel.trim(),
         officialApkUrl = officialApkUrl.trim(),
         examUserAgent = effectiveExamUserAgent(),
+        examAppKey = effectiveExamAppKey(),
         directLinkGeofenceCenterLat = directLinkGeofenceCenterLat.trim(),
         directLinkGeofenceCenterLng = directLinkGeofenceCenterLng.trim(),
         directLinkGeofenceRadiusMeters = directLinkGeofenceRadiusMeters.trim(),
@@ -125,6 +128,7 @@ internal fun AdminSettings.persistedSnapshot(): AdminPersistedSettingsSnapshot {
             fastExamLabel = normalized.fastExamLabel,
             officialApkUrl = normalized.officialApkUrl,
             examUserAgent = normalized.examUserAgent,
+            examAppKey = normalized.examAppKey,
             lowRamProfileOverride = normalized.lowRamProfileOverride,
             directLinkLocationPolicySaved = normalized.directLinkLocationPolicySaved,
             directLinkLocationPolicySerialized = normalized.directLinkLocationPolicySerialized,

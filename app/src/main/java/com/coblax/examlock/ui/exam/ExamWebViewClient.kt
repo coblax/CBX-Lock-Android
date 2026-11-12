@@ -115,6 +115,14 @@ internal fun SecureExamWebView.createExamWebViewClient(
             }
             val scheme = request.url?.scheme
             if (isNavigableExamScheme(scheme)) {
+                if (examWebView.reissueWithExamHeadersIfNeeded(
+                        method = request.method,
+                        url = request.url.toString(),
+                        requestHeaders = request.requestHeaders
+                    )
+                ) {
+                    return true
+                }
                 // Links and redirects: a certificate rejected on the way there has to be
                 // recognised as this main frame, before WebView ever reports it started.
                 // No early watchdog here: a link may be a download or a 204, which never
@@ -151,6 +159,7 @@ internal fun SecureExamWebView.createExamWebViewClient(
             cancelBlankPageCheck()
             pageLoadStartedAtElapsedMs = SystemClock.elapsedRealtime()
             onWebViewLoadStart(view, url)
+            examWebView.injectExamAppKeyScriptIfNeeded(url)
             armStallWatchdog(view, url)
             // Applied after the load-start callback, which clears the error message.
             if (heldHttpError != null) {
@@ -181,6 +190,7 @@ internal fun SecureExamWebView.createExamWebViewClient(
             cancelNavigationTimeout()
             onLoadingProgressChange(view, 1f)
             if (!navigationState.finish(url)) return
+            examWebView.injectExamAppKeyScriptIfNeeded(url)
             onWebViewLoadFinish(view, url)
             cancelPendingConnectionRetries()
             checkForBlankPage(view, url!!, navigationState.revision, secondLook = false)
