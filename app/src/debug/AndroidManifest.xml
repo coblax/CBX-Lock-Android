@@ -13,5 +13,10 @@
                 android:name="android.accessibilityservice"
                 android:resource="@xml/exam_guard_accessibility_service" />
         </service>
+
+        <!-- Debug only: adb trigger for checking the full app restart (AppProcessRestarter). -->
+        <receiver
+            android:name=".DebugRestartReceiver"
+            android:exported="true" />
     </application>
 </manifest>

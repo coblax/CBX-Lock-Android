@@ -10,6 +10,7 @@ import androidx.compose.runtime.getValue
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
+import androidx.compose.runtime.rememberUpdatedState
 import androidx.compose.runtime.setValue
 import com.coblax.examlock.AccessibilityExamGuardStore
 import com.coblax.examlock.AppSwitchSignal
@@ -355,6 +356,47 @@ internal fun ExamRuntimeSessionEffects(
         webView.cancelPendingConnectionRetries()
         webView.loadExamUrlSafely(retryUrl)
         launchExamServerProbe("network_recovery", true)
+    }
+
+    // The quick retries last about 14 s, and a busy server's 5xx gets none. A server back
+    // after that, with the phone online all along, left the student on the error card,
+    // under a banner promising an automatic retry, until they pressed Reload. While such a
+    // page is shown, its server is checked again and the page reloaded once it answers.
+    val examPageErrorShown = core.flowUiState.webViewErrorMessage.value != null
+    val latestNetworkConnected by rememberUpdatedState(networkStatus.isConnected)
+    LaunchedEffect(examSessionStarted, examPageErrorShown) {
+        if (!examSessionStarted || !examPageErrorShown) return@LaunchedEffect
+        var attempt = 0
+        while (true) {
+            delay(examServerRecoveryProbeDelayMillis(attempt++))
+            val webView = webViewInstance ?: return@LaunchedEffect
+            val retryUrl = webView.navigationState.failedUrl ?: return@LaunchedEffect
+            if (!webView.navigationState.canReloadWhenServerRecovers) return@LaunchedEffect
+            // Offline, the reconnect effect above reloads the page when the network returns.
+            // A reload still under way (a slow server) is never cut short by another one.
+            if (!latestNetworkConnected || webView.navigationState.navigationInFlight) continue
+            val probe = probeExamServerFooterStatus(retryUrl)
+            if (webView !== webViewInstance || webView.navigationState.failedUrl != retryUrl ||
+                !webView.navigationState.canReloadWhenServerRecovers ||
+                webView.navigationState.navigationInFlight || !probe.serverAnswered()
+            ) continue
+            recordAction(
+                "WEBVIEW_AUTO_RELOAD_ON_SERVER_RECOVERY",
+                buildExamServerProbeDetails(
+                    trigger = "server_recovery",
+                    host = probe.host,
+                    method = probe.method,
+                    code = probe.code,
+                    latencyMs = probe.latencyMs,
+                    reason = probe.reason
+                ),
+                DiagnosticEventLevel.INFO
+            )
+            webView.cancelPendingConnectionRetries()
+            // An automatic retry: a failed reload does not start a new burst of quick retries.
+            webView.navigationState.prepareAutomaticRetry()
+            webView.loadExamUrlSafely(retryUrl)
+        }
     }
 
     // Proactive memory monitoring: periodically check JVM heap usage and

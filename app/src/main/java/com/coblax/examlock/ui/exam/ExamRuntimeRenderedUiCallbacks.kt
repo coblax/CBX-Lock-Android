@@ -12,6 +12,9 @@ import com.coblax.examlock.PreviousExamSessionBreadcrumbCodes
 import com.coblax.examlock.WebViewCompatibilityStatus
 import com.coblax.examlock.model.DiagnosticEventLevel
 import com.coblax.examlock.model.DiagnosticSection
+import com.coblax.examlock.persistence.ExamStallLogEntry
+import com.coblax.examlock.persistence.ExamStallLogKind
+import com.coblax.examlock.persistence.ExamStallLogStore
 import kotlinx.coroutines.CoroutineExceptionHandler
 import kotlinx.coroutines.launch
 
@@ -101,6 +104,8 @@ internal class ExamRuntimeRenderedUiCallbacks(
             return
         }
         webViewUiState.stopRequested.value = false
+        // A new attempt: the card that showed the last stall's log is gone.
+        flowUiState.lastStallReport.value = null
         handleExamRuntimeWebViewLoadStart(
             url = url,
             useBuiltInExamKeyboard = flowUiState.useBuiltInExamKeyboard.value,
@@ -120,7 +125,6 @@ internal class ExamRuntimeRenderedUiCallbacks(
         handleExamRuntimeWebViewLoadFinish(
             view = view,
             url = url,
-            sideArrowControlsVisible = flowUiState.sideArrowControlsVisible.value,
             useBuiltInExamKeyboard = flowUiState.useBuiltInExamKeyboard.value,
             nativeExamFullscreenActive = examGuardArmed || webViewUiState.fullScreenCustomView.value != null,
             recordAction = { code, details, level -> runtimeDiagnosticsOps.recordAction(code, details, level) },
@@ -128,6 +132,19 @@ internal class ExamRuntimeRenderedUiCallbacks(
             setExamServerStatus = { examServerStatusState.value = it },
             hideSystemKeyboard = hideSystemKeyboard
         )
+        flowUiState.unresolvedStall.value = false
+        recordRecoveryAfterRestart()
+    }
+
+    /** The first exam page that loads after a stall restart: proof the restart helped. */
+    private fun recordRecoveryAfterRestart() {
+        val context = componentActivity.applicationContext
+        val restartedAt = ExamStallLogStore.takeRestartPending(context) ?: return
+        val now = System.currentTimeMillis()
+        val minutes = ((now - restartedAt) / 60_000L).coerceAtLeast(0L)
+        val note = "page_loaded_after_restart | minutes_since_restart=$minutes"
+        ExamStallLogStore.append(context, ExamStallLogEntry(ExamStallLogKind.Recovered, now, note = note))
+        runtimeDiagnosticsOps.recordAction("EXAM_PAGE_LOADED_AFTER_RESTART", note, DiagnosticEventLevel.INFO)
     }
 
     fun onWebViewLoadError(view: WebView?, description: String) {
@@ -140,6 +157,46 @@ internal class ExamRuntimeRenderedUiCallbacks(
             setWebViewErrorMessage = { flowUiState.webViewErrorMessage.value = it },
             setExamServerStatus = { examServerStatusState.value = it }
         )
+        if (description.contains(ExamStallDetailMarker)) {
+            flowUiState.unresolvedStall.value = true
+            recordExamStallEvidence(view as? SecureExamWebView)
+        }
+    }
+
+    /**
+     * What hung: the page's unfinished scripts and styles by host, and how the phone
+     * resolves those hosts right now. The full line goes to the diagnostic log and the
+     * stall history (admin only); the stall card shows a summary without the exam host.
+     */
+    private fun recordExamStallEvidence(view: SecureExamWebView?) {
+        val webView = view ?: return
+        val attempt = webView.navigationState.consecutiveStalls
+        val pageHost = stallLookupHost(webView.navigationState.failedUrl ?: webView.url)
+        // Read by the client just before it stopped the page; null if the page never answered.
+        val page = parseExamStallProbe(webView.lastStallProbe)
+        val stalledAt = System.currentTimeMillis()
+        componentActivity.lifecycleScope.launch {
+            val hosts = (listOfNotNull(pageHost) + page.pendingHosts).distinct()
+            val network = runCatching {
+                collectExamStallNetworkEvidence(componentActivity.applicationContext, hosts)
+            }.getOrDefault(ExamStallNetworkEvidence())
+            val report = ExamStallReport(
+                attempt = attempt,
+                wallClockMs = stalledAt,
+                examHost = pageHost,
+                page = page,
+                network = network
+            )
+            // Only while this stall's card is still up: a retry may have started meanwhile.
+            if (webView.navigationState.consecutiveStalls == attempt && flowUiState.webViewErrorMessage.value != null) {
+                flowUiState.lastStallReport.value = report
+            }
+            runtimeDiagnosticsOps.recordAction("EXAM_PAGE_STALLED", report.adminDetail, DiagnosticEventLevel.WARNING)
+            ExamStallLogStore.append(
+                componentActivity.applicationContext,
+                ExamStallLogEntry(ExamStallLogKind.Stall, stalledAt, report = report)
+            )
+        }
     }
 
     fun onWebViewHttpError(view: WebView?, statusCode: Int?) {

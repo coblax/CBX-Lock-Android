@@ -17,7 +17,7 @@ internal fun buildExamRuntimeChromeActionsForSession(
     lockTaskAlreadyActive: () -> Boolean,
     markTrustedRuntimeChromeAction: (String) -> Unit,
     clearWebViewError: () -> Unit,
-    loadExamUrl: () -> Unit,
+    retryExamPageAfterError: () -> Unit,
     reloadExamUrlLikeBrowser: () -> Unit,
     stopWebViewLoading: () -> Unit,
     setLoadingProgress: (Float) -> Unit,
@@ -29,17 +29,18 @@ internal fun buildExamRuntimeChromeActionsForSession(
     recordAction: (String, String, DiagnosticEventLevel) -> Unit,
     sendBuiltInKeyboardText: (String) -> Unit,
     sendBuiltInKeyboardBackspace: () -> Unit,
-    sendKeyboardArrowLeft: () -> Unit,
-    sendKeyboardArrowRight: () -> Unit,
-    toggleSideArrowControls: () -> Boolean,
     sendBuiltInKeyboardEnter: () -> Unit,
-    toggleBuiltInKeyboardShift: () -> Unit
+    toggleBuiltInKeyboardShift: () -> Unit,
+    requestAppRestart: () -> Unit = {}
 ): ExamRuntimeChromeActions {
     return ExamRuntimeChromeActions(
         onRetryLoading = {
             markTrustedRuntimeChromeAction("webview_retry")
+            setWebViewStopRequested(false)
             clearWebViewError()
-            loadExamUrl()
+            setLoadingProgress(0.05f)
+            launchExamServerProbe("manual_retry", true)
+            retryExamPageAfterError()
         },
         onRefreshPage = {
             markTrustedRuntimeChromeAction("webview_refresh")
@@ -120,22 +121,9 @@ internal fun buildExamRuntimeChromeActionsForSession(
             markTrustedRuntimeChromeAction("built_in_keyboard_backspace")
             sendBuiltInKeyboardBackspace()
         },
-        onArrowLeft = {
-            markTrustedRuntimeChromeAction("exam_arrow_left")
-            sendKeyboardArrowLeft()
-        },
-        onArrowRight = {
-            markTrustedRuntimeChromeAction("exam_arrow_right")
-            sendKeyboardArrowRight()
-        },
-        onToggleSideArrowControls = {
-            markTrustedRuntimeChromeAction("exam_arrow_toggle")
-            val sideArrowControlsVisible = toggleSideArrowControls()
-            recordAction(
-                "EXAM_ARROW_CONTROLS_TOGGLED",
-                if (sideArrowControlsVisible) "visible" else "hidden",
-                DiagnosticEventLevel.INFO
-            )
+        onShowProctorInfo = {
+            markTrustedRuntimeChromeAction("proctor_info")
+            recordAction("EXAM_PROCTOR_INFO_OPENED", "-", DiagnosticEventLevel.INFO)
         },
         onEnter = {
             markTrustedRuntimeChromeAction("built_in_keyboard_enter")
@@ -148,6 +136,11 @@ internal fun buildExamRuntimeChromeActionsForSession(
         onShiftToggle = {
             markTrustedRuntimeChromeAction("built_in_keyboard_shift")
             toggleBuiltInKeyboardShift()
+        },
+        onRestartApp = {
+            markTrustedRuntimeChromeAction("app_restart")
+            recordAction("APP_RESTART_REQUESTED", "source=exam_chrome", DiagnosticEventLevel.WARNING)
+            requestAppRestart()
         }
     )
 }

@@ -40,6 +40,7 @@ import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.vector.ImageVector
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.platform.testTag
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.dp
@@ -61,14 +62,20 @@ internal data class ExamRuntimeChromeState(
     val hasFullscreenCustomView: Boolean,
     val useBuiltInExamKeyboard: Boolean,
     val showBuiltInExamKeyboard: Boolean,
-    val showSideArrowControls: Boolean,
     @Suppress("unused")
     val hasEditableFocus: Boolean,
     val builtInKeyboardShiftEnabled: Boolean,
     val networkStatus: NetworkReadinessStatus,
     val serverStatus: ExamServerFooterStatus,
     val batteryStatus: ExamBatteryStatus,
-    val shieldStatus: ExamFooterShieldStatus
+    val shieldStatus: ExamFooterShieldStatus,
+    /** Who the exam site says is signed in, for the proctor info sheet; null until known. */
+    val participantName: String? = null,
+    val participantGroup: String? = null,
+    /** Stalls in a row on the page that failed; 0 when the failure was not a stall. */
+    val stallAttempt: Int = 0,
+    /** The latest stall's evidence, once collected. */
+    val stallReport: ExamStallReport? = null
 )
 
 internal data class ExamRuntimeChromeActions(
@@ -77,12 +84,12 @@ internal data class ExamRuntimeChromeActions(
     val onGoHome: () -> Unit,
     val onTextKey: (String) -> Unit,
     val onBackspace: () -> Unit,
-    val onArrowLeft: () -> Unit,
-    val onArrowRight: () -> Unit,
-    val onToggleSideArrowControls: () -> Unit,
+    val onShowProctorInfo: () -> Unit,
     val onEnter: () -> Unit,
     val onSpace: () -> Unit,
-    val onShiftToggle: () -> Unit
+    val onShiftToggle: () -> Unit,
+    /** Ends the exam session and restarts the app process (after a stall). */
+    val onRestartApp: () -> Unit = {}
 )
 
 /**
@@ -94,8 +101,20 @@ internal fun ExamWebErrorOverlay(
     examDisplayName: String,
     errorMessage: String?,
     onRetry: () -> Unit,
-    modifier: Modifier = Modifier
+    modifier: Modifier = Modifier,
+    stallAttempt: Int = 0,
+    stallReport: ExamStallReport? = null,
+    onRestartApp: () -> Unit = {}
 ) {
+    val reload = AppAlertAction(tr("Reload", "Muat ulang"), onRetry)
+    val restart = AppAlertAction(tr("Restart app", "Mulai ulang aplikasi"), onRestartApp)
+    // After a stall, restarting the app is offered; from the second stall on it leads,
+    // since reloading inside the same app process waits on the same hung connection.
+    val (primary, secondary) = when {
+        stallAttempt >= 2 -> restart to listOf(reload)
+        stallAttempt == 1 -> reload to listOf(restart)
+        else -> reload to emptyList()
+    }
     AppAlertDialogContent(
         tone = UiStatusTone.Danger,
         icon = Icons.Rounded.CloudOff,
@@ -105,9 +124,63 @@ internal fun ExamWebErrorOverlay(
             "Check the connection, then try again.",
             "Periksa koneksi, lalu coba lagi."
         ),
-        primaryAction = AppAlertAction(tr("Reload", "Muat ulang"), onRetry),
-        modifier = modifier
+        primaryAction = primary,
+        secondaryActions = secondary,
+        modifier = modifier,
+        extraContent = if (stallAttempt > 0) {
+            { ExamStallLogPanel(stallReport) }
+        } else {
+            null
+        }
     )
+}
+
+/**
+ * The stall's log, in the open, so the student or proctor can photograph it. The exam
+ * server's name and address are left out; the full line is in Secret Admin.
+ */
+@Composable
+private fun ExamStallLogPanel(report: ExamStallReport?) {
+    val colors = AppColors.current
+    val language = com.coblax.examlock.i18n.LocalUiLanguage.current
+    val lines = report?.let {
+        buildExamStallSummaryLines(
+            report = it,
+            language = language,
+            clockText = java.text.SimpleDateFormat("HH:mm:ss", java.util.Locale.ROOT)
+                .format(java.util.Date(it.wallClockMs))
+        )
+    }
+    Column(
+        modifier = Modifier
+            .fillMaxWidth()
+            .testTag(ExamRuntimeUiTestTags.StallLog)
+            .clip(RoundedCornerShape(12.dp))
+            .background(colors.surfaceSoft)
+            .padding(horizontal = 14.dp, vertical = 10.dp),
+        verticalArrangement = Arrangement.spacedBy(4.dp)
+    ) {
+        Text(
+            text = "Log · EXAM_PAGE_STALLED",
+            color = colors.textSecondary,
+            style = com.coblax.examlock.ui.theme.AppTextStyles.label.copy(fontWeight = FontWeight.SemiBold)
+        )
+        if (lines == null) {
+            Text(
+                text = tr("Checking the network…", "Memeriksa jaringan…"),
+                color = colors.textSecondary,
+                style = com.coblax.examlock.ui.theme.AppTextStyles.diagnostic
+            )
+        } else {
+            lines.forEach { line ->
+                Text(
+                    text = line,
+                    color = colors.textPrimary,
+                    style = com.coblax.examlock.ui.theme.AppTextStyles.diagnostic
+                )
+            }
+        }
+    }
 }
 
 

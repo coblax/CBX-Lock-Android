@@ -10,7 +10,9 @@ internal object ExamRuntimeUiTestTags {
     const val Footer = "exam_runtime_footer"
     const val WarningBanner = "exam_runtime_warning_banner"
     const val KeyboardPanel = "exam_runtime_keyboard_panel"
-    const val ArrowToggle = "exam_runtime_arrow_toggle"
+    const val ProctorInfoAction = "exam_runtime_proctor_info_action"
+    const val ProctorInfoSheet = "exam_runtime_proctor_info_sheet"
+    const val StallLog = "exam_runtime_stall_log"
     const val RefreshAction = "exam_runtime_refresh_action"
     const val ExitAction = "exam_runtime_exit_action"
 }

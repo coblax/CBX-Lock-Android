@@ -945,6 +945,7 @@ internal fun SecretAdminScreen(
                             onSettingsChange = { updated -> updateDraftSettings(updated) }
                         )
                         SecretAdminTab.Diagnostics -> {
+                            SecretAdminStallHistoryCard()
                             AdminReadinessSummaryCard(
                                 summary = adminReadinessSummary,
                                 fieldReadinessRunning = fieldReadinessRunning,

@@ -21,6 +21,29 @@ private val dnsExecutor = ThreadPoolExecutor(
     { runnable -> Thread(runnable, "exam-dns").apply { isDaemon = true } }
 ).apply { allowCoreThreadTimeOut(true) }
 
+/** Every address the system resolver returns for [host], on the same bounded workers. */
+internal suspend fun resolveNetworkDnsAddresses(
+    host: String,
+    lookup: (String) -> List<String> = { name ->
+        InetAddress.getAllByName(name).mapNotNull { it.hostAddress }
+    }
+): List<String> = suspendCancellableCoroutine { continuation ->
+    val task = FutureTask<Unit> {
+        val result = runCatching { lookup(host) }
+        continuation.resumeWith(result)
+    }
+    continuation.invokeOnCancellation {
+        task.cancel(true)
+        dnsExecutor.remove(task)
+    }
+    try {
+        dnsExecutor.execute(task)
+        if (task.isCancelled) dnsExecutor.remove(task)
+    } catch (error: RejectedExecutionException) {
+        continuation.resumeWith(Result.failure(DnsResolverBusyException(error)))
+    }
+}
+
 internal suspend fun resolveNetworkDnsHost(
     host: String,
     lookup: (String) -> Unit = { InetAddress.getByName(it) }

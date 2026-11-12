@@ -107,6 +107,49 @@ class ExamServerProbeClassificationTest {
         assertFalse(isCertificateRejection(java.net.SocketTimeoutException("timeout")))
     }
 
+    /** A page that could not connect is reloaded once its server answers, but never into a 5xx. */
+    @Test
+    fun aServerThatAnswersIsWorthReloadingButABusyOneIsNot() {
+        assertTrue(classify(ExamServerHttpProbeOutcome("HEAD", 200, 200L, null)).serverAnswered())
+        assertTrue(classify(ExamServerHttpProbeOutcome("HEAD", 403, 200L, null)).serverAnswered())
+        assertTrue(classify(ExamServerHttpProbeOutcome("GET", 404, 200L, null)).serverAnswered())
+        assertTrue(classify(ExamServerHttpProbeOutcome("HEAD", 200, 9_000L, null)).serverAnswered())
+        assertTrue(
+            classify(
+                ExamServerHttpProbeOutcome("TCP", null, 9_000L, null, reachableWithoutHttp = true)
+            ).serverAnswered()
+        )
+        assertTrue(
+            classify(
+                ExamServerHttpProbeOutcome(
+                    "HEAD", null, 300L, "SSLHandshakeException",
+                    tlsFailure = true, certificateRejected = true
+                )
+            ).serverAnswered()
+        )
+        assertFalse(classify(ExamServerHttpProbeOutcome("GET", 503, 200L, null)).serverAnswered())
+        assertFalse(classify(ExamServerHttpProbeOutcome("GET", null, 12_000L, "ConnectException")).serverAnswered())
+    }
+
+    /** 10 s, 20 s, then every 30 s, spread so a classroom that failed together checks apart. */
+    @Test
+    fun recoveryChecksBackOffAndSpreadOut() {
+        val random = kotlin.random.Random(7)
+        for ((attempt, range) in listOf(
+            0 to 8_000L..12_000L,
+            1 to 16_000L..24_000L,
+            2 to 24_000L..36_000L,
+            12 to 24_000L..36_000L
+        )) {
+            repeat(50) {
+                val delay = examServerRecoveryProbeDelayMillis(attempt, random)
+                assertTrue("attempt $attempt -> $delay", delay in range)
+            }
+        }
+        val spread = (1..20).map { examServerRecoveryProbeDelayMillis(0, kotlin.random.Random(it)) }.toSet()
+        assertTrue(spread.size > 10)
+    }
+
     @Test
     fun onlyAnAndroid7HandshakeFailureIsRetriedOverTcp() {
         val unsupportedHandshake = ExamServerHttpProbeOutcome(

@@ -24,7 +24,7 @@ import androidx.compose.material.icons.rounded.BatteryChargingFull
 import androidx.compose.material.icons.rounded.BatteryFull
 import androidx.compose.material.icons.rounded.Close
 import androidx.compose.material.icons.rounded.CloudOff
-import androidx.compose.material.icons.rounded.Code
+import androidx.compose.material.icons.outlined.Info
 import androidx.compose.material.icons.rounded.GppBad
 import androidx.compose.material.icons.rounded.GppGood
 import androidx.compose.material.icons.rounded.GppMaybe
@@ -290,9 +290,9 @@ private fun StatusItem(icon: ImageVector, tone: UiStatusTone, label: String?) {
  */
 @Composable
 internal fun ExamRuntimeFooter(
-    showArrowControls: Boolean,
     isRefreshing: Boolean,
-    onToggleArrowControls: () -> Unit,
+    proctorInfoOpen: Boolean,
+    onShowProctorInfo: () -> Unit,
     onRefresh: () -> Unit,
     onGoHome: () -> Unit,
     modifier: Modifier = Modifier
@@ -337,24 +337,19 @@ internal fun ExamRuntimeFooter(
                 verticalAlignment = Alignment.CenterVertically
             ) {
                 ExamFooterAction(
-                    icon = Icons.Rounded.Code,
-                    label = tr("Arrows", "Panah"),
+                    icon = Icons.Outlined.Info,
+                    label = tr("Info", "Info"),
                     labelMode = labelMode,
                     minHeight = spec.footerHeightDp.dp,
-                    description = if (showArrowControls) {
-                        tr("Hide side arrow controls", "Sembunyikan kontrol panah samping")
-                    } else {
-                        tr("Show side arrow controls", "Tampilkan kontrol panah samping")
-                    },
-                    state = if (showArrowControls) {
-                        tr("Arrow controls shown", "Kontrol panah ditampilkan")
-                    } else {
-                        tr("Arrow controls hidden", "Kontrol panah disembunyikan")
-                    },
-                    selected = showArrowControls,
+                    description = tr(
+                        "Show exam info for the proctor",
+                        "Tampilkan info ujian untuk pengawas"
+                    ),
+                    state = null,
+                    selected = proctorInfoOpen,
                     contentColor = colors.brandText,
-                    testTag = ExamRuntimeUiTestTags.ArrowToggle,
-                    onClick = onToggleArrowControls,
+                    testTag = ExamRuntimeUiTestTags.ProctorInfoAction,
+                    onClick = onShowProctorInfo,
                     modifier = Modifier.weight(1f)
                 )
                 ExamFooterAction(

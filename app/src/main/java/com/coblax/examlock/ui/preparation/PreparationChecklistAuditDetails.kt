@@ -62,8 +62,8 @@ internal fun buildPreparationNetworkAuditDetail(
             "Global DNS latency: ${globalProbe.latencyMillis?.let { "$it ms" } ?: "-"}",
             "Global DNS latency bucket: ${globalProbe.latencyBucket.name}",
             "Global DNS error: ${globalProbe.error?.ifBlank { "-" } ?: "-"}",
+            // Students open these details, so the exam server's name is left out.
             "Exam DNS probe: ${probe.verdict.name}",
-            "Exam DNS host: ${probe.host.ifBlank { "-" }}",
             "Exam DNS latency: ${probe.latencyMillis?.let { "$it ms" } ?: "-"}",
             "Exam DNS latency bucket: ${probe.latencyBucket.name}",
             "Exam DNS error: ${probe.error?.ifBlank { "-" } ?: "-"}",

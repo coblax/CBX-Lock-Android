@@ -119,6 +119,9 @@ internal class SecureExamWebView @JvmOverloads constructor(
         super.stopLoading()
     }
 
+    /** The stall probe's raw answer, read just before the stalled page was stopped. */
+    var lastStallProbe: String? = null
+
     /** The exam's X-CBX-App-Key header, or null when Secret Admin leaves it blank. */
     var examHostHeaders: ExamHostHeaders? = null
         private set
@@ -329,6 +332,22 @@ internal fun WebView.loadExamUrlSafely(url: String): Boolean {
     }.getOrDefault(false)
 }
 
+private const val NeutralExamErrorPageHtml =
+    "<!doctype html><html><head><meta name=\"viewport\" content=\"width=device-width\"></head>" +
+        "<body></body></html>"
+
+/**
+ * Replaces WebView's own error page, which spells out the address it could not reach,
+ * while the error card says what went wrong. The exam's address is kept from students.
+ * It loads as about:blank, which the exam client ignores, so the failed page stays the
+ * one that Reload and the automatic retries go back to.
+ */
+internal fun WebView.showNeutralExamErrorPage(): Boolean =
+    runCatching {
+        loadDataWithBaseURL(null, NeutralExamErrorPageHtml, "text/html", "utf-8", null)
+        true
+    }.getOrDefault(false)
+
 private val BrowserLikeRefreshHeaders = mapOf(
     "Cache-Control" to "no-cache",
     "Pragma" to "no-cache"
@@ -345,13 +364,31 @@ internal fun WebView.reloadExamUrlLikeBrowserSafely(fallbackUrl: String): Boolea
         // Clear both RAM and disk cache so corrupt/stale entries are flushed.
         // Slightly slower than clearCache(false) but more reliable after errors.
         clearCache(true)
-        settings.cacheMode = WebSettings.LOAD_DEFAULT
+        // After a stall, scripts and styles bypass every cache too, not only the page:
+        // a file cut off or swapped while the network dropped must not be served again.
+        // The client goes back to LOAD_DEFAULT once a page loads.
+        val afterStall = (this as? SecureExamWebView)?.navigationState?.consecutiveStalls?.let { it > 0 } == true
+        settings.cacheMode = if (afterStall) WebSettings.LOAD_NO_CACHE else WebSettings.LOAD_DEFAULT
         loadUrl(targetUrl, BrowserLikeRefreshHeaders)
         if (this is SecureExamWebView) {
             cancelPendingConnectionRetries()
         }
         true
     }.getOrDefault(false)
+}
+
+/**
+ * Reload on the error card. It used to open the exam link every time, which dropped a
+ * student who lost the connection on question 20 back at the exam's first page. It now
+ * reloads the page that failed, as the footer's Refresh does. Only a page the server
+ * refused (4xx, such as an expired exam session) goes back to the exam link, the way in.
+ */
+internal fun SecureExamWebView.retryExamPageAfterErrorSafely(examUrl: String): Boolean {
+    val refusedByServer = navigationState.failedHttpStatus?.let { it in 400..499 } == true
+    if (!refusedByServer) return reloadExamUrlLikeBrowserSafely(examUrl)
+    cancelPendingConnectionRetries()
+    requestedExamUrl = examUrl
+    return loadExamUrlSafely(examUrl)
 }
 
 internal fun WebView.updateExamUserAgentSafely(userAgent: String): Boolean {

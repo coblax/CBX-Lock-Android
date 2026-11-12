@@ -204,7 +204,12 @@ internal class ExamRuntimeFlowUiState(
     val webViewErrorMessage: MutableState<String?>,
     val useBuiltInExamKeyboard: MutableState<Boolean>,
     val showBuiltInExamKeyboard: MutableState<Boolean>,
-    val sideArrowControlsVisible: MutableState<Boolean>,
+    /** The latest stall's evidence, shown on the stall card; null until it is collected. */
+    val lastStallReport: MutableState<ExamStallReport?>,
+    /** A page stalled and none has loaded since: leaving the exam restarts the app. */
+    val unresolvedStall: MutableState<Boolean>,
+    /** "Restart app" was pressed: the exit that follows restarts the process. */
+    val restartAfterExitRequested: MutableState<Boolean>,
     val hasEditableFocus: MutableState<Boolean>,
     val builtInKeyboardShiftEnabled: MutableState<Boolean>,
     val geofencePermissionRequestInFlight: MutableState<Boolean>,
@@ -270,7 +275,9 @@ internal fun rememberExamRuntimeFlowUiState(
     val webViewErrorMessage = rememberSaveable { mutableStateOf<String?>(null) }
     val useBuiltInExamKeyboard = rememberSaveable { mutableStateOf(false) }
     val showBuiltInExamKeyboard = rememberSaveable { mutableStateOf(false) }
-    val sideArrowControlsVisible = rememberSaveable { mutableStateOf(true) }
+    val lastStallReport = remember { mutableStateOf<ExamStallReport?>(null) }
+    val unresolvedStall = rememberSaveable { mutableStateOf(false) }
+    val restartAfterExitRequested = remember { mutableStateOf(false) }
     val hasEditableFocus = rememberSaveable { mutableStateOf(false) }
     val builtInKeyboardShiftEnabled = rememberSaveable { mutableStateOf(false) }
     val geofencePermissionRequestInFlight = rememberSaveable { mutableStateOf(false) }
@@ -322,7 +329,9 @@ internal fun rememberExamRuntimeFlowUiState(
             webViewErrorMessage = webViewErrorMessage,
             useBuiltInExamKeyboard = useBuiltInExamKeyboard,
             showBuiltInExamKeyboard = showBuiltInExamKeyboard,
-            sideArrowControlsVisible = sideArrowControlsVisible,
+            lastStallReport = lastStallReport,
+            unresolvedStall = unresolvedStall,
+            restartAfterExitRequested = restartAfterExitRequested,
             hasEditableFocus = hasEditableFocus,
             builtInKeyboardShiftEnabled = builtInKeyboardShiftEnabled,
             geofencePermissionRequestInFlight = geofencePermissionRequestInFlight,

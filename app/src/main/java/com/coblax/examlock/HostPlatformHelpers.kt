@@ -530,28 +530,6 @@ internal fun SecureExamWebView.detachExamKeyboardBridge() {
     setOnTouchListener(null)
 }
 
-internal fun WebView.sendExamArrowKeyFallback(keyCode: Int) {
-    val downTime = SystemClock.uptimeMillis()
-    dispatchKeyEvent(
-        KeyEvent(
-            downTime,
-            downTime,
-            KeyEvent.ACTION_DOWN,
-            keyCode,
-            0
-        )
-    )
-    dispatchKeyEvent(
-        KeyEvent(
-            downTime,
-            SystemClock.uptimeMillis(),
-            KeyEvent.ACTION_UP,
-            keyCode,
-            0
-        )
-    )
-}
-
 internal fun showKeyboardPicker(activity: Activity?): Boolean {
     val inputMethodManager = activity?.getSystemService(InputMethodManager::class.java)
         ?: return false

@@ -3,6 +3,10 @@ package com.coblax.examlock.ui.exam
 import android.content.Context
 import androidx.activity.ComponentActivity
 import androidx.lifecycle.lifecycleScope
+import com.coblax.examlock.AppProcessRestarter
+import com.coblax.examlock.persistence.ExamStallLogEntry
+import com.coblax.examlock.persistence.ExamStallLogKind
+import com.coblax.examlock.persistence.ExamStallLogStore
 import com.coblax.examlock.AlarmAcknowledgePayload
 import com.coblax.examlock.AlarmAcknowledgeType
 import com.coblax.examlock.AlarmSessionIdentity
@@ -20,6 +24,22 @@ import com.coblax.examlock.OverlayRiskResult
 import com.coblax.examlock.ui.dialog.ExamRuntimeDialogsActions
 import kotlinx.coroutines.CoroutineExceptionHandler
 import kotlinx.coroutines.launch
+
+/** Logs the restart (it survives in the stall history) and restarts the app process. */
+internal fun restartAppAfterExamExit(
+    activity: ComponentActivity,
+    reason: String,
+    recordAction: (String, String, DiagnosticEventLevel) -> Unit
+) {
+    val now = System.currentTimeMillis()
+    recordAction("APP_RESTARTING", "reason=$reason", DiagnosticEventLevel.WARNING)
+    ExamStallLogStore.append(
+        activity.applicationContext,
+        ExamStallLogEntry(ExamStallLogKind.Restart, now, note = "reason=$reason")
+    )
+    ExamStallLogStore.markRestartPending(activity.applicationContext, now)
+    AppProcessRestarter.restart(activity)
+}
 
 internal fun buildRuntimeDialogsActionsForSession(
     context: Context,
@@ -140,12 +160,21 @@ internal fun buildRuntimeDialogsActionsForSession(
                         throwable
                     )
                 }
+                // "Exit, open again" after a stall kept the app process, and with it the
+                // hung connection: the exit restarts the process instead. So does the
+                // restart button, which comes through here to end the session properly.
+                val restartReason = when {
+                    flowUiState.restartAfterExitRequested.value -> "button"
+                    flowUiState.unresolvedStall.value -> "exit_after_stall"
+                    else -> null
+                }
+                val exitReason = if (restartReason != null) "app_restart" else "footer_home_confirm"
                 componentActivity.lifecycleScope.launch(exitExceptionHandler) {
                     try {
-                        clearExamSessionOnExit("footer_home_confirm", true)
+                        clearExamSessionOnExit(exitReason, true)
                         writePreviousSessionBreadcrumb(
                             PreviousExamSessionBreadcrumbCodes.ExitCompleted,
-                            "reason=footer_home_confirm"
+                            "reason=$exitReason"
                         )
                     } finally {
                         // Guarantee dialog dismisses and exit completes even if
@@ -153,6 +182,9 @@ internal fun buildRuntimeDialogsActionsForSession(
                         // Without this, the student gets stuck in the exit dialog.
                         flowUiState.showExitExamDialog.value = false
                         onExit()
+                        if (restartReason != null) {
+                            restartAppAfterExamExit(componentActivity, restartReason, recordAction)
+                        }
                     }
                 }
             }

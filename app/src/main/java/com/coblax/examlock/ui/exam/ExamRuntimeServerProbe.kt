@@ -13,6 +13,7 @@ import java.security.cert.CertPathValidatorException
 import java.security.cert.CertificateException
 import javax.net.ssl.SSLException
 import javax.net.ssl.SSLPeerUnverifiedException
+import kotlin.random.Random
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.withContext
 
@@ -85,6 +86,37 @@ internal data class ExamServerProbeResult(
             ExamServerFooterStatus.Insecure -> DiagnosticEventLevel.WARNING
             ExamServerFooterStatus.Offline -> DiagnosticEventLevel.ERROR
         }
+}
+
+/** The first wait before the server of a failed page is checked again. */
+internal const val ExamServerRecoveryProbeIntervalMillis = 10_000L
+/** No more often than the footer's own server check, so a busy server gets no extra load. */
+private const val ExamServerRecoveryProbeMaxIntervalMillis = ExamServerProbeIntervalMillis
+
+/**
+ * The wait before server-recovery check [attempt] (from 0): 10 s, 20 s, then every 30 s,
+ * each spread by ±20%. A classroom that lost a busy server together would otherwise check
+ * it, and reload into it, all in the same second.
+ */
+internal fun examServerRecoveryProbeDelayMillis(attempt: Int, random: Random = Random.Default): Long {
+    val base = (ExamServerRecoveryProbeIntervalMillis shl attempt.coerceIn(0, 3))
+        .coerceAtMost(ExamServerRecoveryProbeMaxIntervalMillis)
+    val spread = base / 5
+    return base - spread + random.nextLong(spread * 2 + 1)
+}
+
+/**
+ * The server answered, however slowly or warily (a 403 to the probe, a broken certificate),
+ * so a page that could not connect to it is worth loading again. A 5xx does not count:
+ * a busy server is not sent reloads it cannot serve.
+ */
+internal fun ExamServerProbeResult.serverAnswered(): Boolean = when (status) {
+    ExamServerFooterStatus.Online,
+    ExamServerFooterStatus.Insecure -> true
+    ExamServerFooterStatus.Warning -> code != null || reason == "reachable_tls_unsupported"
+    ExamServerFooterStatus.Offline,
+    ExamServerFooterStatus.Checking,
+    ExamServerFooterStatus.Unstable -> false
 }
 
 internal fun safeExamServerHost(examUrl: String): String {

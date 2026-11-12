@@ -4,8 +4,6 @@ import android.webkit.WebView
 import com.coblax.examlock.config.ExamFullscreenRequestHookScript
 import com.coblax.examlock.config.ExamNativeFullscreenBridgeInstallScript
 import com.coblax.examlock.config.InstallExamKeyboardScript
-import com.coblax.examlock.config.InstallExamSideArrowControlsScript
-import com.coblax.examlock.config.RemoveExamSideArrowControlsScript
 import com.coblax.examlock.ExamParticipantCaptureProbeScript
 import com.coblax.examlock.format.buildExamNativeFullscreenStateSyncScript
 import com.coblax.examlock.model.DiagnosticEventLevel
@@ -35,7 +33,6 @@ internal fun handleExamRuntimeWebViewLoadStart(
 internal fun handleExamRuntimeWebViewLoadFinish(
     view: WebView?,
     url: String?,
-    sideArrowControlsVisible: Boolean,
     useBuiltInExamKeyboard: Boolean,
     nativeExamFullscreenActive: Boolean,
     recordAction: (String, String, DiagnosticEventLevel) -> Unit,
@@ -81,13 +78,6 @@ internal fun handleExamRuntimeWebViewLoadFinish(
         """.trimIndent()
     )
     view?.evaluateExamJavascriptSafely(InstallExamKeyboardScript)
-    view?.evaluateExamJavascriptSafely(
-        if (sideArrowControlsVisible) {
-            InstallExamSideArrowControlsScript
-        } else {
-            RemoveExamSideArrowControlsScript
-        }
-    )
     if (useBuiltInExamKeyboard) {
         hideSystemKeyboard()
     }
@@ -108,9 +98,10 @@ internal fun handleExamRuntimeWebViewLoadError(
     recordAction("WEBVIEW_LOAD_ERROR", description, DiagnosticEventLevel.ERROR)
     val userMessage = resolveWebViewLoadErrorMessage(description)
     setWebViewErrorMessage(userMessage)
-    // A page that arrived but renders blank came from a server that answered.
+    // A page that arrived but renders blank came from a server that answered; so did a
+    // page that started and then stalled (it may be another host that hangs).
     setExamServerStatus(
-        if (description.contains(BlankPageDetailMarker)) {
+        if (description.contains(BlankPageDetailMarker) || description.contains(ExamStallDetailMarker)) {
             ExamServerFooterStatus.Warning
         } else {
             ExamServerFooterStatus.Offline
@@ -126,40 +117,41 @@ private const val BlankPageDetailMarker = " (BLANK: "
  * to clear, actionable messages that a student can understand and act on.
  * The raw [description] is always preserved in diagnostics via [recordAction].
  */
-private fun resolveWebViewLoadErrorMessage(description: String): String {
+internal fun resolveWebViewLoadErrorMessage(description: String): String {
     val desc = description.trim()
     // The exam WebViewClient words these itself; only the technical tail is dropped.
-    listOf(CertificateDetailMarker, BlankPageDetailMarker).forEach { marker ->
+    // The stall message used to fall through to the generic "belum dapat dimuat" text.
+    listOf(CertificateDetailMarker, BlankPageDetailMarker, ExamStallDetailMarker).forEach { marker ->
         if (desc.contains(marker)) return desc.substringBefore(marker)
     }
     return when {
         desc.contains("ERR_NAME_NOT_RESOLVED", ignoreCase = true) ->
-            "Server ujian tidak ditemukan. Periksa koneksi internet Anda, lalu tekan Refresh."
+            "Server ujian tidak ditemukan. Periksa koneksi internet Anda, lalu tekan Muat ulang."
         desc.contains("ERR_INTERNET_DISCONNECTED", ignoreCase = true) ->
-            "Tidak ada koneksi internet. Sambungkan ke Wi-Fi atau data seluler, lalu tekan Refresh."
+            "Tidak ada koneksi internet. Sambungkan ke Wi-Fi atau data seluler, lalu tekan Muat ulang."
         desc.contains("ERR_CONNECTION_TIMED_OUT", ignoreCase = true) ||
             desc.contains("ERR_TIMED_OUT", ignoreCase = true) ->
-            "Koneksi ke server ujian timeout. Periksa kestabilan internet, lalu tekan Refresh."
+            "Koneksi ke server ujian timeout. Periksa kestabilan internet, lalu tekan Muat ulang."
         desc.contains("ERR_CONNECTION_REFUSED", ignoreCase = true) ->
-            "Server ujian menolak koneksi. Mungkin server sedang tidak aktif. Tunggu lalu tekan Refresh."
+            "Server ujian menolak koneksi. Mungkin server sedang tidak aktif. Tunggu lalu tekan Muat ulang."
         desc.contains("ERR_CONNECTION_RESET", ignoreCase = true) ->
-            "Koneksi ke server ujian terputus. Periksa jaringan Anda, lalu tekan Refresh."
+            "Koneksi ke server ujian terputus. Periksa jaringan Anda, lalu tekan Muat ulang."
         desc.contains("ERR_CONNECTION_CLOSED", ignoreCase = true) ->
-            "Koneksi ke server ujian ditutup sebelum halaman selesai dimuat. Tekan Refresh untuk mencoba lagi."
+            "Koneksi ke server ujian ditutup sebelum halaman selesai dimuat. Tekan Muat ulang untuk mencoba lagi."
         desc.contains("ERR_NETWORK_CHANGED", ignoreCase = true) ->
-            "Jaringan berubah saat memuat halaman ujian. Pastikan koneksi stabil, lalu tekan Refresh."
+            "Jaringan berubah saat memuat halaman ujian. Pastikan koneksi stabil, lalu tekan Muat ulang."
         desc.contains("ERR_SSL", ignoreCase = true) ||
             desc.contains("ERR_CERT", ignoreCase = true) ||
             desc.contains("SSL:", ignoreCase = true) ->
             "Koneksi aman ke server ujian gagal (masalah sertifikat). Hubungi admin/pengawas ujian."
         desc.contains("ERR_CACHE_MISS", ignoreCase = true) ->
-            "Data cache halaman ujian tidak tersedia. Tekan Refresh untuk memuat ulang."
+            "Data cache halaman ujian tidak tersedia. Tekan Muat ulang untuk memuat ulang."
         desc.contains("ERR_TOO_MANY_REDIRECTS", ignoreCase = true) ->
             "Halaman ujian melakukan terlalu banyak redirect. Hubungi admin/pengawas ujian."
         desc.contains("ERR_CLEARTEXT_NOT_PERMITTED", ignoreCase = true) ->
             "Server ujian tidak menggunakan koneksi aman (HTTPS). Hubungi admin untuk memperbarui URL ujian."
         desc.contains("ERR_ADDRESS_UNREACHABLE", ignoreCase = true) ->
-            "Alamat server ujian tidak bisa dijangkau. Periksa koneksi internet, lalu tekan Refresh."
+            "Alamat server ujian tidak bisa dijangkau. Periksa koneksi internet, lalu tekan Muat ulang."
         desc.contains("ERR_SOCKET_", ignoreCase = true) ||
             desc.contains("ERR_EMPTY_RESPONSE", ignoreCase = true) ||
             desc.contains("ERR_CONTENT_LENGTH_MISMATCH", ignoreCase = true) ||
@@ -167,11 +159,11 @@ private fun resolveWebViewLoadErrorMessage(description: String): String {
             desc.contains("ERR_RESPONSE_HEADERS_TRUNCATED", ignoreCase = true) ||
             desc.contains("ERR_HTTP2_", ignoreCase = true) ||
             desc.contains("ERR_QUIC_", ignoreCase = true) ->
-            "Koneksi ke server ujian sempat terputus saat memuat. Menyambung ulang otomatis; jika tetap gagal tekan Refresh."
+            "Koneksi ke server ujian sempat terputus saat memuat. Menyambung ulang otomatis; jika tetap gagal tekan Muat ulang."
         desc.contains("ERR_FAILED", ignoreCase = true) ->
-            "Gagal memuat halaman ujian. Periksa koneksi internet, lalu tekan Refresh."
+            "Gagal memuat halaman ujian. Periksa koneksi internet, lalu tekan Muat ulang."
         else ->
-            "Halaman ujian belum dapat dimuat. Periksa koneksi, lalu tekan Muat Ulang. Jika tetap gagal, hubungi admin/pengawas."
+            "Halaman ujian belum dapat dimuat. Periksa koneksi, lalu tekan Muat ulang. Jika tetap gagal, hubungi admin/pengawas."
     }
 }
 

@@ -71,6 +71,33 @@ class MainActivity : ComponentActivity() {
             StartupTrace.mark("set_content_start", "compose")
             startComposeContent()
         }
+        if (savedInstanceState == null && intent?.getBooleanExtra(AppProcessRestarter.ExtraRestarted, false) == true) {
+            val indonesian = readSavedUiLanguage() == UiLanguage.Indonesian
+            Toast.makeText(
+                this,
+                if (indonesian) {
+                    "Aplikasi sudah dimulai ulang. Buka lagi ujian Anda."
+                } else {
+                    "The app has restarted. Open your exam again."
+                },
+                Toast.LENGTH_LONG
+            ).show()
+        }
+    }
+
+    /**
+     * The manifest keeps this activity through dark-mode, keyboard and screen-size changes.
+     * Recreating it tore a running exam down: Battery Saver turning on Dark theme at low
+     * battery stopped screen pinning and ended the session as "Screen Pinning Lost".
+     * Compose follows the new configuration by itself. The View-based shell shown before
+     * Compose starts, when no exam can be running, is simply rebuilt.
+     */
+    override fun onConfigurationChanged(newConfig: Configuration) {
+        super.onConfigurationChanged(newConfig)
+        applySavedThemeWindowBackground()
+        if (!composeContentStarted) {
+            recreate()
+        }
     }
 
     /**

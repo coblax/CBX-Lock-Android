@@ -252,6 +252,8 @@ class ExamWebViewNetworkTest {
             assertEquals(0, successfulLoads.get())
             assertFalse(view.navigationState.canRecoverOnConnection)
             assertNull(view.navigationState.nextRetryDelayMillis())
+            // No quick retries, but the page is reloaded once the busy server answers again.
+            assertTrue(view.navigationState.canReloadWhenServerRecovers)
         }
     }
 
@@ -287,6 +289,47 @@ class ExamWebViewNetworkTest {
 
         // Once progress stops the watchdog must still catch the real stall.
         composeRule.waitUntil(5_000) { fired.get() == 1 }
+    }
+
+    /**
+     * A school's exam link is often just its server, "http://192.168.1.10" with no path.
+     * WebView reports that page back as ".../", and the failure used to be taken for some
+     * other page's: no message and no retry until the 60 s stall watchdog.
+     */
+    @Test
+    fun aBareServerAddressThatFailsIsReportedAndRetried() {
+        val unusedPort = ServerSocket(0).use { it.localPort }
+        open("http://localhost:$unusedPort")
+        try {
+            composeRule.waitUntil(15_000) { errors.get() >= 2 }
+        } catch (error: ComposeTimeoutException) {
+            throw AssertionError("Failure not reported. Events: ${events.joinToString(" | ")}", error)
+        }
+        composeRule.runOnIdle {
+            assertEquals(0, successfulLoads.get())
+            assertEquals("http://localhost:$unusedPort/", webView!!.navigationState.failedUrl)
+        }
+    }
+
+    /** WebView's own error page spells out the address; the exam's is kept from students. */
+    @Test
+    fun aFailedPageNeverShowsTheExamAddress() {
+        val unusedPort = ServerSocket(0).use { it.localPort }
+        open("http://localhost:$unusedPort/questions/2")
+        composeRule.waitUntil(15_000) { errors.get() >= 1 }
+        val pageText = AtomicReference<String>()
+        composeRule.waitUntil(10_000) {
+            composeRule.runOnIdle {
+                webView!!.evaluateJavascript("document.documentElement.outerHTML") { pageText.set(it) }
+            }
+            pageText.get()?.let { !it.contains("localhost") && !it.contains("ERR_") } == true
+        }
+        composeRule.runOnIdle {
+            assertEquals(
+                "http://localhost:$unusedPort/questions/2",
+                webView!!.navigationState.failedUrl
+            )
+        }
     }
 
     @Test

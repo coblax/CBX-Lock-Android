@@ -329,14 +329,14 @@ internal fun resolveStartExamNetworkReachabilityBlockMessage(
                 "exam_dns_error=${status.dnsProbeStatus.error ?: "-"}"
         ),
         title = localized(uiLanguage, "Exam Network Not Ready", "Network Ujian Belum Siap"),
-        message = buildStartExamNetworkReachabilityMessage(uiLanguage, status, host)
+        message = buildStartExamNetworkReachabilityMessage(uiLanguage, status)
     )
 }
 
+/** Shown to the student, so it never names the exam server: that stays in [details] for the admin. */
 private fun buildStartExamNetworkReachabilityMessage(
     uiLanguage: UiLanguage,
-    status: NetworkReadinessStatus,
-    host: String
+    status: NetworkReadinessStatus
 ): String {
     val globalDnsVerdict = status.globalDnsProbeStatus.verdict.name
     val globalDnsError = status.globalDnsProbeStatus.error?.ifBlank { null } ?: "-"
@@ -350,7 +350,6 @@ private fun buildStartExamNetworkReachabilityMessage(
             appendLine()
             appendLine("Status: ${status.userFacingVerdict.name}")
             appendLine("Transport: ${status.transportLabel.ifBlank { "-" }}")
-            appendLine("Exam host: $host")
             appendLine("Global DNS: $globalDnsVerdict (${status.globalDnsProbeStatus.host.ifBlank { "-" }})")
             appendLine("Global DNS error: $globalDnsError")
             appendLine("Exam host DNS: $examDnsVerdict")
@@ -365,7 +364,6 @@ private fun buildStartExamNetworkReachabilityMessage(
             appendLine()
             appendLine("Status: ${status.userFacingVerdict.name}")
             appendLine("Koneksi: ${status.transportLabel.ifBlank { "-" }}")
-            appendLine("Host ujian: $host")
             appendLine("DNS global: $globalDnsVerdict (${status.globalDnsProbeStatus.host.ifBlank { "-" }})")
             appendLine("Error DNS global: $globalDnsError")
             appendLine("DNS host ujian: $examDnsVerdict")
@@ -376,6 +374,57 @@ private fun buildStartExamNetworkReachabilityMessage(
             append(quickFix ?: "Aktifkan ulang Wi-Fi/data, tunggu beberapa detik, lalu refresh status Network.")
         }
     )
+}
+
+/**
+ * A school's own exam server (192.168.1.10, cbt.local) cannot be reached over mobile data,
+ * and Android sends traffic over mobile data whenever the school Wi-Fi has no internet.
+ * The exam page then failed with "check your internet" while the Wi-Fi was right there.
+ * Blocks only when the server really did not answer, and never names it.
+ */
+internal fun resolveStartExamLocalServerOverMobileDataBlockMessage(
+    uiLanguage: UiLanguage,
+    examUrl: String,
+    status: NetworkReadinessStatus,
+    serverProbe: ExamServerProbeResult
+): StartExamBlockMessage? {
+    if (serverProbe.serverAnswered()) return null
+    val transports = status.diagnostics.transports.map { it.uppercase(Locale.US) }
+    val onMobileDataOnly = "CELLULAR" in transports && "WIFI" !in transports && "ETHERNET" !in transports
+    if (!onMobileDataOnly || !isLocalNetworkExamHost(examHostOf(examUrl))) return null
+    return StartExamBlockMessage(
+        code = "START_EXAM_BLOCKED_NETWORK_REACHABILITY",
+        details = buildNetworkEventDetails(
+            trigger = "start_exam_precheck",
+            status = status,
+            extraContext = "reason=local_server_over_mobile_data | probe=${serverProbe.reason}"
+        ),
+        title = localized(uiLanguage, "Connect to the School Wi-Fi", "Sambungkan ke Wi-Fi Sekolah"),
+        message = localized(
+            uiLanguage,
+            "This exam runs on the school's own server, which mobile data cannot reach. " +
+                "Turn off mobile data and connect to the school Wi-Fi (\"no internet\" there is fine), " +
+                "then press Start exam again.",
+            "Ujian ini memakai server sekolah sendiri yang tidak bisa dijangkau lewat data seluler. " +
+                "Matikan data seluler dan sambungkan ke Wi-Fi sekolah (tulisan \"tidak ada internet\" tidak apa-apa), " +
+                "lalu tekan Mulai ujian lagi."
+        )
+    )
+}
+
+private val LocalNetworkNameSuffixes = listOf(".local", ".lan", ".internal", ".home.arpa", ".localdomain")
+
+/** A private IPv4 address, or a name only a local network can resolve. */
+internal fun isLocalNetworkExamHost(host: String?): Boolean {
+    val name = host?.trim()?.lowercase(Locale.US)?.removeSuffix(".").orEmpty()
+    if (name.isEmpty()) return false
+    val octets = name.split('.').map { it.toIntOrNull() }
+    if (octets.size == 4 && octets.all { it != null && it in 0..255 }) {
+        val first = octets[0]!!
+        val second = octets[1]!!
+        return first == 10 || (first == 172 && second in 16..31) || (first == 192 && second == 168)
+    }
+    return '.' !in name || LocalNetworkNameSuffixes.any { name.endsWith(it) }
 }
 
 @Suppress("UNUSED_PARAMETER")

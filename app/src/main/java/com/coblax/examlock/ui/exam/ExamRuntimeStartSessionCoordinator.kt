@@ -552,6 +552,15 @@ private suspend fun runExamRuntimeStartPrechecksBody(
         ),
         startServerProbe.eventLevel
     )
+    resolveStartExamLocalServerOverMobileDataBlockMessage(
+        uiLanguage = uiLanguage,
+        examUrl = payload.examUrl,
+        status = startNetworkStatus,
+        serverProbe = startServerProbe
+    )?.let { localServerBlock ->
+        applyBlock(localServerBlock)
+        return
+    }
     resolveStartExamServerProbeBlockMessage(
         uiLanguage = uiLanguage,
         result = startServerProbe

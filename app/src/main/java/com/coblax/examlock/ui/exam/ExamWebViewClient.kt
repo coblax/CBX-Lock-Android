@@ -12,6 +12,10 @@ import android.webkit.WebView
 import android.webkit.WebViewClient
 import com.coblax.examlock.readWebViewCompatibilityStatus
 
+/** No progress at all for this long and the load counts as stalled. */
+internal const val ExamPageStallTimeoutMillis = 60_000L
+private const val StallProbeAnswerMillis = 1_500L
+
 /** First look for a blank page, then a later one for pages whose failures arrive slowly. */
 private const val BlankPageFirstCheckMillis = 6_000L
 private const val BlankPageSecondCheckMillis = 14_000L
@@ -44,9 +48,10 @@ internal fun SecureExamWebView.createExamWebViewClient(
     onWebViewRenderProcessGone: (SecureExamWebView?, Boolean, Int?) -> Boolean,
     onLoadingProgressChange: (WebView?, Float) -> Unit,
     blankPageFirstCheckMillis: Long = BlankPageFirstCheckMillis,
-    blankPageSecondCheckMillis: Long = BlankPageSecondCheckMillis
+    blankPageSecondCheckMillis: Long = BlankPageSecondCheckMillis,
+    stallTimeoutMillis: Long = ExamPageStallTimeoutMillis
 ): WebViewClient {
-    val loadingTimeoutMs = 60_000L
+    val loadingTimeoutMs = stallTimeoutMillis
     var pageLoadStartedAtElapsedMs = 0L
     val examWebView = this
 
@@ -57,14 +62,28 @@ internal fun SecureExamWebView.createExamWebViewClient(
             // window (SecureExamWebView.onNavigationProgress restarts the timer
             // while the page is still downloading), so this really is a stall.
             // A stalled navigation may be a form submission. Never replay it automatically.
-            navigationState.fail(url, recoverOnConnection = false)
-            view?.stopLoading()
-            onLoadingProgressChange(view, 1f)
-            onWebViewLoadError(
-                view,
-                "Halaman ujian berhenti memuat selama ${loadingTimeoutMs / 1000} detik. " +
-                    "Periksa koneksi internet, lalu tekan Refresh."
-            )
+            // What hung is read before stopping: stopping cancels the hung requests, and a
+            // cancelled request counts as finished in the page's resource timeline.
+            val revisionAtStall = navigationState.revision
+            var reported = false
+            fun reportStall(probe: String?) {
+                if (reported) return
+                reported = true
+                if (navigationState.revision != revisionAtStall) return
+                val stalls = navigationState.noteStall()
+                examWebView.lastStallProbe = probe
+                navigationState.fail(url, recoverOnConnection = false)
+                view?.stopLoading()
+                onLoadingProgressChange(view, 1f)
+                onWebViewLoadError(view, examStallErrorDescription(stalls, loadingTimeoutMs / 1000))
+            }
+            val probing = examWebView.evaluateExamJavascriptSafely(ExamStallProbeScript) { reportStall(it) }
+            if (probing) {
+                // A renderer too wedged to answer still gets its stall reported.
+                examWebView.postDelayed({ reportStall(null) }, StallProbeAnswerMillis)
+            } else {
+                reportStall(null)
+            }
         }
         scheduleNavigationTimeout(watchdog, loadingTimeoutMs)
     }
@@ -76,6 +95,7 @@ internal fun SecureExamWebView.createExamWebViewClient(
         cancelPendingConnectionRetries()
         onLoadingProgressChange(view, 1f)
         onWebViewLoadError(view, message)
+        view?.showNeutralExamErrorPage()
     }
 
     fun failBlankPage(view: WebView?, url: String, breakage: ExamPageBreakage) {
@@ -163,12 +183,27 @@ internal fun SecureExamWebView.createExamWebViewClient(
             armStallWatchdog(view, url)
             // Applied after the load-start callback, which clears the error message.
             if (heldHttpError != null) {
-                failMainFrameWithHttpError(view, url, heldHttpError.statusCode)
+                failMainFrameWithHttpError(
+                    view,
+                    url,
+                    heldHttpError.statusCode,
+                    heldHttpError.reloadWhenServerRecovers
+                )
             }
         }
 
-        private fun failMainFrameWithHttpError(view: WebView?, url: String, statusCode: Int?) {
-            navigationState.fail(url, recoverOnConnection = false)
+        private fun failMainFrameWithHttpError(
+            view: WebView?,
+            url: String,
+            statusCode: Int?,
+            reloadWhenServerRecovers: Boolean
+        ) {
+            navigationState.fail(
+                url,
+                recoverOnConnection = false,
+                httpStatus = statusCode,
+                reloadWhenServerRecovers = reloadWhenServerRecovers
+            )
             cancelNavigationTimeout()
             cancelPendingConnectionRetries()
             onLoadingProgressChange(view, 1f)
@@ -190,6 +225,12 @@ internal fun SecureExamWebView.createExamWebViewClient(
             cancelNavigationTimeout()
             onLoadingProgressChange(view, 1f)
             if (!navigationState.finish(url)) return
+            // The load after a stall bypassed every cache; the page is back, so is the cache.
+            view?.settings?.let { settings ->
+                if (settings.cacheMode == android.webkit.WebSettings.LOAD_NO_CACHE) {
+                    settings.cacheMode = android.webkit.WebSettings.LOAD_DEFAULT
+                }
+            }
             examWebView.injectExamAppKeyScriptIfNeeded(url)
             onWebViewLoadFinish(view, url)
             cancelPendingConnectionRetries()
@@ -256,6 +297,7 @@ internal fun SecureExamWebView.createExamWebViewClient(
                 } else {
                     cancelPendingConnectionRetries()
                 }
+                view?.showNeutralExamErrorPage()
             } else {
                 // Sub-resource failed — never an error overlay on its own: analytics,
                 // third-party fonts, lazy chunks not yet needed and resources blocked by
@@ -283,13 +325,17 @@ internal fun SecureExamWebView.createExamWebViewClient(
             val failedUrl = request?.url?.toString() ?: return
             val statusCode = errorResponse?.statusCode
             if (request.isForMainFrame) {
+                // A busy server (5xx) is not sent quick retries, but a page it could not
+                // serve is reloaded once it answers again. Never a form submission.
+                val reloadWhenServerRecovers = statusCode != null && statusCode >= 500 &&
+                    request.method.equals("GET", ignoreCase = true)
                 if (navigationState.isLoading(failedUrl)) {
                     // The page already started (older WebView ordering): fail it now.
-                    failMainFrameWithHttpError(view, failedUrl, statusCode)
+                    failMainFrameWithHttpError(view, failedUrl, statusCode, reloadWhenServerRecovers)
                 } else {
                     // Usual ordering: headers arrive before onPageStarted, which would
                     // reset a failure recorded now. Held until that page starts.
-                    navigationState.holdHttpError(failedUrl, statusCode)
+                    navigationState.holdHttpError(failedUrl, statusCode, reloadWhenServerRecovers)
                 }
             } else if (isPageCriticalResource(failedUrl)) {
                 // A script the cached page still names but the server no longer has.

@@ -6,6 +6,8 @@ import android.os.Build
 import android.view.View
 import android.view.ViewGroup
 import android.webkit.ConsoleMessage
+import android.webkit.JsPromptResult
+import android.webkit.JsResult
 import android.webkit.WebChromeClient
 import android.webkit.WebView
 import android.widget.FrameLayout
@@ -27,12 +29,11 @@ import com.coblax.examlock.attachExamNativeFullscreenBridge
 import com.coblax.examlock.attachExamParticipantCaptureBridge
 import com.coblax.examlock.config.ExamNativeFullscreenBridgeInstallScript
 import com.coblax.examlock.config.InstallExamKeyboardScript
-import com.coblax.examlock.config.InstallExamSideArrowControlsScript
-import com.coblax.examlock.config.RemoveExamSideArrowControlsScript
 import com.coblax.examlock.ExamParticipantCaptureBridge
 import com.coblax.examlock.ExamQrPayload
 import com.coblax.examlock.format.buildExamNativeFullscreenStateSyncScript
 import com.coblax.examlock.GeofenceRuntimeStatus
+import com.coblax.examlock.i18n.tr
 import com.coblax.examlock.installExamNativeFullscreenDocumentStartScriptIfSupported
 import com.coblax.examlock.LocalLowRamProfile
 import com.coblax.examlock.model.AdminSettings
@@ -107,6 +108,10 @@ private fun ExamRuntimeSessionMainContent(
         return
     }
 
+    val leavePageMessage = tr(
+        "Leave this page? Changes you made may not be saved.",
+        "Tinggalkan halaman ini? Perubahan yang belum disimpan bisa hilang."
+    )
     ExamRuntimeChrome(
         state = runtimeChromeState,
         actions = runtimeChromeActions,
@@ -194,6 +199,47 @@ private fun ExamRuntimeSessionMainContent(
                                 onHideCustomView()
                             }
 
+                            // WebView titles its own dialogs with the page's address.
+                            override fun onJsAlert(
+                                view: WebView?,
+                                url: String?,
+                                message: String?,
+                                result: JsResult?
+                            ): Boolean = view.showExamJsDialog(message, result, withCancel = false)
+
+                            override fun onJsConfirm(
+                                view: WebView?,
+                                url: String?,
+                                message: String?,
+                                result: JsResult?
+                            ): Boolean = view.showExamJsDialog(message, result, withCancel = true)
+
+                            override fun onJsPrompt(
+                                view: WebView?,
+                                url: String?,
+                                message: String?,
+                                defaultValue: String?,
+                                result: JsPromptResult?
+                            ): Boolean = view.showExamJsDialog(
+                                message,
+                                result,
+                                withCancel = true,
+                                isPrompt = true,
+                                promptDefault = defaultValue
+                            )
+
+                            // Current WebViews pass no text of the page's own here.
+                            override fun onJsBeforeUnload(
+                                view: WebView?,
+                                url: String?,
+                                message: String?,
+                                result: JsResult?
+                            ): Boolean = view.showExamJsDialog(
+                                message?.takeIf { it.isNotBlank() } ?: leavePageMessage,
+                                result,
+                                withCancel = true
+                            )
+
                             // Capture JavaScript errors from the exam page for diagnostics.
                             // Important: Do NOT call onWebViewLoadError or modify webViewErrorMessage
                             // here — many websites produce non-fatal console.error() calls (React dev
@@ -235,13 +281,6 @@ private fun ExamRuntimeSessionMainContent(
                         onHideSystemKeyboard = if (useBuiltInExamKeyboard) onHideSystemKeyboard else null
                     )
                     webView.evaluateExamJavascriptSafely(InstallExamKeyboardScript)
-                    webView.evaluateExamJavascriptSafely(
-                        if (runtimeChromeState.showSideArrowControls) {
-                            InstallExamSideArrowControlsScript
-                        } else {
-                            RemoveExamSideArrowControlsScript
-                        }
-                    )
                     if (!useBuiltInExamKeyboard) {
                         onShowBuiltInExamKeyboardChange(false)
                         webView.post {

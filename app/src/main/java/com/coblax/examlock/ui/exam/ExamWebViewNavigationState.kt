@@ -1,6 +1,7 @@
 package com.coblax.examlock.ui.exam
 
 import android.webkit.WebViewClient
+import java.net.URI
 import java.util.Locale
 
 /** Main-frame navigation state; an error-page finish is never a successful load. */
@@ -10,6 +11,15 @@ internal class ExamWebViewNavigationState {
     var failedUrl: String? = null
         private set
     var canRecoverOnConnection: Boolean = false
+        private set
+    /** The HTTP status the server refused the failed page with, if that is how it failed. */
+    var failedHttpStatus: Int? = null
+        private set
+    /**
+     * The failed page is worth loading again once its server answers: a connection that
+     * failed, or a GET the server could not serve at the time (5xx, a busy server).
+     */
+    var canReloadWhenServerRecovers: Boolean = false
         private set
     var revision: Long = 0L
         private set
@@ -24,6 +34,16 @@ internal class ExamWebViewNavigationState {
     /** Why the page that has started may render blank: failed scripts or styles, script errors. */
     var pageBreakage: ExamPageBreakage = ExamPageBreakage()
         private set
+
+    /**
+     * Loads in a row that made no progress for the whole stall window; 0 once a page loads.
+     * A second stall in a row is no longer a slow server: something on the phone, a DNS
+     * answer or connection left over from a dropped network, is holding requests.
+     */
+    var consecutiveStalls: Int = 0
+        private set
+
+    fun noteStall(): Int = ++consecutiveStalls
 
     fun prepareAutomaticRetry() {
         automaticRetryPending = true
@@ -100,13 +120,17 @@ internal class ExamWebViewNavigationState {
     /** True while [url] is the main-frame navigation that has started and not finished. */
     fun isLoading(url: String?): Boolean = loading && isCurrentNavigation(url)
 
+    /** A main-frame navigation is under way: asked for and not yet failed, or not finished. */
+    val navigationInFlight: Boolean
+        get() = requestedUrl != null || loading
+
     /**
      * WebView reports a main-frame HTTP error as soon as the response headers arrive,
      * which is before onPageStarted for that same navigation. [start] would wipe a
      * failure recorded that early, so the error is held here until the page starts.
      */
-    fun holdHttpError(url: String, statusCode: Int?) {
-        pendingHttpError = PendingHttpError(url, statusCode)
+    fun holdHttpError(url: String, statusCode: Int?, reloadWhenServerRecovers: Boolean = false) {
+        pendingHttpError = PendingHttpError(url, statusCode, reloadWhenServerRecovers)
     }
 
     /**
@@ -134,17 +158,26 @@ internal class ExamWebViewNavigationState {
         requestedUrl = null
         failed = false
         failedUrl = null
+        failedHttpStatus = null
         canRecoverOnConnection = false
+        canReloadWhenServerRecovers = false
         pageBreakage = ExamPageBreakage()
     }
 
-    fun fail(url: String?, recoverOnConnection: Boolean) {
+    fun fail(
+        url: String?,
+        recoverOnConnection: Boolean,
+        httpStatus: Int? = null,
+        reloadWhenServerRecovers: Boolean = recoverOnConnection
+    ) {
         revision++
         loading = false
         failed = true
         failedUrl = url?.takeIf(::isExamWebUrl) ?: requestedUrl ?: currentUrl
+        failedHttpStatus = httpStatus
         requestedUrl = null
         canRecoverOnConnection = recoverOnConnection
+        canReloadWhenServerRecovers = reloadWhenServerRecovers
     }
 
     fun finish(url: String?): Boolean {
@@ -157,8 +190,11 @@ internal class ExamWebViewNavigationState {
         loading = false
         if (failed || !isExamWebUrl(url)) return false
         retryCount = 0
+        consecutiveStalls = 0
         canRecoverOnConnection = false
+        canReloadWhenServerRecovers = false
         failedUrl = null
+        failedHttpStatus = null
         return true
     }
 
@@ -176,10 +212,40 @@ internal class ExamWebViewNavigationState {
 
     private fun sameDocument(first: String?, second: String?): Boolean =
         first != null && second != null &&
-            first.substringBefore('#') == second.substringBefore('#')
+            canonicalExamPageUrl(first) == canonicalExamPageUrl(second)
 }
 
-internal data class PendingHttpError(val url: String, val statusCode: Int?)
+/**
+ * [url] without its fragment, written the way WebView reports it back: scheme and host in
+ * lower case, no default port, "/" for a bare host, spaces escaped. Exam links are loaded
+ * as the admin typed them, so "https://cbt.school.id" came back as "https://cbt.school.id/"
+ * and its certificate problem was refused as some other page's.
+ */
+internal fun canonicalExamPageUrl(url: String): String {
+    val page = url.substringBefore('#').trim().replace(" ", "%20")
+    val uri = runCatching { URI(page).normalize() }.getOrNull() ?: return page
+    val scheme = uri.scheme?.lowercase(Locale.US)
+    if (scheme != "http" && scheme != "https" || uri.rawAuthority == null) return page
+    val defaultPort = if (scheme == "https") 443 else 80
+    val authority = uri.host?.let { host ->
+        buildString {
+            uri.rawUserInfo?.let { append(it).append('@') }
+            append(host.lowercase(Locale.US))
+            if (uri.port != -1 && uri.port != defaultPort) append(':').append(uri.port)
+        }
+    } ?: uri.rawAuthority.lowercase(Locale.US)
+    return buildString {
+        append(scheme).append("://").append(authority)
+        append(uri.rawPath?.takeIf { it.isNotEmpty() } ?: "/")
+        uri.rawQuery?.let { append('?').append(it) }
+    }
+}
+
+internal data class PendingHttpError(
+    val url: String,
+    val statusCode: Int?,
+    val reloadWhenServerRecovers: Boolean = false
+)
 
 internal data class PendingCertificateRejection(val url: String, val message: String)
 

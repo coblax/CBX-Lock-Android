@@ -187,6 +187,14 @@ class ExamWebViewInsecureSiteTest {
     fun untrustedRootOpensWithAWarning() =
         assertOpensWithAWarning("https://untrusted-root.badssl.com/", insecurity = arrayOf("certificate_SSL_UNTRUSTED"))
 
+    /** A link that is just the server's address, which WebView reports back with a "/". */
+    @Test
+    fun expiredCertificateOnABareServerAddressOpensWithAWarning() = assertOpensWithAWarning(
+        "https://expired.badssl.com",
+        landsOn = "https://expired.badssl.com/",
+        insecurity = ExpiredCertificate
+    )
+
     /** The school's link forwards to a server with an expired certificate. */
     @Test
     fun expiredCertificateAfterARedirectOpensWithAWarning() = assertOpensWithAWarning(

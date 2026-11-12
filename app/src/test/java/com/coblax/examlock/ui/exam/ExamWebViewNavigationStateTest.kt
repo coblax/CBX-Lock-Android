@@ -226,6 +226,105 @@ class ExamWebViewNavigationStateTest {
         assertFalse(state.canApplyServerProbe(state.revision))
     }
 
+    /**
+     * Exam links are loaded as the admin typed them, and WebView reports them back in its
+     * own form: "https://CBT.school.id" comes back as "https://cbt.school.id/". The link
+     * must still be recognised as the main frame, or its expired certificate was refused.
+     */
+    @Test
+    fun theExamLinkAsTypedIsThePageWebViewReportsBack() {
+        val state = ExamWebViewNavigationState()
+        state.request("https://CBT.School.id")
+        assertTrue(state.isMainFrameNavigation("https://cbt.school.id/"))
+        state.request("http://192.168.1.10:80")
+        assertTrue(state.isMainFrameNavigation("http://192.168.1.10/"))
+        assertFalse(state.isMainFrameNavigation("http://192.168.1.10/other"))
+
+        state.holdCertificateRejection("https://cbt.school.id/", "expired")
+        assertEquals("expired", state.takeCertificateRejection("https://cbt.school.id")?.message)
+        state.holdHttpError("https://cbt.school.id/", 403)
+        assertEquals(403, state.takeHeldHttpError("HTTPS://cbt.school.id:443")?.statusCode)
+    }
+
+    @Test
+    fun pageUrlsAreWrittenTheWayWebViewReportsThem() {
+        assertEquals("https://cbt.school.id/", canonicalExamPageUrl("https://CBT.school.id"))
+        assertEquals("https://cbt.school.id/ujian?k=A", canonicalExamPageUrl("HTTPS://cbt.school.id:443/ujian?k=A#soal-3"))
+        assertEquals("http://192.168.1.10:8080/", canonicalExamPageUrl("http://192.168.1.10:8080"))
+        assertEquals("http://lan.school/soal%20satu", canonicalExamPageUrl("http://lan.school/soal satu"))
+        assertEquals("https://cbt.school.id/b", canonicalExamPageUrl("https://cbt.school.id/a/../b"))
+        assertEquals("http://cbt_server.local:8080/", canonicalExamPageUrl("http://CBT_server.local:8080"))
+        assertEquals("blob:https://exam.example/7f3c", canonicalExamPageUrl("blob:https://exam.example/7f3c"))
+        assertEquals("about:blank", canonicalExamPageUrl("about:blank"))
+        assertNotEquals(canonicalExamPageUrl("https://exam.example/?k=A"), canonicalExamPageUrl("https://exam.example/?k=a"))
+        assertNotEquals(canonicalExamPageUrl("https://exam.example/a"), canonicalExamPageUrl("https://exam.example/a/"))
+    }
+
+    /** The server-recovery reload must never cut short a reload that is still under way. */
+    @Test
+    fun aNavigationIsInFlightFromItsRequestUntilItFailsOrFinishes() {
+        val state = ExamWebViewNavigationState()
+        assertFalse(state.navigationInFlight)
+        state.request(url)
+        assertTrue(state.navigationInFlight)
+        state.fail(url, recoverOnConnection = true)
+        assertFalse(state.navigationInFlight)
+        state.request(url)
+        state.start(url)
+        assertTrue(state.navigationInFlight)
+        assertTrue(state.finish(url))
+        assertFalse(state.navigationInFlight)
+    }
+
+    /**
+     * A page that could not connect, or a GET a busy server could not serve, is reloaded
+     * once the server answers; a 5xx gets no quick retries and a refused page none at all.
+     */
+    @Test
+    fun onlyConnectionFailuresAndBusyServersWaitForTheServerToRecover() {
+        val state = ExamWebViewNavigationState()
+        state.start(url)
+        state.fail(url, recoverOnConnection = true)
+        assertTrue(state.canReloadWhenServerRecovers)
+
+        state.start(url)
+        assertFalse(state.canReloadWhenServerRecovers)
+        state.fail(url, recoverOnConnection = false, httpStatus = 503, reloadWhenServerRecovers = true)
+        assertTrue(state.canReloadWhenServerRecovers)
+        assertFalse(state.canRecoverOnConnection)
+        assertNull(state.nextRetryDelayMillis())
+
+        state.start(url)
+        state.fail(url, recoverOnConnection = false, httpStatus = 403)
+        assertFalse(state.canReloadWhenServerRecovers)
+
+        state.start(url)
+        state.fail(url, recoverOnConnection = false, httpStatus = 503, reloadWhenServerRecovers = true)
+        state.start(url)
+        assertTrue(state.finish(url))
+        assertFalse(state.canReloadWhenServerRecovers)
+    }
+
+    @Test
+    fun aHeldServerErrorKeepsWhetherItCanBeReloaded() {
+        val state = ExamWebViewNavigationState()
+        state.holdHttpError(url, 503, reloadWhenServerRecovers = true)
+        assertEquals(PendingHttpError(url, 503, true), state.takeHeldHttpError(url))
+    }
+
+    /** A page the server refused is told apart from one the connection lost. */
+    @Test
+    fun aRefusedPageKeepsItsStatusUntilAPageLoads() {
+        val state = ExamWebViewNavigationState()
+        state.start(url)
+        state.fail(url, recoverOnConnection = false, httpStatus = 403)
+        assertEquals(403, state.failedHttpStatus)
+        state.start(url)
+        assertNull(state.failedHttpStatus)
+        state.fail(url, recoverOnConnection = true)
+        assertNull(state.failedHttpStatus)
+    }
+
     @Test
     fun onlyWebPagesCountAsMainFrameRequests() {
         val state = ExamWebViewNavigationState()

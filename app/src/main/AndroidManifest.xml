@@ -36,8 +36,12 @@
             android:name="com.google.android.geo.API_KEY"
             android:value="${mapsApiKey}" />
 
+        <!-- configChanges: recreating the activity mid-exam stopped screen pinning and
+             ended the session (Battery Saver switching on Dark theme, a keyboard plugged
+             in, a foldable unfolded). MainActivity.onConfigurationChanged handles them. -->
         <activity
             android:name=".MainActivity"
+            android:configChanges="uiMode|keyboard|keyboardHidden|navigation|orientation|screenSize|smallestScreenSize|screenLayout|mcc|mnc"
             android:exported="true"
             android:resizeableActivity="false"
             android:supportsPictureInPicture="false"
@@ -57,6 +61,16 @@
             android:stateNotNeeded="true"
             android:theme="@style/Theme.COBLAXEXAMLOCK"
             tools:ignore="LockedOrientationActivity,DiscouragedApi" />
+
+        <!-- Restarts the app process after an exam page stalled (AppProcessRestarter). Its
+             own process, so it outlives the app process it ends; never shown. -->
+        <activity
+            android:name=".AppRestartActivity"
+            android:excludeFromRecents="true"
+            android:exported="false"
+            android:noHistory="true"
+            android:process=":restart"
+            android:theme="@android:style/Theme.Translucent.NoTitleBar" />
 
         <receiver
             android:name=".CbxDeviceAdminReceiver"

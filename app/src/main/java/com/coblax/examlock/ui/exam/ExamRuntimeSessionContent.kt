@@ -89,7 +89,6 @@ internal fun ExamRuntimeSessionContent(
     var exitSessionClearInFlight by core.flowUiState.exitSessionClearInFlight
     var examRuntimeRecoveryState by core.webViewUiState.recoveryState
     var showBuiltInExamKeyboard by core.flowUiState.showBuiltInExamKeyboard
-    var sideArrowControlsVisible by core.flowUiState.sideArrowControlsVisible
     var hasEditableFocus by core.flowUiState.hasEditableFocus
     var builtInKeyboardShiftEnabled by core.flowUiState.builtInKeyboardShiftEnabled
     var geofenceManualRefreshInFlight by core.flowUiState.geofenceManualRefreshInFlight
@@ -227,14 +226,6 @@ internal fun ExamRuntimeSessionContent(
 
     fun sendBuiltInKeyboardBackspace() {
         sendBuiltInExamKeyboardBackspace(webViewInstance, { hideSystemKeyboard() })
-    }
-
-    fun sendKeyboardArrowLeft() {
-        sendExamKeyboardArrowLeft(webViewInstance)
-    }
-
-    fun sendKeyboardArrowRight() {
-        sendExamKeyboardArrowRight(webViewInstance)
     }
 
     fun sendBuiltInKeyboardEnter() {
@@ -494,14 +485,23 @@ internal fun ExamRuntimeSessionContent(
         hasFullscreenCustomView = fullScreenCustomView != null,
         useBuiltInExamKeyboard = useBuiltInExamKeyboard,
         showBuiltInExamKeyboard = showBuiltInExamKeyboard,
-        showSideArrowControls = examSessionStarted && sideArrowControlsVisible,
         hasEditableFocus = hasEditableFocus,
         builtInKeyboardShiftEnabled = builtInKeyboardShiftEnabled,
         networkStatus = networkReadinessStatus,
         serverStatus = examServerStatus,
         batteryStatus = batteryStatus,
-        shieldStatus = footerShieldStatus
+        shieldStatus = footerShieldStatus,
+        participantContext = core.adminUiState.participantContext.value,
+        // Read on the recomposition the stall's error message causes.
+        stallAttempt = if (webViewErrorMessage != null) {
+            webViewInstance?.navigationState?.consecutiveStalls ?: 0
+        } else {
+            0
+        },
+        stallReport = flowUiState.lastStallReport.value
     )
+    // Built below; the restart button runs the same exit as the exit dialog's confirm.
+    var dialogsActionsForRestart: com.coblax.examlock.ui.dialog.ExamRuntimeDialogsActions? = null
     val runtimeChromeActions = buildExamRuntimeChromeActionsForSession(
         examSessionStarted = examSessionStarted,
         screenPinningMode = screenPinningMode,
@@ -513,11 +513,8 @@ internal fun ExamRuntimeSessionContent(
         lockTaskAlreadyActive = { lockTaskBridge.active() },
         markTrustedRuntimeChromeAction = { reason -> markTrustedRuntimeChromeAction(reason) },
         clearWebViewError = { webViewErrorMessage = null },
-        loadExamUrl = {
-            webViewInstance?.let { webView ->
-                webView.loadExamUrlSafely(payload.examUrl)
-                webView.requestedExamUrl = payload.examUrl
-            }
+        retryExamPageAfterError = {
+            webViewInstance?.retryExamPageAfterErrorSafely(payload.examUrl)
         },
         reloadExamUrlLikeBrowser = {
             webViewInstance?.reloadExamUrlLikeBrowserSafely(payload.examUrl)
@@ -541,15 +538,13 @@ internal fun ExamRuntimeSessionContent(
         recordAction = { code, details, level -> recordAction(code, details, level) },
         sendBuiltInKeyboardText = { rawText -> sendBuiltInKeyboardText(rawText) },
         sendBuiltInKeyboardBackspace = { sendBuiltInKeyboardBackspace() },
-        sendKeyboardArrowLeft = { sendKeyboardArrowLeft() },
-        sendKeyboardArrowRight = { sendKeyboardArrowRight() },
-        toggleSideArrowControls = {
-            sideArrowControlsVisible = !sideArrowControlsVisible
-            sideArrowControlsVisible
-        },
         sendBuiltInKeyboardEnter = { sendBuiltInKeyboardEnter() },
         toggleBuiltInKeyboardShift = {
             builtInKeyboardShiftEnabled = !builtInKeyboardShiftEnabled
+        },
+        requestAppRestart = {
+            flowUiState.restartAfterExitRequested.value = true
+            dialogsActionsForRestart?.onConfirmExitExam?.invoke()
         }
     )
     val runtimeDialogsState = buildExamRuntimeDialogsState(
@@ -624,6 +619,7 @@ internal fun ExamRuntimeSessionContent(
         onExit = onExit,
         examAlarmController = examAlarmController
     )
+    dialogsActionsForRestart = runtimeDialogsActions
 
     val screenPinningFixNeeded = !bypassScreenPinning &&
         screenPinningAvailable &&

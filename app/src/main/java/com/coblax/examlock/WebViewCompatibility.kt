@@ -124,7 +124,9 @@ internal fun readWebViewCompatibilityStatus(context: Context): WebViewCompatibil
     knownPackages.forEach { packageName ->
         val found = runCatching { context.packageManager.getPackageInfo(packageName, 0) }
             .getOrNull()
-        if (found != null) {
+        // A disabled package is still installed, but it cannot render: counting it let
+        // the exam start, and creating its WebView then crashed the app.
+        if (found != null && found.applicationInfo?.enabled != false) {
             return resolveWebViewCompatibilityStatus(
                 packageName = found.packageName,
                 versionName = found.versionName,

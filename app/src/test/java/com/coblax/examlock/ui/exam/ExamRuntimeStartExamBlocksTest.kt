@@ -201,6 +201,83 @@ class ExamRuntimeStartExamBlocksTest {
         assertTrue(block?.message?.contains("Exam host DNS") == true)
     }
 
+    /** The exam server's name is kept from students; only the admin's details carry it. */
+    @Test
+    fun networkBlockNeverNamesTheExamServerToTheStudent() {
+        for (language in listOf(UiLanguage.English, UiLanguage.Indonesian)) {
+            val block = resolveStartExamNetworkReachabilityBlockMessage(
+                uiLanguage = language,
+                status = networkStatus(
+                    userFacingVerdict = NetworkReadinessUserVerdict.Offline,
+                    dnsProbeStatus = NetworkDnsProbeStatus(
+                        verdict = NetworkDnsProbeVerdict.Failed,
+                        host = "skansatp.web.id",
+                        error = "UnknownHostException"
+                    )
+                )
+            )
+            assertFalse(block?.message.orEmpty().contains("skansatp"))
+            assertTrue(block?.details?.contains("probe_host=skansatp.web.id") == true)
+        }
+    }
+
+    /**
+     * Android uses mobile data when the school Wi-Fi has no internet, and a school's own
+     * server is out of its reach: the student is told to use the Wi-Fi, never shown its name.
+     */
+    @Test
+    fun aSchoolServerOverMobileDataTellsTheStudentToUseTheWifi() {
+        val unreachable = ExamServerProbeResult(
+            status = ExamServerFooterStatus.Offline,
+            host = "192.168.1.10",
+            method = "GET",
+            code = null,
+            latencyMs = 12_000L,
+            reason = "SocketTimeoutException"
+        )
+        val onMobileData = networkStatus().let {
+            it.copy(diagnostics = it.diagnostics.copy(transports = listOf("CELLULAR")))
+        }
+        val block = resolveStartExamLocalServerOverMobileDataBlockMessage(
+            uiLanguage = UiLanguage.Indonesian,
+            examUrl = "http://192.168.1.10/cbt",
+            status = onMobileData,
+            serverProbe = unreachable
+        )
+        assertEquals("START_EXAM_BLOCKED_NETWORK_REACHABILITY", block?.code)
+        assertTrue(block?.message.orEmpty().contains("Wi-Fi sekolah"))
+        assertFalse(block?.message.orEmpty().contains("192.168"))
+        assertTrue(block?.details?.contains("reason=local_server_over_mobile_data") == true)
+
+        // On the Wi-Fi, a server that answers, or a public exam site: nothing to block.
+        assertNull(
+            resolveStartExamLocalServerOverMobileDataBlockMessage(
+                UiLanguage.Indonesian, "http://192.168.1.10/cbt", networkStatus(), unreachable
+            )
+        )
+        assertNull(
+            resolveStartExamLocalServerOverMobileDataBlockMessage(
+                UiLanguage.Indonesian, "http://192.168.1.10/cbt", onMobileData,
+                unreachable.copy(status = ExamServerFooterStatus.Insecure, code = 200, reason = "reachable_without_https")
+            )
+        )
+        assertNull(
+            resolveStartExamLocalServerOverMobileDataBlockMessage(
+                UiLanguage.Indonesian, "https://skansatp.web.id/", onMobileData, unreachable
+            )
+        )
+    }
+
+    @Test
+    fun localNetworkServersAreToldApartFromPublicOnes() {
+        for (host in listOf("192.168.1.10", "10.0.0.5", "172.16.3.4", "172.31.255.1", "cbt.local", "server.lan", "cbtserver")) {
+            assertTrue(host, isLocalNetworkExamHost(host))
+        }
+        for (host in listOf("skansatp.web.id", "8.8.8.8", "172.32.0.1", "192.169.1.1", "100.64.0.1", "", null)) {
+            assertFalse(host.toString(), isLocalNetworkExamHost(host))
+        }
+    }
+
     @Test
     fun captivePortalFlagIsAdvisoryForStartExam() {
         val block = resolveStartExamNetworkReachabilityBlockMessage(

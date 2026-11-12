@@ -25,7 +25,7 @@ class ExamRefreshSafetyTest {
             lockTaskAlreadyActive = { true },
             markTrustedRuntimeChromeAction = {},
             clearWebViewError = {},
-            loadExamUrl = { softLoads += 1 },
+            retryExamPageAfterError = { softLoads += 1 },
             reloadExamUrlLikeBrowser = { browserReloads += 1 },
             stopWebViewLoading = {},
             setLoadingProgress = {},
@@ -37,9 +37,6 @@ class ExamRefreshSafetyTest {
             recordAction = { _: String, _: String, _: DiagnosticEventLevel -> },
             sendBuiltInKeyboardText = {},
             sendBuiltInKeyboardBackspace = {},
-            sendKeyboardArrowLeft = {},
-            sendKeyboardArrowRight = {},
-            toggleSideArrowControls = { true },
             sendBuiltInKeyboardEnter = {},
             toggleBuiltInKeyboardShift = {}
         )
@@ -69,7 +66,7 @@ class ExamRefreshSafetyTest {
             lockTaskAlreadyActive = { true },
             markTrustedRuntimeChromeAction = {},
             clearWebViewError = {},
-            loadExamUrl = {},
+            retryExamPageAfterError = {},
             reloadExamUrlLikeBrowser = { browserReloads += 1 },
             stopWebViewLoading = { stopLoads += 1 },
             setLoadingProgress = { loadingProgress = it },
@@ -81,9 +78,6 @@ class ExamRefreshSafetyTest {
             recordAction = { code: String, _: String, _: DiagnosticEventLevel -> events += code },
             sendBuiltInKeyboardText = {},
             sendBuiltInKeyboardBackspace = {},
-            sendKeyboardArrowLeft = {},
-            sendKeyboardArrowRight = {},
-            toggleSideArrowControls = { true },
             sendBuiltInKeyboardEnter = {},
             toggleBuiltInKeyboardShift = {}
         )
@@ -95,6 +89,48 @@ class ExamRefreshSafetyTest {
         assertTrue(stopRequested)
         assertEquals(1f, loadingProgress, 0.0f)
         assertTrue(events.contains(ExamRuntimeHardeningDiagnostics.ExamRefreshStoppedByUser))
+    }
+
+    /** The error card's Reload retries the failed page and clears the error first. */
+    @Test
+    fun errorCardReloadRetriesTheFailedPage() {
+        val events = mutableListOf<String>()
+        val actions = buildExamRuntimeChromeActionsForSession(
+            examSessionStarted = true,
+            screenPinningMode = ScreenPinningMode.Enforced,
+            screenPinningAvailable = true,
+            lockTaskRequestPending = false,
+            deviceCompatibilityProfile = DeviceCompatibilityProfile(),
+            isIndonesian = true,
+            isCurrentlyLoading = { false },
+            lockTaskAlreadyActive = { true },
+            markTrustedRuntimeChromeAction = { events += "trusted:$it" },
+            clearWebViewError = { events += "clear_error" },
+            retryExamPageAfterError = { events += "retry" },
+            reloadExamUrlLikeBrowser = { events += "browser_reload" },
+            stopWebViewLoading = { events += "stop" },
+            setLoadingProgress = { events += "progress:$it" },
+            setWebViewStopRequested = { events += "stop_requested:$it" },
+            setLastExamRefreshDecision = {},
+            setScreenPinningMessage = {},
+            setShowExitExamDialog = {},
+            launchExamServerProbe = { trigger, _ -> events += "probe:$trigger" },
+            recordAction = { _: String, _: String, _: DiagnosticEventLevel -> },
+            sendBuiltInKeyboardText = {},
+            sendBuiltInKeyboardBackspace = {},
+            sendBuiltInKeyboardEnter = {},
+            toggleBuiltInKeyboardShift = {}
+        )
+
+        actions.onRetryLoading()
+
+        assertEquals(
+            listOf(
+                "trusted:webview_retry", "stop_requested:false", "clear_error",
+                "progress:0.05", "probe:manual_retry", "retry"
+            ),
+            events
+        )
     }
 
     @Test

@@ -8,7 +8,7 @@ Aplikasi ini menjaga fungsi utama ujian tetap sederhana untuk siswa: scan QR ata
 
 - App label: `CBX Lock`
 - Package: `com.coblax.examlock`
-- Version: `3.3.7 (379)`
+- Version: `3.3.9 (381)`
 - Minimum Android: API 24 (Android 7.0)
 - Target Android: API 36
 - Diuji di emulator Android 7.0, 9, 11, dan 16
@@ -83,6 +83,16 @@ Item dikelompokkan menjadi `Perbaiki dulu` dan `Saran (opsional)`. Item yang tid
 - Sertifikat rusak milik situs pihak ketiga (CDN, analytics) tetap ditolak.
 - Halaman yang terbuka tetapi kosong karena file skrip/tampilan gagal dimuat, atau karena Android System WebView terlalu lama, menampilkan pesan dan tombol `Muat ulang`.
 - Pemuatan pertama selalu mengambil halaman terbaru dari server (cache lama hanya dipakai saat jaringan tidak stabil).
+- Koneksi terputus saat berpindah halaman: dicoba ulang otomatis 3 kali (2, 4, 8 detik). Setelah itu, dan juga untuk server yang sedang sibuk (HTTP 5xx), server dicek berkala (10 detik, 20 detik, lalu tiap 30 detik, diacak agar satu kelas tidak bersamaan) dan halaman yang gagal dimuat ulang begitu server menjawab, atau begitu jaringan HP tersambung lagi. Kiriman formulir (POST) tidak pernah diulang otomatis.
+- `Muat ulang` membuka lagi halaman yang gagal, bukan halaman awal ujian. Hanya halaman yang ditolak server (HTTP 4xx, misalnya sesi habis) yang kembali ke link ujian.
+- Halaman yang macet (layar putih, bar loading berhenti, internet tersambung) dihentikan setelah 60 detik tanpa kemajuan. `Muat ulang` sesudahnya tidak memakai cache sama sekali.
+- Kartu halaman macet menampilkan log `EXAM_PAGE_STALLED` secara langsung, tanpa nama dan IP server ujian: apa yang menggantung, jaringan, jawaban DNS server ujian, Private DNS, dan IPv6. Kartu juga menyediakan tombol `Mulai ulang aplikasi`, yang menjadi tombol utama sejak macet kedua.
+- `Mulai ulang aplikasi` mengakhiri sesi ujian, lalu mematikan dan membuka lagi proses aplikasi. Hasilnya sama seperti restart HP untuk koneksi yang tersangkut di dalam aplikasi, tetapi hanya butuh beberapa detik. Tombol ini juga ada di lembar `Info` (untuk layar putih tanpa kartu). Menekan `Keluar` setelah halaman macet yang belum pulih juga otomatis memulai ulang aplikasi, karena "keluar lalu buka lagi" tidak mematikan proses.
+- `Secret Admin` → `Diagnostik` → `Riwayat halaman macet` menyimpan 10 kejadian terakhir secara permanen (macet, mulai ulang, dan halaman yang terbuka setelah mulai ulang), lengkap dengan host dan IP. Riwayat ini bisa disalin untuk dikirim ke developer.
+- Link ujian boleh ditulis tanpa `/` di akhir (`https://cbt.sekolah.sch.id`, `http://192.168.1.10`).
+- Alamat server ujian tidak ditampilkan ke siswa: halaman error bawaan WebView diganti halaman kosong, halaman di bawah kartu error ditutup, dialog `alert`/`confirm`/`prompt` dari halaman ujian tidak berjudul alamat situs, dan detail teknis di layar persiapan tidak menyebut host. Admin tetap melihat host di diagnostik.
+- Server sekolah di jaringan lokal (192.168.x.x, 10.x.x.x, `.local`) yang tidak bisa dijangkau karena HP memakai data seluler: `Mulai ujian` meminta siswa mematikan data seluler dan memakai Wi-Fi sekolah.
+- Mode gelap yang menyala otomatis (Battery Saver, jadwal), keyboard OTG, atau layar lipat tidak lagi menghentikan ujian.
 
 ## Diagnostik Telegram
 
@@ -190,7 +200,8 @@ Sebelum APK dibagikan:
 - uji overlay/floating app
 - uji root/fake-location signal jika tersedia
 - uji geofence circle dan polygon, serta ujian tanpa geofence
-- uji offline lebih dari 30 detik saat ujian
+- uji offline lebih dari 30 detik saat ujian, dan server ujian mati lalu hidup lagi
+- uji mode gelap saat ujian berjalan: `adb shell cmd uimode night yes`
 - uji memori kritis: `adb shell am send-trim-memory com.coblax.examlock RUNNING_CRITICAL`
 - uji Bahasa Indonesia dan English
 

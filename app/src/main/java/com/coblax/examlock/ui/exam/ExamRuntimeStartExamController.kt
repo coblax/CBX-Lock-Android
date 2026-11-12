@@ -66,7 +66,6 @@ internal fun finalizeStartExamSession(
     } else {
         flowUiState.showBuiltInExamKeyboard.value = false
     }
-    flowUiState.sideArrowControlsVisible.value = true
     securityUiState.overlayGuardActive.value = false
     recordAction(
         "OVERLAY_GUARD_WINDOW_DISABLED",

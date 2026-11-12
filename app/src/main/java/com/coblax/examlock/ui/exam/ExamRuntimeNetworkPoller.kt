@@ -392,6 +392,9 @@ internal fun RuntimeConnectivityEffects(
             networkUiState.networkUnstableWarningShown.value = false
             clearNetworkFlapHistory()
             networkUiState.networkUnstableFlapCount.intValue = 0
+            // The connection has been steady for a minute: the warning is over. Left up,
+            // it went on to read "0 changes detected" under "changed several times".
+            networkUiState.showNetworkUnstableDialog.value = false
         }
     }
 

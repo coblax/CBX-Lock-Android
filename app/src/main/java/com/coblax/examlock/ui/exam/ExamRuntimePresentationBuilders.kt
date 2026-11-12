@@ -155,13 +155,15 @@ internal fun buildExamRuntimeChromeState(
     hasFullscreenCustomView: Boolean,
     useBuiltInExamKeyboard: Boolean,
     showBuiltInExamKeyboard: Boolean,
-    showSideArrowControls: Boolean,
     hasEditableFocus: Boolean,
     builtInKeyboardShiftEnabled: Boolean,
     networkStatus: NetworkReadinessStatus,
     serverStatus: ExamServerFooterStatus,
     batteryStatus: com.coblax.examlock.model.ExamBatteryStatus,
-    shieldStatus: ExamFooterShieldStatus
+    shieldStatus: ExamFooterShieldStatus,
+    participantContext: com.coblax.examlock.ExamParticipantContext? = null,
+    stallAttempt: Int = 0,
+    stallReport: ExamStallReport? = null
 ): ExamRuntimeChromeState {
     return ExamRuntimeChromeState(
         examSessionStarted = examSessionStarted,
@@ -171,41 +173,16 @@ internal fun buildExamRuntimeChromeState(
         hasFullscreenCustomView = hasFullscreenCustomView,
         useBuiltInExamKeyboard = useBuiltInExamKeyboard,
         showBuiltInExamKeyboard = showBuiltInExamKeyboard,
-        showSideArrowControls = showSideArrowControls,
         hasEditableFocus = hasEditableFocus,
         builtInKeyboardShiftEnabled = builtInKeyboardShiftEnabled,
         networkStatus = networkStatus,
         serverStatus = serverStatus,
         batteryStatus = batteryStatus,
-        shieldStatus = shieldStatus
-    )
-}
-
-internal fun buildExamRuntimeChromeActions(
-    onRetryLoading: () -> Unit,
-    onRefreshPage: () -> Unit,
-    onGoHome: () -> Unit,
-    onTextKey: (String) -> Unit,
-    onBackspace: () -> Unit,
-    onArrowLeft: () -> Unit,
-    onArrowRight: () -> Unit,
-    onToggleSideArrowControls: () -> Unit,
-    onEnter: () -> Unit,
-    onSpace: () -> Unit,
-    onShiftToggle: () -> Unit
-): ExamRuntimeChromeActions {
-    return ExamRuntimeChromeActions(
-        onRetryLoading = onRetryLoading,
-        onRefreshPage = onRefreshPage,
-        onGoHome = onGoHome,
-        onTextKey = onTextKey,
-        onBackspace = onBackspace,
-        onArrowLeft = onArrowLeft,
-        onArrowRight = onArrowRight,
-        onToggleSideArrowControls = onToggleSideArrowControls,
-        onEnter = onEnter,
-        onSpace = onSpace,
-        onShiftToggle = onShiftToggle
+        shieldStatus = shieldStatus,
+        participantName = participantContext?.let(::proctorParticipantName),
+        participantGroup = participantContext?.let(::proctorParticipantGroup),
+        stallAttempt = stallAttempt,
+        stallReport = stallReport
     )
 }
 
