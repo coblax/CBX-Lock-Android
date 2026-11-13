@@ -1,6 +1,7 @@
 package com.coblax.examlock
 import android.app.AlertDialog
 import android.app.ActivityManager
+import android.content.Intent
 import android.content.res.Configuration
 import android.content.pm.ActivityInfo
 import android.graphics.Color
@@ -23,6 +24,8 @@ import androidx.core.view.ViewCompat
 import androidx.core.view.WindowCompat
 import androidx.core.view.WindowInsetsCompat
 import androidx.core.view.WindowInsetsControllerCompat
+import androidx.lifecycle.lifecycleScope
+import kotlinx.coroutines.launch
 import com.coblax.examlock.config.AdminKeyFastExamLabel
 import com.coblax.examlock.config.AdminPreferencesName
 import com.coblax.examlock.config.DeveloperGithubUrl
@@ -71,6 +74,7 @@ class MainActivity : ComponentActivity() {
             StartupTrace.mark("set_content_start", "compose")
             startComposeContent()
         }
+        handleDebugRestartRequest(intent)
         if (savedInstanceState == null && intent?.getBooleanExtra(AppProcessRestarter.ExtraRestarted, false) == true) {
             val indonesian = readSavedUiLanguage() == UiLanguage.Indonesian
             Toast.makeText(
@@ -82,6 +86,35 @@ class MainActivity : ComponentActivity() {
                 },
                 Toast.LENGTH_LONG
             ).show()
+        }
+    }
+
+    override fun onNewIntent(intent: Intent) {
+        super.onNewIntent(intent)
+        handleDebugRestartRequest(intent)
+    }
+
+    /** Debug builds only (DebugRestartReceiver): unpin, then restart, as the exam exit does. */
+    private fun handleDebugRestartRequest(intent: Intent?) {
+        if (!BuildConfig.DEBUG || intent == null) return
+        if (intent.getBooleanExtra(AppProcessRestarter.ExtraDebugPin, false)) {
+            intent.removeExtra(AppProcessRestarter.ExtraDebugPin)
+            // startLockTask() is ignored until the activity is resumed again.
+            lifecycleScope.launch {
+                kotlinx.coroutines.delay(1_000L)
+                setExamLockMode(enabled = true)
+            }
+            return
+        }
+        val extra = AppProcessRestarter.ExtraDebugRestart
+        if (!intent.getBooleanExtra(extra, false)) return
+        intent.removeExtra(extra)
+        lifecycleScope.launch {
+            if (AppProcessRestarter.awaitUnpinned(this@MainActivity)) {
+                AppProcessRestarter.restart(this@MainActivity)
+            } else {
+                android.util.Log.w("CBX_RESTART_E2E", "CBX_RESTART_E2E still_pinned")
+            }
         }
     }
 

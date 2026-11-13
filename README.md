@@ -8,7 +8,7 @@ Aplikasi ini menjaga fungsi utama ujian tetap sederhana untuk siswa: scan QR ata
 
 - App label: `CBX Lock`
 - Package: `com.coblax.examlock`
-- Version: `3.3.9 (381)`
+- Version: `3.3.11 (383)`
 - Minimum Android: API 24 (Android 7.0)
 - Target Android: API 36
 - Diuji di emulator Android 7.0, 9, 11, dan 16
@@ -87,7 +87,8 @@ Item dikelompokkan menjadi `Perbaiki dulu` dan `Saran (opsional)`. Item yang tid
 - `Muat ulang` membuka lagi halaman yang gagal, bukan halaman awal ujian. Hanya halaman yang ditolak server (HTTP 4xx, misalnya sesi habis) yang kembali ke link ujian.
 - Halaman yang macet (layar putih, bar loading berhenti, internet tersambung) dihentikan setelah 60 detik tanpa kemajuan. `Muat ulang` sesudahnya tidak memakai cache sama sekali.
 - Kartu halaman macet menampilkan log `EXAM_PAGE_STALLED` secara langsung, tanpa nama dan IP server ujian: apa yang menggantung, jaringan, jawaban DNS server ujian, Private DNS, dan IPv6. Kartu juga menyediakan tombol `Mulai ulang aplikasi`, yang menjadi tombol utama sejak macet kedua.
-- `Mulai ulang aplikasi` mengakhiri sesi ujian, lalu mematikan dan membuka lagi proses aplikasi. Hasilnya sama seperti restart HP untuk koneksi yang tersangkut di dalam aplikasi, tetapi hanya butuh beberapa detik. Tombol ini juga ada di lembar `Info` (untuk layar putih tanpa kartu). Menekan `Keluar` setelah halaman macet yang belum pulih juga otomatis memulai ulang aplikasi, karena "keluar lalu buka lagi" tidak mematikan proses.
+- `Mulai ulang aplikasi` mengakhiri sesi ujian, lalu mematikan dan membuka lagi proses aplikasi. Hasilnya sama seperti restart HP untuk koneksi yang tersangkut di dalam aplikasi, tetapi hanya butuh beberapa detik. Tombol ini juga ada di lembar `Info` (untuk layar putih tanpa kartu). Menekan `Keluar` setelah halaman macet yang belum pulih juga otomatis memulai ulang aplikasi, karena "keluar lalu buka lagi" tidak mematikan proses. Sebelum mulai ulang, sematan layar dilepas dan ditunggu sampai benar-benar lepas. Login, ID perangkat, dan jawaban yang belum terkirim di halaman ujian dipertahankan untuk satu kali masuk berikutnya (maksimal 30 menit), jadi siswa bisa langsung melanjutkan tanpa reset perangkat oleh pengawas.
+- Footer ujian: `Info` · `Muat ulang` · `Keluar`. `Info` membuka lembar "Info untuk pengawas" di atas halaman ujian (ujian tetap berjalan): jam, peserta, kelas · ruang, ujian, sisa waktu, status jawaban, jaringan, server ujian, keamanan, baterai, HP, dan versi CBX Lock. Untuk CBX Exam System, peserta (nama dan NIS), ruang, nama paket, sisa waktu, dan status jawaban (`Tersimpan`, `Offline · n belum terkirim`, `x/y dijawab`) dibaca dari halaman yang sedang tampil dan diperbarui tiap 5 detik selama lembar terbuka. Nama kelas terbaca jika halaman ujian dimuat penuh, atau jika `Info` pernah dibuka di beranda siswa.
 - `Secret Admin` → `Diagnostik` → `Riwayat halaman macet` menyimpan 10 kejadian terakhir secara permanen (macet, mulai ulang, dan halaman yang terbuka setelah mulai ulang), lengkap dengan host dan IP. Riwayat ini bisa disalin untuk dikirim ke developer.
 - Link ujian boleh ditulis tanpa `/` di akhir (`https://cbt.sekolah.sch.id`, `http://192.168.1.10`).
 - Alamat server ujian tidak ditampilkan ke siswa: halaman error bawaan WebView diganti halaman kosong, halaman di bawah kartu error ditutup, dialog `alert`/`confirm`/`prompt` dari halaman ujian tidak berjudul alamat situs, dan detail teknis di layar persiapan tidak menyebut host. Admin tetap melihat host di diagnostik.

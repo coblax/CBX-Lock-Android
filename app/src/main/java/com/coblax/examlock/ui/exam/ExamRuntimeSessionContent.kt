@@ -545,6 +545,11 @@ internal fun ExamRuntimeSessionContent(
         requestAppRestart = {
             flowUiState.restartAfterExitRequested.value = true
             dialogsActionsForRestart?.onConfirmExitExam?.invoke()
+        },
+        probeExamSite = { onResult ->
+            val started = webViewInstance
+                ?.evaluateExamJavascriptSafely(ExamSiteInfoProbeScript) { onResult(it) } == true
+            if (!started) onResult(null)
         }
     )
     val runtimeDialogsState = buildExamRuntimeDialogsState(

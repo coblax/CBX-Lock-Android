@@ -89,6 +89,14 @@ internal suspend fun prepareCleanExamWebViewSessionForStart(
         return false
     }
 
+    // Right after a stall restart the same student resumes: keep login, device id and
+    // unsent answers (ExamStallLogStore.markKeepWebViewSession). Once, then wiped as usual.
+    if (com.coblax.examlock.persistence.ExamStallLogStore.takeKeepWebViewSession(context, System.currentTimeMillis())) {
+        recordAction("WEBVIEW_SESSION_KEPT_AFTER_RESTART", "-", DiagnosticEventLevel.INFO)
+        onRecoveryStateIdle()
+        return true
+    }
+
     flowUiState.webViewSessionResetInFlight.value = true
     flowUiState.webViewSessionResetError.value = null
     recordAction("WEBVIEW_SESSION_RESET_STARTED", "strict_all", DiagnosticEventLevel.INFO)

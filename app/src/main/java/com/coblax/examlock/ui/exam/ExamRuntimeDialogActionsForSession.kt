@@ -3,7 +3,10 @@ package com.coblax.examlock.ui.exam
 import android.content.Context
 import androidx.activity.ComponentActivity
 import androidx.lifecycle.lifecycleScope
+import android.widget.Toast
 import com.coblax.examlock.AppProcessRestarter
+import com.coblax.examlock.model.UiLanguage
+import com.coblax.examlock.persistence.readSavedUiLanguage
 import com.coblax.examlock.persistence.ExamStallLogEntry
 import com.coblax.examlock.persistence.ExamStallLogKind
 import com.coblax.examlock.persistence.ExamStallLogStore
@@ -25,19 +28,46 @@ import com.coblax.examlock.ui.dialog.ExamRuntimeDialogsActions
 import kotlinx.coroutines.CoroutineExceptionHandler
 import kotlinx.coroutines.launch
 
-/** Logs the restart (it survives in the stall history) and restarts the app process. */
-internal fun restartAppAfterExamExit(
+/**
+ * Unpins, then logs the restart (it survives in the stall history) and restarts the app
+ * process, keeping the WebView session for the student's return. A phone that stays
+ * pinned is not restarted: [onNotRestarted] clears the session the usual way and the
+ * student is told how to unpin.
+ */
+internal suspend fun restartAppAfterExamExit(
     activity: ComponentActivity,
     reason: String,
-    recordAction: (String, String, DiagnosticEventLevel) -> Unit
+    recordAction: (String, String, DiagnosticEventLevel) -> Unit,
+    onNotRestarted: suspend () -> Unit = {}
 ) {
+    val context = activity.applicationContext
+    if (!AppProcessRestarter.awaitUnpinned(activity)) {
+        runCatching { onNotRestarted() }
+        recordAction("APP_RESTART_SKIPPED", "reason=$reason | still_pinned", DiagnosticEventLevel.WARNING)
+        ExamStallLogStore.append(
+            context,
+            ExamStallLogEntry(ExamStallLogKind.Restart, System.currentTimeMillis(), note = "reason=$reason | skipped_still_pinned")
+        )
+        val indonesian = context.readSavedUiLanguage() == UiLanguage.Indonesian
+        Toast.makeText(
+            context,
+            if (indonesian) {
+                "Layar masih tersemat. Lepas sematan (tahan tombol Kembali dan Ringkasan), lalu tutup dan buka lagi CBX Lock."
+            } else {
+                "The screen is still pinned. Unpin it (hold Back and Overview), then close and reopen CBX Lock."
+            },
+            Toast.LENGTH_LONG
+        ).show()
+        return
+    }
     val now = System.currentTimeMillis()
     recordAction("APP_RESTARTING", "reason=$reason", DiagnosticEventLevel.WARNING)
     ExamStallLogStore.append(
-        activity.applicationContext,
+        context,
         ExamStallLogEntry(ExamStallLogKind.Restart, now, note = "reason=$reason")
     )
-    ExamStallLogStore.markRestartPending(activity.applicationContext, now)
+    ExamStallLogStore.markRestartPending(context, now)
+    ExamStallLogStore.markKeepWebViewSession(context, now)
     AppProcessRestarter.restart(activity)
 }
 
@@ -171,10 +201,23 @@ internal fun buildRuntimeDialogsActionsForSession(
                 val exitReason = if (restartReason != null) "app_restart" else "footer_home_confirm"
                 componentActivity.lifecycleScope.launch(exitExceptionHandler) {
                     try {
-                        clearExamSessionOnExit(exitReason, true)
+                        // A restart keeps the session (login, device id, unsent answers) for
+                        // the student's return; it is cleared below only if no restart happens.
+                        if (restartReason == null) {
+                            clearExamSessionOnExit(exitReason, true)
+                        }
                         writePreviousSessionBreadcrumb(
                             PreviousExamSessionBreadcrumbCodes.ExitCompleted,
                             "reason=$exitReason"
+                        )
+                    } catch (error: kotlinx.coroutines.CancellationException) {
+                        throw error
+                    } catch (error: Throwable) {
+                        // Logged; the exit (and a requested restart) still goes ahead.
+                        recordAction(
+                            "EXIT_CLEANUP_FAILED",
+                            error.javaClass.simpleName.ifBlank { "error" },
+                            DiagnosticEventLevel.WARNING
                         )
                     } finally {
                         // Guarantee dialog dismisses and exit completes even if
@@ -182,9 +225,15 @@ internal fun buildRuntimeDialogsActionsForSession(
                         // Without this, the student gets stuck in the exit dialog.
                         flowUiState.showExitExamDialog.value = false
                         onExit()
-                        if (restartReason != null) {
-                            restartAppAfterExamExit(componentActivity, restartReason, recordAction)
-                        }
+                    }
+                    // After onExit: the exam screen leaves and unpins; the restart waits for that.
+                    if (restartReason != null) {
+                        restartAppAfterExamExit(
+                            activity = componentActivity,
+                            reason = restartReason,
+                            recordAction = recordAction,
+                            onNotRestarted = { clearExamSessionOnExit("app_restart_skipped", true) }
+                        )
                     }
                 }
             }

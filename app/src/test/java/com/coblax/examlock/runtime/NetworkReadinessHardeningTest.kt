@@ -12,8 +12,8 @@ class NetworkReadinessHardeningTest {
     @Test
     fun examUrlProbeUsesExamHostInsteadOfGenericHost() {
         assertEquals(
-            "skansatp.web.id",
-            networkProbeHostForExamUrl("https://skansatp.web.id/?examkey=223611")
+            "exam.smkn1tanjungpandan.sch.id",
+            networkProbeHostForExamUrl("https://exam.smkn1tanjungpandan.sch.id")
         )
     }
 
@@ -71,7 +71,7 @@ class NetworkReadinessHardeningTest {
             verdict = NetworkReadinessVerdict.ConnectedStable,
             dnsProbeStatus = NetworkDnsProbeStatus(
                 verdict = NetworkDnsProbeVerdict.Resolved,
-                host = "skansatp.web.id",
+                host = "exam.smkn1tanjungpandan.sch.id",
                 latencyBucket = NetworkLatencyBucket.Fast
             ),
             globalDnsProbeStatus = NetworkDnsProbeStatus(

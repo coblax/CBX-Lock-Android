@@ -93,6 +93,96 @@ class ExamProctorInfoTest {
     }
 
     @Test
+    fun siteProbeAnswerIsParsedFromTheQuotedJson() {
+        // evaluateJavascript returns the probe's JSON string as a JSON string literal.
+        val raw = "\"{\\\"page\\\":\\\"ujian\\\",\\\"nama\\\":\\\"Siti Aminah\\\",\\\"nis\\\":\\\"12345\\\"," +
+            "\\\"ruang\\\":\\\"R07\\\",\\\"kelas\\\":\\\"XII IPA 1\\\",\\\"ruangNama\\\":\\\"Ruang 7\\\"," +
+            "\\\"paket\\\":\\\"Matematika Wajib\\\",\\\"simpan\\\":\\\"Offline\\\",\\\"tertunda\\\":3," +
+            "\\\"dijawab\\\":12,\\\"total\\\":40,\\\"sisaWaktu\\\":\\\"1:05:09\\\"}\""
+        val site = parseExamSiteInfo(raw)!!
+        assertEquals("ujian", site.page)
+        assertEquals("Siti Aminah", site.nama)
+        assertEquals("12345", site.nis)
+        assertEquals("XII IPA 1", site.kelas)
+        assertEquals("Ruang 7", site.ruangNama)
+        assertEquals("Matematika Wajib", site.paket)
+        assertEquals("Offline", site.simpan)
+        assertEquals(3, site.tertunda)
+        assertEquals(12, site.dijawab)
+        assertEquals(40, site.total)
+        assertEquals("1:05:09", site.sisaWaktu)
+
+        assertNull(parseExamSiteInfo(null))
+        assertNull(parseExamSiteInfo("null"))
+        assertNull(parseExamSiteInfo("not json"))
+        assertEquals(ExamSiteInfo(page = "siswa", nama = "Budi"), parseExamSiteInfo("{\"page\":\"siswa\",\"nama\":\" Budi \",\"nis\":\"\"}"))
+    }
+
+    @Test
+    fun examPageDataFillsTheRows() {
+        val site = ExamSiteInfo(
+            page = "ujian",
+            nama = "Siti Aminah",
+            nis = "12345",
+            ruang = "R07",
+            kelas = "XII IPA 1",
+            ruangNama = "Ruang 7",
+            paket = "Matematika Wajib",
+            simpan = "Tersimpan",
+            dijawab = 12,
+            total = 40,
+            sisaWaktu = "1:05:09"
+        )
+        val rows = buildExamProctorInfoRows(
+            state = state(participantName = "dari storage"),
+            language = UiLanguage.Indonesian,
+            clockText = "-",
+            deviceText = "-",
+            appVersionText = "-",
+            site = site
+        ).associateBy { it.label }
+
+        assertEquals("Siti Aminah (12345)", rows.getValue("Peserta").value)
+        assertEquals("XII IPA 1 · Ruang 7", rows.getValue("Kelas · Ruang").value)
+        assertEquals("Matematika Wajib", rows.getValue("Ujian").value)
+        assertEquals("1:05:09", rows.getValue("Sisa waktu").value)
+        assertEquals("Tersimpan · 12/40 dijawab", rows.getValue("Jawaban").value)
+        assertEquals(UiStatusTone.Success, rows.getValue("Jawaban").tone)
+
+        val offline = proctorSiteAnswers(site.copy(simpan = "Offline", tertunda = 3), UiLanguage.English)!!
+        assertEquals("Offline · 3 not sent yet · 12/40 answered", offline.value)
+        assertEquals(UiStatusTone.Warning, offline.tone)
+        assertEquals("XII IPA 1 · R07", proctorSiteGroup(site.copy(ruangNama = null)))
+    }
+
+    @Test
+    fun studentHomeShowsWhoIsSignedInButNoExamProgress() {
+        val site = ExamSiteInfo(page = "siswa", nama = "Budi", nis = "777", kelas = "X-2", jurusan = "TKJ")
+        val rows = buildExamProctorInfoRows(
+            state = state(),
+            language = UiLanguage.Indonesian,
+            clockText = "-",
+            deviceText = "-",
+            appVersionText = "-",
+            site = site
+        ).associateBy { it.label }
+
+        assertEquals("Budi (777)", rows.getValue("Peserta").value)
+        assertEquals("X-2", rows.getValue("Kelas · Ruang").value)
+        assertEquals("Ujian Akhir Semester", rows.getValue("Ujian").value)
+        assertFalse(rows.containsKey("Sisa waktu"))
+        assertFalse(rows.containsKey("Jawaban"))
+    }
+
+    @Test
+    fun siteProbeScriptIsPlainAsciiEs5() {
+        assertFalse(ExamSiteInfoProbeScript.any { it.code > 0x7e && it != '\n' })
+        listOf("=>", "let ", "const ", "`").forEach { token ->
+            assertFalse(token, ExamSiteInfoProbeScript.contains(token))
+        }
+    }
+
+    @Test
     fun deviceTextDoesNotRepeatTheMaker() {
         assertEquals("Samsung SM-A105F · Android 11", proctorDeviceText("samsung", "SM-A105F", "11"))
         assertEquals("Google Pixel 7 · Android 16", proctorDeviceText("Google", "Pixel 7", "16"))

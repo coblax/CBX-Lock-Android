@@ -179,7 +179,7 @@ class ExamRuntimeStartExamBlocksTest {
                 userFacingVerdict = NetworkReadinessUserVerdict.DnsFailed,
                 dnsProbeStatus = NetworkDnsProbeStatus(
                     verdict = NetworkDnsProbeVerdict.Failed,
-                    host = "skansatp.web.id",
+                    host = "exam.smkn1tanjungpandan.sch.id",
                     error = "UnknownHostException"
                 )
             )
@@ -211,13 +211,13 @@ class ExamRuntimeStartExamBlocksTest {
                     userFacingVerdict = NetworkReadinessUserVerdict.Offline,
                     dnsProbeStatus = NetworkDnsProbeStatus(
                         verdict = NetworkDnsProbeVerdict.Failed,
-                        host = "skansatp.web.id",
+                        host = "exam.smkn1tanjungpandan.sch.id",
                         error = "UnknownHostException"
                     )
                 )
             )
-            assertFalse(block?.message.orEmpty().contains("skansatp"))
-            assertTrue(block?.details?.contains("probe_host=skansatp.web.id") == true)
+            assertFalse(block?.message.orEmpty().contains("smkn1tanjungpandan"))
+            assertTrue(block?.details?.contains("probe_host=exam.smkn1tanjungpandan.sch.id") == true)
         }
     }
 
@@ -263,7 +263,7 @@ class ExamRuntimeStartExamBlocksTest {
         )
         assertNull(
             resolveStartExamLocalServerOverMobileDataBlockMessage(
-                UiLanguage.Indonesian, "https://skansatp.web.id/", onMobileData, unreachable
+                UiLanguage.Indonesian, "https://exam.smkn1tanjungpandan.sch.id/", onMobileData, unreachable
             )
         )
     }
@@ -273,7 +273,7 @@ class ExamRuntimeStartExamBlocksTest {
         for (host in listOf("192.168.1.10", "10.0.0.5", "172.16.3.4", "172.31.255.1", "cbt.local", "server.lan", "cbtserver")) {
             assertTrue(host, isLocalNetworkExamHost(host))
         }
-        for (host in listOf("skansatp.web.id", "8.8.8.8", "172.32.0.1", "192.169.1.1", "100.64.0.1", "", null)) {
+        for (host in listOf("exam.smkn1tanjungpandan.sch.id", "8.8.8.8", "172.32.0.1", "192.169.1.1", "100.64.0.1", "", null)) {
             assertFalse(host.toString(), isLocalNetworkExamHost(host))
         }
     }
@@ -296,7 +296,7 @@ class ExamRuntimeStartExamBlocksTest {
                 userFacingVerdict = NetworkReadinessUserVerdict.Stable,
                 dnsProbeStatus = NetworkDnsProbeStatus(
                     verdict = NetworkDnsProbeVerdict.Resolved,
-                    host = "skansatp.web.id"
+                    host = "exam.smkn1tanjungpandan.sch.id"
                 )
             )
         )
@@ -329,7 +329,7 @@ class ExamRuntimeStartExamBlocksTest {
             uiLanguage = UiLanguage.English,
             result = ExamServerProbeResult(
                 status = ExamServerFooterStatus.Offline,
-                host = "skansatp.web.id",
+                host = "exam.smkn1tanjungpandan.sch.id",
                 method = "GET",
                 code = null,
                 latencyMs = 6_000L,

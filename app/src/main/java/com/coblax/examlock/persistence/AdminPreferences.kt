@@ -78,8 +78,9 @@ internal data class HomeAdminSettings(
 internal fun Context.readHomeAdminSettings(): HomeAdminSettings {
     val preferences = getSharedPreferences(AdminPreferencesName, Context.MODE_PRIVATE)
     return HomeAdminSettings(
-        fastExamUrl = preferences.getString(AdminKeyFastExamUrl, SecureStrings.fastExamUrl)
-            ?: SecureStrings.fastExamUrl,
+        fastExamUrl = SecureStrings.resolveSavedFastExamUrl(
+            preferences.getString(AdminKeyFastExamUrl, null)
+        ),
         fastExamLabel = preferences.getString(AdminKeyFastExamLabel, FastExamName)
             ?: FastExamName,
         telegramDiagnosticsEnabled = preferences.getBoolean(
@@ -113,10 +114,9 @@ internal fun Context.readAdminSettings(): AdminSettings {
         bypassSnapshot.resolveCritical(GateKeys.ReverseEngineering)
     val apkIntegrityBypassResolution = bypassSnapshot.resolveCritical(GateKeys.ApkIntegrity)
     return AdminSettings(
-        fastExamUrl = preferences.getString(
-            AdminKeyFastExamUrl,
-            SecureStrings.fastExamUrl
-        ) ?: SecureStrings.fastExamUrl,
+        fastExamUrl = SecureStrings.resolveSavedFastExamUrl(
+            preferences.getString(AdminKeyFastExamUrl, null)
+        ),
         fastExamLabel = preferences.getString(AdminKeyFastExamLabel, FastExamName) ?: FastExamName,
         officialApkUrl = preferences.getString(AdminKeyOfficialApkUrl, "") ?: "",
         examUserAgent = normalizeExamUserAgent(

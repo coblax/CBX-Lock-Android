@@ -89,7 +89,9 @@ internal data class ExamRuntimeChromeActions(
     val onSpace: () -> Unit,
     val onShiftToggle: () -> Unit,
     /** Ends the exam session and restarts the app process (after a stall). */
-    val onRestartApp: () -> Unit = {}
+    val onRestartApp: () -> Unit = {},
+    /** Runs [ExamSiteInfoProbeScript] on the exam page; null when there is no page. */
+    val probeExamSite: ((String?) -> Unit) -> Unit = { it(null) }
 )
 
 /**

@@ -73,7 +73,34 @@ internal object ExamStallLogStore {
         prefs.edit { remove(KeyRestartPendingAt) }
         return at
     }
+
+    /**
+     * The next exam start after a stall restart keeps the WebView session (login cookie,
+     * localStorage, IndexedDB) instead of wiping it, once, within [keepForMillis]. The
+     * same student continues on the same phone: CBX Exam System ties a running exam to
+     * the device id it keeps in localStorage ("cbx_exam_device_id") and refuses a new one
+     * ("Akun ini sedang dipakai di perangkat lain"), and answers not yet sent wait in
+     * IndexedDB. Wiping them turned "restart the app" into "call the proctor".
+     */
+    fun markKeepWebViewSession(context: Context, nowMillis: Long, keepForMillis: Long = KeepSessionMillis) {
+        prefs(context).edit(commit = true) { putLong(KeyKeepSessionUntil, nowMillis + keepForMillis) }
+    }
+
+    /** True once if a stall restart asked to keep the session and it has not expired. */
+    fun takeKeepWebViewSession(context: Context, nowMillis: Long): Boolean {
+        val prefs = prefs(context)
+        val until = prefs.getLong(KeyKeepSessionUntil, 0L)
+        if (until <= 0L) return false
+        prefs.edit(commit = true) { remove(KeyKeepSessionUntil) }
+        return shouldKeepWebViewSession(until, nowMillis)
+    }
+
+    private const val KeyKeepSessionUntil = "keep_session_until"
+    private const val KeepSessionMillis = 30 * 60_000L
 }
+
+internal fun shouldKeepWebViewSession(keepUntilMillis: Long, nowMillis: Long): Boolean =
+    keepUntilMillis > 0L && nowMillis < keepUntilMillis
 
 internal fun encodeExamStallLog(entries: List<ExamStallLogEntry>): String =
     JSONArray().apply {

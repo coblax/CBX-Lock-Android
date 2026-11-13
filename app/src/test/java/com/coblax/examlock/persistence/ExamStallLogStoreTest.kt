@@ -69,6 +69,17 @@ class ExamStallLogStoreTest {
     }
 
     @Test
+    fun sessionIsKeptOnlyWithinTheWindowAfterARestart() {
+        val restartAt = 1_000_000L
+        val until = restartAt + 30 * 60_000L
+        assertTrue(shouldKeepWebViewSession(until, restartAt + 60_000L))
+        assertTrue(shouldKeepWebViewSession(until, until - 1))
+        org.junit.Assert.assertFalse(shouldKeepWebViewSession(until, until))
+        org.junit.Assert.assertFalse(shouldKeepWebViewSession(until, until + 60_000L))
+        org.junit.Assert.assertFalse(shouldKeepWebViewSession(0L, restartAt))
+    }
+
+    @Test
     fun copiedHistoryHasOneBlockPerEntry() {
         val text = formatExamStallHistoryForCopy(
             listOf(

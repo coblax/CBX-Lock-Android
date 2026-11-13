@@ -150,7 +150,8 @@ private fun ExamRuntimeChromeContent(
                     onRestartApp = {
                         proctorInfoOpen = false
                         actions.onRestartApp()
-                    }
+                    },
+                    probeSite = actions.probeExamSite
                 )
             }
         }

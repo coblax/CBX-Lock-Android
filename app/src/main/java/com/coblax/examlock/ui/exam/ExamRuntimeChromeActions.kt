@@ -31,7 +31,8 @@ internal fun buildExamRuntimeChromeActionsForSession(
     sendBuiltInKeyboardBackspace: () -> Unit,
     sendBuiltInKeyboardEnter: () -> Unit,
     toggleBuiltInKeyboardShift: () -> Unit,
-    requestAppRestart: () -> Unit = {}
+    requestAppRestart: () -> Unit = {},
+    probeExamSite: ((String?) -> Unit) -> Unit = { it(null) }
 ): ExamRuntimeChromeActions {
     return ExamRuntimeChromeActions(
         onRetryLoading = {
@@ -141,6 +142,7 @@ internal fun buildExamRuntimeChromeActionsForSession(
             markTrustedRuntimeChromeAction("app_restart")
             recordAction("APP_RESTART_REQUESTED", "source=exam_chrome", DiagnosticEventLevel.WARNING)
             requestAppRestart()
-        }
+        },
+        probeExamSite = probeExamSite
     )
 }

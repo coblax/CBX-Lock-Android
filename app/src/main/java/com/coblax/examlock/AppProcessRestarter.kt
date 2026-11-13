@@ -1,12 +1,15 @@
 package com.coblax.examlock
 
 import android.app.Activity
+import android.app.ActivityManager
 import android.content.Context
 import android.content.Intent
 import android.os.Build
 import android.os.Bundle
 import android.os.Process
+import android.os.SystemClock
 import android.webkit.CookieManager
+import kotlinx.coroutines.delay
 
 /**
  * Restarts the app's process, the part of "restart the phone" that the app can do itself.
@@ -28,6 +31,43 @@ internal object AppProcessRestarter {
     const val ExtraRelaunch = "com.coblax.examlock.extra.RESTART_RELAUNCH"
     /** Set on the relaunch intent, so the home screen can say what happened. */
     const val ExtraRestarted = "com.coblax.examlock.extra.RESTARTED"
+    /** Debug builds only: DebugRestartReceiver asks MainActivity to unpin and restart. */
+    const val ExtraDebugRestart = "com.coblax.examlock.extra.DEBUG_RESTART"
+    /** Debug builds only: pins the screen as the exam start does, to test the restart pinned. */
+    const val ExtraDebugPin = "com.coblax.examlock.extra.DEBUG_PIN"
+    private const val UnpinTimeoutMillis = 5_000L
+    private const val UnpinPollMillis = 100L
+    private const val UnpinSettleMillis = 300L
+
+    /**
+     * Ends screen pinning and waits until Android reports it gone. Restarting while still
+     * pinned failed badly: Android blocks the trampoline (a launch outside the pinned task)
+     * with its "unpin" prompt, and the process then died still pinned, so that prompt kept
+     * coming back. The exam screen's own teardown also unpins, but only once it has left
+     * the screen, after the exit call returns; and stopLockTask() takes effect later still.
+     *
+     * @return false when the phone is still pinned after [timeoutMillis]: do not restart.
+     */
+    suspend fun awaitUnpinned(activity: Activity, timeoutMillis: Long = UnpinTimeoutMillis): Boolean {
+        val activityManager = activity.getSystemService(ActivityManager::class.java) ?: return true
+        fun pinned() = runCatching {
+            activityManager.lockTaskModeState != ActivityManager.LOCK_TASK_MODE_NONE
+        }.getOrDefault(false)
+        if (!pinned()) return true
+        if (activity is MainActivity) {
+            activity.setExamLockMode(enabled = false, allowLockTask = false)
+        } else {
+            runCatching { activity.stopLockTask() }
+        }
+        val deadline = SystemClock.elapsedRealtime() + timeoutMillis
+        while (pinned()) {
+            if (SystemClock.elapsedRealtime() >= deadline) return false
+            delay(UnpinPollMillis)
+        }
+        // A moment for the exam screen's teardown (device-owner policies, overlay shield).
+        delay(UnpinSettleMillis)
+        return true
+    }
 
     /** [context] is normally the foreground activity; it must be in the foreground to start the trampoline. */
     fun restart(context: Context) {
