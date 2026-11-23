@@ -2,7 +2,6 @@
   "permissions": {
     "deny": [
       "Read(./KeyStore/**)",
-      "Read(./**/build/**)",
       "Read(./.gradle/**)",
       "Read(./.kotlin/**)",
       "Read(./app/.cxx/**)",
