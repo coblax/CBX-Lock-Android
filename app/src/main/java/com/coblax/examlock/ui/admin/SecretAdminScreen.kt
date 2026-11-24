@@ -1191,6 +1191,15 @@ private fun SecretAdminSetupTab(
             checked = draft.customQrSaveToDirectLinkEnabled,
             onCheckedChange = { onDraftChange(draft.copy(customQrSaveToDirectLinkEnabled = it)) }
         )
+        SecretAdminSwitchRow(
+            title = tr("Relax security checks", "Longgarkan pengamanan"),
+            description = tr(
+                "Show the relax-security-checks option on Custom QR on this phone. Leave it off on student phones: anyone can open Custom QR.",
+                "Tampilkan pilihan longgarkan pengamanan di Custom QR pada HP ini. Biarkan mati di HP siswa: Custom QR bisa dibuka siapa saja."
+            ),
+            checked = draft.customQrSecurityBypassEnabled,
+            onCheckedChange = { onDraftChange(draft.copy(customQrSecurityBypassEnabled = it)) }
+        )
     }
 
     SecretAdminSection(title = tr("Exam browser & app", "Browser ujian & aplikasi")) {

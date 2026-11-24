@@ -34,6 +34,7 @@ import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
@@ -100,7 +101,8 @@ internal fun CustomQrAdminScreen(
     generationIsError: Boolean = false,
     onGenerationIsErrorChange: (Boolean) -> Unit = {},
     draftResumed: Boolean = false,
-    onStartNewDraft: () -> Unit = {}
+    onStartNewDraft: () -> Unit = {},
+    showSecurityBypassOption: Boolean = false
 ) {
     val uiLanguage = LocalUiLanguage.current
     val missingFieldsMessage = tr(
@@ -149,6 +151,16 @@ internal fun CustomQrAdminScreen(
         onGeneratedQrPayloadChange(null)
         onGenerationStatusChange(null)
         onGenerationIsErrorChange(false)
+    }
+
+    // Secret Admin hid "Relax security checks" after checks were relaxed in this draft:
+    // drop them, and the QR already made with them, rather than keep them out of sight.
+    LaunchedEffect(showSecurityBypassOption, draft.securityBypasses) {
+        val visibleDraft = draft.withoutHiddenBypasses(showSecurityBypassOption)
+        if (visibleDraft != draft) {
+            onDraftChange(visibleDraft)
+            clearGeneratedQr()
+        }
     }
 
     fun examStepMessage(): String? = when {
@@ -200,7 +212,7 @@ internal fun CustomQrAdminScreen(
             saveToDirectLink = showSaveToDirectLinkOption && draft.saveToDirectLink,
             locationPolicy = buildCustomQrLocationPolicy(draft),
             locationPolicySource = LocationPolicySource.CustomQr,
-            securityBypasses = draft.securityBypasses,
+            securityBypasses = customQrBypassesToEncode(draft, showSecurityBypassOption),
             minAppVersionCode = if (draft.requireCurrentAppVersion) BuildConfig.VERSION_CODE else 0,
             minAppVersionName = if (draft.requireCurrentAppVersion) BuildConfig.VERSION_NAME else "",
             appUpdateUrl = updateUrl
@@ -421,13 +433,15 @@ internal fun CustomQrAdminScreen(
                 )
 
                 CustomQrAdminTab.Generate -> {
-                    CustomQrBypassSection(
-                        selected = draft.securityBypasses,
-                        onSelectedChange = { bypasses ->
-                            updateDraft { current -> current.copy(securityBypasses = bypasses) }
-                            clearGeneratedQr()
-                        }
-                    )
+                    if (showSecurityBypassOption) {
+                        CustomQrBypassSection(
+                            selected = draft.securityBypasses,
+                            onSelectedChange = { bypasses ->
+                                updateDraft { current -> current.copy(securityBypasses = bypasses) }
+                                clearGeneratedQr()
+                            }
+                        )
+                    }
 
                     CustomQrToggleCard(
                         title = tr(
@@ -491,7 +505,7 @@ internal fun CustomQrAdminScreen(
                             startTime = draft.startTime,
                             endTime = draft.endTime,
                             locationPolicy = buildCustomQrLocationPolicy(draft),
-                            securityBypasses = draft.securityBypasses,
+                            securityBypasses = customQrBypassesToEncode(draft, showSecurityBypassOption),
                             minAppVersionName = BuildConfig.VERSION_NAME.takeIf { draft.requireCurrentAppVersion }
                         )
                     }

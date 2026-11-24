@@ -11,6 +11,9 @@ internal const val AdminKeyFastExamLabel = "admin_fast_exam_label"
 internal const val AdminKeyOfficialApkUrl = "admin_official_apk_url"
 internal const val AdminKeyCustomQrSaveToDirectLinkEnabled =
     "admin_custom_qr_save_to_direct_link_enabled"
+/** "Relax security checks" on Custom QR stays hidden until an admin turns it on in Secret Admin. */
+internal const val AdminKeyCustomQrSecurityBypassEnabled =
+    "admin_custom_qr_security_bypass_enabled"
 internal const val AdminKeyShowChecklistDetails = "admin_show_checklist_details"
 internal const val AdminKeyTelegramDiagnosticsEnabled = "admin_telegram_diagnostics_enabled"
 /** "Send to Telegram" stays hidden until an admin turns it on in Secret Admin. */

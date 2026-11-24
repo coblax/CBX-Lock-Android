@@ -1,6 +1,7 @@
 package com.coblax.examlock.ui.admin
 
 import com.coblax.examlock.ExamQrLocationPolicy
+import com.coblax.examlock.ExamQrSecurityBypass
 import com.coblax.examlock.GeofenceShapeType
 import com.coblax.examlock.model.CustomQrAdminTab
 import com.coblax.examlock.validateExamUrl
@@ -27,6 +28,19 @@ internal fun normalizeAdminUrl(raw: String): String {
     }
     return "https://$trimmed"
 }
+
+/**
+ * What "Relax security checks" puts in a QR made here: nothing while Secret Admin keeps
+ * the section hidden, so a choice left in a saved draft never rides along unseen.
+ */
+internal fun customQrBypassesToEncode(
+    draft: CustomQrDraftState,
+    bypassSectionEnabled: Boolean
+): Set<ExamQrSecurityBypass> = if (bypassSectionEnabled) draft.securityBypasses else emptySet()
+
+/** A draft whose relaxed checks are hidden drops them, so they do not return later. */
+internal fun CustomQrDraftState.withoutHiddenBypasses(bypassSectionEnabled: Boolean): CustomQrDraftState =
+    if (bypassSectionEnabled || securityBypasses.isEmpty()) this else copy(securityBypasses = emptySet())
 
 internal fun normalizedCustomQrExamUrl(draft: CustomQrDraftState): String? =
     validateExamUrl(normalizeAdminUrl(draft.examUrl)).normalizedUrl

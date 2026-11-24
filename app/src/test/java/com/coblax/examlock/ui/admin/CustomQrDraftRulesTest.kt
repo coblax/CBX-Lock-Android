@@ -1,5 +1,6 @@
 package com.coblax.examlock.ui.admin
 
+import com.coblax.examlock.ExamQrSecurityBypass
 import com.coblax.examlock.GeofenceShapeType
 import com.coblax.examlock.GeofenceVertex
 import com.coblax.examlock.ui.geofence.GeofenceDraftIssue
@@ -19,6 +20,23 @@ class CustomQrDraftRulesTest {
         startTime = "30/07/2026 08:00",
         endTime = "30/07/2026 10:00"
     )
+
+    @Test
+    fun relaxedChecksTravelOnlyWhileSecretAdminShowsTheSection() {
+        val relaxed = complete.copy(
+            securityBypasses = setOf(ExamQrSecurityBypass.ScreenPinning, ExamQrSecurityBypass.Bluetooth)
+        )
+        assertEquals(relaxed.securityBypasses, customQrBypassesToEncode(relaxed, bypassSectionEnabled = true))
+        assertEquals(emptySet<ExamQrSecurityBypass>(), customQrBypassesToEncode(relaxed, bypassSectionEnabled = false))
+    }
+
+    @Test
+    fun hidingTheSectionDropsRelaxedChecksFromTheDraft() {
+        val relaxed = complete.copy(securityBypasses = setOf(ExamQrSecurityBypass.ScreenPinning))
+        assertEquals(complete, relaxed.withoutHiddenBypasses(bypassSectionEnabled = false))
+        assertTrue(relaxed.withoutHiddenBypasses(bypassSectionEnabled = true) === relaxed)
+        assertTrue(complete.withoutHiddenBypasses(bypassSectionEnabled = false) === complete)
+    }
 
     @Test
     fun anUrlWithoutSchemeIsReadAsHttps() {

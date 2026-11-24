@@ -48,6 +48,7 @@ internal fun AppNonHomeRouteHost(
             val activeSettings = adminSettingsSnapshot()
             CustomQrAdminScreen(
                 showSaveToDirectLinkOption = activeSettings.customQrSaveToDirectLinkEnabled,
+                showSecurityBypassOption = activeSettings.customQrSecurityBypassEnabled,
                 onBack = { dispatch(AdminFlowUiAction.CloseCustomQrAdmin) },
                 selectedTabName = uiState.selectedCustomQrTab,
                 onSelectedTabNameChange = {

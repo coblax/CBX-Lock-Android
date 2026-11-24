@@ -11,6 +11,7 @@ import com.coblax.examlock.ScreenPinningBypassResolver
 import com.coblax.examlock.ScreenPinningBypassState
 import com.coblax.examlock.SecureStrings
 import com.coblax.examlock.config.AdminKeyCustomQrSaveToDirectLinkEnabled
+import com.coblax.examlock.config.AdminKeyCustomQrSecurityBypassEnabled
 import com.coblax.examlock.config.AdminKeyDirectLinkGeofenceCenterLat
 import com.coblax.examlock.config.AdminKeyDirectLinkGeofenceCenterLng
 import com.coblax.examlock.config.AdminKeyDirectLinkGeofenceEnabled
@@ -153,6 +154,10 @@ internal fun Context.readAdminSettings(): AdminSettings {
             AdminKeyCustomQrSaveToDirectLinkEnabled,
             true
         ),
+        customQrSecurityBypassEnabled = preferences.getBoolean(
+            AdminKeyCustomQrSecurityBypassEnabled,
+            false
+        ),
         bypassScreenPinning = screenPinningBypassState == ScreenPinningBypassState.Active,
         screenPinningBypassTampered = screenPinningBypassState == ScreenPinningBypassState.Tampered,
         bypassBluetooth = bypassSnapshot.isEnabled(GateKeys.Bluetooth.id),
@@ -273,6 +278,10 @@ private fun SharedPreferences.Editor.putOrdinaryAdminSettings(
         .putBoolean(
             AdminKeyCustomQrSaveToDirectLinkEnabled,
             settings.customQrSaveToDirectLinkEnabled
+        )
+        .putBoolean(
+            AdminKeyCustomQrSecurityBypassEnabled,
+            settings.customQrSecurityBypassEnabled
         )
         .putBoolean(AdminKeyShowChecklistDetails, settings.showChecklistDetails)
         .putBoolean(AdminKeyTelegramDiagnosticsEnabled, settings.telegramDiagnosticsEnabled)

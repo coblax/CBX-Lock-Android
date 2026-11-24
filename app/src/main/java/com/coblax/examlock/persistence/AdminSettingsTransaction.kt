@@ -75,6 +75,7 @@ internal data class AdminOrdinarySettingsSnapshot(
     val directLinkGeofenceCenterLng: String,
     val directLinkGeofenceRadiusMeters: String,
     val customQrSaveToDirectLinkEnabled: Boolean,
+    val customQrSecurityBypassEnabled: Boolean,
     val showChecklistDetails: Boolean,
     val telegramDiagnosticsEnabled: Boolean
 )
@@ -137,6 +138,7 @@ internal fun AdminSettings.persistedSnapshot(): AdminPersistedSettingsSnapshot {
             directLinkGeofenceCenterLng = normalized.directLinkGeofenceCenterLng,
             directLinkGeofenceRadiusMeters = normalized.directLinkGeofenceRadiusMeters,
             customQrSaveToDirectLinkEnabled = normalized.customQrSaveToDirectLinkEnabled,
+            customQrSecurityBypassEnabled = normalized.customQrSecurityBypassEnabled,
             showChecklistDetails = normalized.showChecklistDetails,
             telegramDiagnosticsEnabled = normalized.telegramDiagnosticsEnabled
         ),

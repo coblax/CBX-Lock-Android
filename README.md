@@ -8,7 +8,7 @@ Aplikasi ini menjaga fungsi utama ujian tetap sederhana untuk siswa: scan QR ata
 
 - App label: `CBX Lock`
 - Package: `com.coblax.examlock`
-- Version: `3.3.11 (383)`
+- Version: `3.3.12 (384)`
 - Minimum Android: API 24 (Android 7.0)
 - Target Android: API 36
 - Diuji di emulator Android 7.0, 9, 11, dan 16
@@ -48,7 +48,7 @@ Aplikasi ini menjaga fungsi utama ujian tetap sederhana untuk siswa: scan QR ata
    - circle geofence
    - polygon geofence
 4. Opsional:
-   - bypass keamanan untuk ujian ini saja (tetap tercatat di laporan)
+   - bypass keamanan untuk ujian ini saja (`Longgarkan pengamanan`, tetap tercatat di laporan). Bagian ini tersembunyi sampai diaktifkan di `Secret Admin` → `Custom QR` → `Longgarkan pengamanan` di HP admin, karena Custom QR bisa dibuka siapa saja dari halaman utama. Biarkan mati di HP siswa. Selama mati, bypass yang tersisa di draf dibuang dan QR dibuat tanpa bypass.
    - wajibkan versi CBX Lock minimal, beserta link installer terbaru
 5. Generate QR.
 6. Bagikan QR ke siswa atau simpan sebagai link ujian.

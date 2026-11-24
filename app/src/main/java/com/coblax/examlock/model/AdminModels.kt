@@ -62,6 +62,12 @@ internal data class AdminSettings(
     val directLinkGeofenceCenterLng: String = "",
     val directLinkGeofenceRadiusMeters: String = "",
     val customQrSaveToDirectLinkEnabled: Boolean = true,
+    /**
+     * Shows "Relax security checks" on Custom QR. Off by default: Custom QR opens from the
+     * home screen without a password, so otherwise any student could make a QR that
+     * turns off screen pinning for themselves.
+     */
+    val customQrSecurityBypassEnabled: Boolean = false,
     val bypassScreenPinning: Boolean = false,
     val screenPinningBypassTampered: Boolean = false,
     val bypassBluetooth: Boolean = false,
